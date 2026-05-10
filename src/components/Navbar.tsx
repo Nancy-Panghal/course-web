@@ -1,0 +1,89 @@
+'use client'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { Shield, Menu, X, LayoutDashboard } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+
+export default function Navbar() {
+  const [scrolled, setScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20)
+    window.addEventListener('scroll', handleScroll)
+
+    // Check auth state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  return (
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      scrolled ? 'bg-black/80 backdrop-blur-xl border-b border-border' : 'bg-transparent'
+    }`}>
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="w-8 h-8 violet-gradient rounded-lg flex items-center justify-center">
+            <Shield className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-semibold text-white text-lg">AcademyKit</span>
+        </Link>
+
+        <div className="hidden md:flex items-center gap-8">
+          <Link href="#features" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Features</Link>
+          <Link href="#how-it-works" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>How it works</Link>
+          <Link href="#pricing" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Pricing</Link>
+          {user ? (
+            <Link href="/dashboard"
+              className="flex items-center gap-2 violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity glow">
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Login</Link>
+              <Link href="/login"
+                className="violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity glow">
+                Get Started Free
+              </Link>
+            </>
+          )}
+        </div>
+
+        <button className="md:hidden" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(!menuOpen)}>
+          {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </div>
+
+      {menuOpen && (
+        <div className="md:hidden border-b px-6 py-4 flex flex-col gap-4"
+          style={{background:'rgba(0,0,0,0.95)', backdropFilter:'blur(20px)', borderColor:'rgba(255,255,255,0.06)'}}>
+          <Link href="#features" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>Features</Link>
+          <Link href="#how-it-works" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>How it works</Link>
+          <Link href="#pricing" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>Pricing</Link>
+          {user ? (
+            <Link href="/dashboard" className="violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium text-center"
+              onClick={() => setMenuOpen(false)}>
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/login" className="violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium text-center"
+              onClick={() => setMenuOpen(false)}>
+              Get Started Free
+            </Link>
+          )}
+        </div>
+      )}
+    </nav>
+  )
+}

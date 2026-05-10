@@ -1,0 +1,363 @@
+'use client'
+import { useEffect, useState, useCallback } from 'react'
+import Sidebar from '@/components/Sidebar'
+import { supabase } from '@/lib/supabase'
+import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock } from 'lucide-react'
+
+// ── OUTSIDE the page component — fixes input focus loss ──
+function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false }: {
+  label: string
+  value: string
+  onChange?: (v: string) => void
+  placeholder: string
+  type?: string
+  disabled?: boolean
+}) {
+  return (
+    <div className="mb-4">
+      <label className="text-sm font-medium text-white mb-2 block">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange?.(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+        style={{
+          background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          cursor: disabled ? 'not-allowed' : 'text',
+          color: disabled ? '#52525b' : '#fff',
+        }}
+        onFocus={e => { if (!disabled) e.target.style.borderColor = '#7c3aed' }}
+        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)' }}
+      />
+    </div>
+  )
+}
+
+function Toggle({ label, desc, value, onChange }: {
+  label: string
+  desc: string
+  value: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between py-3"
+      style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+      <div>
+        <p className="text-sm font-medium text-white">{label}</p>
+        <p className="text-xs mt-0.5" style={{color:'#52525b'}}>{desc}</p>
+      </div>
+      <button onClick={() => onChange(!value)}
+        className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
+        style={{background: value ? '#7c3aed' : 'rgba(255,255,255,0.1)'}}>
+        <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+          style={{left: value ? '24px' : '4px'}} />
+      </button>
+    </div>
+  )
+}
+
+function SectionCard({ title, icon: Icon, children }: {
+  title: string
+  icon: any
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-2xl p-6 glass mb-4"
+      style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+      <div className="flex items-center gap-2 mb-6">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{background:'rgba(124,58,237,0.1)'}}>
+          <Icon className="w-4 h-4" style={{color:'#8b5cf6'}} />
+        </div>
+        <h2 className="font-semibold text-white">{title}</h2>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+// ── PAGE COMPONENT ──
+export default function SettingsPage() {
+  const [user, setUser] = useState<any>(null)
+  const [name, setName] = useState('')
+  const [courseName, setCourseName] = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
+  const [originalName, setOriginalName] = useState('')
+  const [originalCourse, setOriginalCourse] = useState('')
+  const [originalWa, setOriginalWa] = useState('')
+  const [notifications, setNotifications] = useState({
+    piracy: true,
+    enrollment: true,
+    completion: false,
+  })
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const [deleteStep, setDeleteStep] = useState<'idle' | 'confirm' | 'scheduled' | 'cancelled'>('idle')
+  const [deleteInput, setDeleteInput] = useState('')
+  const [deleteScheduledAt, setDeleteScheduledAt] = useState<Date | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const hasChanges =
+    name !== originalName ||
+    courseName !== originalCourse ||
+    whatsappNumber !== originalWa
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data.user
+      setUser(u)
+      const n = u?.user_metadata?.full_name || u?.user_metadata?.username || ''
+      const c = u?.user_metadata?.course_name || ''
+      const w = u?.user_metadata?.whatsapp_number || ''
+      setName(n); setOriginalName(n)
+      setCourseName(c); setOriginalCourse(c)
+      setWhatsappNumber(w); setOriginalWa(w)
+    })
+  }, [])
+
+  async function handleSave() {
+    setSaving(true)
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        full_name: name,
+        username: name,
+        course_name: courseName,
+        whatsapp_number: whatsappNumber,
+      }
+    })
+    if (!error) {
+      setOriginalName(name)
+      setOriginalCourse(courseName)
+      setOriginalWa(whatsappNumber)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    }
+    setSaving(false)
+  }
+
+  async function handleScheduleDelete() {
+    if (deleteInput !== 'DELETE') return
+    setDeleting(true)
+    setTimeout(() => {
+      const d = new Date()
+      d.setDate(d.getDate() + 7)
+      setDeleteScheduledAt(d)
+      setDeleteStep('scheduled')
+      setDeleting(false)
+    }, 1500)
+  }
+
+  function handleCancelDelete() {
+    setDeleteStep('cancelled')
+    setDeleteScheduledAt(null)
+    setDeleteInput('')
+    setTimeout(() => setDeleteStep('idle'), 3000)
+  }
+
+  return (
+    <div className="min-h-screen bg-black">
+      <Sidebar />
+      <main className="md:ml-56 p-6 md:p-8 max-w-3xl">
+
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
+          <p className="text-sm" style={{color:'#a1a1aa'}}>Manage your account and preferences</p>
+        </div>
+
+        {/* Profile */}
+        <SectionCard title="Profile" icon={User}>
+          <InputField
+            label="Display Name"
+            value={name}
+            onChange={setName}
+            placeholder="Your name"
+          />
+          <InputField
+            label="Email Address"
+            value={user?.email || ''}
+            placeholder=""
+            disabled
+          />
+        </SectionCard>
+
+        {/* Course Settings */}
+        <SectionCard title="Course Settings" icon={Shield}>
+          <InputField
+            label="Course Name"
+            value={courseName}
+            onChange={setCourseName}
+            placeholder="e.g. SEO Masterclass 2026"
+          />
+          <InputField
+            label="WhatsApp Bot Number"
+            value={whatsappNumber}
+            onChange={setWhatsappNumber}
+            placeholder="+91XXXXXXXXXX"
+            type="tel"
+          />
+          <div className="p-3 rounded-xl text-sm"
+            style={{background:'rgba(124,58,237,0.08)', color:'#a1a1aa'}}>
+            This is the number students message to receive lessons.
+          </div>
+        </SectionCard>
+
+        {/* Notifications */}
+        <SectionCard title="Notifications" icon={Bell}>
+          <Toggle
+            label="Piracy detected"
+            desc="Get notified when a new piracy link is found"
+            value={notifications.piracy}
+            onChange={v => setNotifications(n => ({...n, piracy: v}))}
+          />
+          <Toggle
+            label="New enrollment"
+            desc="Get notified when a student enrolls"
+            value={notifications.enrollment}
+            onChange={v => setNotifications(n => ({...n, enrollment: v}))}
+          />
+          <Toggle
+            label="Course completion"
+            desc="Get notified when a student completes the course"
+            value={notifications.completion}
+            onChange={v => setNotifications(n => ({...n, completion: v}))}
+          />
+        </SectionCard>
+
+        {/* Save button */}
+        <div className="flex justify-end mb-8">
+          <button
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-white transition-all"
+            style={{
+              background: hasChanges
+                ? 'linear-gradient(135deg, #7c3aed, #8b5cf6)'
+                : 'rgba(255,255,255,0.05)',
+              color: hasChanges ? '#fff' : '#52525b',
+              cursor: hasChanges ? 'pointer' : 'not-allowed',
+              boxShadow: hasChanges ? '0 0 40px rgba(124,58,237,0.3)' : 'none',
+            }}
+          >
+            {saved
+              ? <><Check className="w-4 h-4" />Saved!</>
+              : saving ? 'Saving...' : 'Save Changes'
+            }
+          </button>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="rounded-2xl p-6"
+          style={{background:'rgba(239,68,68,0.05)', border:'1px solid rgba(239,68,68,0.2)'}}>
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-5 h-5" style={{color:'#ef4444'}} />
+            <h2 className="font-semibold" style={{color:'#ef4444'}}>Danger Zone</h2>
+          </div>
+          <p className="text-sm mb-6" style={{color:'#a1a1aa'}}>
+            These actions are irreversible. Please read carefully.
+          </p>
+
+          {deleteStep === 'idle' && (
+            <div className="flex items-center justify-between p-4 rounded-xl"
+              style={{background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.15)'}}>
+              <div>
+                <p className="text-sm font-semibold text-white">Delete Account</p>
+                <p className="text-xs mt-1" style={{color:'#a1a1aa'}}>
+                  All your data will be deleted after a 7-day grace period.
+                </p>
+              </div>
+              <button
+                onClick={() => setDeleteStep('confirm')}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium flex-shrink-0 ml-4 transition-all"
+                style={{background:'rgba(239,68,68,0.15)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.3)'}}>
+                <Trash2 className="w-4 h-4" />Delete
+              </button>
+            </div>
+          )}
+
+          {deleteStep === 'confirm' && (
+            <div className="p-5 rounded-xl"
+              style={{background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.3)'}}>
+              <p className="text-sm font-semibold text-white mb-1">Are you absolutely sure?</p>
+              <p className="text-sm mb-4" style={{color:'#a1a1aa'}}>
+                Your account and all data — lessons, students, piracy logs — will be permanently
+                deleted after <strong className="text-white">7 days</strong>. You can cancel anytime before then.
+              </p>
+              <p className="text-sm mb-3" style={{color:'#a1a1aa'}}>
+                Type <span className="font-mono font-bold text-white">DELETE</span> to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteInput}
+                onChange={e => setDeleteInput(e.target.value)}
+                placeholder="Type DELETE"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none mb-4 font-mono"
+                style={{
+                  background:'rgba(0,0,0,0.3)',
+                  border: deleteInput === 'DELETE'
+                    ? '1px solid rgba(239,68,68,0.6)'
+                    : '1px solid rgba(255,255,255,0.1)',
+                }}
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setDeleteStep('idle'); setDeleteInput('') }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
+                  style={{background:'rgba(255,255,255,0.08)', color:'#a1a1aa'}}>
+                  <X className="w-4 h-4" />Cancel
+                </button>
+                <button
+                  onClick={handleScheduleDelete}
+                  disabled={deleteInput !== 'DELETE' || deleting}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40"
+                  style={{background:'rgba(239,68,68,0.8)', color:'#fff'}}>
+                  <Trash2 className="w-4 h-4" />
+                  {deleting ? 'Scheduling...' : 'Schedule Deletion'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {deleteStep === 'scheduled' && deleteScheduledAt && (
+            <div className="p-5 rounded-xl"
+              style={{background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.3)'}}>
+              <div className="flex items-start gap-3 mb-4">
+                <Clock className="w-5 h-5 flex-shrink-0 mt-0.5" style={{color:'#ef4444'}} />
+                <div>
+                  <p className="text-sm font-semibold text-white mb-1">Deletion Scheduled</p>
+                  <p className="text-sm" style={{color:'#a1a1aa'}}>
+                    Your account will be permanently deleted on{' '}
+                    <strong className="text-white">
+                      {deleteScheduledAt.toLocaleDateString('en-IN', {
+                        weekday:'long', day:'numeric', month:'long', year:'numeric'
+                      })}
+                    </strong>.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleCancelDelete}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all"
+                style={{background:'rgba(74,222,128,0.15)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.3)'}}>
+                <X className="w-4 h-4" />Cancel Scheduled Deletion
+              </button>
+            </div>
+          )}
+
+          {deleteStep === 'cancelled' && (
+            <div className="flex items-center gap-3 p-4 rounded-xl"
+              style={{background:'rgba(74,222,128,0.08)', border:'1px solid rgba(74,222,128,0.2)'}}>
+              <Check className="w-5 h-5" style={{color:'#4ade80'}} />
+              <p className="text-sm" style={{color:'#4ade80'}}>
+                Deletion cancelled. Your account is safe.
+              </p>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  )
+}
