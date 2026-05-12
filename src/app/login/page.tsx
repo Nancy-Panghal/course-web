@@ -4,6 +4,7 @@ import { Shield, Mail, ArrowLeft, Eye, EyeOff, User } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { ensureCreatorProfile } from '@/lib/creator'
 
 type Mode = 'login' | 'signup'
 
@@ -16,7 +17,6 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   async function handleGoogleLogin() {
     await supabase.auth.signInWithOAuth({
@@ -25,11 +25,10 @@ export default function LoginPage() {
     })
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    setSuccess('')
 
     if (mode === 'signup') {
       if (!username.trim()) {
@@ -37,33 +36,60 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
-      const { error } = await supabase.auth.signUp({
+
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: username, username },
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            full_name: username,
+            username,
+            role: 'creator',
+          },
         },
       })
+
       if (error) {
         setError(error.message)
-      } else {
-        setSuccess('Account created! Check your email to verify, then log in.')
+        setLoading(false)
+        return
       }
+
+      // Auto sign in after signup
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) {
+        setError('Account created! Please sign in.')
+        setMode('login')
+        setLoading(false)
+        return
+      }
+
+      // Create creator profile
+      await ensureCreatorProfile()
+      router.push('/dashboard')
+
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError(error.message)
-      } else {
-        router.push('/dashboard')
+        setLoading(false)
+        return
       }
+      // Ensure creator profile exists
+      await ensureCreatorProfile()
+      router.push('/dashboard')
     }
+
     setLoading(false)
   }
 
   return (
     <div className="min-h-screen bg-black grid-bg flex items-center justify-center px-6">
-      <Link href="/" className="fixed top-6 left-6 flex items-center gap-2 text-sm transition-colors"
+      <Link href="/" className="fixed top-6 left-6 flex items-center gap-2 text-sm"
         style={{color:'#a1a1aa'}}>
         <ArrowLeft className="w-4 h-4" />
         Back
@@ -79,35 +105,35 @@ export default function LoginPage() {
             {mode === 'login' ? 'Welcome back' : 'Create your account'}
           </h1>
           <p className="text-sm" style={{color:'#a1a1aa'}}>
-            {mode === 'login' ? 'Sign in to your AcademyKit account' : 'Start protecting your courses today'}
+            {mode === 'login'
+              ? 'Sign in to your AcademyKit creator account'
+              : 'Start protecting and delivering your courses'}
           </p>
         </div>
 
-        <div className="glass rounded-2xl p-8 glow" style={{border:'1px solid rgba(124,58,237,0.2)'}}>
+        <div className="glass rounded-2xl p-8 glow"
+          style={{border:'1px solid rgba(124,58,237,0.2)'}}>
 
           {/* Mode toggle */}
-          <div className="flex rounded-xl p-1 mb-6" style={{background:'rgba(255,255,255,0.05)'}}>
+          <div className="flex rounded-xl p-1 mb-6"
+            style={{background:'rgba(255,255,255,0.05)'}}>
             {(['login', 'signup'] as Mode[]).map(m => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(''); setSuccess('') }}
-                className="flex-1 py-2 rounded-lg text-sm font-medium transition-all capitalize"
+              <button key={m}
+                onClick={() => { setMode(m); setError('') }}
+                className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
                 style={{
                   background: mode === m ? 'rgba(124,58,237,0.3)' : 'transparent',
                   color: mode === m ? '#fff' : '#a1a1aa',
-                }}
-              >
+                }}>
                 {m === 'login' ? 'Sign In' : 'Sign Up'}
               </button>
             ))}
           </div>
 
           {/* Google */}
-          <button
-            onClick={handleGoogleLogin}
+          <button onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-medium text-white text-sm mb-6 transition-all hover:opacity-90"
-            style={{background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)'}}
-          >
+            style={{background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)'}}>
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -129,14 +155,16 @@ export default function LoginPage() {
             {/* Username — signup only */}
             {mode === 'signup' && (
               <div>
-                <label className="text-sm font-medium text-white mb-2 block">Username</label>
+                <label className="text-sm font-medium text-white mb-2 block">
+                  Your Name
+                </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                    style={{color:'#52525b'}} />
                   <input
-                    type="text"
-                    value={username}
+                    type="text" value={username}
                     onChange={e => setUsername(e.target.value)}
-                    placeholder="yourname"
+                    placeholder="Full name or username"
                     required
                     className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                     style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
@@ -144,9 +172,6 @@ export default function LoginPage() {
                     onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                   />
                 </div>
-                <p className="text-xs mt-1.5" style={{color:'#52525b'}}>
-                  This becomes your display name on the dashboard
-                </p>
               </div>
             )}
 
@@ -154,13 +179,12 @@ export default function LoginPage() {
             <div>
               <label className="text-sm font-medium text-white mb-2 block">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                  style={{color:'#52525b'}} />
                 <input
-                  type="email"
-                  value={email}
+                  type="email" value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
+                  placeholder="you@example.com" required
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
                   onFocus={e => e.target.style.borderColor = '#7c3aed'}
@@ -185,44 +209,39 @@ export default function LoginPage() {
                   onFocus={e => e.target.style.borderColor = '#7c3aed'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
+                <button type="button" onClick={() => setShowPass(!showPass)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
-                  style={{color:'#52525b'}}
-                >
+                  style={{color:'#52525b'}}>
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="p-3 rounded-xl text-sm" style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>
+              <div className="p-3 rounded-xl text-sm"
+                style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>
                 {error}
               </div>
             )}
 
-            {success && (
-              <div className="p-3 rounded-xl text-sm" style={{background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.2)'}}>
-                {success}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl font-medium text-white text-sm transition-all violet-gradient hover:opacity-90 glow disabled:opacity-50 mt-2"
-            >
-              {loading ? '...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+            <button type="submit" disabled={loading}
+              className="w-full py-3 rounded-xl font-medium text-white text-sm transition-all violet-gradient hover:opacity-90 glow disabled:opacity-50 mt-1">
+              {loading
+                ? 'Please wait...'
+                : mode === 'login' ? 'Sign In' : 'Create Account & Continue'
+              }
             </button>
           </form>
         </div>
 
         <p className="text-center text-xs mt-6" style={{color:'#52525b'}}>
           By continuing you agree to our{' '}
-          <Link href="/terms" style={{color:'#a1a1aa'}}>Terms</Link> and{' '}
+          <Link href="/terms" style={{color:'#a1a1aa'}}>Terms</Link>
+          {' '}and{' '}
           <Link href="/privacy" style={{color:'#a1a1aa'}}>Privacy Policy</Link>
         </p>
+
+        
       </div>
     </div>
   )

@@ -2,15 +2,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  Shield, LayoutDashboard, BookOpen,
-  Users, AlertTriangle, Settings, LogOut, Menu, X
-} from 'lucide-react'
+import { Shield, LayoutDashboard, BookOpen, Users, AlertTriangle, Settings, LogOut, Menu, X, Zap } from 'lucide-react'
+
 import { supabase } from '@/lib/supabase'
 
 const navItems = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Lessons', href: '/dashboard/lessons', icon: BookOpen },
+  { label: 'Courses', href: '/dashboard/courses', icon: BookOpen },
   { label: 'Students', href: '/dashboard/students', icon: Users },
   { label: 'Piracy Shield', href: '/dashboard/piracy', icon: AlertTriangle },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -64,6 +62,15 @@ export default function Sidebar() {
           )
         })}
       </nav>
+      {/* Upgrade button */}
+<div className="px-3 pb-2">
+  <Link href="/upgrade"
+    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full"
+    style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+    <Zap className="w-4 h-4" />
+    Upgrade Plan
+  </Link>
+</div>
 
       {/* Logout */}
       <div className="px-3 py-4 border-t" style={{borderColor:'rgba(255,255,255,0.06)'}}>

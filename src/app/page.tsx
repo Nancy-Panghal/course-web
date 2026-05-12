@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Shield, Zap, TrendingUp, Lock, MessageCircle, BarChart3, CheckCircle, ArrowRight, Star, Play, X } from 'lucide-react'
 import Navbar from '@/components/Navbar'
+import { supabase } from '@/lib/supabase'
 
 // ─── DATA ───
 const features = [
@@ -176,11 +177,10 @@ function StepCard({ num, title, desc }: typeof steps[0]) {
 
 function PlanCard({ plan }: { plan: typeof plans[0] }) {
   return (
-    <div className={`rounded-2xl p-8 border transition-all duration-300 flex flex-col ${
-      plan.highlighted
-        ? 'violet-gradient border-violet glow-strong relative'
-        : 'glass border-border hover:border-violet/30 hover:glow'
-    }`}>
+    <div className={`rounded-2xl p-8 border transition-all duration-300 flex flex-col ${plan.highlighted
+      ? 'violet-gradient border-violet glow-strong relative'
+      : 'glass border-border hover:border-violet/30 hover:glow'
+      }`}>
       {plan.highlighted && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-violet text-xs font-bold px-4 py-1 rounded-full">
           MOST POPULAR
@@ -204,11 +204,10 @@ function PlanCard({ plan }: { plan: typeof plans[0] }) {
       </ul>
       <Link
         href="/login"
-        className={`w-full py-3 rounded-xl font-medium text-center transition-all text-sm ${
-          plan.highlighted
-            ? 'bg-white text-violet hover:bg-white/90'
-            : 'violet-gradient text-white hover:opacity-90 glow'
-        }`}
+        className={`w-full py-3 rounded-xl font-medium text-center transition-all text-sm ${plan.highlighted
+          ? 'bg-white text-violet hover:bg-white/90'
+          : 'violet-gradient text-white hover:opacity-90 glow'
+          }`}
       >
         {plan.cta}
       </Link>
@@ -234,7 +233,7 @@ function TestimonialCard({ t }: { t: typeof testimonials[0] }) {
 }
 
 // ─── VIDEO MODAL ───
-function VideoModal({ onClose }: { onClose: () => void }) {
+function VideoModal({ onClose, user }: { onClose: () => void; user: any }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="glass rounded-2xl p-8 max-w-lg w-full border border-border relative">
@@ -247,9 +246,10 @@ function VideoModal({ onClose }: { onClose: () => void }) {
           </div>
           <h3 className="text-white font-semibold text-lg mb-2">Demo coming soon</h3>
           <p className="text-text-2 text-sm mb-6">Sign up to get early access and see the full product walkthrough.</p>
-          <Link href="/login" className="violet-gradient px-6 py-3 rounded-xl text-white text-sm font-medium inline-block hover:opacity-90">
-            Get Early Access
-          </Link>
+          <Link href={user ? '/dashboard' : '/login?role=creator'}
+  className="violet-gradient px-6 py-3 rounded-xl text-white text-sm font-medium inline-block hover:opacity-90">
+  {user ? 'Go to Dashboard' : 'Get Early Access'}
+</Link>
         </div>
       </div>
     </div>
@@ -260,11 +260,23 @@ function VideoModal({ onClose }: { onClose: () => void }) {
 export default function HomePage() {
   const [videoOpen, setVideoOpen] = useState(false)
 
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   return (
     <div className="min-h-screen bg-black grid-bg">
       <Navbar />
 
-      {videoOpen && <VideoModal onClose={() => setVideoOpen(false)} />}
+      {videoOpen && <VideoModal onClose={() => setVideoOpen(false)} user={user} />}
 
       {/* ── HERO ── */}
       <section className="pt-32 pb-24 px-6 relative overflow-hidden">
@@ -292,10 +304,10 @@ export default function HomePage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Link
-              href="/login"
+              href={user ? '/dashboard' : '/login?role=creator'}
               className="violet-gradient px-8 py-4 rounded-xl text-white font-semibold text-lg hover:opacity-90 transition-all glow-strong flex items-center justify-center gap-2 group"
             >
-              Start Free — ₹0 Setup
+              {user ? 'Go to Dashboard' : 'Start Free — ₹0 Setup'}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <button
@@ -355,80 +367,80 @@ export default function HomePage() {
               </div>
             </div>
 
-            
-             {/* Visual */}
-<div className="relative">
-  <div className="glass rounded-2xl p-8 glow animate-float" style={{border: '1px solid rgba(124,58,237,0.2)'}}>
-    {/* Header */}
-    <div className="flex items-center justify-between mb-8">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 violet-gradient rounded-lg flex items-center justify-center">
-          <Shield className="w-4 h-4 text-white" />
-        </div>
-        <span className="text-white font-semibold text-base">AcademyKit Dashboard</span>
-      </div>
-      <div className="flex gap-2">
-        <div className="w-3 h-3 rounded-full bg-red-500/80" />
-        <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-        <div className="w-3 h-3 rounded-full bg-green-500/80" />
-      </div>
-    </div>
 
-    {/* Stats row */}
-    <div className="grid grid-cols-3 gap-4 mb-6">
-      {[
-        { label: 'Students', val: '247' },
-        { label: 'Completion', val: '54%' },
-        { label: 'Nuked', val: '14' },
-      ].map((s, i) => (
-        <div key={i} className="rounded-xl p-4 text-center" style={{background:'rgba(255,255,255,0.05)'}}>
-          <div className="text-3xl font-bold gradient-text mb-1">{s.val}</div>
-          <div className="text-sm" style={{color:'#a1a1aa'}}>{s.label}</div>
-        </div>
-      ))}
-    </div>
+            {/* Visual */}
+            <div className="relative">
+              <div className="glass rounded-2xl p-8 glow animate-float" style={{ border: '1px solid rgba(124,58,237,0.2)' }}>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 violet-gradient rounded-lg flex items-center justify-center">
+                      <Shield className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-white font-semibold text-base">AcademyKit Dashboard</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                  </div>
+                </div>
 
-    {/* Piracy feed */}
-    <div className="rounded-xl p-4 mb-4" style={{background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)'}}>
-      <div className="text-xs font-semibold mb-3 tracking-widest uppercase" style={{color:'#52525b'}}>
-        🛡️ Piracy Shield — Live
-      </div>
-      {[
-        { url: 't.me/free_courses_hd/seo_master...', status: 'NUKED', color: '#4ade80' },
-        { url: 't.me/cracked_india/47382', status: 'NUKED', color: '#4ade80' },
-        { url: 't.me/vip_2026/seo_course.zip', status: 'FILING', color: '#facc15' },
-      ].map((r, i) => (
-        <div key={i} className="flex items-center justify-between py-2" style={{borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none'}}>
-          <span className="text-sm font-mono" style={{color:'#a1a1aa'}}>{r.url}</span>
-          <span className="text-sm font-bold ml-4" style={{color: r.color}}>{r.status}</span>
-        </div>
-      ))}
-    </div>
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  {[
+                    { label: 'Students', val: '247' },
+                    { label: 'Completion', val: '54%' },
+                    { label: 'Nuked', val: '14' },
+                  ].map((s, i) => (
+                    <div key={i} className="rounded-xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                      <div className="text-3xl font-bold gradient-text mb-1">{s.val}</div>
+                      <div className="text-sm" style={{ color: '#a1a1aa' }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
 
-    {/* Activity */}
-    <div className="rounded-xl p-4" style={{background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)'}}>
-      <div className="text-xs font-semibold mb-3 tracking-widest uppercase" style={{color:'#52525b'}}>
-        Recent Activity
-      </div>
-      {[
-        'Riya completed Lesson 4',
-        'Arjun enrolled in SEO Course',
-        'Certificate sent to Priya',
-      ].map((a, i) => (
-        <div key={i} className="flex items-center gap-3 py-2" style={{borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none'}}>
-          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:'#8b5cf6'}} />
-          <span className="text-sm" style={{color:'#e4e4e7'}}>{a}</span>
-        </div>
-      ))}
-    </div>
-  </div>
+                {/* Piracy feed */}
+                <div className="rounded-xl p-4 mb-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="text-xs font-semibold mb-3 tracking-widest uppercase" style={{ color: '#52525b' }}>
+                    🛡️ Piracy Shield — Live
+                  </div>
+                  {[
+                    { url: 't.me/free_courses_hd/seo_master...', status: 'NUKED', color: '#4ade80' },
+                    { url: 't.me/cracked_india/47382', status: 'NUKED', color: '#4ade80' },
+                    { url: 't.me/vip_2026/seo_course.zip', status: 'FILING', color: '#facc15' },
+                  ].map((r, i) => (
+                    <div key={i} className="flex items-center justify-between py-2" style={{ borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                      <span className="text-sm font-mono" style={{ color: '#a1a1aa' }}>{r.url}</span>
+                      <span className="text-sm font-bold ml-4" style={{ color: r.color }}>{r.status}</span>
+                    </div>
+                  ))}
+                </div>
 
-  {/* Floating badge */}
-  <div className="absolute -bottom-5 -right-5 rounded-xl px-5 py-3 glow" style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(124,58,237,0.3)', backdropFilter:'blur(12px)'}}>
-    <div className="text-xs mb-1" style={{color:'#a1a1aa'}}>This month</div>
-    <div className="text-xl font-bold gradient-text">14 links nuked</div>
-  </div>
-</div>
+                {/* Activity */}
+                <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="text-xs font-semibold mb-3 tracking-widest uppercase" style={{ color: '#52525b' }}>
+                    Recent Activity
+                  </div>
+                  {[
+                    'Riya completed Lesson 4',
+                    'Arjun enrolled in SEO Course',
+                    'Certificate sent to Priya',
+                  ].map((a, i) => (
+                    <div key={i} className="flex items-center gap-3 py-2" style={{ borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#8b5cf6' }} />
+                      <span className="text-sm" style={{ color: '#e4e4e7' }}>{a}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Floating badge */}
+              <div className="absolute -bottom-5 -right-5 rounded-xl px-5 py-3 glow" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(124,58,237,0.3)', backdropFilter: 'blur(12px)' }}>
+                <div className="text-xs mb-1" style={{ color: '#a1a1aa' }}>This month</div>
+                <div className="text-xl font-bold gradient-text">14 links nuked</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -477,10 +489,10 @@ export default function HomePage() {
                 Setup takes less than a day. First client in a week. Zero upfront cost.
               </p>
               <Link
-                href="/login"
+                href={user ? '/dashboard' : '/login?role=creator'}
                 className="violet-gradient px-10 py-4 rounded-xl text-white font-semibold text-lg hover:opacity-90 transition-all glow-strong inline-flex items-center gap-2 group"
               >
-                Start Building Free
+                {user ? 'Go to Dashboard' : 'Start Building Free'}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
@@ -501,7 +513,7 @@ export default function HomePage() {
           <div className="flex gap-6">
             <Link href="/privacy" className="text-text-3 text-sm hover:text-text-2 transition-colors">Privacy</Link>
             <Link href="/terms" className="text-text-3 text-sm hover:text-text-2 transition-colors">Terms</Link>
-            <Link href="#" className="text-text-3 text-sm hover:text-text-2 transition-colors">Contact</Link>
+            <Link href="/contact" className="text-text-3 text-sm hover:text-text-2 transition-colors">Contact</Link>
           </div>
         </div>
       </footer>
