@@ -1,10 +1,9 @@
-import { Shield, Play, Clock, Users, Star, CheckCircle, Lock, ArrowRight, BookOpen, Award } from 'lucide-react'
+import { Shield, Clock, Users, Star, CheckCircle, Lock, ArrowRight, BookOpen, Award, Play } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import CoursePageClient from './CoursePageClient'
 
-// Server-side Supabase client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,26 +12,38 @@ const supabase = createClient(
 export default async function CreatorCoursePage({
   params
 }: {
-  params: Promise<{ creator: string }>
+  params: Promise<{ slug: string }>
 }) {
-  const { creator } = await params
+  const { slug } = await params
 
-  // Fetch course by slug
-  const { data: course } = await supabase
+  console.log('Looking for course with slug:', slug)
+
+  // Fetch course by slug — separate queries to avoid join issues
+  const { data: course, error: courseError } = await supabase
     .from('courses')
-    .select(`
-      *,
-      creators (
-        id,
-        name,
-        email,
-        whatsapp_number
-      )
-    `)
-    .eq('slug', creator)
+    .select('*')
+    .eq('slug', slug)
     .single()
 
-  if (!course) notFound()
+  console.log('Course found:', course?.name, 'Error:', courseError?.message)
+
+  if (!course) {
+    // Try to find courses and show helpful error
+    const { data: allCourses } = await supabase
+      .from('courses')
+      .select('slug, name')
+      .limit(10)
+
+    console.log('Available courses:', allCourses)
+    notFound()
+  }
+
+  // Fetch creator profile separately
+  const { data: creatorProfile } = await supabase
+    .from('creators')
+    .select('id, name, email, whatsapp_number')
+    .eq('id', course.creator_id)
+    .single()
 
   // Fetch published lessons
   const { data: lessons } = await supabase
@@ -48,17 +59,16 @@ export default async function CreatorCoursePage({
     ? Math.round(((course.original_price - course.price) / course.original_price) * 100)
     : 0
 
-  // Group lessons by rough modules (every 3 lessons = 1 module)
   const modules: { section: string; lessons: string[] }[] = []
   for (let i = 0; i < publishedLessons.length; i += 3) {
     const chunk = publishedLessons.slice(i, i + 3)
     modules.push({
       section: `Module ${Math.floor(i / 3) + 1}`,
-      lessons: chunk.map(l => l.title),
+      lessons: chunk.map((l: any) => l.title),
     })
   }
 
-  const creatorProfile = course.creators as any
+  
 
   return (
     <div className="min-h-screen bg-black">
@@ -81,7 +91,7 @@ export default async function CreatorCoursePage({
               id: course.id,
               name: course.name,
               price: course.price,
-              creatorSlug: creator,
+              creatorSlug: slug,
               creatorName: course.host_name || creatorProfile?.name || '',
               creatorId: creatorProfile?.id || '',
               waNumber: creatorProfile?.whatsapp_number || '',
@@ -185,7 +195,7 @@ export default async function CreatorCoursePage({
                     id: course.id,
                     name: course.name,
                     price: course.price,
-                    creatorSlug: creator,
+                    creatorSlug: slug,
                     creatorName: course.host_name || creatorProfile?.name || '',
                     creatorId: creatorProfile?.id || '',
                     waNumber: creatorProfile?.whatsapp_number || '',
@@ -325,7 +335,7 @@ export default async function CreatorCoursePage({
                 id: course.id,
                 name: course.name,
                 price: course.price,
-                creatorSlug: creator,
+                creatorSlug: slug,
                 creatorName: course.host_name || creatorProfile?.name || '',
                 creatorId: creatorProfile?.id || '',
                 waNumber: creatorProfile?.whatsapp_number || '',
@@ -354,7 +364,7 @@ export default async function CreatorCoursePage({
               id: course.id,
               name: course.name,
               price: course.price,
-              creatorSlug: creator,
+              creatorSlug: slug,
               creatorName: course.host_name || creatorProfile?.name || '',
               creatorId: creatorProfile?.id || '',
               waNumber: creatorProfile?.whatsapp_number || '',
