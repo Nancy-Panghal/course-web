@@ -152,7 +152,7 @@ export default function CoursesPage() {
                       <BookOpen className="w-4 h-4" />
                       Manage
                     </Link>
-                    <Link href={`/c/${course.slug}`} target="_blank"
+                    <Link href={`/learn/${course.slug}`} target="_blank"
                       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all"
                       style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
                       <ExternalLink className="w-4 h-4" />

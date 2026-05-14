@@ -425,14 +425,14 @@ export default function CourseManagePage({
 
   function copyCourseLink() {
     if (!course) return
-    navigator.clipboard.writeText(`${window.location.origin}/c/${course.slug}`)
+    navigator.clipboard.writeText(`${window.location.origin}/learn/${course.slug}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
   }
 
   const publishedCount = lessons.filter(l => l.is_published).length
   const allPublished = lessons.length > 0 && publishedCount === lessons.length
-  const courseUrl = course ? `${window.location.origin}/c/${course.slug}` : ''
+  const courseUrl = course ? `${window.location.origin}/learn/${course.slug}` : ''
 
   if (loading) {
     return (
@@ -644,7 +644,7 @@ export default function CourseManagePage({
               <p className="text-xs mb-3" style={{color:'#52525b'}}>
                 This is what students see when they visit your course link.
               </p>
-              <Link href={`/c/${course.slug}`} target="_blank"
+              <Link href={`/learn/${course.slug}`} target="_blank"
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all mb-2"
                 style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
                 <ExternalLink className="w-4 h-4" />
@@ -667,7 +667,7 @@ export default function CourseManagePage({
               <div className="flex items-center gap-2 p-2.5 rounded-xl mb-3"
                 style={{background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.08)'}}>
                 <p className="text-xs flex-1 truncate font-mono" style={{color:'#a1a1aa'}}>
-                  /c/{course.slug}
+                  /learn/{course.slug}
                 </p>
               </div>
 
