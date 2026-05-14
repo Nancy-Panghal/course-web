@@ -64,6 +64,11 @@ function LockedScreen({ courseName, courseSlug }: { courseName: string; courseSl
           Enroll Now
           <ChevronRight className="w-5 h-5" />
         </Link>
+        <div className="mt-4">
+          <Link href={`/login?redirect=/learn/${courseSlug}`} className="text-xs text-zinc-500 hover:text-white transition-colors">
+            Already enrolled? Sign In
+          </Link>
+        </div>
         <p className="text-xs mt-4" style={{color:'#52525b'}}>
           One-time payment · Lifetime access · 7-day refund
         </p>
@@ -298,13 +303,6 @@ export default function LearnPage({
             </button>
           )}
 
-          {!isEnrolled && (
-            <Link href={`/c/${course.slug}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white violet-gradient hover:opacity-90 transition-all">
-              Enroll Now
-            </Link>
-          )}
-
           <Link href={`/c/${course.slug}`}
             className="text-xs px-3 py-1.5 rounded-lg hidden sm:flex"
             style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
@@ -450,23 +448,120 @@ export default function LearnPage({
           ) : (
             <>
               {/* Video player */}
-              <div className="w-full bg-black" style={{aspectRatio:'16/9', maxHeight:'65vh'}}>
+              <div className="w-full bg-black" style={{ aspectRatio: '16/9', maxHeight: '65vh' }}>
                 {currentLesson?.content_type === 'pdf' ? (
                   <iframe
                     src={currentLesson.content_url}
                     className="w-full h-full"
-                    style={{maxHeight:'65vh', border:'none'}}
+                    style={{ maxHeight: '65vh', border: 'none' }}
                     title={currentLesson.title}
                   />
                 ) : (
-                  <video
-                    key={currentLesson?.id}
-                    controls
-                    className="w-full h-full"
-                    style={{maxHeight:'65vh'}}
-                    onEnded={() => currentLesson && markComplete(currentLesson.order_num)}>
-                    <source src={currentLesson?.content_url} type="video/mp4" />
-                  </video>
+                  (() => {
+                    const url = currentLesson?.content_url || ''
+                    const isTelegram = url.includes('t.me/')
+                    const isSupabase = url.includes('.supabase.co/')
+                    const isDirectVideo = url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i) || isSupabase
+                    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be')
+                    
+                    if (isTelegram) {
+                      // Handle Telegram embed with a "Clean Mask"
+                      // Ensure the URL is a post link, not just a channel link
+                      const isPostLink = /\/\d+/.test(url)
+                      if (!isPostLink) {
+                        return (
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-500 text-sm p-8 text-center">
+                            Invalid Telegram link. Please ensure you are using a Public Channel post link (e.g., t.me/channel/123)
+                          </div>
+                        )
+                      }
+
+                      const embedUrl = url.includes('?embed=1') ? url : `${url}?embed=1`
+                      return (
+                        <div className="relative w-full h-full overflow-hidden bg-black group flex items-center justify-center">
+                          {/* Top Shield: Very thin to only block the channel link */}
+                          <div className="absolute top-0 left-0 w-full h-12 z-10" />
+                          
+                          {/* Bottom Shield: Very thin to only block the "View in" link */}
+                          <div className="absolute bottom-0 left-0 w-full h-10 z-10" />
+
+                          <iframe
+                            src={embedUrl}
+                            className="w-full h-full scale-[1.02] origin-center"
+                            style={{ 
+                              border: 'none',
+                              pointerEvents: 'auto'
+                            }}
+                            title={currentLesson?.title}
+                            allowFullScreen
+                          />
+
+                          {/* Branding Overlay */}
+                          <div className="absolute top-3 left-3 z-20 pointer-events-none">
+                            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-black/40 backdrop-blur-sm border border-white/5">
+                              <Shield className="w-3 h-3 text-violet-light" />
+                              <span className="text-[9px] font-bold text-white/60 tracking-widest uppercase">
+                                AcademyKit Stream
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    if (isYouTube) {
+                      // Basic YouTube embed conversion
+                      let videoId = ''
+                      if (url.includes('v=')) videoId = url.split('v=')[1].split('&')[0]
+                      else if (url.includes('youtu.be/')) videoId = url.split('youtu.be/')[1].split('?')[0]
+                      
+                      return (
+                        <iframe
+                          src={`https://www.youtube.com/embed/${videoId}`}
+                          className="w-full h-full"
+                          style={{ maxHeight: '65vh', border: 'none' }}
+                          title={currentLesson?.title}
+                          allowFullScreen
+                        />
+                      )
+                    }
+
+                    if (isDirectVideo) {
+                      return (
+                        <div className="relative w-full h-full bg-black flex items-center justify-center group">
+                          <video
+                            key={currentLesson?.id}
+                            controls
+                            className="w-full h-full"
+                            style={{ maxHeight: '65vh' }}
+                            onEnded={() => currentLesson && markComplete(currentLesson.order_num)}>
+                            <source src={url} type="video/mp4" />
+                          </video>
+
+                          {/* Branding Overlay */}
+                          <div className="absolute top-3 left-3 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-black/40 backdrop-blur-sm border border-white/5">
+                              <Shield className="w-3 h-3 text-violet-light" />
+                              <span className="text-[9px] font-bold text-white/60 tracking-widest uppercase">
+                                AcademyKit Stream
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    // Fallback to iframe for other types (Vimeo, Bunny, etc.)
+                    return (
+                      <iframe
+                        src={url}
+                        className="w-full h-full"
+                        style={{ maxHeight: '65vh', border: 'none' }}
+                        title={currentLesson?.title}
+                        allowFullScreen
+                      />
+                    )
+                  })()
                 )}
               </div>
 

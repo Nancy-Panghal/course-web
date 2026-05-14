@@ -1,4 +1,4 @@
-import { Shield, Clock, Users, Star, CheckCircle, Lock, ArrowRight, BookOpen, Award, Play } from 'lucide-react'
+import { Shield, Clock, Users, Star, CheckCircle, Lock, ArrowRight, BookOpen, Award, Play, ChevronDown, Plus, Minus } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
@@ -48,7 +48,7 @@ export default async function CreatorCoursePage({
   // Fetch published lessons
   const { data: lessons } = await supabase
     .from('lessons')
-    .select('id, title, content_type, order_num, duration, is_published')
+    .select('id, title, content_type, order_num, duration, is_published, content_url')
     .eq('course_id', course.id)
     .eq('is_published', true)
     .order('order_num', { ascending: true })
@@ -68,7 +68,13 @@ export default async function CreatorCoursePage({
     })
   }
 
-  
+  // Get first lesson video thumbnail if it's a YouTube link
+  let firstLessonVideoId = ''
+  if (publishedLessons.length > 0 && publishedLessons[0].content_type === 'video') {
+    const url = publishedLessons[0].content_url
+    if (url.includes('v=')) firstLessonVideoId = url.split('v=')[1].split('&')[0]
+    else if (url.includes('youtu.be/')) firstLessonVideoId = url.split('youtu.be/')[1].split('?')[0]
+  }
 
   return (
     <div className="min-h-screen bg-black">
@@ -83,282 +89,42 @@ export default async function CreatorCoursePage({
           <span className="font-semibold text-white text-sm">AcademyKit</span>
         </Link>
         <div className="flex items-center gap-3">
-          <span className="text-sm hidden sm:block" style={{color:'#a1a1aa'}}>
-            Powered by AcademyKit
+          <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest hidden sm:block">
+            Course Preview
           </span>
-          <CoursePageClient
-            course={{
-              id: course.id,
-              name: course.name,
-              price: course.price,
-              creatorSlug: slug,
-              creatorName: course.host_name || creatorProfile?.name || '',
-              creatorId: creatorProfile?.id || '',
-              waNumber: creatorProfile?.whatsapp_number || '',
-            }}
-            variant="nav"
-          />
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="border-b" style={{borderColor:'rgba(255,255,255,0.06)'}}>
-        <div className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-3 gap-12">
-
-          {/* Left */}
-          <div className="lg:col-span-2">
-            <div className="flex flex-wrap gap-2 mb-5">
-              {[
-                {text:'🛡️ Piracy Protected', color:'#4ade80', bg:'rgba(74,222,128,0.1)', border:'rgba(74,222,128,0.2)'},
-                course.delivery !== 'web' && {text:'💬 WhatsApp Delivery', color:'#8b5cf6', bg:'rgba(124,58,237,0.1)', border:'rgba(124,58,237,0.2)'},
-                course.delivery !== 'whatsapp' && {text:'🌐 Web Portal', color:'#3b82f6', bg:'rgba(59,130,246,0.1)', border:'rgba(59,130,246,0.2)'},
-                {text:'🏆 Certificate Included', color:'#facc15', bg:'rgba(250,204,21,0.1)', border:'rgba(250,204,21,0.2)'},
-              ].filter(Boolean).map((b: any, i) => (
-                <span key={i} className="text-xs px-3 py-1 rounded-full font-medium"
-                  style={{background:b.bg, color:b.color, border:`1px solid ${b.border}`}}>
-                  {b.text}
-                </span>
-              ))}
-            </div>
-
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
-              {course.name}
-            </h1>
-            <p className="text-lg mb-6 leading-relaxed" style={{color:'#a1a1aa'}}>
+      {/* Hero Section */}
+      <section className="pt-12 pb-8 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            {course.name}
+          </h1>
+          
+          <div className="mb-6 max-w-2xl mx-auto">
+            <p className="text-base text-zinc-400">
               {course.description}
             </p>
-
-            <div className="flex flex-wrap items-center gap-4 mb-6">
-              <div className="flex items-center gap-1">
-                {Array.from({length:5}).map((_,i) => (
-                  <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                ))}
-                <span className="text-sm font-bold text-white ml-1">5.0</span>
-                <span className="text-sm ml-1" style={{color:'#a1a1aa'}}>(New course)</span>
-              </div>
-              <span className="text-sm" style={{color:'#a1a1aa'}}>
-                <BookOpen className="w-4 h-4 inline mr-1" />
-                {publishedLessons.length} lessons
-              </span>
-              {course.language?.length > 0 && (
-                <span className="text-sm" style={{color:'#a1a1aa'}}>
-                  🌐 {course.language.join(', ')}
-                </span>
-              )}
-            </div>
-
-            {/* Creator */}
-            <div className="flex items-center gap-3 p-4 rounded-2xl"
-              style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
-              <div className="w-12 h-12 violet-gradient rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                {(course.host_name || creatorProfile?.name || 'C').charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-white font-semibold">
-                  {course.host_name || creatorProfile?.name || 'Course Creator'}
-                </p>
-                <p className="text-sm" style={{color:'#a1a1aa'}}>
-                  {course.about_creator || 'Course Creator on AcademyKit'}
-                </p>
-              </div>
-            </div>
           </div>
 
-          {/* Right — enrollment card */}
-          <div id="enroll" className="lg:col-span-1">
-            <div className="rounded-2xl overflow-hidden sticky top-24"
-              style={{border:'1px solid rgba(124,58,237,0.3)', background:'#0a0a0a'}}>
-
-              <div className="p-6 border-b" style={{borderColor:'rgba(255,255,255,0.06)'}}>
-                <div className="flex items-baseline gap-3 mb-1">
-                  <span className="text-4xl font-bold text-white">
-                    ₹{course.price.toLocaleString()}
-                  </span>
-                  {discount > 0 && (
-                    <>
-                      <span className="text-lg line-through" style={{color:'#52525b'}}>
-                        ₹{course.original_price.toLocaleString()}
-                      </span>
-                      <span className="text-sm font-bold px-2 py-0.5 rounded-lg"
-                        style={{background:'rgba(74,222,128,0.15)', color:'#4ade80'}}>
-                        {discount}% off
-                      </span>
-                    </>
-                  )}
-                </div>
-                <p className="text-xs" style={{color:'#52525b'}}>One-time payment · Lifetime access</p>
-              </div>
-
-              <div className="p-6">
-                <CoursePageClient
-                  course={{
-                    id: course.id,
-                    name: course.name,
-                    price: course.price,
-                    creatorSlug: slug,
-                    creatorName: course.host_name || creatorProfile?.name || '',
-                    creatorId: creatorProfile?.id || '',
-                    waNumber: creatorProfile?.whatsapp_number || '',
-                  }}
-                  variant="card"
-                />
-                <p className="text-xs text-center mb-4 mt-3" style={{color:'#52525b'}}>
-                  Secure payment via Razorpay · 7-day refund policy
-                </p>
-                <div className="flex flex-col gap-3">
-                  {[
-                    {icon: BookOpen, text:`${publishedLessons.length} lessons${totalHours > 0 ? ` · ~${totalHours} hours` : ''}`},
-                    {icon: Clock, text:'Lifetime access — no expiry'},
-                    {icon: Award, text:'Certificate on completion'},
-                    {icon: Lock, text:'Piracy-protected delivery'},
-                    {icon: Play, text: course.delivery === 'whatsapp' ? 'WhatsApp delivery' : course.delivery === 'web' ? 'Web portal access' : 'WhatsApp + Web access'},
-                  ].map((item, i) => {
-                    const Icon = item.icon
-                    return (
-                      <div key={i} className="flex items-center gap-3 text-sm" style={{color:'#a1a1aa'}}>
-                        <Icon className="w-4 h-4 flex-shrink-0" style={{color:'#8b5cf6'}} />
-                        {item.text}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="px-6 pb-6">
-                <div className="flex items-center gap-2 p-3 rounded-xl text-xs"
-                  style={{background:'rgba(74,222,128,0.05)', border:'1px solid rgba(74,222,128,0.15)', color:'#4ade80'}}>
-                  <Shield className="w-3.5 h-3.5 flex-shrink-0" />
-                  Content protected by AcademyKit Anti-Piracy Shield
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats bar */}
-      <section className="border-b py-6"
-        style={{borderColor:'rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.01)'}}>
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {/* Small Details Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
             {[
-              {label:'Total Lessons', value:`${publishedLessons.length} lessons`},
-              {label:'Estimated Hours', value:`~${totalHours || 1} hours`},
-              {label:'Language', value: course.language?.join(', ') || 'English'},
-              {label:'Delivery', value: course.delivery === 'both' ? 'Web + WhatsApp' : course.delivery === 'web' ? 'Web Only' : 'WhatsApp Only'},
-            ].map((s,i) => (
-              <div key={i} className="text-center">
-                <p className="font-semibold text-white">{s.value}</p>
-                <p className="text-xs mt-1" style={{color:'#52525b'}}>{s.label}</p>
+              { label: 'Date', value: course.start_date || 'Instant Access', icon: '📅' },
+              { label: 'Time', value: course.start_time || 'Self-paced', icon: '⏰' },
+              { label: 'Duration', value: course.duration || `${publishedLessons.length} Lessons`, icon: '⏳' },
+              { label: 'Language', value: course.language?.join(', ') || 'English', icon: '🌐' },
+            ].map((item, i) => (
+              <div key={i} className="p-3 rounded-xl glass text-center"
+                style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)'}}>
+                <span className="text-lg mb-0.5 block">{item.icon}</span>
+                <p className="text-[10px] uppercase font-bold text-zinc-600">{item.label}</p>
+                <p className="text-xs font-semibold text-white">{item.value}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
 
-      <div className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-3 gap-12">
-        <div className="lg:col-span-2">
-
-          {/* Curriculum */}
-          {modules.length > 0 && (
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold text-white mb-6">Course Curriculum</h2>
-              <div className="flex flex-col gap-3">
-                {modules.map((module, i) => (
-                  <div key={i} className="rounded-2xl overflow-hidden"
-                    style={{border:'1px solid rgba(255,255,255,0.06)'}}>
-                    <div className="flex items-center justify-between px-5 py-4"
-                      style={{background:'rgba(255,255,255,0.03)'}}>
-                      <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 violet-gradient rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                          {String(i+1).padStart(2,'0')}
-                        </span>
-                        <span className="font-medium text-white text-sm">{module.section}</span>
-                      </div>
-                      <span className="text-xs" style={{color:'#52525b'}}>
-                        {module.lessons.length} lessons
-                      </span>
-                    </div>
-                    <div className="px-5 py-3 flex flex-col gap-2">
-                      {module.lessons.map((lesson, j) => (
-                        <div key={j} className="flex items-center gap-3 py-1.5">
-                          <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{color:'#3f3f46'}} />
-                          <span className="text-sm" style={{color:'#71717a'}}>{lesson}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* About creator */}
-          {course.about_creator && (
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold text-white mb-4">About the Instructor</h2>
-              <div className="flex items-start gap-4 p-5 rounded-2xl"
-                style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)'}}>
-                <div className="w-14 h-14 violet-gradient rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
-                  {(course.host_name || 'C').charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-semibold text-white mb-1">
-                    {course.host_name || 'Course Creator'}
-                  </p>
-                  <p className="text-sm leading-relaxed" style={{color:'#a1a1aa'}}>
-                    {course.about_creator}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right sticky */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-24 rounded-2xl p-6"
-            style={{background:'#0a0a0a', border:'1px solid rgba(124,58,237,0.3)'}}>
-            <p className="font-semibold text-white mb-2">Ready to start?</p>
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-3xl font-bold text-white">
-                ₹{course.price.toLocaleString()}
-              </span>
-              {discount > 0 && (
-                <span className="line-through text-sm" style={{color:'#52525b'}}>
-                  ₹{course.original_price.toLocaleString()}
-                </span>
-              )}
-            </div>
-            <CoursePageClient
-              course={{
-                id: course.id,
-                name: course.name,
-                price: course.price,
-                creatorSlug: slug,
-                creatorName: course.host_name || creatorProfile?.name || '',
-                creatorId: creatorProfile?.id || '',
-                waNumber: creatorProfile?.whatsapp_number || '',
-              }}
-              variant="card"
-            />
-            <p className="text-xs text-center mt-3" style={{color:'#52525b'}}>
-              7-day money-back guarantee
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom CTA */}
-      <section className="border-t py-16 px-6"
-        style={{borderColor:'rgba(255,255,255,0.06)', background:'rgba(124,58,237,0.03)'}}>
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-3">Start learning today</h2>
-          <p className="mb-8" style={{color:'#a1a1aa'}}>
-            {course.delivery !== 'web'
-              ? 'Your first lesson arrives on WhatsApp within minutes of enrolling.'
-              : 'Access your first lesson immediately after enrolling.'}
-          </p>
           <CoursePageClient
             course={{
               id: course.id,
@@ -374,20 +140,152 @@ export default async function CreatorCoursePage({
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t px-6 py-8"
-        style={{borderColor:'rgba(255,255,255,0.06)'}}>
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-6 h-6 violet-gradient rounded-md flex items-center justify-center">
-              <Shield className="w-3 h-3 text-white" />
-            </div>
-            <span className="text-sm font-medium text-white">AcademyKit</span>
-          </Link>
-          <div className="flex gap-6 text-xs" style={{color:'#52525b'}}>
-            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+      {/* First Lesson Preview */}
+      {publishedLessons.length > 0 && (
+        <section className="pb-12 px-6">
+          <div className="max-w-3xl mx-auto">
+            {firstLessonVideoId ? (
+              <div className="relative aspect-video rounded-2xl overflow-hidden shadow-xl group cursor-pointer"
+                style={{border:'1px solid rgba(255,255,255,0.1)'}}>
+                <img 
+                  src={`https://img.youtube.com/vi/${firstLessonVideoId}/maxresdefault.jpg`}
+                  className="w-full h-full object-cover"
+                  alt="Course Preview"
+                />
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full violet-gradient flex items-center justify-center">
+                    <Play className="w-6 h-6 text-white fill-white ml-0.5" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl glass flex items-center gap-4"
+                style={{background:'rgba(124,58,237,0.05)', border:'1px solid rgba(124,58,237,0.1)'}}>
+                <div className="w-10 h-10 rounded-xl violet-gradient flex items-center justify-center flex-shrink-0">
+                  <Play className="w-5 h-5 text-white fill-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-violet-400 uppercase">Sample Lesson</p>
+                  <p className="text-sm font-bold text-white">{publishedLessons[0].title}</p>
+                </div>
+              </div>
+            )}
           </div>
+        </section>
+      )}
+
+      {/* Curriculum Section */}
+      <section className="py-12 px-6 bg-zinc-950/50">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-xl font-bold text-white mb-6 text-center">Course Curriculum</h2>
+          <div className="grid grid-cols-1 gap-3">
+            {modules.map((module, i) => (
+              <div key={i} className="rounded-xl overflow-hidden border border-white/5">
+                <div className="px-5 py-3 bg-white/5 flex justify-between items-center">
+                  <span className="text-xs font-bold text-violet-400 uppercase">{module.section}</span>
+                  <span className="text-[10px] text-zinc-500 uppercase font-bold">{module.lessons.length} Lessons</span>
+                </div>
+                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {module.lessons.map((lesson, j) => (
+                    <div key={j} className="flex items-center gap-3">
+                      <div className="w-5 h-5 rounded bg-white/5 flex items-center justify-center text-[10px] text-zinc-600 font-bold">
+                        {j + 1}
+                      </div>
+                      <span className="text-zinc-400 text-xs">{lesson}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Smart Join Now Widget */}
+      <section className="py-12 px-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="rounded-2xl p-8 text-center border border-violet-500/20 bg-violet-500/5">
+            <h2 className="text-2xl font-bold text-white mb-3">Start Learning Today</h2>
+            <p className="text-sm text-zinc-400 mb-8 max-w-lg mx-auto">
+              Enroll now to get instant access to all modules and certificate.
+            </p>
+            <CoursePageClient
+              course={{
+                id: course.id,
+                name: course.name,
+                price: course.price,
+                creatorSlug: slug,
+                creatorName: course.host_name || creatorProfile?.name || '',
+                creatorId: creatorProfile?.id || '',
+                waNumber: creatorProfile?.whatsapp_number || '',
+              }}
+              variant="card"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Instructor Section */}
+      <section className="py-12 px-6 bg-zinc-950/30">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-xl font-bold text-white mb-8 text-center">About Instructor</h2>
+          <div className="flex flex-col md:flex-row items-center gap-8 p-6 rounded-2xl border border-white/5 bg-white/[0.01]">
+            <div className="w-24 h-24 rounded-xl overflow-hidden border border-white/10 flex-shrink-0">
+              {course.host_image ? (
+                <img src={course.host_image} alt={course.host_name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full violet-gradient flex items-center justify-center text-white font-bold text-2xl">
+                  {(course.host_name || creatorProfile?.name || 'C').charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="text-center md:text-left">
+              <h3 className="text-lg font-bold text-white mb-1">{course.host_name || 'Course Creator'}</h3>
+              <p className="text-xs font-bold text-violet-400 uppercase mb-3">Course Host</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                {course.about_creator || 'Expert instructor dedicated to helping you master this subject.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQs Section */}
+      {(course.faq && course.faq.length > 0) && (
+        <section className="py-12 px-6">
+          <div className="max-w-xl mx-auto">
+            <h2 className="text-xl font-bold text-white mb-8 text-center">FAQs</h2>
+            <div className="flex flex-col gap-2">
+              {course.faq.map((item: any, i: number) => (
+                <details key={i} className="group rounded-xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                  <summary className="flex items-center justify-between p-4 cursor-pointer list-none">
+                    <h4 className="text-sm font-bold text-white">{item.question}</h4>
+                    <ChevronDown className="w-4 h-4 text-zinc-500 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="px-4 pb-4">
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      {item.answer}
+                    </p>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Footer */}
+      <footer className="border-t border-white/5 py-10 text-center">
+        <Link href="/" className="flex items-center gap-2 justify-center mb-4">
+          <div className="w-6 h-6 violet-gradient rounded flex items-center justify-center">
+            <Shield className="w-3 h-3 text-white" />
+          </div>
+          <span className="font-bold text-white">AcademyKit</span>
+        </Link>
+        <div className="flex justify-center gap-6 text-[10px] font-bold uppercase text-zinc-600">
+          <Link href="/terms" className="hover:text-white">Terms</Link>
+          <Link href="/privacy" className="hover:text-white">Privacy</Link>
+          <Link href="/contact" className="hover:text-white">Support</Link>
         </div>
       </footer>
     </div>

@@ -85,6 +85,11 @@ export default function CreateCoursePage() {
   const [aboutCreator, setAboutCreator] = useState('')
   const [delivery, setDelivery] = useState('both')
   const [totalLessons, setTotalLessons] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [startTime, setStartTime] = useState('')
+  const [duration, setDuration] = useState('')
+  const [whatYouWillLearn, setWhatYouWillLearn] = useState([''])
+  const [faqs, setFaqs] = useState([{ question: '', answer: '' }])
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English'])
   const [langDropdown, setLangDropdown] = useState(false)
 
@@ -96,6 +101,34 @@ export default function CreateCoursePage() {
         ? prev.filter(l => l !== lang)
         : [...prev, lang]
     )
+  }
+
+  function addWhatYouWillLearn() {
+    setWhatYouWillLearn(prev => [...prev, ''])
+  }
+
+  function removeWhatYouWillLearn(index: number) {
+    setWhatYouWillLearn(prev => prev.filter((_, i) => i !== index))
+  }
+
+  function updateWhatYouWillLearn(index: number, value: string) {
+    const next = [...whatYouWillLearn]
+    next[index] = value
+    setWhatYouWillLearn(next)
+  }
+
+  function addFaq() {
+    setFaqs(prev => [...prev, { question: '', answer: '' }])
+  }
+
+  function removeFaq(index: number) {
+    setFaqs(prev => prev.filter((_, i) => i !== index))
+  }
+
+  function updateFaq(index: number, field: 'question' | 'answer', value: string) {
+    const next = [...faqs]
+    next[index][field] = value
+    setFaqs(next)
   }
 
   async function handleCreate() {
@@ -137,6 +170,11 @@ export default function CreateCoursePage() {
         delivery,
         total_lessons: totalLessons ? parseInt(totalLessons) : 0,
         language: selectedLanguages,
+        start_date: startDate,
+        start_time: startTime,
+        duration: duration,
+        what_you_will_learn: whatYouWillLearn.filter(item => item.trim() !== ''),
+        faq: faqs.filter(f => f.question.trim() !== '' && f.answer.trim() !== ''),
       })
       .select()
       .single()
@@ -216,6 +254,40 @@ export default function CreateCoursePage() {
                 </Field>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Field label="Start Date" hint="e.g. 15th May 2026">
+                  <Input value={startDate} onChange={setStartDate} placeholder="15th May 2026" />
+                </Field>
+                <Field label="Start Time" hint="e.g. 7:00 PM IST">
+                  <Input value={startTime} onChange={setStartTime} placeholder="7:00 PM IST" />
+                </Field>
+                <Field label="Total Duration" hint="e.g. 4 Weeks / 20 Hours">
+                  <Input value={duration} onChange={setDuration} placeholder="4 Weeks" />
+                </Field>
+              </div>
+
+              <Field label="What You Will Learn" hint="Add key takeaways for students">
+                <div className="flex flex-col gap-2">
+                  {whatYouWillLearn.map((item, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input value={item} onChange={v => updateWhatYouWillLearn(i, v)} placeholder={`Point ${i+1}`} />
+                      {whatYouWillLearn.length > 1 && (
+                        <button onClick={() => removeWhatYouWillLearn(i)}
+                          className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={addWhatYouWillLearn}
+                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit mt-1 transition-all"
+                    style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.1)'}}>
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Point
+                  </button>
+                </div>
+              </Field>
+
               <Field label="About You" hint="Shown on course page as instructor bio">
                 <textarea
                   value={aboutCreator}
@@ -227,6 +299,39 @@ export default function CreateCoursePage() {
                   onFocus={e => e.target.style.borderColor = '#7c3aed'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
+              </Field>
+
+              <Field label="Frequently Asked Questions" hint="Address common student doubts">
+                <div className="flex flex-col gap-4">
+                  {faqs.map((faq, i) => (
+                    <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
+                      style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)'}}>
+                      <button onClick={() => removeFaq(i)}
+                        className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                      <input
+                        value={faq.question}
+                        onChange={e => updateFaq(i, 'question', e.target.value)}
+                        placeholder="Question"
+                        className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8"
+                      />
+                      <textarea
+                        value={faq.answer}
+                        onChange={e => updateFaq(i, 'answer', e.target.value)}
+                        placeholder="Answer"
+                        rows={2}
+                        className="w-full bg-transparent text-sm text-zinc-400 outline-none resize-none"
+                      />
+                    </div>
+                  ))}
+                  <button onClick={addFaq}
+                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
+                    style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.1)'}}>
+                    <Plus className="w-3.5 h-3.5" />
+                    Add FAQ
+                  </button>
+                </div>
               </Field>
             </div>
           </div>

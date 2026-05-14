@@ -205,7 +205,7 @@ function PlanCard({ plan }: { plan: typeof plans[0] }) {
       <Link
         href="/login"
         className={`w-full py-3 rounded-xl font-medium text-center transition-all text-sm ${plan.highlighted
-          ? 'bg-white text-violet hover:bg-white/90'
+          ? 'bg-white text-black hover:bg-white/90'
           : 'violet-gradient text-white hover:opacity-90 glow'
           }`}
       >

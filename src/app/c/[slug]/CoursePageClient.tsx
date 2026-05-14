@@ -49,7 +49,11 @@ export default function CoursePageClient({ course, variant }: Props) {
         .or(`phone.eq.${user.user_metadata?.phone || ''},student_id.eq.${user.id}`)
         .single()
 
-      if (enrollment) setIsEnrolled(true)
+      if (enrollment) {
+        setIsEnrolled(true)
+        // Automatic redirect to learn page if already enrolled
+        window.location.href = `/learn/${course.creatorSlug}`
+      }
       setChecking(false)
     }
     check()
@@ -68,56 +72,21 @@ export default function CoursePageClient({ course, variant }: Props) {
   // ── CREATOR VIEW ──
   if (isCreator) {
     if (variant === 'nav') {
-      return (
-        <button onClick={copyCourseLink}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-          style={{background:'rgba(124,58,237,0.15)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.3)'}}>
-          {copied ? <><Check className="w-4 h-4" />Copied!</> : <><Copy className="w-4 h-4" />Copy Link</>}
-        </button>
-      )
+      return null // Remove from nav for creator
     }
 
     if (variant === 'card') {
       return (
         <div className="flex flex-col gap-2">
-          <button onClick={copyCourseLink}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all"
-            style={{background:'rgba(124,58,237,0.15)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.3)'}}>
-            {copied ? <><Check className="w-4 h-4" />Copied!</> : <><Copy className="w-4 h-4" />Copy Student Link</>}
-          </button>
-          
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(`Join my course "${course.name}": ${courseUrl}`)}`}
-            target="_blank" rel="noopener noreferrer"
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
-            style={{background:'#25d366', color:'#fff'}}>
-            <MessageCircle className="w-4 h-4" />
-            Share on WhatsApp
-          </a>
           <p className="text-xs text-center" style={{color:'#52525b'}}>
-            You are the creator of this course
+            You are viewing your own course
           </p>
         </div>
       )
     }
 
     if (variant === 'cta') {
-      return (
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button onClick={copyCourseLink}
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-sm transition-all"
-            style={{background:'rgba(124,58,237,0.15)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.3)'}}>
-            {copied ? <><Check className="w-4 h-4" />Link Copied!</> : <><Copy className="w-4 h-4" />Copy Course Link</>}
-          </button>
-
-          <Link
-            href={`/dashboard/courses`}
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-white text-sm violet-gradient hover:opacity-90 glow-strong transition-all">
-            Manage Course
-            <ArrowRight className="w-5 h-5" />
-          </Link>
-        </div>
-      )
+      return null // Remove from bottom CTA for creator
     }
   }
 

@@ -7,15 +7,6 @@ import {
   AlertTriangle, CheckCircle, Clock
 } from 'lucide-react'
 
-const recentActivity = [
-  { text: 'Riya Sharma completed Lesson 4', time: '2 min ago', type: 'complete' },
-  { text: 'Arjun Nair enrolled in SEO Masterclass', time: '18 min ago', type: 'enroll' },
-  { text: 'Certificate sent to Priya Mehta', time: '1 hr ago', type: 'cert' },
-  { text: 'Piracy link nuked — t.me/free_courses_hd', time: '3 hr ago', type: 'shield' },
-  { text: 'Vikram Kumar completed Lesson 2', time: '5 hr ago', type: 'complete' },
-  { text: 'New enrollment — Sneha Patel', time: '7 hr ago', type: 'enroll' },
-]
-
 const activityIcon: Record<string, { icon: any; color: string }> = {
   complete: { icon: CheckCircle, color: '#4ade80' },
   enroll: { icon: Users, color: '#8b5cf6' },
@@ -29,28 +20,88 @@ export default function DashboardPage() {
     students: 0,
     lessons: 0,
     completion: 0,
-    nuked: 14,
+    nuked: 0,
+    activeThreats: 0,
   })
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
 
     // Fetch real stats from Supabase
     async function fetchStats() {
-      const [{ count: students }, { count: lessons }] = await Promise.all([
-        supabase.from('enrollments').select('*', { count: 'exact', head: true }),
-        supabase.from('lessons').select('*', { count: 'exact', head: true }),
-      ])
-      setStats(s => ({ ...s, students: students || 0, lessons: lessons || 0, completion: 54 }))
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        if (!currentUser) return
+
+        const [{ count: students }, { count: lessons }, { data: enrollments }] = await Promise.all([
+          supabase.from('enrollments').select('*', { count: 'exact', head: true }).eq('creator_id', currentUser.id),
+          supabase.from('lessons').select('*', { count: 'exact', head: true }).eq('creator_id', currentUser.id),
+          supabase.from('enrollments').select('current_lesson').eq('creator_id', currentUser.id),
+        ])
+
+        // Calculate average completion rate
+        let avgCompletion = 0
+        if (enrollments && enrollments.length > 0 && lessons && lessons > 0) {
+          const totalProgress = enrollments.reduce((acc, curr) => {
+            const progress = Math.min(Math.round(((curr.current_lesson - 1) / lessons) * 100), 100)
+            return acc + progress
+          }, 0)
+          avgCompletion = Math.round(totalProgress / enrollments.length)
+        }
+
+        // Try to fetch piracy stats if table exists
+        let nukedCount = 0
+        let activeThreats = 0
+        try {
+          const { count: nuked } = await supabase.from('piracy_reports').select('*', { count: 'exact', head: true }).eq('status', 'nuked').eq('creator_id', currentUser.id)
+          const { count: active } = await supabase.from('piracy_reports').select('*', { count: 'exact', head: true }).in('status', ['detected', 'filed']).eq('creator_id', currentUser.id)
+          nukedCount = nuked || 0
+          activeThreats = active || 0
+        } catch (e) {
+          // Table might not exist yet
+        }
+
+        setStats({
+          students: students || 0,
+          lessons: lessons || 0,
+          completion: avgCompletion,
+          nuked: nukedCount,
+          activeThreats: activeThreats,
+        })
+
+        // Generate dynamic activity from enrollments
+        if (enrollments) {
+          const { data: recentEnrolls } = await supabase
+            .from('enrollments')
+            .select('*')
+            .eq('creator_id', currentUser.id)
+            .order('enrolled_at', { ascending: false })
+            .limit(5)
+          
+          if (recentEnrolls) {
+            setRecentActivity(recentEnrolls.map(e => ({
+              text: `New enrollment — +${e.phone}`,
+              time: new Date(e.enrolled_at).toLocaleDateString(),
+              type: 'enroll'
+            })))
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard stats:', err)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchStats()
   }, [])
 
   const statCards = [
-    { label: 'Total Students', value: stats.students, icon: Users, color: '#8b5cf6', change: '+12 this week' },
+    { label: 'Total Students', value: stats.students, icon: Users, color: '#8b5cf6', change: 'Enrolled' },
     { label: 'Total Lessons', value: stats.lessons, icon: BookOpen, color: '#3b82f6', change: 'Active course' },
-    { label: 'Completion Rate', value: `${stats.completion}%`, icon: TrendingUp, color: '#4ade80', change: '+8% vs last month' },
-    { label: 'Links Nuked', value: stats.nuked, icon: Shield, color: '#ef4444', change: 'This month' },
+    { label: 'Completion Rate', value: `${stats.completion}%`, icon: TrendingUp, color: '#4ade80', change: 'Average' },
+    { label: 'Links Nuked', value: stats.nuked, icon: Shield, color: '#ef4444', change: 'Total' },
   ]
 
   return (
@@ -103,22 +154,32 @@ export default function DashboardPage() {
             style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <h2 className="font-semibold text-white mb-5">Recent Activity</h2>
             <div className="flex flex-col gap-1">
-              {recentActivity.map((a, i) => {
-                const { icon: Icon, color } = activityIcon[a.type] || activityIcon.enroll
-                return (
-                  <div key={i} className="flex items-start gap-3 py-3"
-                    style={{ borderBottom: i < recentActivity.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ background: `${color}15` }}>
-                      <Icon className="w-4 h-4" style={{ color }} />
+              {loading ? (
+                <div className="py-12 flex justify-center">
+                  <div className="w-6 h-6 border-2 border-violet border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : recentActivity.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-sm" style={{ color: '#52525b' }}>No recent activity yet.</p>
+                </div>
+              ) : (
+                recentActivity.map((a, i) => {
+                  const { icon: Icon, color } = activityIcon[a.type] || activityIcon.enroll
+                  return (
+                    <div key={i} className="flex items-start gap-3 py-3"
+                      style={{ borderBottom: i < recentActivity.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ background: `${color}15` }}>
+                        <Icon className="w-4 h-4" style={{ color }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">{a.text}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>{a.time}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white">{a.text}</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>{a.time}</p>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
             </div>
           </div>
 
@@ -127,13 +188,21 @@ export default function DashboardPage() {
 
             {/* Piracy alert */}
             <div className="rounded-2xl p-5"
-              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              style={{ background: stats.activeThreats > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', border: stats.activeThreats > 0 ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(74,222,128,0.2)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
-                <span className="text-sm font-semibold" style={{ color: '#ef4444' }}>Active Threats</span>
+                {stats.activeThreats > 0 ? (
+                  <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
+                ) : (
+                  <Shield className="w-4 h-4" style={{ color: '#4ade80' }} />
+                )}
+                <span className="text-sm font-semibold" style={{ color: stats.activeThreats > 0 ? '#ef4444' : '#4ade80' }}>
+                  {stats.activeThreats > 0 ? 'Active Threats' : 'Shield Active'}
+                </span>
               </div>
-              <div className="text-3xl font-bold text-white mb-1">3</div>
-              <p className="text-xs" style={{ color: '#a1a1aa' }}>Piracy links detected — filing takedowns</p>
+              <div className="text-3xl font-bold text-white mb-1">{stats.activeThreats}</div>
+              <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                {stats.activeThreats > 0 ? 'Piracy links detected — filing takedowns' : 'No active threats detected'}
+              </p>
             </div>
 
             {/* Completion ring */}

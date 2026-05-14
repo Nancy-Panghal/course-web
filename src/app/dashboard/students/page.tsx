@@ -25,8 +25,15 @@ export default function StudentsPage() {
 
   useEffect(() => {
     async function fetchData() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
       const [{ data: s }, { data: l }] = await Promise.all([
-        supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }),
+        supabase
+          .from('enrollments')
+          .select('*')
+          .eq('creator_id', user.id)
+          .order('enrolled_at', { ascending: false }),
         supabase.from('lessons').select('order_num, title').order('order_num'),
       ])
       setStudents(s || [])

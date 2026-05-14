@@ -25,6 +25,12 @@ interface Course {
   language: string[]
   is_published: boolean
   creator_id: string
+  start_date?: string
+  start_time?: string
+  duration?: string
+  what_you_will_learn?: string[]
+  faq?: { question: string; answer: string }[]
+  host_image?: string
 }
 
 interface Lesson {
@@ -53,6 +59,7 @@ function AddLessonModal({
 }) {
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
+  const [file, setFile] = useState<File | null>(null)
   const [type, setType] = useState<'video' | 'pdf'>('video')
   const [duration, setDuration] = useState('')
   const [loading, setLoading] = useState(false)
@@ -63,19 +70,49 @@ function AddLessonModal({
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.from('lessons').insert({
+    let finalUrl = url
+
+    // If file is selected, upload it to Telegram first
+    if (file) {
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('type', type)
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to upload file')
+        finalUrl = data.url
+      } catch (err: any) {
+        setError(`Upload error: ${err.message}`)
+        setLoading(false)
+        return
+      }
+    }
+
+    if (!finalUrl) {
+      setError('Please provide a URL or upload a file.')
+      setLoading(false)
+      return
+    }
+
+    const { error: dbError } = await supabase.from('lessons').insert({
       course_id: courseId,
       creator_id: creatorId,
       title,
-      content_url: url,
+      content_url: finalUrl,
       content_type: type,
       order_num: nextOrder,
       duration,
       is_published: false,
     })
 
-    if (error) {
-      setError(error.message)
+    if (dbError) {
+      setError(dbError.message)
       setLoading(false)
       return
     }
@@ -143,22 +180,73 @@ function AddLessonModal({
             />
           </div>
 
-          {/* URL */}
+          {/* URL or File */}
           <div>
             <label className="text-sm font-medium text-white mb-2 block">
-              {type === 'video' ? 'Video URL' : 'PDF URL'} *
+              {type === 'video' ? 'Video Source' : 'PDF Source'} *
             </label>
-            <input
-              type="url" value={url} onChange={e => setUrl(e.target.value)}
-              placeholder="https://..."
-              required
-              className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-              onFocus={e => e.target.style.borderColor = '#7c3aed'}
-              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-            />
+            
+            <div className="flex flex-col gap-3">
+              {/* File Upload */}
+              <div className="relative group">
+                <input
+                  type="file"
+                  accept={type === 'video' ? 'video/*' : 'application/pdf'}
+                  onChange={e => {
+                    const selected = e.target.files?.[0] || null
+                    setFile(selected)
+                    if (selected) setUrl('') // Clear URL if file is selected
+                  }}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border-2 border-dashed cursor-pointer transition-all"
+                  style={{
+                    background: file ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.03)',
+                    borderColor: file ? '#7c3aed' : 'rgba(255,255,255,0.1)',
+                    color: file ? '#fff' : '#a1a1aa'
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  {file ? file.name : `Upload ${type === 'video' ? 'Video' : 'PDF'}`}
+                </label>
+                {file && (
+                  <button 
+                    type="button"
+                    onClick={() => setFile(null)}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-px bg-white/5" />
+                <span className="text-[10px] uppercase tracking-widest text-zinc-600">OR</span>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+
+              {/* URL Input */}
+              <input
+                type="url" value={url} onChange={e => {
+                  setUrl(e.target.value)
+                  if (e.target.value) setFile(null) // Clear file if URL is typed
+                }}
+                placeholder={type === 'video' ? "Paste Telegram/YouTube/Direct link" : "Paste PDF link"}
+                disabled={!!file}
+                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none disabled:opacity-50"
+                style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+                onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+              />
+            </div>
             <p className="text-xs mt-1.5" style={{color:'#52525b'}}>
-              Paste a direct link. File upload coming soon.
+              {type === 'video' 
+                ? "Files will be stored securely in your academy storage."
+                : "PDFs will be stored securely in your academy storage."}
             </p>
           </div>
 
@@ -344,6 +432,23 @@ export default function CourseManagePage({
   const [creatorId, setCreatorId] = useState('')
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'lessons' | 'settings'>('lessons')
+
+  // Settings state
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editPrice, setEditPrice] = useState('')
+  const [editOriginalPrice, setEditOriginalPrice] = useState('')
+  const [editHostName, setEditHostName] = useState('')
+  const [editAbout, setEditAbout] = useState('')
+  const [editStartDate, setEditStartDate] = useState('')
+  const [editStartTime, setEditStartTime] = useState('')
+  const [editDuration, setEditDuration] = useState('')
+  const [editLearn, setEditLearn] = useState<string[]>([])
+  const [editFaq, setEditFaq] = useState<{ question: string; answer: string }[]>([])
+  const [editHostImage, setEditHostImage] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -360,12 +465,91 @@ export default function CourseManagePage({
 
       if (!courseData) { router.push('/dashboard/courses'); return }
       setCourse(courseData)
+      
+      // Init settings state
+      setEditName(courseData.name)
+      setEditDesc(courseData.description)
+      setEditPrice(courseData.price.toString())
+      setEditOriginalPrice(courseData.original_price?.toString() || '')
+      setEditHostName(courseData.host_name || '')
+      setEditAbout(courseData.about_creator || '')
+      setEditStartDate(courseData.start_date || '')
+      setEditStartTime(courseData.start_time || '')
+      setEditDuration(courseData.duration || '')
+      setEditLearn(courseData.what_you_will_learn || [''])
+      setEditFaq(courseData.faq || [{ question: '', answer: '' }])
+      setEditHostImage(courseData.host_image || '')
 
       await fetchLessons()
       setLoading(false)
     }
     load()
   }, [id])
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'image' as any) // Cast to bypass previous video/pdf check if needed, or update API
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      setEditHostImage(data.url)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  async function updateSettings() {
+    setSavingSettings(true)
+    const { error } = await supabase
+      .from('courses')
+      .update({
+        name: editName,
+        description: editDesc,
+        price: parseInt(editPrice),
+        original_price: editOriginalPrice ? parseInt(editOriginalPrice) : parseInt(editPrice),
+        host_name: editHostName,
+        about_creator: editAbout,
+        start_date: editStartDate,
+        start_time: editStartTime,
+        duration: editDuration,
+        what_you_will_learn: editLearn.filter(l => l.trim()),
+        faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
+        host_image: editHostImage,
+      })
+      .eq('id', id)
+
+    if (!error) {
+      setCourse({
+        ...course!,
+        name: editName,
+        description: editDesc,
+        price: parseInt(editPrice),
+        original_price: editOriginalPrice ? parseInt(editOriginalPrice) : parseInt(editPrice),
+        host_name: editHostName,
+        about_creator: editAbout,
+        start_date: editStartDate,
+        start_time: editStartTime,
+        duration: editDuration,
+        what_you_will_learn: editLearn.filter(l => l.trim()),
+        faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
+        host_image: editHostImage,
+      })
+    }
+    setSavingSettings(false)
+  }
 
   async function fetchLessons() {
     const { data } = await supabase
@@ -479,98 +663,262 @@ export default function CourseManagePage({
                 {course.is_published ? '● Live' : '○ Draft'}
               </span>
             </div>
-            <p className="text-sm mt-1 truncate" style={{color:'#a1a1aa'}}>{course.description}</p>
+            <div className="flex items-center gap-4 mt-4 border-b border-white/5">
+              {(['lessons', 'settings'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className="px-4 py-2 text-sm font-medium capitalize transition-all relative"
+                  style={{ color: activeTab === tab ? '#8b5cf6' : '#52525b' }}
+                >
+                  {tab}
+                  {activeTab === tab && (
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#8b5cf6]" />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* ── LEFT: Lessons ── */}
+          {/* ── LEFT: Content ── */}
           <div className="lg:col-span-2">
-
-            {/* Lessons header */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="font-semibold text-white">Lessons</h2>
-                <p className="text-xs mt-0.5" style={{color:'#52525b'}}>
-                  {lessons.length} total · {publishedCount} published
-                </p>
-              </div>
-              <button onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 glow">
-                <Plus className="w-4 h-4" />
-                Add Lesson {lessons.length + 1}
-              </button>
-            </div>
-
-            {/* Lesson list */}
-            {lessons.length === 0 ? (
-              <div className="rounded-2xl p-12 text-center glass"
-                style={{border:'1px solid rgba(255,255,255,0.06)'}}>
-                <Video className="w-10 h-10 mx-auto mb-3" style={{color:'#3f3f46'}} />
-                <p className="text-sm font-medium text-white mb-1">No lessons yet</p>
-                <p className="text-xs mb-4" style={{color:'#52525b'}}>
-                  Add your first lesson to get started
-                </p>
-                <button onClick={() => setShowAddModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90">
-                  <Plus className="w-4 h-4" />Add Lesson 1
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {lessons.map(lesson => (
-                  <LessonWidget
-                    key={lesson.id}
-                    lesson={lesson}
-                    onDelete={deleteLesson}
-                    onTogglePublish={toggleLessonPublish}
-                  />
-                ))}
-
-                {/* Add next lesson */}
-                <button onClick={() => setShowAddModal(true)}
-                  className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm transition-all"
-                  style={{
-                    background:'rgba(255,255,255,0.02)',
-                    border:'1px dashed rgba(255,255,255,0.1)',
-                    color:'#52525b',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)'
-                    e.currentTarget.style.color = '#8b5cf6'
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-                    e.currentTarget.style.color = '#52525b'
-                  }}>
-                  <Plus className="w-4 h-4" />
-                  Add Lesson {lessons.length + 1}
-                </button>
-
-                {/* Publish all */}
-                {!allPublished && lessons.length > 0 && (
-                  <button onClick={publishAllLessons} disabled={publishing}
-                    className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all disabled:opacity-50"
-                    style={{
-                      background:'rgba(74,222,128,0.08)',
-                      border:'1px solid rgba(74,222,128,0.2)',
-                      color:'#4ade80',
-                    }}>
-                    <CheckCircle className="w-4 h-4" />
-                    {publishing ? 'Publishing...' : `Publish All ${lessons.length} Lessons`}
-                  </button>
-                )}
-
-                {allPublished && (
-                  <div className="flex items-center gap-2 p-3 rounded-xl"
-                    style={{background:'rgba(74,222,128,0.06)', border:'1px solid rgba(74,222,128,0.15)'}}>
-                    <CheckCircle className="w-4 h-4" style={{color:'#4ade80'}} />
-                    <p className="text-sm" style={{color:'#4ade80'}}>
-                      All lessons published
+            {activeTab === 'lessons' ? (
+              <>
+                {/* Lessons header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="font-semibold text-white">Lessons</h2>
+                    <p className="text-xs mt-0.5" style={{color:'#52525b'}}>
+                      {lessons.length} total · {publishedCount} published
                     </p>
                   </div>
+                  <button onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 glow">
+                    <Plus className="w-4 h-4" />
+                    Add Lesson {lessons.length + 1}
+                  </button>
+                </div>
+
+                {/* Lesson list */}
+                {lessons.length === 0 ? (
+                  <div className="rounded-2xl p-12 text-center glass"
+                    style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+                    <Video className="w-10 h-10 mx-auto mb-3" style={{color:'#3f3f46'}} />
+                    <p className="text-sm font-medium text-white mb-1">No lessons yet</p>
+                    <p className="text-xs mb-4" style={{color:'#52525b'}}>
+                      Add your first lesson to get started
+                    </p>
+                    <button onClick={() => setShowAddModal(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90">
+                      <Plus className="w-4 h-4" />Add Lesson 1
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {lessons.map(lesson => (
+                      <LessonWidget
+                        key={lesson.id}
+                        lesson={lesson}
+                        onDelete={deleteLesson}
+                        onTogglePublish={toggleLessonPublish}
+                      />
+                    ))}
+
+                    {/* Add next lesson */}
+                    <button onClick={() => setShowAddModal(true)}
+                      className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm transition-all"
+                      style={{
+                        background:'rgba(255,255,255,0.02)',
+                        border:'1px dashed rgba(255,255,255,0.1)',
+                        color:'#52525b',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)'
+                        e.currentTarget.style.color = '#8b5cf6'
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+                        e.currentTarget.style.color = '#52525b'
+                      }}>
+                      <Plus className="w-4 h-4" />
+                      Add Lesson {lessons.length + 1}
+                    </button>
+
+                    {/* Publish all */}
+                    {!allPublished && lessons.length > 0 && (
+                      <button onClick={publishAllLessons} disabled={publishing}
+                        className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all disabled:opacity-50"
+                        style={{
+                          background:'rgba(74,222,128,0.08)',
+                          border:'1px solid rgba(74,222,128,0.2)',
+                          color:'#4ade80',
+                        }}>
+                        <CheckCircle className="w-4 h-4" />
+                        {publishing ? 'Publishing...' : `Publish All ${lessons.length} Lessons`}
+                      </button>
+                    )}
+
+                    {allPublished && (
+                      <div className="flex items-center gap-2 p-3 rounded-xl"
+                        style={{background:'rgba(74,222,128,0.06)', border:'1px solid rgba(74,222,128,0.15)'}}>
+                        <CheckCircle className="w-4 h-4" style={{color:'#4ade80'}} />
+                        <p className="text-sm" style={{color:'#4ade80'}}>
+                          All lessons published
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
+              </>
+            ) : (
+              <div className="flex flex-col gap-6">
+                <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <h2 className="font-semibold text-white mb-5">Course Settings</h2>
+                  
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Course Name</label>
+                      <input value={editName} onChange={e => setEditName(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Description</label>
+                      <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={3}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Price (₹)</label>
+                        <input value={editPrice} onChange={e => setEditPrice(e.target.value)} type="number"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Original Price (₹)</label>
+                        <input value={editOriginalPrice} onChange={e => setEditOriginalPrice(e.target.value)} type="number"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Start Date</label>
+                        <input value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Start Time</label>
+                        <input value={editStartTime} onChange={e => setEditStartTime(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Duration</label>
+                        <input value={editDuration} onChange={e => setEditDuration(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">What You Will Learn</label>
+                      <div className="flex flex-col gap-2">
+                        {editLearn.map((item, i) => (
+                          <div key={i} className="flex gap-2">
+                            <input value={item} onChange={e => {
+                              const next = [...editLearn]; next[i] = e.target.value; setEditLearn(next)
+                            }} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none" />
+                            <button onClick={() => setEditLearn(editLearn.filter((_, idx) => idx !== i))}
+                              className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        ))}
+                        <button onClick={() => setEditLearn([...editLearn, ''])}
+                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Point</button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Instructor Photo</label>
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                          {editHostImage ? (
+                            <img src={editHostImage} alt="Instructor" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-2xl font-bold text-zinc-700">
+                              {editHostName ? editHostName.charAt(0).toUpperCase() : '?'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="file"
+                            id="host-image"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            disabled={uploadingImage}
+                          />
+                          <label
+                            htmlFor="host-image"
+                            className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
+                          >
+                            {uploadingImage ? 'Uploading...' : 'Change Photo'}
+                          </label>
+                          <p className="text-[10px] text-zinc-500 mt-1.5">Square JPG/PNG recommended (max 2MB)</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">About Instructor</label>
+                      <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2" />
+                      <textarea value={editAbout} onChange={e => setEditAbout(e.target.value)} rows={2} placeholder="Bio"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none" />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Frequently Asked Questions</label>
+                      <div className="flex flex-col gap-3">
+                        {editFaq.map((faq, i) => (
+                          <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
+                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <button onClick={() => setEditFaq(editFaq.filter((_, idx) => idx !== i))}
+                              className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                            <input
+                              value={faq.question}
+                              onChange={e => {
+                                const next = [...editFaq]; next[i].question = e.target.value; setEditFaq(next)
+                              }}
+                              placeholder="Question"
+                              className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8"
+                            />
+                            <textarea
+                              value={faq.answer}
+                              onChange={e => {
+                                const next = [...editFaq]; next[i].answer = e.target.value; setEditFaq(next)
+                              }}
+                              placeholder="Answer"
+                              rows={2}
+                              className="w-full bg-transparent text-sm text-zinc-400 outline-none resize-none"
+                            />
+                          </div>
+                        ))}
+                        <button onClick={() => setEditFaq([...editFaq, { question: '', answer: '' }])}
+                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add FAQ</button>
+                      </div>
+                    </div>
+
+                    <button onClick={updateSettings} disabled={savingSettings}
+                      className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50 mt-4">
+                      {savingSettings ? 'Saving Changes...' : 'Save All Changes'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

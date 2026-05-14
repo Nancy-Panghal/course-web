@@ -1,8 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Shield, Mail, ArrowLeft, Eye, EyeOff, User } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ensureCreatorProfile } from '@/lib/creator'
 
@@ -10,6 +10,9 @@ type Mode = 'login' | 'signup'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') || '/dashboard'
+  
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,7 +24,7 @@ export default function LoginPage() {
   async function handleGoogleLogin() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${window.location.origin}${redirect}` },
     })
   }
 
@@ -50,7 +53,11 @@ export default function LoginPage() {
       })
 
       if (error) {
-        setError(error.message)
+        if (error.message.includes('Email not confirmed')) {
+          setError('Email not confirmed. Please check your inbox or disable email confirmation in Supabase dashboard.')
+        } else {
+          setError(error.message)
+        }
         setLoading(false)
         return
       }
@@ -62,7 +69,11 @@ export default function LoginPage() {
       })
 
       if (signInError) {
-        setError('Account created! Please sign in.')
+        if (signInError.message.includes('Email not confirmed')) {
+          setError('Account created! Please confirm your email to sign in.')
+        } else {
+          setError('Account created! Please sign in.')
+        }
         setMode('login')
         setLoading(false)
         return
@@ -70,18 +81,22 @@ export default function LoginPage() {
 
       // Create creator profile
       await ensureCreatorProfile()
-      router.push('/dashboard')
+      router.push(redirect)
 
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        setError(error.message)
+        if (error.message.includes('Email not confirmed')) {
+          setError('Email not confirmed. Please check your inbox or disable "Confirm email" in Supabase Auth settings.')
+        } else {
+          setError(error.message)
+        }
         setLoading(false)
         return
       }
       // Ensure creator profile exists
       await ensureCreatorProfile()
-      router.push('/dashboard')
+      router.push(redirect)
     }
 
     setLoading(false)

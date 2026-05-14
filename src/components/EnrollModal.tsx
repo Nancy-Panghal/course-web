@@ -117,11 +117,39 @@ export default function EnrollModal({ onClose, course }: Props) {
 
     try {
       if (authMode === 'signup') {
+        // Basic phone validation & formatting
+        let cleanedPhone = phone.trim().replace(/[^\d+]/g, '')
+        if (cleanedPhone.startsWith('++')) {
+          cleanedPhone = '+' + cleanedPhone.replace(/^\++/, '')
+        }
+        if (!cleanedPhone.startsWith('+')) cleanedPhone = '+' + cleanedPhone
+        if (cleanedPhone.length < 10) {
+          setError('Please enter a valid WhatsApp number with country code (e.g. +91...)')
+          setLoading(false)
+          return
+        }
+        const phoneToStore = cleanedPhone.replace('+', '')
+
+        // Check if this phone number is already enrolled in this course
+        const { data: existing } = await supabase
+          .from('enrollments')
+          .select('id')
+          .eq('course_uuid', course.id)
+          .eq('phone', phoneToStore)
+          .eq('payment_status', 'paid')
+          .maybeSingle()
+
+        if (existing) {
+          setError('This mobile number is already enrolled in this course.')
+          setLoading(false)
+          return
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name: name, role: 'student', phone },
+            data: { full_name: name, role: 'student', phone: phoneToStore },
           }
         })
         if (error) throw error
@@ -130,7 +158,7 @@ export default function EnrollModal({ onClose, course }: Props) {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) throw signInError
 
-        setStudentData({ id: data.user?.id, email, name, phone })
+        setStudentData({ id: data.user?.id, email, name, phone: phoneToStore })
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
@@ -175,10 +203,46 @@ export default function EnrollModal({ onClose, course }: Props) {
     e.preventDefault()
     if (!phone) { setError('WhatsApp number is required'); return }
 
-    // Update user metadata with phone
-    await supabase.auth.updateUser({ data: { phone } })
-    setStudentData((prev: any) => ({ ...prev, phone }))
-    setStep('payment')
+    // Basic phone validation & formatting
+    let cleanedPhone = phone.trim().replace(/[^\d+]/g, '')
+    // Handle the "++91" case mentioned by user
+    if (cleanedPhone.startsWith('++')) {
+      cleanedPhone = '+' + cleanedPhone.replace(/^\++/, '')
+    }
+    // Ensure it starts with + and has enough digits
+    if (!cleanedPhone.startsWith('+')) cleanedPhone = '+' + cleanedPhone
+    if (cleanedPhone.length < 10) {
+      setError('Please enter a valid WhatsApp number with country code (e.g. +91...)')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      // Check if this phone number is already enrolled in this course
+      const { data: existing } = await supabase
+        .from('enrollments')
+        .select('id')
+        .eq('course_uuid', course.id)
+        .eq('phone', cleanedPhone.replace('+', '')) // Store without + if that's the convention
+        .eq('payment_status', 'paid')
+        .maybeSingle()
+
+      if (existing) {
+        setError('This mobile number is already enrolled in this course.')
+        setLoading(false)
+        return
+      }
+
+      // Update user metadata with phone
+      await supabase.auth.updateUser({ data: { phone: cleanedPhone.replace('+', '') } })
+      setStudentData((prev: any) => ({ ...prev, phone: cleanedPhone.replace('+', '') }))
+      setStep('payment')
+    } catch (err: any) {
+      setError(err.message)
+    }
+    setLoading(false)
   }
 
   async function handlePayment() {
@@ -258,6 +322,10 @@ export default function EnrollModal({ onClose, course }: Props) {
               setGeneratingToken(false)
             }
             setStep('success')
+            // Auto redirect to learn page after 2 seconds
+            setTimeout(() => {
+              window.location.href = `/learn/${course.creatorSlug}`
+            }, 2000)
           } else {
             setError('Payment verification failed. Please contact support.')
           }
