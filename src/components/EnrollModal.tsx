@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play } from 'lucide-react'
+import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play,MessageCircle } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 
 const COUNTRIES = [
@@ -137,12 +137,44 @@ export default function EnrollModal({ onClose, course }: Props) {
 
   // Success state
   const [waToken, setWaToken] = useState('')
+  const [demoWaToken, setDemoWaToken] = useState('')
   const [generatingToken, setGeneratingToken] = useState(false)
 
   const creatorSlug = slugify(course.creatorName)
-  const courseSlug = slugify(course.name)
+  const courseSlug = slugify(course.creatorSlug) // Using creatorSlug as the course slug reference
   const learnUrl = `/course/${creatorSlug}/${courseSlug}/${course.id}`
   const aboutUrl = `/about-course/${creatorSlug}/${courseSlug}/${course.id}`
+
+  // Generate demo token when entering demo step
+  useEffect(() => {
+    if (step === 'demo' && course.waNumber && !demoWaToken) {
+      generateToken(false)
+    }
+  }, [step])
+
+  async function generateToken(isPaid: boolean, paymentId?: string) {
+    setGeneratingToken(true)
+    try {
+      const tokenRes = await fetch('/api/whatsapp/create-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentPhone: studentData?.phone,
+          studentEmail: studentData?.email,
+          studentName: studentData?.name,
+          creatorId: course.creatorId,
+          courseSlug: course.creatorSlug,
+          paymentId: paymentId || null,
+        }),
+      })
+      const { token } = await tokenRes.json()
+      if (isPaid) setWaToken(token || '')
+      else setDemoWaToken(token || '')
+    } catch (e) {
+      console.error('Token error:', e)
+    }
+    setGeneratingToken(false)
+  }
 
   // Check if already logged in
   useEffect(() => {
@@ -386,26 +418,7 @@ export default function EnrollModal({ onClose, course }: Props) {
           if (result.success) {
             // Generate WhatsApp token if delivery includes WhatsApp
             if (course.waNumber) {
-              setGeneratingToken(true)
-              try {
-                const tokenRes = await fetch('/api/whatsapp/create-token', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    studentPhone: studentData?.phone,
-                    studentEmail: studentData?.email,
-                    studentName: studentData?.name,
-                    creatorId: course.creatorId,
-                    courseSlug: course.creatorSlug,
-                    paymentId: response.razorpay_payment_id,
-                  }),
-                })
-                const { token } = await tokenRes.json()
-                setWaToken(token || '')
-              } catch (e) {
-                console.error('Token error:', e)
-              }
-              setGeneratingToken(false)
+              await generateToken(true, response.razorpay_payment_id)
             }
             setStep('success')
             // Auto redirect to learn page after 2 seconds
@@ -634,16 +647,43 @@ export default function EnrollModal({ onClose, course }: Props) {
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Welcome, {studentData?.name}!</h3>
             <p className="text-sm mb-6" style={{color:'#a1a1aa'}}>
-              You can watch the free demo lessons before enrolling.
+              You can start watching the free lessons right now.
             </p>
             <div className="flex flex-col gap-3">
+              {/* WhatsApp option */}
+              {course.waNumber && (
+                <>
+                  {demoWaToken ? (
+                    <a
+                      href={`https://wa.me/${course.waNumber.replace(/[\s+\-()]/g, '')}?text=ENROLL:${demoWaToken}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-white transition-all hover:opacity-90 glow-strong text-lg"
+                      style={{background:'#25d366'}}>
+                      <MessageCircle className="w-6 h-6" />
+                      Start Free Lessons on WhatsApp
+                    </a>
+                  ) : (
+                    <div className="w-full py-4 rounded-xl text-sm text-center"
+                      style={{background:'rgba(37,211,102,0.08)', color:'#25d366', border:'1px solid rgba(37,211,102,0.15)'}}>
+                      Preparing WhatsApp link...
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 h-px bg-white/5" />
+                    <span className="text-[10px] uppercase tracking-widest text-zinc-600">OR</span>
+                    <div className="flex-1 h-px bg-white/5" />
+                  </div>
+                </>
+              )}
+
               <button onClick={() => window.location.href = learnUrl}
-                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong text-lg">
-                Watch Demo Now
+                className="w-full py-3.5 rounded-xl font-medium text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                Watch Demo on Website
               </button>
+              
               <button onClick={() => setStep('payment')}
-                className="text-xs text-zinc-500 hover:text-white transition-colors">
-                Skip and pay ₹{course.price.toLocaleString()} now
+                className="text-xs text-zinc-500 hover:text-white transition-colors mt-2">
+                Skip to Payment — ₹{course.price.toLocaleString()}
               </button>
             </div>
           </div>
