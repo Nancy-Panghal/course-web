@@ -1,6 +1,86 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play } from 'lucide-react'
+import { slugify } from '@/lib/utils'
+
+const COUNTRIES = [
+  { name: 'India', code: '+91', flag: '🇮🇳' },
+  { name: 'United States', code: '+1', flag: '🇺🇸' },
+  { name: 'United Kingdom', code: '+44', flag: '🇬🇧' },
+  { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪' },
+  { name: 'Australia', code: '+61', flag: '🇦🇺' },
+  { name: 'Canada', code: '+1', flag: '🇨🇦' },
+  { name: 'Singapore', code: '+65', flag: '🇸🇬' },
+  { name: 'Germany', code: '+49', flag: '🇩🇪' },
+  { name: 'France', code: '+33', flag: '🇫🇷' },
+  { name: 'Saudi Arabia', code: '+966', flag: '🇸🇦' },
+  { name: 'Pakistan', code: '+92', flag: '🇵🇰' },
+  { name: 'Bangladesh', code: '+880', flag: '🇧🇩' },
+  { name: 'Nepal', code: '+977', flag: '🇳🇵' },
+  { name: 'Sri Lanka', code: '+94', flag: '🇱🇰' },
+]
+
+function CountrySelector({ selected, onSelect }: { selected: any, onSelect: (c: any) => void }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filtered = COUNTRIES.filter(c => 
+    c.name.toLowerCase().includes(search.toLowerCase()) || 
+    c.code.includes(search)
+  )
+
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(!open)}
+        className="h-full px-3 flex items-center gap-1.5 rounded-l-xl border-r border-white/10 transition-all hover:bg-white/5"
+        style={{background:'rgba(255,255,255,0.05)'}}>
+        <span className="text-sm">{selected.flag}</span>
+        <span className="text-xs font-bold text-zinc-400">{selected.code}</span>
+        <ChevronDown className={`w-3 h-3 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-2 w-64 max-h-64 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[60]"
+          style={{background:'#121212', backdropFilter:'blur(20px)'}}>
+          <div className="sticky top-0 p-2 border-b border-white/5" style={{background:'#121212'}}>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+              <input 
+                autoFocus
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search country..."
+                className="w-full pl-8 pr-3 py-2 bg-white/5 rounded-lg text-xs text-white outline-none border border-transparent focus:border-violet-500/50"
+              />
+            </div>
+          </div>
+          <div className="p-1">
+            {filtered.map(c => (
+              <button key={c.name + c.code} type="button" 
+                onClick={() => { onSelect(c); setOpen(false); setSearch('') }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors group">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{c.flag}</span>
+                  <span className="text-xs text-zinc-300 font-medium group-hover:text-white">{c.name}</span>
+                </div>
+                <span className="text-xs text-zinc-500 font-bold">{c.code}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 import { supabase } from '@/lib/supabase'
 
 declare global {
@@ -15,6 +95,7 @@ interface CourseData {
   creatorName: string
   creatorId: string
   waNumber?: string
+  free_preview_config?: string
 }
 
 interface Props {
@@ -22,7 +103,7 @@ interface Props {
   course: CourseData
 }
 
-type Step = 'auth' | 'phone' | 'payment' | 'success'
+type Step = 'auth' | 'phone' | 'payment' | 'success' | 'demo'
 type AuthMode = 'signup' | 'login'
 
 function loadRazorpay(): Promise<boolean> {
@@ -47,6 +128,7 @@ export default function EnrollModal({ onClose, course }: Props) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0])
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
 
@@ -56,6 +138,11 @@ export default function EnrollModal({ onClose, course }: Props) {
   // Success state
   const [waToken, setWaToken] = useState('')
   const [generatingToken, setGeneratingToken] = useState(false)
+
+  const creatorSlug = slugify(course.creatorName)
+  const courseSlug = slugify(course.name)
+  const learnUrl = `/course/${creatorSlug}/${courseSlug}/${course.id}`
+  const aboutUrl = `/about-course/${creatorSlug}/${courseSlug}/${course.id}`
 
   // Check if already logged in
   useEffect(() => {
@@ -73,7 +160,7 @@ export default function EnrollModal({ onClose, course }: Props) {
 
       if (enrollment) {
         // Already enrolled — close modal and redirect
-        window.location.href = `/learn/${course.creatorSlug}`
+        window.location.href = learnUrl
         return
       }
 
@@ -89,10 +176,13 @@ export default function EnrollModal({ onClose, course }: Props) {
       setEmail(userData.email)
 
       // If phone missing (e.g. Google login), ask for it
+      const isNothingFree = !course.free_preview_config || course.free_preview_config === 'nothing free'
       if (!userData.phone) {
         setStep('phone')
-      } else {
+      } else if (isNothingFree) {
         setStep('payment')
+      } else {
+        setStep('demo')
       }
 
       setCheckingAuth(false)
@@ -104,7 +194,7 @@ export default function EnrollModal({ onClose, course }: Props) {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/c/${course.creatorSlug}?enroll=true`,
+        redirectTo: `${window.location.origin}${aboutUrl}?enroll=true`,
         queryParams: { prompt: 'select_account' },
       },
     })
@@ -117,18 +207,15 @@ export default function EnrollModal({ onClose, course }: Props) {
 
     try {
       if (authMode === 'signup') {
-        // Basic phone validation & formatting
-        let cleanedPhone = phone.trim().replace(/[^\d+]/g, '')
-        if (cleanedPhone.startsWith('++')) {
-          cleanedPhone = '+' + cleanedPhone.replace(/^\++/, '')
-        }
-        if (!cleanedPhone.startsWith('+')) cleanedPhone = '+' + cleanedPhone
-        if (cleanedPhone.length < 10) {
-          setError('Please enter a valid WhatsApp number with country code (e.g. +91...)')
+        // Validation: Must be 10 digits
+        const cleanedPhone = phone.trim().replace(/\D/g, '')
+        if (cleanedPhone.length !== 10) {
+          setError('Please enter a valid 10-digit mobile number')
           setLoading(false)
           return
         }
-        const phoneToStore = cleanedPhone.replace('+', '')
+
+        const phoneToStore = selectedCountry.code.replace('+', '') + cleanedPhone
 
         // Check if this phone number is already enrolled in this course
         const { data: existing } = await supabase
@@ -181,7 +268,7 @@ export default function EnrollModal({ onClose, course }: Props) {
           .single()
 
         if (enrollment) {
-          window.location.href = `/learn/${course.creatorSlug}`
+          window.location.href = learnUrl
           return
         }
 
@@ -192,7 +279,8 @@ export default function EnrollModal({ onClose, course }: Props) {
         }
       }
 
-      setStep('payment')
+      const isNothingFree = !course.free_preview_config || course.free_preview_config === 'nothing free'
+      setStep(isNothingFree ? 'payment' : 'demo')
     } catch (err: any) {
       setError(err.message)
     }
@@ -203,18 +291,14 @@ export default function EnrollModal({ onClose, course }: Props) {
     e.preventDefault()
     if (!phone) { setError('WhatsApp number is required'); return }
 
-    // Basic phone validation & formatting
-    let cleanedPhone = phone.trim().replace(/[^\d+]/g, '')
-    // Handle the "++91" case mentioned by user
-    if (cleanedPhone.startsWith('++')) {
-      cleanedPhone = '+' + cleanedPhone.replace(/^\++/, '')
-    }
-    // Ensure it starts with + and has enough digits
-    if (!cleanedPhone.startsWith('+')) cleanedPhone = '+' + cleanedPhone
-    if (cleanedPhone.length < 10) {
-      setError('Please enter a valid WhatsApp number with country code (e.g. +91...)')
+    // Validation: Must be 10 digits
+    const cleanedPhone = phone.trim().replace(/\D/g, '')
+    if (cleanedPhone.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number')
       return
     }
+
+    const phoneToStore = selectedCountry.code.replace('+', '') + cleanedPhone
 
     setLoading(true)
     setError('')
@@ -225,7 +309,7 @@ export default function EnrollModal({ onClose, course }: Props) {
         .from('enrollments')
         .select('id')
         .eq('course_uuid', course.id)
-        .eq('phone', cleanedPhone.replace('+', '')) // Store without + if that's the convention
+        .eq('phone', phoneToStore)
         .eq('payment_status', 'paid')
         .maybeSingle()
 
@@ -236,9 +320,11 @@ export default function EnrollModal({ onClose, course }: Props) {
       }
 
       // Update user metadata with phone
-      await supabase.auth.updateUser({ data: { phone: cleanedPhone.replace('+', '') } })
-      setStudentData((prev: any) => ({ ...prev, phone: cleanedPhone.replace('+', '') }))
-      setStep('payment')
+      await supabase.auth.updateUser({ data: { phone: phoneToStore } })
+      setStudentData((prev: any) => ({ ...prev, phone: phoneToStore }))
+      
+      const isNothingFree = !course.free_preview_config || course.free_preview_config === 'nothing free'
+      setStep(isNothingFree ? 'payment' : 'demo')
     } catch (err: any) {
       setError(err.message)
     }
@@ -324,7 +410,7 @@ export default function EnrollModal({ onClose, course }: Props) {
             setStep('success')
             // Auto redirect to learn page after 2 seconds
             setTimeout(() => {
-              window.location.href = `/learn/${course.creatorSlug}`
+              window.location.href = learnUrl
             }, 2000)
           } else {
             setError('Payment verification failed. Please contact support.')
@@ -364,6 +450,7 @@ export default function EnrollModal({ onClose, course }: Props) {
             <h2 className="font-semibold text-white">
               {step === 'auth' ? 'Enroll in Course' :
                step === 'phone' ? 'Add WhatsApp Number' :
+               step === 'demo' ? 'Watch Demo' :
                step === 'payment' ? 'Complete Payment' :
                'You\'re Enrolled! 🎉'}
             </h2>
@@ -437,14 +524,22 @@ export default function EnrollModal({ onClose, course }: Props) {
               </div>
 
               {authMode === 'signup' && (
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
-                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                    placeholder="WhatsApp number e.g. +919XXXXXXXX" required
-                    className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none"
-                    style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                    onFocus={e => e.target.style.borderColor = '#7c3aed'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+                <div className="flex gap-2">
+                  <CountrySelector selected={selectedCountry} onSelect={setSelectedCountry} />
+                  <div className="relative flex-1">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
+                    <input type="tel" value={phone} 
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '')
+                        if (val.length <= 10) setPhone(val)
+                      }}
+                      placeholder="Mobile number (10 digits)" required
+                      maxLength={10}
+                      className="w-full pl-10 pr-4 py-3 rounded-r-xl text-sm text-white outline-none"
+                      style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderLeft:'none'}}
+                      onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                      onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+                  </div>
                 </div>
               )}
 
@@ -502,14 +597,22 @@ export default function EnrollModal({ onClose, course }: Props) {
             </div>
 
             <form onSubmit={handlePhoneSubmit} className="flex flex-col gap-4">
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
-                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                  placeholder="+919XXXXXXXXX" required
-                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none"
-                  style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+              <div className="flex gap-2">
+                <CountrySelector selected={selectedCountry} onSelect={setSelectedCountry} />
+                <div className="relative flex-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
+                  <input type="tel" value={phone} 
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '')
+                      if (val.length <= 10) setPhone(val)
+                    }}
+                    placeholder="10 digit number" required
+                    maxLength={10}
+                    className="w-full pl-10 pr-4 py-3 rounded-r-xl text-sm text-white outline-none"
+                    style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderLeft:'none'}}
+                    onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+                </div>
               </div>
               {error && (
                 <p className="text-sm" style={{color:'#ef4444'}}>{error}</p>
@@ -519,6 +622,30 @@ export default function EnrollModal({ onClose, course }: Props) {
                 Continue to Payment →
               </button>
             </form>
+          </div>
+        )}
+
+        {/* ── DEMO STEP ── */}
+        {step === 'demo' && (
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{background:'rgba(124,58,237,0.1)', border:'1px solid rgba(124,58,237,0.2)'}}>
+              <Play className="w-8 h-8 text-violet-500" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Welcome, {studentData?.name}!</h3>
+            <p className="text-sm mb-6" style={{color:'#a1a1aa'}}>
+              You can watch the free demo lessons before enrolling.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button onClick={() => window.location.href = learnUrl}
+                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong text-lg">
+                Watch Demo Now
+              </button>
+              <button onClick={() => setStep('payment')}
+                className="text-xs text-zinc-500 hover:text-white transition-colors">
+                Skip and pay ₹{course.price.toLocaleString()} now
+              </button>
+            </div>
           </div>
         )}
 
@@ -601,13 +728,13 @@ export default function EnrollModal({ onClose, course }: Props) {
 
             <div className="flex flex-col gap-3">
               {/* Web option */}
-              <a href={`/learn/${course.creatorSlug}`}
+              <a href={learnUrl}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-medium text-white violet-gradient hover:opacity-90 glow transition-all">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                Start Learning on Web
+                Start Course
               </a>
 
               {/* WhatsApp option */}

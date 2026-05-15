@@ -5,33 +5,37 @@ import { supabase } from '@/lib/supabase'
 import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock } from 'lucide-react'
 
 // ── OUTSIDE the page component — fixes input focus loss ──
-function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false }: {
+function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false, rightElement }: {
   label: string
   value: string
   onChange?: (v: string) => void
   placeholder: string
   type?: string
   disabled?: boolean
+  rightElement?: React.ReactNode
 }) {
   return (
     <div className="mb-4">
       <label className="text-sm font-medium text-white mb-2 block">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange?.(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
-        style={{
-          background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          cursor: disabled ? 'not-allowed' : 'text',
-          color: disabled ? '#52525b' : '#fff',
-        }}
-        onFocus={e => { if (!disabled) e.target.style.borderColor = '#7c3aed' }}
-        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)' }}
-      />
+      <div className="flex gap-2">
+        <input
+          type={type}
+          value={value}
+          onChange={e => onChange?.(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          className="flex-1 px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+          style={{
+            background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            cursor: disabled ? 'not-allowed' : 'text',
+            color: disabled ? '#52525b' : '#fff',
+          }}
+          onFocus={e => { if (!disabled) e.target.style.borderColor = '#7c3aed' }}
+          onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)' }}
+        />
+        {rightElement}
+      </div>
     </div>
   )
 }
@@ -83,11 +87,7 @@ function SectionCard({ title, icon: Icon, children }: {
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
   const [name, setName] = useState('')
-  const [courseName, setCourseName] = useState('')
-  const [whatsappNumber, setWhatsappNumber] = useState('')
   const [originalName, setOriginalName] = useState('')
-  const [originalCourse, setOriginalCourse] = useState('')
-  const [originalWa, setOriginalWa] = useState('')
   const [notifications, setNotifications] = useState({
     piracy: true,
     enrollment: true,
@@ -101,21 +101,19 @@ export default function SettingsPage() {
   const [deleteScheduledAt, setDeleteScheduledAt] = useState<Date | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const hasChanges =
-    name !== originalName ||
-    courseName !== originalCourse ||
-    whatsappNumber !== originalWa
+  const hasChanges = name !== originalName
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       const u = data.user
       setUser(u)
       const n = u?.user_metadata?.full_name || u?.user_metadata?.username || ''
-      const c = u?.user_metadata?.course_name || ''
-      const w = u?.user_metadata?.whatsapp_number || ''
       setName(n); setOriginalName(n)
-      setCourseName(c); setOriginalCourse(c)
-      setWhatsappNumber(w); setOriginalWa(w)
+      
+      // Load notifications from metadata if they exist
+      if (u?.user_metadata?.notifications) {
+        setNotifications(u.user_metadata.notifications)
+      }
     })
   }, [])
 
@@ -125,18 +123,26 @@ export default function SettingsPage() {
       data: {
         full_name: name,
         username: name,
-        course_name: courseName,
-        whatsapp_number: whatsappNumber,
       }
     })
     if (!error) {
       setOriginalName(name)
-      setOriginalCourse(courseName)
-      setOriginalWa(whatsappNumber)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     }
     setSaving(false)
+  }
+
+  async function updateNotificationSetting(key: string, value: boolean) {
+    const nextNotifications = { ...notifications, [key]: value }
+    setNotifications(nextNotifications)
+    
+    // Save to database immediately
+    await supabase.auth.updateUser({
+      data: {
+        notifications: nextNotifications
+      }
+    })
   }
 
   async function handleScheduleDelete() {
@@ -175,6 +181,21 @@ export default function SettingsPage() {
             value={name}
             onChange={setName}
             placeholder="Your name"
+            rightElement={
+              <button
+                onClick={handleSave}
+                disabled={!hasChanges || saving}
+                className="px-6 rounded-xl text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap"
+                style={{
+                  background: hasChanges ? '#7c3aed' : 'rgba(255,255,255,0.05)',
+                  color: hasChanges ? '#fff' : '#52525b',
+                  border: '1px solid ' + (hasChanges ? '#7c3aed' : 'rgba(255,255,255,0.1)'),
+                  cursor: hasChanges ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Name'}
+              </button>
+            }
           />
           <InputField
             label="Email Address"
@@ -184,70 +205,29 @@ export default function SettingsPage() {
           />
         </SectionCard>
 
-        {/* Course Settings */}
-        <SectionCard title="Course Settings" icon={Shield}>
-          <InputField
-            label="Course Name"
-            value={courseName}
-            onChange={setCourseName}
-            placeholder="e.g. SEO Masterclass 2026"
-          />
-          <InputField
-            label="WhatsApp Bot Number"
-            value={whatsappNumber}
-            onChange={setWhatsappNumber}
-            placeholder="+91XXXXXXXXXX"
-            type="tel"
-          />
-          <div className="p-3 rounded-xl text-sm"
-            style={{background:'rgba(124,58,237,0.08)', color:'#a1a1aa'}}>
-            This is the number students message to receive lessons.
-          </div>
-        </SectionCard>
-
         {/* Notifications */}
         <SectionCard title="Notifications" icon={Bell}>
           <Toggle
             label="Piracy detected"
             desc="Get notified when a new piracy link is found"
             value={notifications.piracy}
-            onChange={v => setNotifications(n => ({...n, piracy: v}))}
+            onChange={v => updateNotificationSetting('piracy', v)}
           />
           <Toggle
             label="New enrollment"
             desc="Get notified when a student enrolls"
             value={notifications.enrollment}
-            onChange={v => setNotifications(n => ({...n, enrollment: v}))}
+            onChange={v => updateNotificationSetting('enrollment', v)}
           />
           <Toggle
             label="Course completion"
             desc="Get notified when a student completes the course"
             value={notifications.completion}
-            onChange={v => setNotifications(n => ({...n, completion: v}))}
+            onChange={v => updateNotificationSetting('completion', v)}
           />
         </SectionCard>
 
-        {/* Save button */}
-        <div className="flex justify-end mb-8">
-          <button
-            onClick={handleSave}
-            disabled={!hasChanges || saving}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-white transition-all"
-            style={{
-              background: hasChanges
-                ? 'linear-gradient(135deg, #7c3aed, #8b5cf6)'
-                : 'rgba(255,255,255,0.05)',
-              color: hasChanges ? '#fff' : '#52525b',
-              cursor: hasChanges ? 'pointer' : 'not-allowed',
-              boxShadow: hasChanges ? '0 0 40px rgba(124,58,237,0.3)' : 'none',
-            }}
-          >
-            {saved
-              ? <><Check className="w-4 h-4" />Saved!</>
-              : saving ? 'Saving...' : 'Save Changes'
-            }
-          </button>
-        </div>
+        <div className="mb-12" />
 
         {/* Danger Zone */}
         <div className="rounded-2xl p-6"

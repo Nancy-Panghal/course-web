@@ -3,12 +3,13 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
+import { slugify } from '@/lib/utils'
 import Link from 'next/link'
 import {
   ArrowLeft, Plus, Video, FileText, Globe,
   Eye, EyeOff, ExternalLink, Copy, Check,
   GripVertical, Trash2, CheckCircle, AlertCircle,
-  MessageCircle, Monitor, Share2, ChevronDown, ChevronUp
+  MessageCircle, Monitor, Share2, ChevronDown, ChevronUp,AlertTriangle
 } from 'lucide-react'
 
 interface Course {
@@ -31,6 +32,8 @@ interface Course {
   what_you_will_learn?: string[]
   faq?: { question: string; answer: string }[]
   host_image?: string
+  free_preview_config?: string
+  scheduled_deletion_at?: string
 }
 
 interface Lesson {
@@ -447,8 +450,14 @@ export default function CourseManagePage({
   const [editLearn, setEditLearn] = useState<string[]>([])
   const [editFaq, setEditFaq] = useState<{ question: string; answer: string }[]>([])
   const [editHostImage, setEditHostImage] = useState('')
+  const [editFreePreview, setEditFreePreview] = useState('nothing free')
   const [uploadingImage, setUploadingImage] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
+
+  // Deletion state
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteInput, setDeleteInput] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -479,6 +488,7 @@ export default function CourseManagePage({
       setEditLearn(courseData.what_you_will_learn || [''])
       setEditFaq(courseData.faq || [{ question: '', answer: '' }])
       setEditHostImage(courseData.host_image || '')
+      setEditFreePreview(courseData.free_preview_config || 'nothing free')
 
       await fetchLessons()
       setLoading(false)
@@ -528,6 +538,7 @@ export default function CourseManagePage({
         what_you_will_learn: editLearn.filter(l => l.trim()),
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
+        free_preview_config: editFreePreview,
       })
       .eq('id', id)
 
@@ -546,9 +557,41 @@ export default function CourseManagePage({
         what_you_will_learn: editLearn.filter(l => l.trim()),
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
+        free_preview_config: editFreePreview,
       })
     }
     setSavingSettings(false)
+  }
+
+  async function handleScheduleDeletion() {
+    if (deleteInput !== course?.name) return
+    setIsDeleting(true)
+    const deletionDate = new Date()
+    deletionDate.setDate(deletionDate.getDate() + 5)
+    
+    const { error } = await supabase
+      .from('courses')
+      .update({ scheduled_deletion_at: deletionDate.toISOString() })
+      .eq('id', id)
+
+    if (!error) {
+      setCourse({ ...course!, scheduled_deletion_at: deletionDate.toISOString() })
+      setShowDeleteModal(false)
+    }
+    setIsDeleting(false)
+  }
+
+  async function handleCancelDeletion() {
+    setIsDeleting(true)
+    const { error } = await supabase
+      .from('courses')
+      .update({ scheduled_deletion_at: null })
+      .eq('id', id)
+
+    if (!error) {
+      setCourse({ ...course!, scheduled_deletion_at: undefined })
+    }
+    setIsDeleting(false)
   }
 
   async function fetchLessons() {
@@ -609,14 +652,15 @@ export default function CourseManagePage({
 
   function copyCourseLink() {
     if (!course) return
-    navigator.clipboard.writeText(`${window.location.origin}/learn/${course.slug}`)
+    const url = `${window.location.origin}/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`
+    navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
   }
 
   const publishedCount = lessons.filter(l => l.is_published).length
   const allPublished = lessons.length > 0 && publishedCount === lessons.length
-  const courseUrl = course ? `${window.location.origin}/learn/${course.slug}` : ''
+  const courseUrl = course ? `${window.location.origin}/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}` : ''
 
   if (loading) {
     return (
@@ -643,6 +687,69 @@ export default function CourseManagePage({
       )}
 
       <main className="md:ml-56 p-6 md:p-8">
+
+        {/* Deletion Banner */}
+        {course.scheduled_deletion_at && (
+          <div className="mb-6 p-4 rounded-2xl flex items-center justify-between gap-4 animate-pulse-glow"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              <div>
+                <p className="text-sm font-bold text-red-500 uppercase tracking-wider">Course Scheduled for Deletion</p>
+                <p className="text-xs text-red-200/60">
+                  This course and all its data will be permanently deleted on {new Date(course.scheduled_deletion_at).toLocaleDateString('en-IN', {
+                    day: 'numeric', month: 'long', year: 'numeric'
+                  })}.
+                </p>
+              </div>
+            </div>
+            <button onClick={handleCancelDeletion} disabled={isDeleting}
+              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest bg-white/10 text-white hover:bg-white/20 transition-all">
+              {isDeleting ? 'Restoring...' : 'Cancel Deletion'}
+            </button>
+          </div>
+        )}
+
+        {/* Deletion Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-md rounded-2xl p-8"
+              style={{ background: '#0a0a0a', border: '1px solid rgba(239,68,68,0.3)' }}>
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h2 className="text-2xl font-bold text-white text-center mb-2">Delete Course?</h2>
+              <p className="text-sm text-zinc-400 text-center mb-6">
+                This will schedule the course <strong className="text-white">"{course.name}"</strong> for permanent deletion in 5 days.
+              </p>
+              
+              <div className="mb-6">
+                <p className="text-xs text-zinc-500 mb-2 uppercase font-bold tracking-widest">Type course name to confirm:</p>
+                <input
+                  type="text"
+                  value={deleteInput}
+                  onChange={e => setDeleteInput(e.target.value)}
+                  placeholder={course.name}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-red-500/50"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => { setShowDeleteModal(false); setDeleteInput('') }}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold text-zinc-400 bg-white/5 hover:bg-white/10 transition-all">
+                  Cancel
+                </button>
+                <button onClick={handleScheduleDeletion}
+                  disabled={deleteInput !== course.name || isDeleting}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-30 transition-all">
+                  {isDeleting ? 'Scheduling...' : 'Confirm Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex items-start gap-4 mb-8">
@@ -804,6 +911,23 @@ export default function CourseManagePage({
                       </div>
                     </div>
 
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Free Preview Configuration</label>
+                      <select
+                        value={editFreePreview}
+                        onChange={e => setEditFreePreview(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 appearance-none cursor-pointer"
+                      >
+                        <option value="nothing free" className="bg-[#111]">Nothing free (Pay immediately)</option>
+                        <option value="lesson 1 free" className="bg-[#111]">Lesson 1 free</option>
+                        <option value="2 lessons free" className="bg-[#111]">2 lessons free</option>
+                        <option value="3 lessons free" className="bg-[#111]">3 lessons free</option>
+                        <option value="module 1 free" className="bg-[#111]">Module 1 free</option>
+                        <option value="2 modules free" className="bg-[#111]">2 modules free</option>
+                      </select>
+                      <p className="text-[10px] text-zinc-500 mt-1.5">Select how much content is free for students</p>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Start Date</label>
@@ -917,6 +1041,26 @@ export default function CourseManagePage({
                       className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50 mt-4">
                       {savingSettings ? 'Saving Changes...' : 'Save All Changes'}
                     </button>
+
+                    {/* Danger Zone */}
+                    <div className="mt-12 pt-8 border-t border-red-500/20">
+                      <div className="flex items-center gap-2 mb-4">
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                        <h3 className="text-sm font-bold text-red-500 uppercase tracking-widest">Danger Zone</h3>
+                      </div>
+                      <div className="p-5 rounded-2xl bg-red-500/5 border border-red-500/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-bold text-white mb-1">Delete Course</p>
+                          <p className="text-xs text-zinc-500">
+                            Schedule this course for deletion. You have 5 days to cancel.
+                          </p>
+                        </div>
+                        <button onClick={() => setShowDeleteModal(true)}
+                          className="px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest bg-red-500/10 text-red-500 hover:bg-red-500 border border-red-500/20 hover:text-white transition-all whitespace-nowrap">
+                          Delete Course
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -992,7 +1136,7 @@ export default function CourseManagePage({
               <p className="text-xs mb-3" style={{color:'#52525b'}}>
                 This is what students see when they visit your course link.
               </p>
-              <Link href={`/learn/${course.slug}`} target="_blank"
+              <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all mb-2"
                 style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
                 <ExternalLink className="w-4 h-4" />
@@ -1015,7 +1159,7 @@ export default function CourseManagePage({
               <div className="flex items-center gap-2 p-2.5 rounded-xl mb-3"
                 style={{background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.08)'}}>
                 <p className="text-xs flex-1 truncate font-mono" style={{color:'#a1a1aa'}}>
-                  /learn/{course.slug}
+                  /about-course/.../{course.id.slice(0, 8)}
                 </p>
               </div>
 
@@ -1029,14 +1173,14 @@ export default function CourseManagePage({
                 }
               </button>
 
-              {/* WhatsApp share */}
+              {/* Share on WhatsApp */}
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Join my course "${course.name}": ${courseUrl}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`Hey! Enroll in my course "${course.name}" here: ${courseUrl}`)}`}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
                 style={{background:'#25d366', color:'#fff'}}>
                 <MessageCircle className="w-4 h-4" />
-                Share on WhatsApp
+                Share to WhatsApp
               </a>
             </div>
 

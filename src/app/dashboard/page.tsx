@@ -205,38 +205,16 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Completion ring */}
-            <div className="rounded-2xl p-5 glass"
-              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="text-sm font-semibold text-white mb-4">Completion Funnel</h3>
-              {[
-                { label: 'Enrolled', pct: 100, color: '#8b5cf6' },
-                { label: 'Started', pct: 78, color: '#3b82f6' },
-                { label: 'Halfway', pct: 61, color: '#facc15' },
-                { label: 'Completed', pct: 54, color: '#4ade80' },
-              ].map((r, i) => (
-                <div key={i} className="mb-3">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span style={{ color: '#a1a1aa' }}>{r.label}</span>
-                    <span className="text-white font-medium">{r.pct}%</span>
-                  </div>
-                  <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="h-1.5 rounded-full transition-all"
-                      style={{ width: `${r.pct}%`, background: r.color }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
             {/* Quick actions */}
             <div className="rounded-2xl p-5 glass"
               style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
               <h3 className="text-sm font-semibold text-white mb-4">Quick Actions</h3>
               <div className="flex flex-col gap-2">
                 {[
-                  { label: 'Upload new lesson', href: '/dashboard/lessons' },
+                  { label: 'Upload new course', href: '/dashboard/courses' },
                   { label: 'View all students', href: '/dashboard/students' },
                   { label: 'Check piracy shield', href: '/dashboard/piracy' },
+                  { label: 'Have trouble, contact us', href: '/contact' },
                 ].map((a, i) => (
                   <a key={i} href={a.href}
                     className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all"

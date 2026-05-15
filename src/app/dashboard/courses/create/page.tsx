@@ -92,6 +92,7 @@ export default function CreateCoursePage() {
   const [faqs, setFaqs] = useState([{ question: '', answer: '' }])
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English'])
   const [langDropdown, setLangDropdown] = useState(false)
+  const [freePreview, setFreePreview] = useState('nothing free')
 
   const slug = slugify(name)
 
@@ -175,6 +176,7 @@ export default function CreateCoursePage() {
         duration: duration,
         what_you_will_learn: whatYouWillLearn.filter(item => item.trim() !== ''),
         faq: faqs.filter(f => f.question.trim() !== '' && f.answer.trim() !== ''),
+        free_preview_config: freePreview,
       })
       .select()
       .single()
@@ -244,6 +246,22 @@ export default function CreateCoursePage() {
                   <Input value={originalPrice} onChange={setOriginalPrice} placeholder="9999" type="number" />
                 </Field>
               </div>
+
+              <Field label="Free Preview Configuration" hint="Select how much content is free for students">
+                <select
+                  value={freePreview}
+                  onChange={e => setFreePreview(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all appearance-none cursor-pointer"
+                  style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+                >
+                  <option value="nothing free">Nothing free (Pay immediately)</option>
+                  <option value="lesson 1 free">Lesson 1 free</option>
+                  <option value="2 lessons free">2 lessons free</option>
+                  <option value="3 lessons free">3 lessons free</option>
+                  <option value="module 1 free">Module 1 free</option>
+                  <option value="2 modules free">2 modules free</option>
+                </select>
+              </Field>
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Instructor Name" hint="Shown on course page">

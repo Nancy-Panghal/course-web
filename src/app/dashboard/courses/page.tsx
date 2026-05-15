@@ -2,11 +2,12 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
+import { slugify } from '@/lib/utils'
 import Link from 'next/link'
 import {
   Plus, BookOpen, Users, Eye, Globe,
   MessageCircle, Monitor, MoreVertical,
-  CheckCircle, Clock, ExternalLink
+  CheckCircle, Clock, ExternalLink, Shield
 } from 'lucide-react'
 
 interface Course {
@@ -19,6 +20,8 @@ interface Course {
   is_published: boolean
   total_lessons: number
   created_at: string
+  host_name?: string
+  scheduled_deletion_at?: string
 }
 
 const deliveryIcon: Record<string, any> = {
@@ -101,8 +104,16 @@ export default function CoursesPage() {
             {courses.map(course => {
               const DeliveryIcon = deliveryIcon[course.delivery] || Globe
               return (
-                <div key={course.id} className="rounded-2xl p-6 glass transition-all"
-                  style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+                <div key={course.id} className={`rounded-2xl p-6 glass transition-all relative group ${course.scheduled_deletion_at ? 'opacity-75' : ''}`}
+                  style={{
+                    border: course.scheduled_deletion_at ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(255,255,255,0.06)',
+                  }}>
+
+                  {course.scheduled_deletion_at && (
+                    <div className="absolute top-3 right-3 px-2 py-1 rounded bg-red-500/10 border border-red-500/20 z-10">
+                      <p className="text-[10px] font-bold text-red-500 uppercase">Deleting Soon</p>
+                    </div>
+                  )}
 
                   {/* Top row */}
                   <div className="flex items-start justify-between mb-4">
@@ -152,7 +163,7 @@ export default function CoursesPage() {
                       <BookOpen className="w-4 h-4" />
                       Manage
                     </Link>
-                    <Link href={`/learn/${course.slug}`} target="_blank"
+                    <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
                       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all"
                       style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
                       <ExternalLink className="w-4 h-4" />
