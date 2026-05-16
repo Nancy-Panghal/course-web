@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock } from 'lucide-react'
+import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle } from 'lucide-react'
 
 // ── OUTSIDE the page component — fixes input focus loss ──
 function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false, rightElement }: {
@@ -88,6 +88,8 @@ export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
   const [name, setName] = useState('')
   const [originalName, setOriginalName] = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
+  const [originalWhatsappNumber, setOriginalWhatsappNumber] = useState('')
   const [notifications, setNotifications] = useState({
     piracy: true,
     enrollment: true,
@@ -101,14 +103,26 @@ export default function SettingsPage() {
   const [deleteScheduledAt, setDeleteScheduledAt] = useState<Date | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const hasChanges = name !== originalName
+  const hasChanges = name !== originalName || whatsappNumber !== originalWhatsappNumber
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       const u = data.user
       setUser(u)
       const n = u?.user_metadata?.full_name || u?.user_metadata?.username || ''
       setName(n); setOriginalName(n)
+
+      if (u) {
+        const { data: creator } = await supabase
+          .from('creators')
+          .select('whatsapp_number')
+          .eq('id', u.id)
+          .limit(1)
+
+        const wa = creator?.[0]?.whatsapp_number || ''
+        setWhatsappNumber(wa)
+        setOriginalWhatsappNumber(wa)
+      }
       
       // Load notifications from metadata if they exist
       if (u?.user_metadata?.notifications) {
@@ -119,14 +133,28 @@ export default function SettingsPage() {
 
   async function handleSave() {
     setSaving(true)
+    const cleanWhatsapp = whatsappNumber.trim().replace(/[\s+\-()]/g, '')
     const { error } = await supabase.auth.updateUser({
       data: {
         full_name: name,
         username: name,
       }
     })
-    if (!error) {
+
+    const { error: creatorError } = await supabase
+      .from('creators')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        name,
+        username: user.email?.split('@')[0],
+        whatsapp_number: cleanWhatsapp || null,
+      })
+
+    if (!error && !creatorError) {
       setOriginalName(name)
+      setWhatsappNumber(cleanWhatsapp)
+      setOriginalWhatsappNumber(cleanWhatsapp)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     }
@@ -203,6 +231,30 @@ export default function SettingsPage() {
             placeholder=""
             disabled
           />
+        </SectionCard>
+
+        <SectionCard title="WhatsApp Delivery" icon={MessageCircle}>
+          <InputField
+            label="WhatsApp Cloud API Sender Number"
+            value={whatsappNumber}
+            onChange={setWhatsappNumber}
+            placeholder="Example: 15551234567 or 919876543210"
+          />
+          <div className="p-4 rounded-xl"
+            style={{background:'rgba(37,211,102,0.06)', border:'1px solid rgba(37,211,102,0.15)'}}>
+            <p className="text-sm font-medium text-white mb-1">Use your Meta test number here while testing.</p>
+            <p className="text-xs leading-relaxed" style={{color:'#a1a1aa'}}>
+              Paste the WhatsApp sender number connected to your Meta Cloud API app, with country code and no plus sign.
+              Once saved, course enroll modals can show “Start Free Lessons on WhatsApp” or “Join via WhatsApp”.
+            </p>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+            className="mt-4 w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient disabled:opacity-40"
+          >
+            {saved ? 'Saved!' : saving ? 'Saving...' : 'Save WhatsApp Settings'}
+          </button>
         </SectionCard>
 
         {/* Notifications */}
