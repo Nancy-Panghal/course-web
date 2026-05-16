@@ -82,6 +82,7 @@ function CountrySelector({ selected, onSelect }: { selected: any, onSelect: (c: 
   )
 }
 import { supabase } from '@/lib/supabase'
+import { findPaidEnrollment, findPaidEnrollmentByPhone } from '@/lib/enrollments'
 
 declare global {
   interface Window { Razorpay: any }
@@ -183,12 +184,11 @@ export default function EnrollModal({ onClose, course }: Props) {
       if (!user) { setCheckingAuth(false); return }
 
       // Check if already enrolled
-      const { data: enrollment } = await supabase
-        .from('enrollments')
-        .select('id')
-        .eq('course_uuid', course.id)
-        .eq('payment_status', 'paid')
-        .single()
+      const enrollment = await findPaidEnrollment({
+        courseId: course.id,
+        user,
+        select: 'id',
+      })
 
       if (enrollment) {
         // Already enrolled — close modal and redirect
@@ -250,13 +250,7 @@ export default function EnrollModal({ onClose, course }: Props) {
         const phoneToStore = selectedCountry.code.replace('+', '') + cleanedPhone
 
         // Check if this phone number is already enrolled in this course
-        const { data: existing } = await supabase
-          .from('enrollments')
-          .select('id')
-          .eq('course_uuid', course.id)
-          .eq('phone', phoneToStore)
-          .eq('payment_status', 'paid')
-          .maybeSingle()
+        const existing = await findPaidEnrollmentByPhone(course.id, phoneToStore)
 
         if (existing) {
           setError('This mobile number is already enrolled in this course.')
@@ -292,12 +286,12 @@ export default function EnrollModal({ onClose, course }: Props) {
         setStudentData(userData)
 
         // Check enrolled
-        const { data: enrollment } = await supabase
-          .from('enrollments')
-          .select('id')
-          .eq('course_uuid', course.id)
-          .eq('payment_status', 'paid')
-          .single()
+        const enrollment = await findPaidEnrollment({
+          courseId: course.id,
+          user,
+          phone: userData.phone,
+          select: 'id',
+        })
 
         if (enrollment) {
           window.location.href = learnUrl
@@ -337,13 +331,7 @@ export default function EnrollModal({ onClose, course }: Props) {
 
     try {
       // Check if this phone number is already enrolled in this course
-      const { data: existing } = await supabase
-        .from('enrollments')
-        .select('id')
-        .eq('course_uuid', course.id)
-        .eq('phone', phoneToStore)
-        .eq('payment_status', 'paid')
-        .maybeSingle()
+      const existing = await findPaidEnrollmentByPhone(course.id, phoneToStore)
 
       if (existing) {
         setError('This mobile number is already enrolled in this course.')
@@ -416,6 +404,19 @@ export default function EnrollModal({ onClose, course }: Props) {
           const result = await verifyRes.json()
 
           if (result.success) {
+            const confirmedEnrollment = await findPaidEnrollment({
+              courseId: course.id,
+              user: (await supabase.auth.getUser()).data.user,
+              phone: studentData?.phone,
+              select: 'id',
+            })
+
+            if (!confirmedEnrollment) {
+              setError('Payment was verified, but enrollment was not found. Please contact support with your payment ID.')
+              setLoading(false)
+              return
+            }
+
             // Generate WhatsApp token if delivery includes WhatsApp
             if (course.waNumber) {
               await generateToken(true, response.razorpay_payment_id)

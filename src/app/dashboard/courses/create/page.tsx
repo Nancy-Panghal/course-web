@@ -90,6 +90,8 @@ export default function CreateCoursePage() {
   const [duration, setDuration] = useState('')
   const [whatYouWillLearn, setWhatYouWillLearn] = useState([''])
   const [faqs, setFaqs] = useState([{ question: '', answer: '' }])
+  const [hostImage, setHostImage] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English'])
   const [langDropdown, setLangDropdown] = useState(false)
   const [freePreview, setFreePreview] = useState('nothing free')
@@ -132,6 +134,43 @@ export default function CreateCoursePage() {
     setFaqs(next)
   }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload a JPG, PNG or WebP image.')
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image must be 2MB or smaller.')
+      return
+    }
+
+    setUploadingImage(true)
+    setError('')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'image')
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      setHostImage(data.url)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   async function handleCreate() {
     if (!name || !price || !description) {
       setError('Course name, price and description are required.')
@@ -168,6 +207,7 @@ export default function CreateCoursePage() {
         original_price: originalPrice ? parseInt(originalPrice) : parseInt(price),
         host_name: hostName || user.user_metadata?.full_name || '',
         about_creator: aboutCreator,
+        host_image: hostImage,
         delivery,
         total_lessons: totalLessons ? parseInt(totalLessons) : 0,
         language: selectedLanguages,
@@ -252,14 +292,14 @@ export default function CreateCoursePage() {
                   value={freePreview}
                   onChange={e => setFreePreview(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all appearance-none cursor-pointer"
-                  style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+                  style={{background:'#050505', color:'#fff', border:'1px solid rgba(255,255,255,0.1)'}}
                 >
-                  <option value="nothing free">Nothing free (Pay immediately)</option>
-                  <option value="lesson 1 free">Lesson 1 free</option>
-                  <option value="2 lessons free">2 lessons free</option>
-                  <option value="3 lessons free">3 lessons free</option>
-                  <option value="module 1 free">Module 1 free</option>
-                  <option value="2 modules free">2 modules free</option>
+                  <option value="nothing free" style={{background:'#050505', color:'#fff'}}>Nothing free (Pay immediately)</option>
+                  <option value="lesson 1 free" style={{background:'#050505', color:'#fff'}}>Lesson 1 free</option>
+                  <option value="2 lessons free" style={{background:'#050505', color:'#fff'}}>2 lessons free</option>
+                  <option value="3 lessons free" style={{background:'#050505', color:'#fff'}}>3 lessons free</option>
+                  <option value="module 1 free" style={{background:'#050505', color:'#fff'}}>Module 1 free</option>
+                  <option value="2 modules free" style={{background:'#050505', color:'#fff'}}>2 modules free</option>
                 </select>
               </Field>
 
@@ -307,6 +347,43 @@ export default function CreateCoursePage() {
               </Field>
 
               <Field label="About You" hint="Shown on course page as instructor bio">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                    {hostImage ? (
+                      <img src={hostImage} alt="Instructor" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl font-bold text-zinc-700">
+                        {hostName ? hostName.charAt(0).toUpperCase() : '?'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      id="create-host-image"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                    />
+                    <label
+                      htmlFor="create-host-image"
+                      className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
+                    >
+                      {uploadingImage ? 'Uploading...' : hostImage ? 'Change Photo' : 'Upload Photo'}
+                    </label>
+                    {hostImage && (
+                      <button
+                        type="button"
+                        onClick={() => setHostImage('')}
+                        className="ml-2 text-xs text-zinc-500 hover:text-red-500"
+                      >
+                        Remove
+                      </button>
+                    )}
+                    <p className="text-[10px] text-zinc-500 mt-1.5">Square JPG/PNG/WebP recommended, max 2MB.</p>
+                  </div>
+                </div>
                 <textarea
                   value={aboutCreator}
                   onChange={e => setAboutCreator(e.target.value)}

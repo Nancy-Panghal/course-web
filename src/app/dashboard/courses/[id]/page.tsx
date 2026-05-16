@@ -917,13 +917,14 @@ export default function CourseManagePage({
                         value={editFreePreview}
                         onChange={e => setEditFreePreview(e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 appearance-none cursor-pointer"
+                        style={{ background:'#050505', color:'#fff' }}
                       >
-                        <option value="nothing free" className="bg-[#111]">Nothing free (Pay immediately)</option>
-                        <option value="lesson 1 free" className="bg-[#111]">Lesson 1 free</option>
-                        <option value="2 lessons free" className="bg-[#111]">2 lessons free</option>
-                        <option value="3 lessons free" className="bg-[#111]">3 lessons free</option>
-                        <option value="module 1 free" className="bg-[#111]">Module 1 free</option>
-                        <option value="2 modules free" className="bg-[#111]">2 modules free</option>
+                        <option value="nothing free" style={{background:'#050505', color:'#fff'}}>Nothing free (Pay immediately)</option>
+                        <option value="lesson 1 free" style={{background:'#050505', color:'#fff'}}>Lesson 1 free</option>
+                        <option value="2 lessons free" style={{background:'#050505', color:'#fff'}}>2 lessons free</option>
+                        <option value="3 lessons free" style={{background:'#050505', color:'#fff'}}>3 lessons free</option>
+                        <option value="module 1 free" style={{background:'#050505', color:'#fff'}}>Module 1 free</option>
+                        <option value="2 modules free" style={{background:'#050505', color:'#fff'}}>2 modules free</option>
                       </select>
                       <p className="text-[10px] text-zinc-500 mt-1.5">Select how much content is free for students</p>
                     </div>

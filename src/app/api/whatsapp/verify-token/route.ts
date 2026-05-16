@@ -53,12 +53,21 @@ export async function POST(req: NextRequest) {
       .eq('id', tokenData.id)
 
     // Check if student already has an enrollment for this course
-    const { data: existing } = await supabase
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tokenData.course_slug)
+    const { data: courseRows } = await supabase
+      .from('courses')
+      .select('id')
+      .eq(isUuid ? 'id' : 'slug', tokenData.course_slug)
+      .limit(1)
+    const resolvedCourseId = courseRows?.[0]?.id || tokenData.course_slug
+
+    const { data: existingRows } = await supabase
       .from('enrollments')
       .select('*')
       .eq('phone', tokenData.student_phone)
-      .eq('course_uuid', tokenData.course_slug)
-      .single()
+      .eq('course_uuid', resolvedCourseId)
+      .limit(1)
+    const existing = existingRows?.[0]
 
     if (existing) {
       // If the token has a payment_id, upgrade the existing enrollment to paid
@@ -75,11 +84,12 @@ export async function POST(req: NextRequest) {
       // Create new enrollment
       await supabase.from('enrollments').insert({
         phone: tokenData.student_phone,
-        course_uuid: tokenData.course_slug,
+        course_uuid: resolvedCourseId,
         current_lesson: 1,
         payment_id: tokenData.payment_id || null,
         payment_status: tokenData.payment_id ? 'paid' : 'free',
         student_name: tokenData.student_name,
+        creator_id: tokenData.creator_id || null,
       })
     }
 
@@ -87,6 +97,7 @@ export async function POST(req: NextRequest) {
       valid: true,
       studentName: tokenData.student_name,
       courseSlug: tokenData.course_slug,
+      courseId: resolvedCourseId,
       studentPhone: tokenData.student_phone,
     })
 

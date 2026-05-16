@@ -7,6 +7,7 @@ import {
   ChevronLeft, Award, Menu, X, Clock, Lock
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { findPaidEnrollment } from '@/lib/enrollments'
 
 interface Lesson {
   id: string
@@ -134,12 +135,10 @@ export default function LearnPage({
 
       // Check enrollment if user is logged in
       if (currentUser) {
-        const { data: enrollmentData } = await supabase
-          .from('enrollments')
-          .select('*')
-          .eq('course_uuid', courseData.id)
-          .eq('payment_status', 'paid')
-          .single()
+        const enrollmentData = await findPaidEnrollment({
+          courseId: courseData.id,
+          user: currentUser,
+        })
 
         if (enrollmentData) {
           setIsEnrolled(true)

@@ -30,7 +30,7 @@ export default function Sidebar() {
 
       try {
         const { count } = await supabase
-          .from('piracy_reports')
+          .from('piracy_log')
           .select('*', { count: 'exact', head: true })
           .in('status', ['detected', 'filed'])
           .eq('creator_id', user.id)

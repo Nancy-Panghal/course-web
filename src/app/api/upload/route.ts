@@ -10,10 +10,18 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File
-    const type = formData.get('type') as 'video' | 'pdf'
+    const type = formData.get('type') as 'video' | 'pdf' | 'image'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    }
+
+    if (!['video', 'pdf', 'image'].includes(type)) {
+      return NextResponse.json({ error: 'Invalid upload type' }, { status: 400 })
+    }
+
+    if (type === 'image' && !file.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'Please upload an image file' }, { status: 400 })
     }
 
     // 1. Generate a unique filename

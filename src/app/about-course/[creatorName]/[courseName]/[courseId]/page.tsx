@@ -9,6 +9,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+function freePreviewLabel(config?: string) {
+  const labels: Record<string, string> = {
+    'nothing free': 'Paid only',
+    'lesson 1 free': '1 lesson free',
+    '2 lessons free': '2 lessons free',
+    '3 lessons free': '3 lessons free',
+    'module 1 free': 'Module 1 free',
+    '2 modules free': '2 modules free',
+  }
+  return labels[config || 'nothing free'] || 'Paid only'
+}
+
 export default async function AboutCoursePage({
   params
 }: {
@@ -86,12 +98,13 @@ export default async function AboutCoursePage({
           </div>
 
           {/* Small Details Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
             {[
               { label: 'Date', value: course.start_date || 'Instant Access', icon: '📅' },
               { label: 'Time', value: course.start_time || 'Self-paced', icon: '⏰' },
               { label: 'Duration', value: course.duration || `${publishedLessons.length} Lessons`, icon: '⏳' },
               { label: 'Language', value: course.language?.join(', ') || 'English', icon: '🌐' },
+              { label: 'Preview', value: freePreviewLabel(course.free_preview_config), icon: '▶' },
             ].map((item, i) => (
               <div key={i} className="p-3 rounded-xl glass text-center"
                 style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)'}}>

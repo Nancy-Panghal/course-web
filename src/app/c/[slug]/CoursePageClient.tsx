@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { ArrowRight, Copy, Check, Share2, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { findPaidEnrollment } from '@/lib/enrollments'
 import EnrollModal from '@/components/EnrollModal'
 
 interface CourseData {
@@ -13,6 +14,7 @@ interface CourseData {
   creatorName: string
   creatorId: string
   waNumber?: string
+  free_preview_config?: string
 }
 
 interface Props {
@@ -41,13 +43,11 @@ export default function CoursePageClient({ course, variant }: Props) {
       }
 
       // Check if student is already enrolled
-      const { data: enrollment } = await supabase
-        .from('enrollments')
-        .select('id')
-        .eq('course_uuid', course.id)
-        .eq('payment_status', 'paid')
-        .or(`phone.eq.${user.user_metadata?.phone || ''},student_id.eq.${user.id}`)
-        .single()
+      const enrollment = await findPaidEnrollment({
+        courseId: course.id,
+        user,
+        select: 'id',
+      })
 
       if (enrollment) {
         setIsEnrolled(true)

@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Shield, CheckCircle, Play, ChevronRight,
   ChevronLeft, Award, Menu, X, Clock, Lock
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { findPaidEnrollment } from '@/lib/enrollments'
 import { slugify } from '@/lib/utils'
 import EnrollModal from '@/components/EnrollModal'
 
@@ -98,6 +99,7 @@ export default function CourseLearnPage({
 }) {
   const { courseId } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -134,11 +136,12 @@ export default function CourseLearnPage({
       setCourse(courseData)
 
       // Fetch creator
-      const { data: creatorData } = await supabase
+      const { data: creatorRows } = await supabase
         .from('creators')
         .select('id, name, whatsapp_number')
         .eq('id', courseData.creator_id)
-        .single()
+        .limit(1)
+      const creatorData = creatorRows?.[0] || null
       setCreatorProfile(creatorData)
 
       // Fetch published lessons
@@ -152,18 +155,21 @@ export default function CourseLearnPage({
       const fetchedLessons = lessonData || []
       setLessons(fetchedLessons)
 
-      if (fetchedLessons.length > 0) {
+      const lessonFromUrl = Number(searchParams.get('lesson') || '')
+      const requestedLesson = fetchedLessons.find((l: Lesson) => l.order_num === lessonFromUrl)
+
+      if (requestedLesson) {
+        setCurrentLessonId(requestedLesson.id)
+      } else if (fetchedLessons.length > 0) {
         setCurrentLessonId(fetchedLessons[0].id)
       }
 
       // Check enrollment if user is logged in
       if (currentUser) {
-        const { data: enrollmentData } = await supabase
-          .from('enrollments')
-          .select('*')
-          .eq('course_uuid', courseData.id)
-          .eq('payment_status', 'paid')
-          .single()
+        const enrollmentData = await findPaidEnrollment({
+          courseId: courseData.id,
+          user: currentUser,
+        })
 
         if (enrollmentData) {
           setIsEnrolled(true)
@@ -171,7 +177,7 @@ export default function CourseLearnPage({
           setCompleted(enrollmentData.completed_lessons || [])
           
           const currentOrder = enrollmentData.current_lesson || 1
-          const resumeLesson = fetchedLessons.find((l: Lesson) => l.order_num === currentOrder) || fetchedLessons[0]
+          const resumeLesson = requestedLesson || fetchedLessons.find((l: Lesson) => l.order_num === currentOrder) || fetchedLessons[0]
           if (resumeLesson) setCurrentLessonId(resumeLesson.id)
         }
       }
@@ -180,7 +186,7 @@ export default function CourseLearnPage({
       setMounted(true)
     }
     load()
-  }, [courseId, router])
+  }, [courseId, router, searchParams])
 
   const currentLesson = lessons.find(l => l.id === currentLessonId) || lessons[0]
   const currentIndex = lessons.findIndex(l => l.id === currentLessonId)

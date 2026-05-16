@@ -23,14 +23,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if unused token already exists for this student+course
-    const { data: existing } = await supabase
+    const { data: existingRows } = await supabase
       .from('whatsapp_tokens')
       .select('token')
       .eq('student_phone', studentPhone)
       .eq('course_slug', courseSlug)
       .eq('used', false)
       .gt('expires_at', new Date().toISOString())
-      .single()
+      .limit(1)
+    const existing = existingRows?.[0]
 
     // Reuse existing token if valid
     if (existing) {
