@@ -96,6 +96,7 @@ interface CourseData {
   creatorName: string
   creatorId: string
   waNumber?: string
+  telegramBotUsername?: string
   free_preview_config?: string
 }
 
@@ -139,6 +140,8 @@ export default function EnrollModal({ onClose, course }: Props) {
   // Success state
   const [waToken, setWaToken] = useState('')
   const [demoWaToken, setDemoWaToken] = useState('')
+  const [telegramToken, setTelegramToken] = useState('')
+  const [demoTelegramToken, setDemoTelegramToken] = useState('')
   const [generatingToken, setGeneratingToken] = useState(false)
 
   const creatorSlug = slugify(course.creatorName)
@@ -148,8 +151,9 @@ export default function EnrollModal({ onClose, course }: Props) {
 
   // Generate demo token when entering demo step
   useEffect(() => {
-    if (step === 'demo' && course.waNumber && !demoWaToken) {
-      generateToken(false)
+    if (step === 'demo') {
+      if (course.waNumber && !demoWaToken) generateToken(false)
+      if (course.telegramBotUsername && !demoTelegramToken) generateTelegramToken(false)
     }
   }, [step])
 
@@ -173,6 +177,31 @@ export default function EnrollModal({ onClose, course }: Props) {
       else setDemoWaToken(token || '')
     } catch (e) {
       console.error('Token error:', e)
+    }
+    setGeneratingToken(false)
+  }
+
+  async function generateTelegramToken(isPaid: boolean, paymentId?: string) {
+    setGeneratingToken(true)
+    try {
+      const tokenRes = await fetch('/api/telegram/create-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: studentData?.id,
+          studentPhone: studentData?.phone,
+          studentEmail: studentData?.email,
+          studentName: studentData?.name,
+          creatorId: course.creatorId,
+          courseId: course.id,
+          paymentId: paymentId || null,
+        }),
+      })
+      const { token } = await tokenRes.json()
+      if (isPaid) setTelegramToken(token || '')
+      else setDemoTelegramToken(token || '')
+    } catch (e) {
+      console.error('Telegram token error:', e)
     }
     setGeneratingToken(false)
   }
@@ -420,6 +449,9 @@ export default function EnrollModal({ onClose, course }: Props) {
             // Generate WhatsApp token if delivery includes WhatsApp
             if (course.waNumber) {
               await generateToken(true, response.razorpay_payment_id)
+            }
+            if (course.telegramBotUsername) {
+              await generateTelegramToken(true, response.razorpay_payment_id)
             }
             setStep('success')
             // Auto redirect to learn page after 2 seconds
@@ -677,6 +709,26 @@ export default function EnrollModal({ onClose, course }: Props) {
                 </>
               )}
 
+              {course.telegramBotUsername && (
+                <>
+                  {demoTelegramToken ? (
+                    <a
+                      href={`https://t.me/${course.telegramBotUsername.replace('@', '')}?start=${demoTelegramToken}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-white transition-all hover:opacity-90 text-lg"
+                      style={{background:'#229ED9'}}>
+                      <MessageCircle className="w-6 h-6" />
+                      Start Free Lessons on Telegram
+                    </a>
+                  ) : (
+                    <div className="w-full py-4 rounded-xl text-sm text-center"
+                      style={{background:'rgba(34,158,217,0.08)', color:'#38bdf8', border:'1px solid rgba(34,158,217,0.15)'}}>
+                      Preparing Telegram link...
+                    </div>
+                  )}
+                </>
+              )}
+
               <button onClick={() => window.location.href = learnUrl}
                 className="w-full py-3.5 rounded-xl font-medium text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
                 Watch Demo on Website
@@ -796,6 +848,26 @@ export default function EnrollModal({ onClose, course }: Props) {
                     <div className="w-full py-3.5 rounded-xl text-sm text-center"
                       style={{background:'rgba(37,211,102,0.08)', color:'#25d366', border:'1px solid rgba(37,211,102,0.15)'}}>
                       Generating secure WhatsApp link...
+                    </div>
+                  ) : null}
+                </>
+              )}
+
+              {course.telegramBotUsername && (
+                <>
+                  {telegramToken && !generatingToken ? (
+                    <a
+                      href={`https://t.me/${course.telegramBotUsername.replace('@', '')}?start=${telegramToken}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-medium text-white transition-all hover:opacity-90"
+                      style={{background:'#229ED9'}}>
+                      <MessageCircle className="w-5 h-5" />
+                      Start on Telegram
+                    </a>
+                  ) : generatingToken ? (
+                    <div className="w-full py-3.5 rounded-xl text-sm text-center"
+                      style={{background:'rgba(34,158,217,0.08)', color:'#38bdf8', border:'1px solid rgba(34,158,217,0.15)'}}>
+                      Generating secure Telegram link...
                     </div>
                   ) : null}
                 </>

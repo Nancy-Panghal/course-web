@@ -15,6 +15,7 @@ interface CourseData {
   creatorName: string
   creatorId: string
   waNumber?: string
+  telegramBotUsername?: string
   free_preview_config?: string
 }
 

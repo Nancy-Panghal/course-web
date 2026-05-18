@@ -42,7 +42,7 @@ export default async function AboutCoursePage({
   // Fetch creator profile
   const { data: creatorProfile } = await supabase
     .from('creators')
-    .select('id, name, email, whatsapp_number')
+    .select('id, name, email, whatsapp_number, telegram_bot_username')
     .eq('id', course.creator_id)
     .single()
 
@@ -124,6 +124,7 @@ export default async function AboutCoursePage({
               creatorName: course.host_name || creatorProfile?.name || '',
               creatorId: creatorProfile?.id || '',
               waNumber: creatorProfile?.whatsapp_number || '',
+              telegramBotUsername: creatorProfile?.telegram_bot_username || '',
               free_preview_config: course.free_preview_config,
             }}
             variant="cta"

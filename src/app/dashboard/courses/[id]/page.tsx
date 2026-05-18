@@ -44,6 +44,109 @@ interface Lesson {
   order_num: number
   is_published: boolean
   duration: string
+  module_id?: string | null
+}
+
+interface CourseModule {
+  id: string
+  course_id: string
+  name: string
+  order_num: number
+  planned_lessons: number
+}
+
+function AddModuleModal({
+  onClose,
+  onAdd,
+  courseId,
+  nextOrder,
+}: {
+  onClose: () => void
+  onAdd: () => void
+  courseId: string
+  nextOrder: number
+}) {
+  const [name, setName] = useState('')
+  const [plannedLessons, setPlannedLessons] = useState('3')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) {
+      setError('Module name is required.')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    const { error: insertError } = await supabase.from('course_modules').insert({
+      course_id: courseId,
+      name: name.trim(),
+      order_num: nextOrder,
+      planned_lessons: plannedLessons ? parseInt(plannedLessons) : 0,
+    })
+
+    if (insertError) {
+      setError(insertError.message)
+      setLoading(false)
+      return
+    }
+
+    onAdd()
+    onClose()
+    setLoading(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{background:'rgba(0,0,0,0.85)', backdropFilter:'blur(8px)'}}>
+      <div className="w-full max-w-md rounded-2xl p-6"
+        style={{background:'#111', border:'1px solid rgba(124,58,237,0.3)'}}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-white">Add Module</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg"
+            style={{background:'rgba(255,255,255,0.06)', color:'#a1a1aa'}}>
+            X
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div>
+            <label className="text-sm font-medium text-white mb-2 block">Module Name *</label>
+            <input value={name} onChange={e => setName(e.target.value)}
+              placeholder="e.g. Week 1, Foundation, Advanced SEO"
+              className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-white mb-2 block">How many lessons?</label>
+            <input value={plannedLessons} onChange={e => setPlannedLessons(e.target.value)}
+              type="number" min="0" placeholder="3"
+              className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}} />
+          </div>
+          {error && (
+            <div className="p-3 rounded-xl text-sm"
+              style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>
+              {error}
+            </div>
+          )}
+          <div className="flex gap-3 mt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-3 rounded-xl text-sm font-medium"
+              style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
+              Cancel
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 py-3 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+              {loading ? 'Adding...' : 'Add Module'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 // ── ADD LESSON MODAL ──
@@ -53,18 +156,21 @@ function AddLessonModal({
   courseId,
   creatorId,
   nextOrder,
+  modules,
 }: {
   onClose: () => void
   onAdd: () => void
   courseId: string
   creatorId: string
   nextOrder: number
+  modules: CourseModule[]
 }) {
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [type, setType] = useState<'video' | 'pdf'>('video')
   const [duration, setDuration] = useState('')
+  const [moduleId, setModuleId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -111,6 +217,7 @@ function AddLessonModal({
       content_type: type,
       order_num: nextOrder,
       duration,
+      module_id: moduleId || null,
       is_published: false,
     })
 
@@ -168,6 +275,25 @@ function AddLessonModal({
               ))}
             </div>
           </div>
+
+          {modules.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-white mb-2 block">Module</label>
+              <select
+                value={moduleId}
+                onChange={e => setModuleId(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+                style={{background:'#050505', border:'1px solid rgba(255,255,255,0.1)'}}
+              >
+                <option value="" style={{background:'#050505', color:'#fff'}}>No module</option>
+                {modules.map(module => (
+                  <option key={module.id} value={module.id} style={{background:'#050505', color:'#fff'}}>
+                    {module.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Title */}
           <div>
@@ -430,8 +556,10 @@ export default function CourseManagePage({
 
   const [course, setCourse] = useState<Course | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
+  const [modules, setModules] = useState<CourseModule[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showModuleModal, setShowModuleModal] = useState(false)
   const [creatorId, setCreatorId] = useState('')
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -490,7 +618,7 @@ export default function CourseManagePage({
       setEditHostImage(courseData.host_image || '')
       setEditFreePreview(courseData.free_preview_config || 'nothing free')
 
-      await fetchLessons()
+      await Promise.all([fetchLessons(), fetchModules()])
       setLoading(false)
     }
     load()
@@ -603,6 +731,15 @@ export default function CourseManagePage({
     setLessons(data || [])
   }
 
+  async function fetchModules() {
+    const { data } = await supabase
+      .from('course_modules')
+      .select('*')
+      .eq('course_id', id)
+      .order('order_num', { ascending: true })
+    setModules(data || [])
+  }
+
   async function deleteLesson(lessonId: string) {
     await supabase.from('lessons').delete().eq('id', lessonId)
     await fetchLessons()
@@ -683,6 +820,16 @@ export default function CourseManagePage({
           courseId={id}
           creatorId={creatorId}
           nextOrder={lessons.length + 1}
+          modules={modules}
+        />
+      )}
+
+      {showModuleModal && (
+        <AddModuleModal
+          onClose={() => setShowModuleModal(false)}
+          onAdd={fetchModules}
+          courseId={id}
+          nextOrder={modules.length + 1}
         />
       )}
 
@@ -802,15 +949,23 @@ export default function CourseManagePage({
                       {lessons.length} total · {publishedCount} published
                     </p>
                   </div>
-                  <button onClick={() => setShowAddModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 glow">
-                    <Plus className="w-4 h-4" />
-                    Add Lesson {lessons.length + 1}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setShowModuleModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.08)'}}>
+                      <Plus className="w-4 h-4" />
+                      Add Module
+                    </button>
+                    <button onClick={() => setShowAddModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 glow">
+                      <Plus className="w-4 h-4" />
+                      Add Lesson {lessons.length + 1}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Lesson list */}
-                {lessons.length === 0 ? (
+                {lessons.length === 0 && modules.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center glass"
                     style={{border:'1px solid rgba(255,255,255,0.06)'}}>
                     <Video className="w-10 h-10 mx-auto mb-3" style={{color:'#3f3f46'}} />
@@ -825,7 +980,41 @@ export default function CourseManagePage({
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
-                    {lessons.map(lesson => (
+                    {modules.map(module => {
+                      const moduleLessons = lessons.filter(lesson => lesson.module_id === module.id)
+                      return (
+                        <div key={module.id} className="rounded-2xl p-4"
+                          style={{background:'rgba(255,255,255,0.015)', border:'1px solid rgba(255,255,255,0.06)'}}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <h3 className="text-sm font-semibold text-white">{module.name}</h3>
+                              <p className="text-xs" style={{color:'#52525b'}}>
+                                {moduleLessons.length} / {module.planned_lessons || moduleLessons.length} lessons
+                              </p>
+                            </div>
+                            <button onClick={() => setShowAddModal(true)}
+                              className="text-xs px-3 py-1.5 rounded-lg"
+                              style={{background:'rgba(124,58,237,0.12)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+                              Add Lesson
+                            </button>
+                          </div>
+                          <div className="flex flex-col gap-3">
+                            {moduleLessons.length === 0 ? (
+                              <p className="text-xs py-3" style={{color:'#52525b'}}>No lessons in this module yet.</p>
+                            ) : moduleLessons.map(lesson => (
+                              <LessonWidget
+                                key={lesson.id}
+                                lesson={lesson}
+                                onDelete={deleteLesson}
+                                onTogglePublish={toggleLessonPublish}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {lessons.filter(lesson => !lesson.module_id).map(lesson => (
                       <LessonWidget
                         key={lesson.id}
                         lesson={lesson}

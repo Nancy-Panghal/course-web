@@ -138,7 +138,7 @@ export default function CourseLearnPage({
       // Fetch creator
       const { data: creatorRows } = await supabase
         .from('creators')
-        .select('id, name, whatsapp_number')
+        .select('id, name, whatsapp_number, telegram_bot_username')
         .eq('id', courseData.creator_id)
         .limit(1)
       const creatorData = creatorRows?.[0] || null
@@ -256,6 +256,7 @@ export default function CourseLearnPage({
             creatorName: course.host_name || creatorProfile?.name || '',
             creatorId: course.creator_id,
             waNumber: creatorProfile?.whatsapp_number,
+            telegramBotUsername: creatorProfile?.telegram_bot_username,
             free_preview_config: course.free_preview_config,
           }}
         />
