@@ -55,6 +55,32 @@ interface CourseModule {
   planned_lessons: number
 }
 
+async function uploadToSupabase(file: File, folder: string): Promise<string> {
+  // Step 1: get signed URL from our API (no file bytes sent to Vercel)
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileName: file.name,
+      contentType: file.type,
+      folder,
+    }),
+  })
+
+  const { signedUrl, publicUrl, error } = await res.json()
+  if (!res.ok) throw new Error(error || 'Failed to get upload URL')
+
+  // Step 2: upload directly to Supabase — bypasses Vercel size limit
+  const upload = await fetch(signedUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  })
+
+  if (!upload.ok) throw new Error('Upload to storage failed')
+  return publicUrl
+}
+
 function AddModuleModal({
   onClose,
   onAdd,
@@ -174,7 +200,7 @@ function AddLessonModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
@@ -183,25 +209,15 @@ function AddLessonModal({
 
     // If file is selected, upload it to Telegram first
     if (file) {
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('type', type)
-
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        })
-
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Failed to upload file')
-        finalUrl = data.url
-      } catch (err: any) {
-        setError(`Upload error: ${err.message}`)
-        setLoading(false)
-        return
-      }
-    }
+  try {
+    const folder = type === 'video' ? 'videos' : 'pdfs'
+    finalUrl = await uploadToSupabase(file, folder)
+  } catch (err: any) {
+    setError(`Upload error: ${err.message}`)
+    setLoading(false)
+    return
+  }
+}
 
     if (!finalUrl) {
       setError('Please provide a URL or upload a file.')
@@ -625,29 +641,19 @@ export default function CourseManagePage({
   }, [id])
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const file = e.target.files?.[0]
+  if (!file) return
 
-    setUploadingImage(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', 'image' as any) // Cast to bypass previous video/pdf check if needed, or update API
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upload failed')
-      setEditHostImage(data.url)
-    } catch (err: any) {
-      alert(err.message)
-    } finally {
-      setUploadingImage(false)
-    }
+  setUploadingImage(true)
+  try {
+    const publicUrl = await uploadToSupabase(file, 'images')
+    setEditHostImage(publicUrl)
+  } catch (err: any) {
+    alert(err.message)
+  } finally {
+    setUploadingImage(false)
   }
+}
 
   async function updateSettings() {
     setSavingSettings(true)

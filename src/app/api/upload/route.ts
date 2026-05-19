@@ -8,49 +8,29 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData()
-    const file = formData.get('file') as File
-    const type = formData.get('type') as 'video' | 'pdf' | 'image'
+    const { fileName, contentType, folder } = await req.json()
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    if (!fileName || !contentType || !folder) {
+      return NextResponse.json({ error: 'fileName, contentType, folder required' }, { status: 400 })
     }
 
-    if (!['video', 'pdf', 'image'].includes(type)) {
-      return NextResponse.json({ error: 'Invalid upload type' }, { status: 400 })
-    }
+    const ext = fileName.split('.').pop()
+    const safeName = `${folder}/${Math.random().toString(36).substring(2)}-${Date.now()}.${ext}`
 
-    if (type === 'image' && !file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'Please upload an image file' }, { status: 400 })
-    }
-
-    // 1. Generate a unique filename
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
-    const filePath = `${type}s/${fileName}`
-
-    // 2. Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('lessons')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      })
+      .createSignedUploadUrl(safeName)
 
     if (error) {
-      console.error('Supabase storage error:', error)
+      console.error('Signed URL error:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // 3. Get the public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('lessons')
-      .getPublicUrl(filePath)
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/lessons/${safeName}`
 
-    return NextResponse.json({ url: publicUrl })
-
+    return NextResponse.json({ signedUrl: data.signedUrl, publicUrl })
   } catch (err: any) {
-    console.error('Upload API error:', err)
+    console.error('Upload route error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
