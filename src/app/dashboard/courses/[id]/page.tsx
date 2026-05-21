@@ -706,15 +706,29 @@ export default function CourseManagePage({
     if (deleteInput !== course?.name) return
     setIsDeleting(true)
     
-    const { error } = await supabase
-      .from('courses')
-      .delete()
-      .eq('id', id)
+    try {
+      // Delete enrollments first (foreign key)
+      await supabase.from('enrollments').delete().eq('course_uuid', id)
+      
+      // Delete lessons
+      await supabase.from('lessons').delete().eq('course_id', id)
+      
+      // Delete course modules
+      await supabase.from('course_modules').delete().eq('course_id', id)
+      
+      // Finally delete the course
+      const { error } = await supabase
+        .from('courses')
+        .delete()
+        .eq('id', id)
 
-    if (!error) {
-      router.push('/dashboard/courses')
-    } else {
-      alert('Failed to delete course: ' + error.message)
+      if (!error) {
+        router.push('/dashboard/courses')
+      } else {
+        alert('Failed to delete course: ' + error.message)
+      }
+    } catch (err: any) {
+      alert('Error deleting course: ' + err.message)
     }
     setIsDeleting(false)
   }
