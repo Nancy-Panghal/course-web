@@ -44,6 +44,32 @@ function slugify(text: string) {
     .trim()
 }
 
+async function uploadToSupabase(file: File, folder: string): Promise<string> {
+  // Step 1: get signed URL from our API (no file bytes sent to Vercel)
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileName: file.name,
+      contentType: file.type,
+      folder,
+    }),
+  })
+
+  const { signedUrl, publicUrl, error } = await res.json()
+  if (!res.ok) throw new Error(error || 'Failed to get upload URL')
+
+  // Step 2: upload directly to Supabase — bypasses Vercel size limit
+  const upload = await fetch(signedUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  })
+
+  if (!upload.ok) throw new Error('Upload to storage failed')
+  return publicUrl
+}
+
 // Reusable input component defined outside
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
@@ -138,11 +164,6 @@ export default function CreateCoursePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload a JPG, PNG or WebP image.')
-      return
-    }
-
     if (file.size > 2 * 1024 * 1024) {
       setError('Image must be 2MB or smaller.')
       return
@@ -150,20 +171,9 @@ export default function CreateCoursePage() {
 
     setUploadingImage(true)
     setError('')
-
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', 'image')
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upload failed')
-      setHostImage(data.url)
+      const publicUrl = await uploadToSupabase(file, 'images')
+      setHostImage(publicUrl)
     } catch (err: any) {
       setError(err.message)
     } finally {

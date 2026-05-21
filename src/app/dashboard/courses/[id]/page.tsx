@@ -644,6 +644,11 @@ export default function CourseManagePage({
   const file = e.target.files?.[0]
   if (!file) return
 
+  if (file.size > 2 * 1024 * 1024) {
+    alert('Image must be 2MB or smaller.')
+    return
+  }
+
   setUploadingImage(true)
   try {
     const publicUrl = await uploadToSupabase(file, 'images')
@@ -697,33 +702,19 @@ export default function CourseManagePage({
     setSavingSettings(false)
   }
 
-  async function handleScheduleDeletion() {
+  async function handleDeleteCourse() {
     if (deleteInput !== course?.name) return
     setIsDeleting(true)
-    const deletionDate = new Date()
-    deletionDate.setDate(deletionDate.getDate() + 5)
     
     const { error } = await supabase
       .from('courses')
-      .update({ scheduled_deletion_at: deletionDate.toISOString() })
+      .delete()
       .eq('id', id)
 
     if (!error) {
-      setCourse({ ...course!, scheduled_deletion_at: deletionDate.toISOString() })
-      setShowDeleteModal(false)
-    }
-    setIsDeleting(false)
-  }
-
-  async function handleCancelDeletion() {
-    setIsDeleting(true)
-    const { error } = await supabase
-      .from('courses')
-      .update({ scheduled_deletion_at: null })
-      .eq('id', id)
-
-    if (!error) {
-      setCourse({ ...course!, scheduled_deletion_at: undefined })
+      router.push('/dashboard/courses')
+    } else {
+      alert('Failed to delete course: ' + error.message)
     }
     setIsDeleting(false)
   }
@@ -841,27 +832,7 @@ export default function CourseManagePage({
 
       <main className="md:ml-56 p-6 md:p-8">
 
-        {/* Deletion Banner */}
-        {course.scheduled_deletion_at && (
-          <div className="mb-6 p-4 rounded-2xl flex items-center justify-between gap-4 animate-pulse-glow"
-            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              <div>
-                <p className="text-sm font-bold text-red-500 uppercase tracking-wider">Course Scheduled for Deletion</p>
-                <p className="text-xs text-red-200/60">
-                  This course and all its data will be permanently deleted on {new Date(course.scheduled_deletion_at).toLocaleDateString('en-IN', {
-                    day: 'numeric', month: 'long', year: 'numeric'
-                  })}.
-                </p>
-              </div>
-            </div>
-            <button onClick={handleCancelDeletion} disabled={isDeleting}
-              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest bg-white/10 text-white hover:bg-white/20 transition-all">
-              {isDeleting ? 'Restoring...' : 'Cancel Deletion'}
-            </button>
-          </div>
-        )}
+
 
         {/* Deletion Modal */}
         {showDeleteModal && (
@@ -873,9 +844,9 @@ export default function CourseManagePage({
                 style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
                 <Trash2 className="w-8 h-8 text-red-500" />
               </div>
-              <h2 className="text-2xl font-bold text-white text-center mb-2">Delete Course?</h2>
+              <h2 className="text-2xl font-bold text-white text-center mb-2">Delete Course Permanently?</h2>
               <p className="text-sm text-zinc-400 text-center mb-6">
-                This will schedule the course <strong className="text-white">"{course.name}"</strong> for permanent deletion in 5 days.
+                This will permanently delete the course <strong className="text-white">"{course.name}"</strong> and all its data. This action cannot be undone.
               </p>
               
               <div className="mb-6">
@@ -894,10 +865,10 @@ export default function CourseManagePage({
                   className="flex-1 py-3 rounded-xl text-sm font-bold text-zinc-400 bg-white/5 hover:bg-white/10 transition-all">
                   Cancel
                 </button>
-                <button onClick={handleScheduleDeletion}
+                <button onClick={handleDeleteCourse}
                   disabled={deleteInput !== course.name || isDeleting}
                   className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-30 transition-all">
-                  {isDeleting ? 'Scheduling...' : 'Confirm Delete'}
+                  {isDeleting ? 'Deleting...' : 'Delete Permanently'}
                 </button>
               </div>
             </div>
@@ -1248,7 +1219,7 @@ export default function CourseManagePage({
                         <div>
                           <p className="text-sm font-bold text-white mb-1">Delete Course</p>
                           <p className="text-xs text-zinc-500">
-                            Schedule this course for deletion. You have 5 days to cancel.
+                            Permanently delete this course and all its data. This cannot be undone.
                           </p>
                         </div>
                         <button onClick={() => setShowDeleteModal(true)}
