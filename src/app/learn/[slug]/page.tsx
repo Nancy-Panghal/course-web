@@ -215,6 +215,27 @@ export default function LearnPage({
     generateSignedUrl()
   }, [currentLesson?.id, currentLesson?.content_type])
 
+  // Auto-refresh signed URL before expiration (TTL is 2 hours, refresh at 90 min)
+  useEffect(() => {
+    const REFRESH_INTERVAL = 90 * 60 * 1000 // 90 minutes
+    const interval = setInterval(() => {
+      if (currentLesson?.content_type === 'video') {
+        fetch('/api/video/sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lessonId: currentLesson.id })
+        })
+          .then(res => res.json())
+          .then(({ signedUrl }) => {
+            if (signedUrl) setVideoStreamUrl(signedUrl)
+          })
+          .catch(err => console.error('[URL refresh]', err))
+      }
+    }, REFRESH_INTERVAL)
+
+    return () => clearInterval(interval)
+  }, [currentLesson?.id, currentLesson?.content_type])
+
   // Check if current lesson is accessible
   const isFirstLesson = currentLesson?.order_num === 1
   const canAccessLesson = isEnrolled || isFirstLesson

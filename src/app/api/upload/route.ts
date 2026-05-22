@@ -28,7 +28,11 @@ export async function POST(req: NextRequest) {
 
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/lessons/${safeName}`
 
-    return NextResponse.json({ signedUrl: data.signedUrl, publicUrl })
+    return NextResponse.json({ 
+      signedUrl: data.signedUrl, 
+      publicUrl,
+      storagePath: safeName  // NEW: Return the storage path for DB
+    })
   } catch (err: any) {
     console.error('Upload route error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

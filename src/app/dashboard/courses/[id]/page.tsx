@@ -55,7 +55,7 @@ interface CourseModule {
   planned_lessons: number
 }
 
-async function uploadToSupabase(file: File, folder: string): Promise<string> {
+async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl: string; storagePath: string }> {
   // Step 1: get signed URL from our API (no file bytes sent to Vercel)
   const res = await fetch('/api/upload', {
     method: 'POST',
@@ -67,7 +67,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<string> {
     }),
   })
 
-  const { signedUrl, publicUrl, error } = await res.json()
+  const { signedUrl, publicUrl, storagePath, error } = await res.json()
   if (!res.ok) throw new Error(error || 'Failed to get upload URL')
 
   // Step 2: upload directly to Supabase — bypasses Vercel size limit
@@ -78,7 +78,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<string> {
   })
 
   if (!upload.ok) throw new Error('Upload to storage failed')
-  return publicUrl
+  return { publicUrl, storagePath }
 }
 
 function AddModuleModal({
@@ -206,18 +206,21 @@ function AddLessonModal({
     setError('')
 
     let finalUrl = url
+    let finalStoragePath = ''
 
-    // If file is selected, upload it to Telegram first
+    // If file is selected, upload it to Supabase
     if (file) {
-  try {
-    const folder = type === 'video' ? 'videos' : 'pdfs'
-    finalUrl = await uploadToSupabase(file, folder)
-  } catch (err: any) {
-    setError(`Upload error: ${err.message}`)
-    setLoading(false)
-    return
-  }
-}
+      try {
+        const folder = type === 'video' ? 'videos' : 'pdfs'
+        const { publicUrl, storagePath } = await uploadToSupabase(file, folder)
+        finalUrl = publicUrl
+        finalStoragePath = storagePath
+      } catch (err: any) {
+        setError(`Upload error: ${err.message}`)
+        setLoading(false)
+        return
+      }
+    }
 
     if (!finalUrl) {
       setError('Please provide a URL or upload a file.')
@@ -225,7 +228,8 @@ function AddLessonModal({
       return
     }
 
-    const { error: dbError } = await supabase.from('lessons').insert({
+    // Build lesson object with storage path if available
+    const lessonData: any = {
       course_id: courseId,
       creator_id: creatorId,
       title,
@@ -235,7 +239,18 @@ function AddLessonModal({
       duration,
       module_id: moduleId || null,
       is_published: false,
-    })
+    }
+
+    // Add storage path if file was uploaded to Supabase
+    if (finalStoragePath) {
+      if (type === 'video') {
+        lessonData.video_storage_path = finalStoragePath
+      } else {
+        lessonData.pdf_storage_path = finalStoragePath
+      }
+    }
+
+    const { error: dbError } = await supabase.from('lessons').insert(lessonData)
 
     if (dbError) {
       setError(dbError.message)
@@ -651,7 +666,7 @@ export default function CourseManagePage({
 
   setUploadingImage(true)
   try {
-    const publicUrl = await uploadToSupabase(file, 'images')
+    const { publicUrl } = await uploadToSupabase(file, 'images')
     setEditHostImage(publicUrl)
   } catch (err: any) {
     alert(err.message)

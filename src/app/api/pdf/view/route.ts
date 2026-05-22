@@ -56,13 +56,26 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
 async function getPdfBytes(lessonId: string): Promise<{ bytes: ArrayBuffer; filename: string } | null> {
   const { data: lesson } = await supabase
     .from('lessons')
-    .select('content_url, content_type, title, is_published')
+    .select('content_url, pdf_storage_path, content_type, title, is_published')
     .eq('id', lessonId)
     .single()
 
   if (!lesson || !lesson.is_published || lesson.content_type !== 'pdf') return null
 
-  const url = lesson.content_url
+  let url = lesson.content_url
+
+  // If PDF is stored in Supabase, get a signed URL (server-side only)
+  if (lesson.pdf_storage_path) {
+    const { data, error } = await supabase.storage
+      .from('lessons')
+      .createSignedUrl(lesson.pdf_storage_path, 60) // 60s — server only
+    if (error || !data?.signedUrl) {
+      console.error('[PDF storage] Signed URL error:', error)
+      return null
+    }
+    url = data.signedUrl
+  }
+
   if (!url) return null
 
   const res = await fetch(url)
