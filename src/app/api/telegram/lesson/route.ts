@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
+import { signVideoUrl, signPdfUrl } from '@/lib/signer'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
 
   const { data } = await supabase
     .from('lessons')
-    .select('title, content_url, content_type, is_published')
+    .select('title, content_url, content_type, is_published, video_storage_path')
     .eq('id', lessonId)
     .eq('course_id', courseId)
     .limit(1)
@@ -97,7 +98,15 @@ export async function GET(req: NextRequest) {
   const row = data?.[0]
   if (!row || !row.is_published) return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
 
-  return new NextResponse(html(row.title, row.content_url, row.content_type, chatId), {
+  // Generate signed URL for videos/PDFs so the proxy can enforce antipiracy
+  let playerUrl = row.content_url
+  if (row.content_type === 'video') {
+    playerUrl = signVideoUrl(lessonId, chatId)
+  } else if (row.content_type === 'pdf') {
+    playerUrl = signPdfUrl(lessonId, chatId)
+  }
+
+  return new NextResponse(html(row.title, playerUrl, row.content_type, chatId), {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'private, no-store',

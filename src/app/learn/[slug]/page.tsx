@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment } from '@/lib/enrollments'
+import WatermarkedPlayer from '@/components/WatermarkedPlayer'
 
 interface Lesson {
   id: string
@@ -98,6 +99,7 @@ export default function LearnPage({
   const [isEnrolled, setIsEnrolled] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [savingProgress, setSavingProgress] = useState(false)
+  const [videoStreamUrl, setVideoStreamUrl] = useState<string>('')
 
   useEffect(() => {
     async function load() {
@@ -180,6 +182,38 @@ export default function LearnPage({
   const progress = lessons.length > 0 ? Math.round((completed.length / lessons.length) * 100) : 0
   const allDone = lessons.length > 0 && completed.length === lessons.length
   const sections = groupBySections(lessons)
+
+  // Generate signed video URL when lesson changes
+  useEffect(() => {
+    async function generateSignedUrl() {
+      if (!currentLesson || currentLesson.content_type !== 'video') {
+        setVideoStreamUrl('')
+        return
+      }
+
+      try {
+        const res = await fetch('/api/video/sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lessonId: currentLesson.id })
+        })
+
+        if (!res.ok) {
+          console.error('[signed URL] Generation failed:', res.status)
+          setVideoStreamUrl('')
+          return
+        }
+
+        const { signedUrl } = await res.json()
+        setVideoStreamUrl(signedUrl)
+      } catch (error) {
+        console.error('[signed URL]', error)
+        setVideoStreamUrl('')
+      }
+    }
+
+    generateSignedUrl()
+  }, [currentLesson?.id, currentLesson?.content_type])
 
   // Check if current lesson is accessible
   const isFirstLesson = currentLesson?.order_num === 1
@@ -526,19 +560,27 @@ export default function LearnPage({
                     }
 
                     if (isDirectVideo) {
+                      // Use signed stream URL with watermarked player
+                      if (!videoStreamUrl) {
+                        return (
+                          <div className="w-full h-full bg-black flex items-center justify-center text-zinc-500">
+                            <p className="text-sm">Loading secure player...</p>
+                          </div>
+                        )
+                      }
+
                       return (
-                        <div className="relative w-full h-full bg-black flex items-center justify-center group">
-                          <video
-                            key={currentLesson?.id}
-                            controls
-                            className="w-full h-full"
-                            style={{ maxHeight: '65vh' }}
-                            onEnded={() => currentLesson && markComplete(currentLesson.order_num)}>
-                            <source src={url} type="video/mp4" />
-                          </video>
+                        <div className="relative w-full h-full bg-black">
+                          <WatermarkedPlayer
+                            src={videoStreamUrl}
+                            studentName={user?.user_metadata?.full_name || 'Student'}
+                            studentId={user?.email || user?.id?.slice(0, 8) || ''}
+                            lessonTitle={currentLesson?.title || ''}
+                            onEnded={() => currentLesson && markComplete(currentLesson.order_num)}
+                          />
 
                           {/* Branding Overlay */}
-                          <div className="absolute top-3 left-3 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute top-3 left-3 z-20 pointer-events-none opacity-0 hover:opacity-100 transition-opacity">
                             <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-black/40 backdrop-blur-sm border border-white/5">
                               <Shield className="w-3 h-3 text-violet-light" />
                               <span className="text-[9px] font-bold text-white/60 tracking-widest uppercase">
