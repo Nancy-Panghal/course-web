@@ -26,6 +26,7 @@ export const TTL = {
   VIDEO: 2 * 60 * 60 * 1000,      // 2 hours  — video stream
   PDF:   1 * 60 * 60 * 1000,      // 1 hour   — PDF view
   LESSON: 2 * 60 * 60 * 1000,     // 2 hours  — lesson page (from Telegram)
+  RESOURCE: 2 * 60 * 60 * 1000,   // 2 hours  — notes, summary, quiz pages
   STORAGE: 60 * 1000,             // 60 sec   — Supabase signed URL (server-only)
 }
 
@@ -144,6 +145,38 @@ export function verifyLessonPageUrl(params: URLSearchParams): {
 // ZERO-WIDTH FINGERPRINT (invisible watermark in text)
 // Encodes identity into invisible Unicode chars that survive copy-paste.
 // ══════════════════════════════════════════════════════════════════
+
+export function signLessonResourceUrl(
+  lessonId: string,
+  type: 'summary' | 'notes' | 'quiz',
+  identity: string,
+  ttl = TTL.RESOURCE
+): string {
+  const exp = Date.now() + ttl
+  const payload = `resource.${lessonId}.${type}.${identity}.${exp}`
+  const sig = hmac(payload)
+  const p = new URLSearchParams({ type, identity, exp: String(exp), sig })
+  return `${BASE}/resource/${lessonId}?${p}`
+}
+
+export function verifyLessonResourceUrl(
+  lessonId: string,
+  params: URLSearchParams
+): { valid: boolean; lessonId: string; type: 'summary' | 'notes' | 'quiz'; identity: string } {
+  const rawType = params.get('type') || ''
+  const type = (['summary', 'notes', 'quiz'].includes(rawType) ? rawType : 'summary') as 'summary' | 'notes' | 'quiz'
+  const identity = params.get('identity') || ''
+  const exp = params.get('exp') || ''
+  const sig = params.get('sig') || ''
+  const fail = { valid: false, lessonId, type, identity }
+
+  if (!lessonId || !identity || !exp || !sig) return fail
+  if (Date.now() > parseInt(exp, 10)) return fail
+
+  const payload = `resource.${lessonId}.${type}.${identity}.${exp}`
+  const expected = hmac(payload)
+  return { ...fail, valid: timingSafeEqual(sig, expected) }
+}
 
 const ZWS  = '\u200B'   // zero-width space  = bit 0
 const ZWNJ = '\u200C'   // zero-width non-joiner = bit 1

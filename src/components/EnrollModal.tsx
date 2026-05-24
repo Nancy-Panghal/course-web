@@ -735,8 +735,8 @@ export default function EnrollModal({ onClose, course }: Props) {
               </button>
               
               <button onClick={() => setStep('payment')}
-                className="text-xs text-zinc-500 hover:text-white transition-colors mt-2">
-                Skip to Payment — ₹{course.price.toLocaleString()}
+                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 transition-all">
+                Pay Now - Rs {course.price.toLocaleString()}
               </button>
             </div>
           </div>

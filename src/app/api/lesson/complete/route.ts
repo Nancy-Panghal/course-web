@@ -16,22 +16,26 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { identity, lessonNum, courseId } = await req.json()
+    const { identity, lessonNum, courseId, enrollmentId, currentLesson } = await req.json()
 
-    if (!identity || !lessonNum || !courseId) {
+    if ((!identity && !enrollmentId) || !lessonNum || !courseId) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    // Find enrollment by telegram_chat_id
-    const { data: enrollment, error } = await supabase
+    const baseQuery = supabase
       .from('enrollments')
       .select('id, completed_lessons, current_lesson')
-      .eq('telegram_chat_id', String(identity))
       .eq('course_uuid', courseId)
       .order('enrolled_at', { ascending: false })
       .limit(1)
-      .single()
 
+    const query = enrollmentId
+      ? baseQuery.eq('id', enrollmentId)
+      : baseQuery.eq('telegram_chat_id', String(identity))
+
+    const { data: rows, error } = await query
+
+    const enrollment = rows?.[0]
     if (error || !enrollment) {
       return NextResponse.json({ error: 'Enrollment not found' }, { status: 404 })
     }
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
       .from('enrollments')
       .update({
         completed_lessons: completed,
-        current_lesson: lessonNum + 1,
+        current_lesson: Math.max(currentLesson || 0, lessonNum + 1, enrollment.current_lesson || 1),
         last_accessed: new Date().toISOString(),
       })
       .eq('id', enrollment.id)

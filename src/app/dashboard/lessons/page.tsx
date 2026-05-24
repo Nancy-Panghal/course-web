@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
+import { renumberLessons } from '@/lib/utils'
 import { BookOpen, Plus, Trash2, GripVertical, Video, FileText, Link, X, Check } from 'lucide-react'
 
 interface Lesson {
@@ -24,21 +25,27 @@ function AddLessonModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => 
     setLoading(true)
     setError('')
 
-    const { data: existing } = await supabase
-      .from('lessons')
-      .select('order_num')
-      .order('order_num', { ascending: false })
-      .limit(1)
-
-    const nextOrder = existing && existing.length > 0 ? existing[0].order_num + 1 : 1
-
+    // Get current user
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setError('Not authenticated')
+      setLoading(false)
+      return
+    }
+
+    // Get COUNT of lessons by this creator (not MAX order_num)
+    const { count } = await supabase
+      .from('lessons')
+      .select('*', { count: 'exact', head: true })
+      .eq('creator_id', user.id)
+
+    const nextOrder = (count || 0) + 1
 
     const { error } = await supabase.from('lessons').insert({
       title,
       r2_key: url,
       order_num: nextOrder,
-      creator_id: user?.id,
+      creator_id: user.id,
     })
 
     if (error) {
@@ -173,6 +180,29 @@ export default function LessonsPage() {
   async function deleteLesson(id: string) {
     setDeleting(id)
     await supabase.from('lessons').delete().eq('id', id)
+    
+    // Renumber remaining lessons to fill gap
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: remainingLessons } = await supabase
+        .from('lessons')
+        .select('id, order_num')
+        .eq('creator_id', user.id)
+        .order('order_num', { ascending: true })
+
+      if (remainingLessons) {
+        for (let i = 0; i < remainingLessons.length; i++) {
+          const newOrder = i + 1
+          if (remainingLessons[i].order_num !== newOrder) {
+            await supabase
+              .from('lessons')
+              .update({ order_num: newOrder })
+              .eq('id', remainingLessons[i].id)
+          }
+        }
+      }
+    }
+    
     setDeleted(id)
     setTimeout(() => {
       setLessons(l => l.filter(x => x.id !== id))

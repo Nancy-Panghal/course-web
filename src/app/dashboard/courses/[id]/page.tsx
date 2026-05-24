@@ -3,7 +3,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { slugify } from '@/lib/utils'
+import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextModuleOrder } from '@/lib/utils'
 import Link from 'next/link'
 import {
   ArrowLeft, Plus, Video, FileText, Globe,
@@ -34,10 +34,14 @@ interface Course {
   host_image?: string
   free_preview_config?: string
   scheduled_deletion_at?: string
+  next_lesson_date?: string
+  course_end_date?: string
+  student_update_message?: string
 }
 
 interface Lesson {
   id: string
+  course_id: string
   title: string
   content_url: string
   content_type: string
@@ -45,6 +49,17 @@ interface Lesson {
   is_published: boolean
   duration: string
   module_id?: string | null
+  summary_url?: string | null
+  summary_name?: string | null
+  notes_url?: string | null
+  notes_name?: string | null
+  quiz_questions?: QuizQuestion[] | null
+}
+
+interface QuizQuestion {
+  question: string
+  options: string[]
+  answerIndex: number
 }
 
 interface CourseModule {
@@ -56,29 +71,51 @@ interface CourseModule {
 }
 
 async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl: string; storagePath: string }> {
-  // Step 1: get signed URL from our API (no file bytes sent to Vercel)
-  const res = await fetch('/api/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fileName: file.name,
-      contentType: file.type,
-      folder,
-    }),
-  })
+  try {
+    const ext = file.name.split('.').pop()
+    const safeName = `${folder}/${Math.random().toString(36).substring(2)}-${Date.now()}.${ext}`
 
-  const { signedUrl, publicUrl, storagePath, error } = await res.json()
-  if (!res.ok) throw new Error(error || 'Failed to get upload URL')
+    // Upload directly using Supabase client (handles CORS properly)
+    const { data, error: uploadError } = await supabase.storage
+      .from('lessons')
+      .upload(safeName, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
 
-  // Step 2: upload directly to Supabase — bypasses Vercel size limit
-  const upload = await fetch(signedUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file,
-  })
+    if (uploadError) {
+      // Provide specific error messages for common issues
+      let errorMsg = uploadError.message
+      
+      if (errorMsg?.includes('row-level security') || errorMsg?.includes('RLS')) {
+        errorMsg = 'Storage policy error: Please contact admin to enable file uploads. See STORAGE_RLS_FIX.md for fix.'
+      } else if (errorMsg?.includes('unauthorized') || errorMsg?.includes('auth')) {
+        errorMsg = 'Authentication error: Please log out and log back in.'
+      } else if (errorMsg?.includes('not found')) {
+        errorMsg = 'Storage bucket not found. Please check configuration.'
+      }
+      
+      console.error('Supabase upload error:', uploadError)
+      throw new Error(`Upload failed: ${errorMsg}`)
+    }
 
-  if (!upload.ok) throw new Error('Upload to storage failed')
-  return { publicUrl, storagePath }
+    if (!data) {
+      throw new Error('No data returned from upload')
+    }
+
+    // Generate public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('lessons')
+      .getPublicUrl(safeName)
+
+    return { 
+      publicUrl: publicUrlData.publicUrl, 
+      storagePath: safeName 
+    }
+  } catch (err: any) {
+    console.error('Upload error:', err)
+    throw new Error(err.message || 'Upload failed')
+  }
 }
 
 function AddModuleModal({
@@ -257,12 +294,6 @@ function AddLessonModal({
       setLoading(false)
       return
     }
-
-    // Update course total_lessons count
-    await supabase
-      .from('courses')
-      .update({ total_lessons: nextOrder })
-      .eq('id', courseId)
 
     onAdd()
     onClose()
@@ -452,13 +483,41 @@ function LessonWidget({
   lesson,
   onDelete,
   onTogglePublish,
+  onRefresh,
 }: {
   lesson: Lesson
   onDelete: (id: string) => void
   onTogglePublish: (id: string, current: boolean) => void
+  onRefresh: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [resourceSaving, setResourceSaving] = useState<'summary' | 'notes' | null>(null)
+
+  async function uploadResource(kind: 'summary' | 'notes', file: File | null) {
+    if (!file) return
+    const lower = file.name.toLowerCase()
+    const valid = lower.endsWith('.pdf') || lower.endsWith('.txt') || lower.endsWith('.doc') || lower.endsWith('.docx')
+    if (!valid) {
+      alert('Only PDF or text document files are allowed.')
+      return
+    }
+
+    setResourceSaving(kind)
+    try {
+      const { publicUrl } = await uploadToSupabase(file, `${kind}s`)
+      const payload = kind === 'summary'
+        ? { summary_url: publicUrl, summary_name: file.name }
+        : { notes_url: publicUrl, notes_name: file.name }
+      const { error } = await supabase.from('lessons').update(payload).eq('id', lesson.id)
+      if (error) throw error
+      onRefresh()
+    } catch (err: any) {
+      alert(err.message || 'Resource upload failed.')
+    } finally {
+      setResourceSaving(null)
+    }
+  }
 
   function copyLink() {
     // Don't expose the actual URL — just copy a reference
@@ -561,6 +620,56 @@ function LessonWidget({
               </a>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(['summary', 'notes'] as const).map(kind => {
+                const hasFile = kind === 'summary' ? !!lesson.summary_url : !!lesson.notes_url
+                const name = kind === 'summary' ? lesson.summary_name : lesson.notes_name
+                return (
+                  <div key={kind} className="p-3 rounded-xl"
+                    style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-white capitalize">{kind}</p>
+                        <p className="text-[10px] truncate" style={{color:'#52525b'}}>
+                          {hasFile ? name || 'Uploaded' : 'PDF or text document'}
+                        </p>
+                      </div>
+                      {hasFile && (
+                        <Link href={`/resource/${lesson.id}?type=${kind}`} target="_blank"
+                          className="text-[10px] text-violet-400 hover:text-violet-300">
+                          View
+                        </Link>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept=".pdf,.txt,.doc,.docx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      className="hidden"
+                      id={`${kind}-${lesson.id}`}
+                      onChange={e => uploadResource(kind, e.target.files?.[0] || null)}
+                    />
+                    <label htmlFor={`${kind}-${lesson.id}`}
+                      className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
+                      style={{background:'rgba(124,58,237,0.12)', color:'#a78bfa', border:'1px solid rgba(124,58,237,0.2)'}}>
+                      {resourceSaving === kind ? 'Uploading...' : hasFile ? 'Replace File' : `Add ${kind}`}
+                    </label>
+                  </div>
+                )
+              })}
+            </div>
+
+            <Link
+              href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
+              className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
+              style={{background:'rgba(124,58,237,0.08)', border:'1px solid rgba(124,58,237,0.18)', color:'#fff'}}>
+              <span>Quiz Builder</span>
+              <span className="text-xs text-violet-300">
+                {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
+                  ? `${lesson.quiz_questions.length} questions`
+                  : 'Add quiz'}
+              </span>
+            </Link>
+
             {/* Delete */}
             <button
               onClick={() => onDelete(lesson.id)}
@@ -606,6 +715,10 @@ export default function CourseManagePage({
   const [editStartDate, setEditStartDate] = useState('')
   const [editStartTime, setEditStartTime] = useState('')
   const [editDuration, setEditDuration] = useState('')
+  const [editPlannedLessons, setEditPlannedLessons] = useState('')
+  const [editNextLessonDate, setEditNextLessonDate] = useState('')
+  const [editCourseEndDate, setEditCourseEndDate] = useState('')
+  const [editStudentMessage, setEditStudentMessage] = useState('')
   const [editLearn, setEditLearn] = useState<string[]>([])
   const [editFaq, setEditFaq] = useState<{ question: string; answer: string }[]>([])
   const [editHostImage, setEditHostImage] = useState('')
@@ -644,6 +757,10 @@ export default function CourseManagePage({
       setEditStartDate(courseData.start_date || '')
       setEditStartTime(courseData.start_time || '')
       setEditDuration(courseData.duration || '')
+      setEditPlannedLessons(courseData.total_lessons?.toString() || '')
+      setEditNextLessonDate(courseData.next_lesson_date || '')
+      setEditCourseEndDate(courseData.course_end_date || '')
+      setEditStudentMessage(courseData.student_update_message || '')
       setEditLearn(courseData.what_you_will_learn || [''])
       setEditFaq(courseData.faq || [{ question: '', answer: '' }])
       setEditHostImage(courseData.host_image || '')
@@ -689,6 +806,10 @@ export default function CourseManagePage({
         start_date: editStartDate,
         start_time: editStartTime,
         duration: editDuration,
+        total_lessons: editPlannedLessons ? parseInt(editPlannedLessons) : lessons.length,
+        next_lesson_date: editNextLessonDate || null,
+        course_end_date: editCourseEndDate || null,
+        student_update_message: editStudentMessage.trim() || null,
         what_you_will_learn: editLearn.filter(l => l.trim()),
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
@@ -708,6 +829,10 @@ export default function CourseManagePage({
         start_date: editStartDate,
         start_time: editStartTime,
         duration: editDuration,
+        total_lessons: editPlannedLessons ? parseInt(editPlannedLessons) : lessons.length,
+        next_lesson_date: editNextLessonDate || undefined,
+        course_end_date: editCourseEndDate || undefined,
+        student_update_message: editStudentMessage.trim() || undefined,
         what_you_will_learn: editLearn.filter(l => l.trim()),
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
@@ -768,13 +893,11 @@ export default function CourseManagePage({
 
   async function deleteLesson(lessonId: string) {
     await supabase.from('lessons').delete().eq('id', lessonId)
+    
+    // Renumber remaining lessons to fill gap
+    await renumberLessons(supabase, id)
+    
     await fetchLessons()
-    // Update count
-    if (course) {
-      const newCount = lessons.length - 1
-      await supabase.from('courses').update({ total_lessons: newCount }).eq('id', id)
-      setCourse({ ...course, total_lessons: newCount })
-    }
   }
 
   async function toggleLessonPublish(lessonId: string, current: boolean) {
@@ -823,6 +946,8 @@ export default function CourseManagePage({
 
   const publishedCount = lessons.filter(l => l.is_published).length
   const allPublished = lessons.length > 0 && publishedCount === lessons.length
+  const plannedTotal = Math.max(course?.total_lessons || 0, lessons.length)
+  const remainingLessons = Math.max(plannedTotal - publishedCount, 0)
   const courseUrl = course ? `${window.location.origin}/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}` : ''
 
   if (loading) {
@@ -970,6 +1095,54 @@ export default function CourseManagePage({
                   </div>
                 </div>
 
+                <div className="rounded-2xl p-4 mb-4"
+                  style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)'}}>
+                  <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Release Schedule</p>
+                      <p className="text-xs text-zinc-500">{lessons.length} uploaded / {publishedCount} published / {remainingLessons} remaining</p>
+                    </div>
+                    <button onClick={updateSettings} disabled={savingSettings}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+                      {savingSettings ? 'Saving...' : 'Save Schedule'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 block">Planned Lessons</label>
+                      <input value={editPlannedLessons} onChange={e => setEditPlannedLessons(e.target.value)}
+                        type="number" min={lessons.length}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 block">Next Lesson Date</label>
+                      <input value={editNextLessonDate} onChange={e => setEditNextLessonDate(e.target.value)}
+                        type="date"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 block">Course End Date</label>
+                      <input value={editCourseEndDate} onChange={e => setEditCourseEndDate(e.target.value)}
+                        type="date"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Student Info Message</label>
+                      <span className="text-[10px] text-zinc-600">{editStudentMessage.length}/500</span>
+                    </div>
+                    <textarea
+                      value={editStudentMessage}
+                      onChange={e => setEditStudentMessage(e.target.value.slice(0, 500))}
+                      maxLength={500}
+                      rows={3}
+                      placeholder="Example: Lesson 3 is being recorded and will be available next Friday."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none"
+                    />
+                  </div>
+                </div>
+
                 {/* Lesson list */}
                 {lessons.length === 0 && modules.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center glass"
@@ -1013,6 +1186,7 @@ export default function CourseManagePage({
                                 lesson={lesson}
                                 onDelete={deleteLesson}
                                 onTogglePublish={toggleLessonPublish}
+                                onRefresh={fetchLessons}
                               />
                             ))}
                           </div>
@@ -1026,6 +1200,7 @@ export default function CourseManagePage({
                         lesson={lesson}
                         onDelete={deleteLesson}
                         onTogglePublish={toggleLessonPublish}
+                        onRefresh={fetchLessons}
                       />
                     ))}
 
@@ -1273,7 +1448,7 @@ export default function CourseManagePage({
               <div className="flex flex-col gap-3">
                 {[
                   { label: 'Price', value: `₹${course.price.toLocaleString()}` },
-                  { label: 'Lessons', value: `${lessons.length} / ${course.total_lessons} planned` },
+                  { label: 'Lessons', value: `${lessons.length} uploaded / ${plannedTotal} planned` },
                   { label: 'Published', value: `${publishedCount} of ${lessons.length}` },
                   { label: 'Delivery', value: course.delivery === 'both' ? 'Web + WhatsApp' : course.delivery === 'web' ? 'Web Only' : 'WhatsApp Only' },
                   { label: 'Language', value: course.language?.join(', ') || 'English' },

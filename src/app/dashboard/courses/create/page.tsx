@@ -45,29 +45,48 @@ function slugify(text: string) {
 }
 
 async function uploadToSupabase(file: File, folder: string): Promise<string> {
-  // Step 1: get signed URL from our API (no file bytes sent to Vercel)
-  const res = await fetch('/api/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fileName: file.name,
-      contentType: file.type,
-      folder,
-    }),
-  })
+  try {
+    const ext = file.name.split('.').pop()
+    const safeName = `${folder}/${Math.random().toString(36).substring(2)}-${Date.now()}.${ext}`
 
-  const { signedUrl, publicUrl, error } = await res.json()
-  if (!res.ok) throw new Error(error || 'Failed to get upload URL')
+    // Upload directly using Supabase client (handles CORS properly)
+    const { data, error: uploadError } = await supabase.storage
+      .from('lessons')
+      .upload(safeName, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
 
-  // Step 2: upload directly to Supabase — bypasses Vercel size limit
-  const upload = await fetch(signedUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file,
-  })
+    if (uploadError) {
+      // Provide specific error messages for common issues
+      let errorMsg = uploadError.message
+      
+      if (errorMsg?.includes('row-level security') || errorMsg?.includes('RLS')) {
+        errorMsg = 'Storage policy error: Please contact admin to enable file uploads. See STORAGE_RLS_FIX.md for fix.'
+      } else if (errorMsg?.includes('unauthorized') || errorMsg?.includes('auth')) {
+        errorMsg = 'Authentication error: Please log out and log back in.'
+      } else if (errorMsg?.includes('not found')) {
+        errorMsg = 'Storage bucket not found. Please check configuration.'
+      }
+      
+      console.error('Supabase upload error:', uploadError)
+      throw new Error(`Upload failed: ${errorMsg}`)
+    }
 
-  if (!upload.ok) throw new Error('Upload to storage failed')
-  return publicUrl
+    if (!data) {
+      throw new Error('No data returned from upload')
+    }
+
+    // Generate public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('lessons')
+      .getPublicUrl(safeName)
+
+    return publicUrlData.publicUrl
+  } catch (err: any) {
+    console.error('Upload error:', err)
+    throw new Error(err.message || 'Upload failed')
+  }
 }
 
 // Reusable input component defined outside

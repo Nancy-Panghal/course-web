@@ -102,41 +102,52 @@ async function watermarkPdf(
   pages.forEach(page => {
     const { width, height } = page.getSize()
 
-    // Bottom strip watermark — always visible
+    // Bottom strip watermark - intentionally visible. Tiny/faint marks are easy to crop or erase.
     page.drawText(watermarkText, {
       x: 20,
       y: 12,
-      size: 7,
+      size: 10,
       font,
-      color: rgb(0.55, 0.55, 0.55),
-      opacity: 0.5,
+      color: rgb(0.18, 0.18, 0.18),
+      opacity: 0.82,
     })
 
     // Top strip
     page.drawText(`AcademyKit — Protected Content — ${new Date().toLocaleDateString('en-IN')}`, {
       x: 20,
       y: height - 16,
-      size: 6,
+      size: 8,
       font,
-      color: rgb(0.65, 0.65, 0.65),
-      opacity: 0.35,
+      color: rgb(0.22, 0.22, 0.22),
+      opacity: 0.62,
     })
 
-    // Diagonal tiled watermark — subtle, survives crop
-    const step = 160
+    // Diagonal tiled watermark across the page. It is deliberately visible enough
+    // to make clean removal expensive while keeping the PDF readable.
+    const step = 130
     for (let x = -step; x < width + step; x += step) {
       for (let y = 0; y < height + step; y += step) {
         page.drawText(diagonalText, {
           x,
           y,
-          size: 10,
+          size: 13,
           font,
-          color: rgb(0.75, 0.75, 0.75),
-          opacity: 0.06,
+          color: rgb(0.32, 0.32, 0.32),
+          opacity: 0.16,
           rotate: degrees(35),
         })
       }
     }
+
+    page.drawText(`LICENSED COPY - ${studentName} - ${identity.slice(-8)}`, {
+      x: width * 0.12,
+      y: height * 0.5,
+      size: Math.max(18, width * 0.035),
+      font,
+      color: rgb(0.25, 0.25, 0.25),
+      opacity: 0.18,
+      rotate: degrees(35),
+    })
   })
 
   return pdf.save()

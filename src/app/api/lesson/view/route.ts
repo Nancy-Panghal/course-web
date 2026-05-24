@@ -222,13 +222,58 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
     /* Canvas overlay for watermark — sits on top of video */
     .watermark-canvas {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      pointer-events: none; z-index: 10;
+      pointer-events: none; z-index: 20;
     }
 
     /* ── PDF viewer ── */
+    .pdf-container {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 120px);
+      min-height: 500px;
+      background: #0b0b0b;
+      overflow: hidden;
+    }
     .pdf-wrap {
-      width: 100%; height: calc(100vh - 120px); min-height: 500px;
+      width: 100%; height: 100%;
       border: none;
+    }
+    .screen-watermark {
+      position: absolute;
+      inset: 0;
+      z-index: 15;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .wm-floating {
+      position: absolute;
+      left: 7%;
+      top: 10%;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.66);
+      border: 1px solid rgba(255,255,255,0.36);
+      color: rgba(255,255,255,0.92);
+      font: 800 12px/1.2 monospace;
+      text-shadow: 0 2px 6px #000, 0 0 2px #000;
+      animation: drift 26s infinite alternate ease-in-out;
+    }
+    .wm-grid {
+      position: absolute;
+      inset: -30%;
+      transform: rotate(-24deg);
+      color: rgba(255,255,255,0.14);
+      font: 800 17px monospace;
+      line-height: 92px;
+      word-spacing: 58px;
+      text-shadow: 0 1px 2px #000;
+      opacity: 0.95;
+    }
+    @keyframes drift {
+      0% { transform: translate(0, 0); }
+      35% { transform: translate(44vw, 14vh); }
+      70% { transform: translate(16vw, 46vh); }
+      100% { transform: translate(58vw, 56vh); }
     }
 
     /* ── Controls ── */
@@ -246,6 +291,7 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
     .progress-track {
       flex: 1; height: 4px; background: rgba(255,255,255,0.1);
       border-radius: 2px; cursor: pointer; position: relative;
+      touch-action: none;
     }
     .progress-fill {
       height: 100%; background: linear-gradient(90deg,#7c3aed,#4f46e5);
@@ -300,11 +346,17 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
 
     ${isPdf ? `
     <!-- PDF viewer -->
-    <iframe
-      src="${contentUrl}"
-      class="pdf-wrap"
-      title="${title}"
-    ></iframe>
+    <div class="pdf-container">
+      <iframe
+        src="${contentUrl}"
+        class="pdf-wrap"
+        title="${title}"
+      ></iframe>
+      <div class="screen-watermark">
+        <div class="wm-grid">${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit</div>
+        <div class="wm-floating">Licensed to ${studentName} · ID ${shortId}</div>
+      </div>
+    </div>
     ` : `
     <!-- Video player + canvas watermark -->
     <div class="player-wrap" id="playerWrap">
@@ -316,6 +368,10 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
         controlslist="nodownload nofullscreen noremoteplayback"
         disablepictureinpicture
       ></video>
+      <div class="screen-watermark">
+        <div class="wm-grid">${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit</div>
+        <div class="wm-floating">Licensed to ${studentName} · ID ${shortId}</div>
+      </div>
       <canvas id="wmCanvas" class="watermark-canvas"></canvas>
     </div>
 
@@ -406,17 +462,29 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
       if (!W || !H) { requestAnimationFrame(drawWatermark); return }
       ctx.clearRect(0, 0, W, H)
 
-      // Primary floating text
+      // Primary floating text: high contrast so it survives bright/dark video frames.
       const fs = Math.max(12, Math.min(W * 0.022, 20))
       ctx.font = fs + 'px monospace'
-      ctx.globalAlpha = 0.18 + Math.random() * 0.1
+      const x = wmX * W
+      const y = wmY * H
+      const metrics = ctx.measureText(WM_TEXT)
+      ctx.globalAlpha = 0.72
+      ctx.fillStyle = 'rgba(0,0,0,0.58)'
+      ctx.fillRect(x - 8, y - fs - 8, metrics.width + 16, fs + 16)
+      ctx.strokeStyle = 'rgba(255,255,255,0.65)'
+      ctx.lineWidth = 1
+      ctx.strokeRect(x - 8, y - fs - 8, metrics.width + 16, fs + 16)
+      ctx.globalAlpha = 0.92
       ctx.fillStyle = '#fff'
       ctx.shadowColor = 'rgba(0,0,0,0.9)'
-      ctx.shadowBlur = 4
-      ctx.fillText(WM_TEXT, wmX * W, wmY * H)
+      ctx.shadowBlur = 8
+      ctx.strokeStyle = '#000'
+      ctx.lineWidth = 3
+      ctx.strokeText(WM_TEXT, x, y)
+      ctx.fillText(WM_TEXT, x, y)
 
-      // Diagonal tiling — very faint
-      ctx.globalAlpha = 0.04
+      // Diagonal tiling: visible enough to make clean cropping painful.
+      ctx.globalAlpha = 0.11
       ctx.font = Math.max(9, fs * 0.7) + 'px monospace'
       ctx.shadowBlur = 0
       const step = 200
@@ -462,10 +530,35 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
     playBtn.onclick = () => { vid.paused ? vid.play() : vid.pause() }
     muteBtn.onclick = () => { vid.muted = !vid.muted; muteBtn.textContent = vid.muted ? '🔇' : '🔊' }
 
-    progressTrack.onclick = (e) => {
+    let seeking = false
+    function seekFromEvent(e) {
+      if (!vid.duration || !isFinite(vid.duration)) return
       const r = progressTrack.getBoundingClientRect()
-      vid.currentTime = ((e.clientX - r.left) / r.width) * vid.duration
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX
+      if (typeof clientX !== 'number' || r.width <= 0) return
+      const pct = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
+      vid.currentTime = pct * vid.duration
+      progressFill.style.width = (pct * 100) + '%'
+      timeLabel.textContent = fmtTime(vid.currentTime) + ' / ' + fmtTime(vid.duration)
     }
+    progressTrack.addEventListener('pointerdown', (e) => {
+      seeking = true
+      progressTrack.setPointerCapture?.(e.pointerId)
+      seekFromEvent(e)
+      e.preventDefault()
+    })
+    progressTrack.addEventListener('pointermove', (e) => {
+      if (!seeking) return
+      seekFromEvent(e)
+      e.preventDefault()
+    })
+    progressTrack.addEventListener('pointerup', (e) => {
+      if (!seeking) return
+      seeking = false
+      seekFromEvent(e)
+      e.preventDefault()
+    })
+    progressTrack.addEventListener('click', seekFromEvent)
     ` : ''}
 
     // ── Mark lesson done ──────────────────────────────────────────

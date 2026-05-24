@@ -31,6 +31,9 @@ interface Lesson {
   duration: string
   is_published: boolean
   module_id?: string | null
+  summary_url?: string | null
+  notes_url?: string | null
+  quiz_questions?: { question: string; options: string[]; answerIndex: number }[] | null
 }
 
 interface Course {
@@ -41,6 +44,10 @@ interface Course {
   delivery: string
   host_name: string
   price: number
+  total_lessons?: number
+  next_lesson_date?: string
+  course_end_date?: string
+  student_update_message?: string
   free_preview_config?: string
 }
 
@@ -58,6 +65,15 @@ function isLessonFree(lesson: Lesson, config: string) {
   if (config === 'module 1 free')  return lesson.order_num <= 3
   if (config === '2 modules free') return lesson.order_num <= 6
   return false
+}
+
+function formatCourseDate(value?: string) {
+  if (!value) return ''
+  return new Date(value).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 // ── Get signed content URL from our server API ────────────────────
@@ -194,10 +210,14 @@ export default function CourseLearnPage({
   const currentIndex  = lessons.findIndex(l => l.id === currentId)
   const prevLesson    = currentIndex > 0 ? lessons[currentIndex - 1] : null
   const nextLesson    = currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null
-  const progress      = lessons.length > 0 ? Math.round((completed.length / lessons.length) * 100) : 0
-  const allDone       = lessons.length > 0 && completed.length === lessons.length
+  const progress      = lessons.length > 0 ? Math.round((completed.length / Math.max(course?.total_lessons || lessons.length, lessons.length)) * 100) : 0
   const isFree        = currentLesson && isLessonFree(currentLesson, course?.free_preview_config || 'nothing free')
   const canAccess     = isEnrolled || isFree
+  const freeLessons   = lessons.filter(lesson => isLessonFree(lesson, course?.free_preview_config || 'nothing free')).length
+  const plannedTotal  = Math.max(course?.total_lessons || 0, lessons.length)
+  const remainingPlanned = Math.max(plannedTotal - lessons.length, 0)
+  const isCaughtUpToPublished = lessons.length > 0 && completed.length >= lessons.length
+  const allDone       = plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal
 
   // Load signed content URL when lesson changes
   useEffect(() => {
@@ -218,18 +238,35 @@ export default function CourseLearnPage({
     setCompleted(next)
     if (enrollment && isEnrolled) {
       setSavingProgress(true)
-      await supabase.from('enrollments').update({
+      await fetch('/api/lesson/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrollmentId: enrollment.id,
+          lessonNum: orderNum,
+          currentLesson: orderNum + 1,
+          courseId: course?.id,
+        }),
+      })
+      setEnrollment({
+        ...enrollment,
         completed_lessons: next,
-        current_lesson: orderNum + 1,
-        last_accessed: new Date().toISOString(),
-      }).eq('id', enrollment.id)
+        current_lesson: Math.max(enrollment.current_lesson || 1, orderNum + 1),
+      })
       setSavingProgress(false)
     }
   }
 
-  function goTo(lesson: Lesson) {
+  async function goTo(lesson: Lesson) {
     setCurrentId(lesson.id)
     setSidebarOpen(false)
+    if (enrollment && isEnrolled) {
+      setEnrollment({ ...enrollment, current_lesson: lesson.order_num })
+      await supabase
+        .from('enrollments')
+        .update({ current_lesson: lesson.order_num, last_accessed: new Date().toISOString() })
+        .eq('id', enrollment.id)
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -281,7 +318,7 @@ export default function CourseLearnPage({
             <div style={{ width: 80, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}>
               <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg,#7c3aed,#4f46e5)', borderRadius: 2 }} />
             </div>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#52525b' }}>{progress}%</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#52525b' }}>{completed.length}/{plannedTotal || lessons.length}</span>
           </div>
           {allDone && (
             <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: 'rgba(234,179,8,0.08)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
@@ -367,6 +404,24 @@ export default function CourseLearnPage({
             <LockedScreen course={course} onEnroll={() => setShowEnroll(true)} />
           ) : (
             <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px 60px' }}>
+              {!isEnrolled && (
+                <div style={{ marginBottom: 18, padding: 16, borderRadius: 12, background: 'rgba(124,58,237,0.09)', border: '1px solid rgba(124,58,237,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    <p style={{ color: '#fff', fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
+                      {freeLessons > 0 ? `Free preview: ${Math.min(currentLesson?.order_num || 1, freeLessons)} of ${freeLessons}` : 'Payment required'}
+                    </p>
+                    <p style={{ color: '#a1a1aa', fontSize: 12 }}>
+                      Unlock all {plannedTotal || lessons.length} lessons, Telegram delivery, and saved progress.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowEnroll(true)}
+                    style={{ padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Pay Now - Rs {course.price.toLocaleString()}
+                  </button>
+                </div>
+              )}
 
               {/* Content area */}
               {loadingContent ? (
@@ -406,7 +461,10 @@ export default function CourseLearnPage({
                       </span>
                     )}
                     <span style={{ fontSize: 12, color: '#52525b' }}>
-                      Lesson {currentLesson?.order_num} of {lessons.length}
+                      Lesson {currentLesson?.order_num} of {plannedTotal || lessons.length}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#52525b' }}>
+                      Watched {completed.length} / {lessons.length} published
                     </span>
                   </div>
                 </div>
@@ -429,6 +487,38 @@ export default function CourseLearnPage({
               </div>
 
               {/* Prev / Next navigation */}
+              {currentLesson && completed.includes(currentLesson.order_num) && (
+                <div style={{ marginBottom: 18, padding: 14, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <p style={{ color: '#fff', fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Continue with this lesson</p>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {currentLesson.summary_url && (
+                      <Link href={`/resource/${currentLesson.id}?type=summary`} target="_blank"
+                        style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(124,58,237,0.12)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.22)', fontSize: 12, fontWeight: 700 }}>
+                        Summary
+                      </Link>
+                    )}
+                    {currentLesson.notes_url && (
+                      <Link href={`/resource/${currentLesson.id}?type=notes`} target="_blank"
+                        style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(124,58,237,0.12)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.22)', fontSize: 12, fontWeight: 700 }}>
+                        Notes
+                      </Link>
+                    )}
+                    {Array.isArray(currentLesson.quiz_questions) && currentLesson.quiz_questions.length > 0 && (
+                      <Link href={`/resource/${currentLesson.id}?type=quiz`} target="_blank"
+                        style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(74,222,128,0.1)', color: '#86efac', border: '1px solid rgba(74,222,128,0.22)', fontSize: 12, fontWeight: 700 }}>
+                        Quiz
+                      </Link>
+                    )}
+                    {nextLesson && !isNextLocked && (
+                      <button onClick={() => goTo(nextLesson)}
+                        style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, fontWeight: 700 }}>
+                        Next Lesson
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <button
                   onClick={() => prevLesson && goTo(prevLesson)}
@@ -454,12 +544,41 @@ export default function CourseLearnPage({
                       Next <ChevronRight className="w-4 h-4" />
                     </button>
                   )
+                ) : remainingPlanned > 0 ? (
+                  <div style={{ textAlign: 'right', maxWidth: 300 }}>
+                    <p style={{ color: '#eab308', fontSize: 13, fontWeight: 800 }}>Next lessons upcoming</p>
+                    <p style={{ color: '#71717a', fontSize: 11 }}>
+                      {formatCourseDate(course.next_lesson_date)
+                        ? `Next lesson: ${formatCourseDate(course.next_lesson_date)}`
+                        : `${remainingPlanned} lesson${remainingPlanned > 1 ? 's' : ''} still planned`}
+                      {formatCourseDate(course.course_end_date) ? ` · Course ends ${formatCourseDate(course.course_end_date)}` : ''}
+                    </p>
+                    {course.student_update_message && (
+                      <p style={{ color: '#a1a1aa', fontSize: 11, marginTop: 4 }}>{course.student_update_message}</p>
+                    )}
+                  </div>
                 ) : (
                   <button style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(234,179,8,0.08)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                    🏆 Get Certificate
+                    Get Certificate
                   </button>
                 )}
               </div>
+
+              {isCaughtUpToPublished && remainingPlanned > 0 && (
+                <div style={{ marginTop: 18, padding: 16, borderRadius: 12, background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.18)' }}>
+                  <p style={{ color: '#eab308', fontSize: 14, fontWeight: 800, marginBottom: 4 }}>You are caught up.</p>
+                  <p style={{ color: '#a1a1aa', fontSize: 12 }}>
+                    {remainingPlanned} more lesson{remainingPlanned > 1 ? 's are' : ' is'} planned.
+                    {formatCourseDate(course.next_lesson_date) ? ` Next lesson is planned for ${formatCourseDate(course.next_lesson_date)}.` : ''}
+                    {formatCourseDate(course.course_end_date) ? ` Course end date: ${formatCourseDate(course.course_end_date)}.` : ''}
+                  </p>
+                  {course.student_update_message && (
+                    <p style={{ color: '#d4d4d8', fontSize: 12, marginTop: 10 }}>
+                      {course.student_update_message}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </main>
