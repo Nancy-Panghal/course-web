@@ -497,9 +497,9 @@ function LessonWidget({
   async function uploadResource(kind: 'summary' | 'notes', file: File | null) {
     if (!file) return
     const lower = file.name.toLowerCase()
-    const valid = lower.endsWith('.pdf') || lower.endsWith('.txt') || lower.endsWith('.doc') || lower.endsWith('.docx')
+    const valid = lower.endsWith('.pdf') || lower.endsWith('.txt') || lower.endsWith('.md') || lower.endsWith('.doc') || lower.endsWith('.docx')
     if (!valid) {
-      alert('Only PDF or text document files are allowed.')
+      alert('Only PDF, text, markdown, or document files are allowed.')
       return
     }
 
@@ -643,7 +643,7 @@ function LessonWidget({
                     </div>
                     <input
                       type="file"
-                      accept=".pdf,.txt,.doc,.docx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      accept=".pdf,.txt,.md,.doc,.docx,application/pdf,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       className="hidden"
                       id={`${kind}-${lesson.id}`}
                       onChange={e => uploadResource(kind, e.target.files?.[0] || null)}
