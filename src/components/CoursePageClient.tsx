@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { ArrowRight, Copy, Check, Share2, MessageCircle } from 'lucide-react'
+import { ArrowRight, Copy, Check, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment } from '@/lib/enrollments'
@@ -14,7 +14,6 @@ interface CourseData {
   creatorSlug: string
   creatorName: string
   creatorId: string
-  waNumber?: string
   telegramBotUsername?: string
   free_preview_config?: string
 }
