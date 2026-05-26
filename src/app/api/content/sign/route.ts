@@ -1,10 +1,7 @@
 /**
- * app/api/content/sign/route.ts
- * ─────────────────────────────────────────────────────────────────
- * Called by the website lesson page to get a signed content URL.
- * Validates the user session before signing.
- * Returns signed /api/video/stream or /api/pdf/view URL.
- * ─────────────────────────────────────────────────────────────────
+ * src/app/api/content/sign/route.ts
+ * Fixed: BUG 7 — web access was not logged to lesson_access_logs
+ * Fixed: auth token properly extracted from header
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -24,15 +21,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'lessonId and type required' }, { status: 400 })
     }
 
-    // Get user from Authorization header or cookie
+    // Get user from Authorization header
     const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace('Bearer ', '')
+    const token = authHeader.replace('Bearer ', '').trim()
 
     let userId = 'web'
+    let webUserId: string | null = null
 
     if (token) {
       const { data: { user } } = await supabase.auth.getUser(token)
-      if (user) userId = user.id
+      if (user) {
+        userId = user.id
+        webUserId = user.id
+      }
     }
 
     // Verify lesson exists and is published
@@ -45,6 +46,16 @@ export async function POST(req: NextRequest) {
     if (!lesson || !lesson.is_published) {
       return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
     }
+
+    // Log access for piracy detection (web path)
+    // Fire and forget — never block content delivery for logging
+    void supabase.from('lesson_access_logs').insert({
+      lesson_id: lessonId,
+      course_id: lesson.course_id,
+      web_user_id: webUserId,
+      source: 'web',
+      accessed_at: new Date().toISOString(),
+    }).then(() => {}, () => {})
 
     // Generate signed URL
     const url = type === 'pdf'
