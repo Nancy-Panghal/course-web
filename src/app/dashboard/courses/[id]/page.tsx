@@ -220,6 +220,7 @@ function AddLessonModal({
   creatorId,
   nextOrder,
   modules,
+  initialModuleId = '',
 }: {
   onClose: () => void
   onAdd: () => void
@@ -227,13 +228,14 @@ function AddLessonModal({
   creatorId: string
   nextOrder: number
   modules: CourseModule[]
+  initialModuleId?: string
 }) {
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [type, setType] = useState<'video' | 'pdf'>('video')
   const [duration, setDuration] = useState('')
-  const [moduleId, setModuleId] = useState('')
+  const [moduleId, setModuleId] = useState(initialModuleId)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -490,6 +492,10 @@ function LessonWidget({
   onTogglePublish: (id: string, current: boolean) => void
   onRefresh: () => void
 }) {
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('lessonId', lesson.id)
+  }
+
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [resourceSaving, setResourceSaving] = useState<'summary' | 'notes' | null>(null)
@@ -528,6 +534,8 @@ function LessonWidget({
 
   return (
     <div className="rounded-2xl overflow-hidden transition-all"
+      draggable
+      onDragStart={handleDragStart}
       style={{
         border: lesson.is_published
           ? '1px solid rgba(74,222,128,0.2)'
@@ -537,7 +545,7 @@ function LessonWidget({
 
       {/* Main row */}
       <div className="flex items-center gap-4 p-4">
-        <GripVertical className="w-4 h-4 flex-shrink-0 cursor-grab"
+        <GripVertical className="w-4 h-4 flex-shrink-0"
           style={{color:'#3f3f46'}} />
 
         {/* Order badge */}
@@ -699,6 +707,7 @@ export default function CourseManagePage({
   const [modules, setModules] = useState<CourseModule[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [selectedModuleForLesson, setSelectedModuleForLesson] = useState('')
   const [showModuleModal, setShowModuleModal] = useState(false)
   const [creatorId, setCreatorId] = useState('')
   const [copied, setCopied] = useState(false)
@@ -936,6 +945,20 @@ export default function CourseManagePage({
     setCourse({ ...course, is_published: newState })
   }
 
+  async function handleLessonDrop(lessonId: string, moduleId: string | null) {
+    const { error } = await supabase
+      .from('lessons')
+      .update({ module_id: moduleId })
+      .eq('id', lessonId)
+
+    if (error) {
+      alert('Failed to move lesson: ' + error.message)
+      return
+    }
+
+    await fetchLessons()
+  }
+
   function copyCourseLink() {
     if (!course) return
     const url = `${window.location.origin}/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`
@@ -966,12 +989,16 @@ export default function CourseManagePage({
 
       {showAddModal && (
         <AddLessonModal
-          onClose={() => setShowAddModal(false)}
+          onClose={() => {
+            setShowAddModal(false)
+            setSelectedModuleForLesson('')
+          }}
           onAdd={fetchLessons}
           courseId={id}
           creatorId={creatorId}
           nextOrder={lessons.length + 1}
           modules={modules}
+          initialModuleId={selectedModuleForLesson}
         />
       )}
 
@@ -1162,7 +1189,13 @@ export default function CourseManagePage({
                     {modules.map(module => {
                       const moduleLessons = lessons.filter(lesson => lesson.module_id === module.id)
                       return (
-                        <div key={module.id} className="rounded-2xl p-4"
+                        <div key={module.id} className="rounded-2xl p-4 transition-all"
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            const lessonId = e.dataTransfer.getData('lessonId')
+                            if (lessonId) handleLessonDrop(lessonId, module.id)
+                          }}
                           style={{background:'rgba(255,255,255,0.015)', border:'1px solid rgba(255,255,255,0.06)'}}>
                           <div className="flex items-center justify-between mb-3">
                             <div>
@@ -1171,7 +1204,10 @@ export default function CourseManagePage({
                                 {moduleLessons.length} / {module.planned_lessons || moduleLessons.length} lessons
                               </p>
                             </div>
-                            <button onClick={() => setShowAddModal(true)}
+                            <button onClick={() => {
+                              setSelectedModuleForLesson(module.id)
+                              setShowAddModal(true)
+                            }}
                               className="text-xs px-3 py-1.5 rounded-lg"
                               style={{background:'rgba(124,58,237,0.12)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
                               Add Lesson
@@ -1194,15 +1230,25 @@ export default function CourseManagePage({
                       )
                     })}
 
-                    {lessons.filter(lesson => !lesson.module_id).map(lesson => (
-                      <LessonWidget
-                        key={lesson.id}
-                        lesson={lesson}
-                        onDelete={deleteLesson}
-                        onTogglePublish={toggleLessonPublish}
-                        onRefresh={fetchLessons}
-                      />
-                    ))}
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        const lessonId = e.dataTransfer.getData('lessonId')
+                        if (lessonId) handleLessonDrop(lessonId, null)
+                      }}
+                      className="flex flex-col gap-3 min-h-[50px]"
+                    >
+                      {lessons.filter(lesson => !lesson.module_id).map(lesson => (
+                        <LessonWidget
+                          key={lesson.id}
+                          lesson={lesson}
+                          onDelete={deleteLesson}
+                          onTogglePublish={toggleLessonPublish}
+                          onRefresh={fetchLessons}
+                        />
+                      ))}
+                    </div>
 
                     {/* Add next lesson */}
                     <button onClick={() => setShowAddModal(true)}
