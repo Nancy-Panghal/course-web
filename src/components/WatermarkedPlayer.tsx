@@ -38,7 +38,8 @@ export default function WatermarkedPlayer({
   const videoRef   = useRef<HTMLVideoElement>(null)
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const animRef    = useRef<number>(0)
-  const driftRef   = useRef<ReturnType<typeof setInterval>>(undefined)
+  const tRef       = useRef<number>(0)
+  const playPromiseRef = useRef<Promise<void> | null>(null)
 
   const [playing,  setPlaying]  = useState(false)
   const [progress, setProgress] = useState(0)
@@ -47,17 +48,8 @@ export default function WatermarkedPlayer({
   const [volume,   setVolume]   = useState(1)
   const [fullscreen, setFS]     = useState(false)
   const [error,    setError]    = useState<string | null>(null)
-  const [wmPos,    setWmPos]    = useState({ x: 0.15, y: 0.12 })
 
   const wmText = studentId ? `${studentName} · ${studentId}` : studentName
-
-  // ── Drift ───────────────────────────────────────────────────────
-  useEffect(() => {
-    driftRef.current = setInterval(() => {
-      setWmPos({ x: 0.05 + Math.random() * 0.7, y: 0.05 + Math.random() * 0.8 })
-    }, DRIFT_MS)
-    return () => clearInterval(driftRef.current)
-  }, [])
 
   // ── Canvas size sync ────────────────────────────────────────────
   useEffect(() => {
@@ -73,7 +65,7 @@ export default function WatermarkedPlayer({
     return () => ro.disconnect()
   }, [])
 
-  // ── Draw watermark ──────────────────────────────────────────────
+  // ── Draw watermark (Smooth continuous Lissajous drift) ──────────
   const draw = useCallback(() => {
     const c = canvasRef.current
     if (!c) return
@@ -83,20 +75,61 @@ export default function WatermarkedPlayer({
 
     if (!W || !H) { animRef.current = requestAnimationFrame(draw); return }
 
-    // Primary floating
-    const fs = Math.max(12, Math.min(W * 0.022, 20))
-    ctx.font = `${fs}px 'Courier New', monospace`
-    ctx.globalAlpha = 0.18 + Math.random() * 0.1
-    ctx.fillStyle = '#fff'
-    ctx.shadowColor = 'rgba(0,0,0,0.9)'
-    ctx.shadowBlur = 4
-    ctx.fillText(wmText, wmPos.x * W, wmPos.y * H)
+    // Increment time step for smooth continuous movement
+    tRef.current += 0.0018
 
-    // Diagonal tile
-    ctx.globalAlpha = 0.04
-    ctx.font = `${Math.max(9, fs * 0.7)}px 'Courier New', monospace`
+    // Boundaries with padding so watermark never goes out of frame
+    const paddingX = W * 0.12
+    const paddingY = H * 0.12
+    const rangeX = W - paddingX * 2
+    const rangeY = H - paddingY * 2
+
+    // Lissajous curve movement for natural smooth floating
+    const x = paddingX + (0.5 + 0.5 * Math.sin(tRef.current * 0.72) * Math.cos(tRef.current * 0.44)) * rangeX
+    const y = paddingY + (0.5 + 0.5 * Math.sin(tRef.current * 0.52) * Math.sin(tRef.current * 0.96)) * rangeY
+
+    const fs = Math.max(11, Math.min(W * 0.021, 17))
+    ctx.font = `bold ${fs}px 'Courier New', monospace`
+
+    // Measure text to draw dark background box
+    const metrics = ctx.measureText(wmText)
+    const boxW = metrics.width + 16
+    const boxH = fs + 12
+    const boxX = x - 8
+    const boxY = y - fs - 5
+
+    // Rounded rectangle dark background
+    const radius = 6
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.72)'
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(boxX + radius, boxY)
+    ctx.lineTo(boxX + boxW - radius, boxY)
+    ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + radius)
+    ctx.lineTo(boxX + boxW, boxY + boxH - radius)
+    ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - radius, boxY + boxH)
+    ctx.lineTo(boxX + radius, boxY + boxH)
+    ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - radius)
+    ctx.lineTo(boxX, boxY + radius)
+    ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+
+    // Draw high-contrast text with dropshadow
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.88)'
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.95)'
+    ctx.shadowBlur = 4
+    ctx.fillText(wmText, x, y - 2)
+
+    // Reset shadow
     ctx.shadowBlur = 0
-    const step = 200
+
+    // Diagonal tile watermark
+    ctx.globalAlpha = 0.038
+    ctx.font = `bold ${Math.max(9, fs * 0.75)}px 'Courier New', monospace`
+    const step = 190
     for (let tx = -step; tx < W + step; tx += step) {
       for (let ty = -step; ty < H + step; ty += step) {
         ctx.save()
@@ -108,9 +141,8 @@ export default function WatermarkedPlayer({
     }
 
     ctx.globalAlpha = 1
-    ctx.shadowBlur  = 0
     animRef.current = requestAnimationFrame(draw)
-  }, [wmText, wmPos])
+  }, [wmText])
 
   useEffect(() => {
     animRef.current = requestAnimationFrame(draw)
@@ -167,11 +199,35 @@ export default function WatermarkedPlayer({
     setError(msgs[code ?? 4] || 'Playback failed. Link may have expired.')
   }
 
-  // ── Controls ────────────────────────────────────────────────────
+  // ── Controls (With AbortError play/pause promise management) ────
   const toggle = () => {
     const v = videoRef.current
     if (!v) return
-    v.paused ? v.play().then(() => setPlaying(true)) : (v.pause(), setPlaying(false))
+    if (v.paused) {
+      playPromiseRef.current = v.play()
+      playPromiseRef.current
+        .then(() => setPlaying(true))
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            console.error('Play request failed:', err)
+          }
+        })
+    } else {
+      if (playPromiseRef.current) {
+        playPromiseRef.current
+          .then(() => {
+            v.pause()
+            setPlaying(false)
+          })
+          .catch(() => {
+            v.pause()
+            setPlaying(false)
+          })
+      } else {
+        v.pause()
+        setPlaying(false)
+      }
+    }
   }
 
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {

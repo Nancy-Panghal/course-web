@@ -57,6 +57,7 @@ interface Enrollment {
   completed_lessons: number[]
   quiz_results: { lessonId: string; score: number; total: number }[]
   course_uuid: string
+  phone?: string
 }
 
 function isLessonFree(lesson: Lesson, config: string): boolean {
@@ -139,6 +140,8 @@ export default function CourseLearnPage({
   const [contentUrl, setContentUrl] = useState<string | null>(null)
   const [loadingContent, setLoadingContent] = useState(false)
   const [savingProgress, setSavingProgress] = useState(false)
+  const [demoTelegramToken, setDemoTelegramToken] = useState('')
+  const [generatingDemoToken, setGeneratingDemoToken] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -150,11 +153,18 @@ export default function CourseLearnPage({
       if (!courseData) { router.push('/'); return }
       setCourse(courseData)
 
-      const { data: creator } = await supabase
-        .from('creators')
-        .select('id, name, telegram_bot_username')
-        .eq('id', courseData.creator_id).limit(1)
-      setCreatorProfile(creator?.[0] ?? null)
+      try {
+        const creatorRes = await fetch(`/api/creator/${courseData.creator_id}`)
+        if (creatorRes.ok) {
+          const creatorData = await creatorRes.json()
+          setCreatorProfile(creatorData)
+        } else {
+          setCreatorProfile(null)
+        }
+      } catch (err) {
+        console.error('Failed to load creator profile:', err)
+        setCreatorProfile(null)
+      }
 
       const { data: lessonData } = await supabase
         .from('lessons').select('*')
@@ -207,6 +217,36 @@ export default function CourseLearnPage({
     }
     load()
   }, [courseId, router, searchParams])
+
+  useEffect(() => {
+    async function getDemoToken() {
+      if (!user || isEnrolled || !creatorProfile?.telegram_bot_username || !course || demoTelegramToken || generatingDemoToken) return
+      setGeneratingDemoToken(true)
+      try {
+        const res = await fetch('/api/telegram/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: user.id,
+            studentPhone: user.phone || user.user_metadata?.phone || '',
+            studentEmail: user.email || '',
+            studentName: user.user_metadata?.full_name || user.user_metadata?.name || '',
+            creatorId: course.creator_id,
+            courseId: course.id,
+            paymentId: null,
+          }),
+        })
+        const data = await res.json()
+        if (data?.token) {
+          setDemoTelegramToken(data.token)
+        }
+      } catch (e) {
+        console.error('[demoToken]', e)
+      }
+      setGeneratingDemoToken(false)
+    }
+    getDemoToken()
+  }, [user, isEnrolled, creatorProfile, course, demoTelegramToken, generatingDemoToken])
 
   const currentLesson = lessons.find(l => l.id === currentId) || lessons[0]
   const currentIndex = lessons.findIndex(l => l.id === currentId)
@@ -480,8 +520,8 @@ export default function CourseLearnPage({
                   ) : (
                     <WatermarkedPlayer
                       src={contentUrl}
-                      studentName={user?.email || user?.phone || 'Student'}
-                      studentId={user?.id?.slice(-8) || ''}
+                      studentName={user?.email || 'Preview Student'}
+                      studentId={enrollment?.phone || user?.phone || user?.user_metadata?.phone || ''}
                       lessonTitle={currentLesson?.title}
                       onEnded={() => currentLesson && markComplete(currentLesson.order_num)}
                     />
@@ -592,19 +632,47 @@ export default function CourseLearnPage({
                 )}
               </div>
 
-              {/* Telegram CTA for enrolled web users */}
-              {isEnrolled && creatorProfile?.telegram_bot_username && (
-                <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <div>
-                    <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Continue on Telegram</p>
-                    <p style={{ color: '#71717a', fontSize: 12 }}>Lessons delivered to your chat. Progress syncs automatically.</p>
+              {/* Telegram CTA for all users (enrolled or previewing) */}
+              {creatorProfile?.telegram_bot_username && (
+                isEnrolled ? (
+                  <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                    <div>
+                      <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Continue on Telegram</p>
+                      <p style={{ color: '#71717a', fontSize: 12 }}>Lessons delivered to your chat. Progress syncs automatically.</p>
+                    </div>
+                    <a href={`https://t.me/${creatorProfile.telegram_bot_username.replace('@', '')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ padding: '8px 16px', borderRadius: 10, background: '#229ED9', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                      Open Telegram
+                    </a>
                   </div>
-                  <a href={`https://t.me/${creatorProfile.telegram_bot_username.replace('@', '')}`}
-                    target="_blank" rel="noopener noreferrer"
-                    style={{ padding: '8px 16px', borderRadius: 10, background: '#229ED9', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                    Open Telegram
-                  </a>
-                </div>
+                ) : (
+                  <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                    <div>
+                      <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Learn on Telegram</p>
+                      <p style={{ color: '#71717a', fontSize: 12 }}>Get these free preview lessons delivered straight to your chat.</p>
+                    </div>
+                    {user ? (
+                      demoTelegramToken ? (
+                        <a href={`https://t.me/${creatorProfile.telegram_bot_username.replace('@', '')}?start=${demoTelegramToken}`}
+                          target="_blank" rel="noopener noreferrer"
+                          style={{ padding: '8px 16px', borderRadius: 10, background: '#229ED9', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                          Start Free on Telegram
+                        </a>
+                      ) : (
+                        <button disabled
+                          style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(34,158,217,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
+                          Preparing Link...
+                        </button>
+                      )
+                    ) : (
+                      <button onClick={() => setShowEnroll(true)}
+                        style={{ padding: '8px 16px', borderRadius: 10, background: '#229ED9', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        Start Free on Telegram
+                      </button>
+                    )}
+                  </div>
+                )
               )}
 
             </div>

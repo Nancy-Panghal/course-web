@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
     // ── Find enrollment ───────────────────────────────────────────
     let query = supabase
       .from('enrollments')
-      .select('id, completed_lessons, current_lesson, quiz_results')
+      .select('id, completed_lessons, current_lesson, quiz_results, student_id, creator_id')
       .eq('course_uuid', courseId)
       .order('enrolled_at', { ascending: false })
 
@@ -113,6 +114,97 @@ export async function POST(req: NextRequest) {
       .eq('id', enrollment.id)
 
     if (updateErr) throw updateErr
+
+    const { count: totalLessons } = await supabase
+      .from('lessons')
+      .select('*', { count: 'exact', head: true })
+      .eq('course_id', courseId)
+      .eq('is_published', true)
+
+    const courseCompleted = Boolean(totalLessons && completed.length >= totalLessons)
+
+    if (courseCompleted) {
+      const { data: existingCompletionEmail } = await supabase
+        .from('email_logs')
+        .select('id')
+        .eq('email_type', 'student_course_completion')
+        .eq('course_id', courseId)
+        .eq('student_id', enrollment.student_id)
+        .limit(1)
+
+      if (!existingCompletionEmail?.length) {
+        const [{ data: courseRows }, { data: studentRows }] = await Promise.all([
+          supabase
+            .from('courses')
+            .select('name, creator_id')
+            .eq('id', courseId)
+            .limit(1),
+          supabase
+            .from('students')
+            .select('email, name')
+            .eq('id', enrollment.student_id)
+            .limit(1),
+        ])
+
+        const course = courseRows?.[0]
+        const student = studentRows?.[0]
+        const creatorId = enrollment.creator_id || course?.creator_id || null
+
+        if (student?.email && creatorId) {
+          await sendLoggedEmail({
+            supabase,
+            emailType: 'student_course_completion',
+            to: student.email,
+            subject: `Completed: ${course?.name || 'Your course'}`,
+            creatorId,
+            studentId: enrollment.student_id,
+            courseId,
+            metadata: {
+              completed_lessons: completed.length,
+              total_lessons: totalLessons,
+            },
+            html: `
+              <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+                <h2 style="margin:0 0 12px">Course completed</h2>
+                <p style="margin:0 0 12px">Hi ${escapeHtml(student.name || 'there')}, you completed <strong>${escapeHtml(course?.name || 'your course')}</strong>.</p>
+                <p style="margin:0">Your progress is saved in AcademyKit.</p>
+              </div>
+            `,
+          })
+        }
+
+        if (creatorId) {
+          const { data } = await supabase.auth.admin.getUserById(creatorId)
+          const creator = data?.user
+          const prefs = creator?.user_metadata?.email_notifications || {}
+          if (creator?.email && prefs.courseCompletion !== false) {
+            await sendLoggedEmail({
+              supabase,
+              emailType: 'creator_course_completion',
+              to: creator.email,
+              subject: `Course completed: ${course?.name || 'Your course'}`,
+              creatorId,
+              studentId: enrollment.student_id,
+              courseId,
+              metadata: {
+                student_name: student?.name || null,
+                student_email: student?.email || null,
+              },
+              html: `
+                <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+                  <h2 style="margin:0 0 12px">Student completed a course</h2>
+                  <p style="margin:0 0 12px"><strong>${escapeHtml(student?.name || student?.email || 'A student')}</strong> completed <strong>${escapeHtml(course?.name || 'your course')}</strong>.</p>
+                  <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
+                    style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
+                    Open dashboard
+                  </a>
+                </div>
+              `,
+            })
+          }
+        }
+      }
+    }
 
     return NextResponse.json({
       ok: true,

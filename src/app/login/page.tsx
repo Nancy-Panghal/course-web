@@ -28,6 +28,22 @@ export default function LoginPage() {
     })
   }
 
+  async function sendLoginNotification() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+
+      await fetch('/api/notifications/login', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+    } catch (err) {
+      console.error('Login notification error:', err)
+    }
+  }
+
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault()
     setLoading(true)
@@ -81,6 +97,7 @@ export default function LoginPage() {
 
       // Create creator profile
       await ensureCreatorProfile()
+      await sendLoginNotification()
       router.push(redirect)
 
     } else {
@@ -96,6 +113,7 @@ export default function LoginPage() {
       }
       // Ensure creator profile exists
       await ensureCreatorProfile()
+      await sendLoginNotification()
       router.push(redirect)
     }
 

@@ -23,8 +23,6 @@ const supabase = createClient(
 )
 
 async function verifyEnrollment(lessonId: string, identity: string): Promise<boolean> {
-  if (identity === 'web') return true
-
   const { data: lesson } = await supabase
     .from('lessons')
     .select('course_id, order_num')
@@ -33,24 +31,110 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
 
   if (!lesson) return false
 
-  const { data: enrollment } = await supabase
-    .from('enrollments')
-    .select('payment_status, courses:course_uuid(free_preview_config)')
-    .eq('telegram_chat_id', identity)
-    .eq('course_uuid', lesson.course_id)
-    .order('enrolled_at', { ascending: false })
-    .limit(1)
+  // 1. Free preview check first
+  const { data: course } = await supabase
+    .from('courses')
+    .select('free_preview_config')
+    .eq('id', lesson.course_id)
     .single()
 
-  if (!enrollment) return false
-  if (enrollment.payment_status === 'paid') return true
-
-  const config = (enrollment.courses as any)?.free_preview_config || 'nothing free'
+  const config = course?.free_preview_config || 'nothing free'
   const maxFree: Record<string, number> = {
     'lesson 1 free': 1, '2 lessons free': 2, '3 lessons free': 3,
     'module 1 free': 3, '2 modules free': 6,
   }
-  return lesson.order_num <= (maxFree[config] ?? 0)
+  const isFree = lesson.order_num <= (maxFree[config] ?? 0)
+  if (isFree) return true
+
+  // 2. If it's guest 'web' access and not free, deny
+  if (identity === 'web') return false
+
+  // 3. Check if identity is a UUID (website user ID)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identity)
+
+  if (isUuid) {
+    // Look up the student record by auth_id (user.id)
+    const { data: student } = await supabase
+      .from('students')
+      .select('id, email, phone')
+      .eq('auth_id', identity)
+      .limit(1)
+      .single()
+
+    // Query enrollments using student_id
+    if (student?.id) {
+      const { data: enrollment } = await supabase
+        .from('enrollments')
+        .select('id')
+        .eq('student_id', student.id)
+        .eq('course_uuid', lesson.course_id)
+        .eq('payment_status', 'paid')
+        .limit(1)
+        .single()
+      
+      if (enrollment) return true
+    }
+
+    // Fallback: look up by student's email/phone on the enrollment
+    if (student) {
+      const identifiers: string[] = []
+      if (student.phone) identifiers.push(student.phone)
+      if (student.email) identifiers.push(student.email)
+
+      if (identifiers.length > 0) {
+        const { data: enrollment } = await supabase
+          .from('enrollments')
+          .select('id')
+          .eq('course_uuid', lesson.course_id)
+          .eq('payment_status', 'paid')
+          .in('phone', identifiers)
+          .limit(1)
+          .single()
+        
+        if (enrollment) return true
+      }
+    }
+
+    // Additional check: fetch from auth to check phone/email
+    try {
+      const { data: { user } } = await supabase.auth.admin.getUserById(identity)
+      if (user) {
+        const phone = user.phone || user.user_metadata?.phone
+        const email = user.email
+        const fallbackIdentifiers = [phone, email].filter(Boolean) as string[]
+
+        if (fallbackIdentifiers.length > 0) {
+          const { data: enrollment } = await supabase
+            .from('enrollments')
+            .select('id')
+            .eq('course_uuid', lesson.course_id)
+            .eq('payment_status', 'paid')
+            .in('phone', fallbackIdentifiers)
+            .limit(1)
+            .single()
+          
+          if (enrollment) return true
+        }
+      }
+    } catch (e) {
+      console.warn('[verifyEnrollment] admin auth user lookup failed:', e)
+    }
+
+    return false
+  }
+
+  // 4. Otherwise, look up by Telegram chat ID (numeric string)
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('payment_status')
+    .eq('telegram_chat_id', identity)
+    .eq('course_uuid', lesson.course_id)
+    .limit(1)
+    .single()
+
+  if (enrollment && enrollment.payment_status === 'paid') return true
+
+  return false
 }
 
 async function getPdfBytes(lessonId: string): Promise<{ bytes: ArrayBuffer; filename: string } | null> {
@@ -177,13 +261,26 @@ export async function GET(req: NextRequest) {
   // 4. Get student name for watermark
   let studentName = `Student ${identity.slice(-6)}`
   if (identity !== 'web') {
-    const { data: enrollment } = await supabase
-      .from('enrollments')
-      .select('phone')
-      .eq('telegram_chat_id', identity)
-      .limit(1)
-      .single()
-    if (enrollment?.phone) studentName = enrollment.phone
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identity)
+    if (isUuid) {
+      const { data: student } = await supabase
+        .from('students')
+        .select('name, phone, email')
+        .eq('auth_id', identity)
+        .limit(1)
+        .single()
+      if (student?.name) studentName = student.name
+      else if (student?.phone) studentName = student.phone
+      else if (student?.email) studentName = student.email
+    } else {
+      const { data: enrollment } = await supabase
+        .from('enrollments')
+        .select('phone')
+        .eq('telegram_chat_id', identity)
+        .limit(1)
+        .single()
+      if (enrollment?.phone) studentName = enrollment.phone
+    }
   }
 
   // 5. Watermark the PDF server-side

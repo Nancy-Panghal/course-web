@@ -213,6 +213,7 @@ export default function DashboardPage() {
                 {[
                   { label: 'Upload new course', href: '/dashboard/courses' },
                   { label: 'View all students', href: '/dashboard/students' },
+                  { label: 'Open revenue dashboard', href: '/dashboard/revenue' },
                   { label: 'Check piracy shield', href: '/dashboard/piracy' },
                   { label: 'Have trouble, contact us', href: '/contact' },
                 ].map((a, i) => (

@@ -64,10 +64,24 @@ export async function POST(req: NextRequest) {
     const isFirstLesson = lesson.order_num === 1
 
     if (!isFirstLesson) {
+      const { data: student } = await supabase
+        .from('students')
+        .select('id')
+        .eq('auth_id', user.id)
+        .limit(1)
+        .single()
+
+      if (!student) {
+        return NextResponse.json(
+          { error: 'Student profile not found' },
+          { status: 403 }
+        )
+      }
+
       const { data: enrollment } = await supabase
         .from('enrollments')
         .select('payment_status, completed_lessons')
-        .eq('user_id', user.id)
+        .eq('student_id', student.id)
         .eq('course_uuid', lesson.course_id)
         .single()
 

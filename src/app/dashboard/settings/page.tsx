@@ -98,6 +98,15 @@ export default function SettingsPage() {
     piracy: true,
     enrollment: true,
     completion: false,
+    payment: true,
+    login: true,
+  })
+  const [emailNotifications, setEmailNotifications] = useState({
+    newLogin: true,
+    paidSale: true,
+    newEnrollment: true,
+    piracyDetected: true,
+    courseCompletion: false,
   })
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -140,7 +149,10 @@ export default function SettingsPage() {
       
       // Load notifications from metadata if they exist
       if (u?.user_metadata?.notifications) {
-        setNotifications(u.user_metadata.notifications)
+        setNotifications(current => ({ ...current, ...u.user_metadata.notifications }))
+      }
+      if (u?.user_metadata?.email_notifications) {
+        setEmailNotifications(current => ({ ...current, ...u.user_metadata.email_notifications }))
       }
     })
   }, [])
@@ -191,6 +203,17 @@ export default function SettingsPage() {
     await supabase.auth.updateUser({
       data: {
         notifications: nextNotifications
+      }
+    })
+  }
+
+  async function updateEmailNotificationSetting(key: string, value: boolean) {
+    const nextNotifications = { ...emailNotifications, [key]: value }
+    setEmailNotifications(nextNotifications)
+
+    await supabase.auth.updateUser({
+      data: {
+        email_notifications: nextNotifications
       }
     })
   }
@@ -311,24 +334,69 @@ export default function SettingsPage() {
         </SectionCard>
 
         {/* Notifications */}
-        <SectionCard title="Notifications" icon={Bell}>
+        <SectionCard title="Notification Bar" icon={Bell}>
+          <Toggle
+            label="Payment updates"
+            desc="Show short sale alerts in the dashboard notification bar"
+            value={notifications.payment}
+            onChange={v => updateNotificationSetting('payment', v)}
+          />
+          <Toggle
+            label="Login activity"
+            desc="Show recent sign-in activity in the notification bar"
+            value={notifications.login}
+            onChange={v => updateNotificationSetting('login', v)}
+          />
           <Toggle
             label="Piracy detected"
-            desc="Get notified when a new piracy link is found"
+            desc="Show piracy alerts in the notification bar"
             value={notifications.piracy}
             onChange={v => updateNotificationSetting('piracy', v)}
           />
           <Toggle
             label="New enrollment"
-            desc="Get notified when a student enrolls"
+            desc="Show student enrollment updates"
             value={notifications.enrollment}
             onChange={v => updateNotificationSetting('enrollment', v)}
           />
           <Toggle
             label="Course completion"
-            desc="Get notified when a student completes the course"
+            desc="Show course completion updates"
             value={notifications.completion}
             onChange={v => updateNotificationSetting('completion', v)}
+          />
+        </SectionCard>
+
+        <SectionCard title="Email Notifications" icon={Bell}>
+          <Toggle
+            label="New login"
+            desc="Email me when my creator account signs in"
+            value={emailNotifications.newLogin}
+            onChange={v => updateEmailNotificationSetting('newLogin', v)}
+          />
+          <Toggle
+            label="Paid sale"
+            desc="Email me when a student pays for a course"
+            value={emailNotifications.paidSale}
+            onChange={v => updateEmailNotificationSetting('paidSale', v)}
+          />
+          <Toggle
+            label="New enrollment"
+            desc="Email me when a student gets enrolled"
+            value={emailNotifications.newEnrollment}
+            onChange={v => updateEmailNotificationSetting('newEnrollment', v)}
+          />
+          <Toggle
+            label="Piracy detected"
+            desc="Email me when a piracy threat is detected"
+            value={emailNotifications.piracyDetected}
+            onChange={v => updateEmailNotificationSetting('piracyDetected', v)}
+          />
+          <Toggle
+            label="Course completion"
+            desc="Email me when a student completes a course"
+            value={emailNotifications.courseCompletion}
+            onChange={v => updateEmailNotificationSetting('courseCompletion', v)}
           />
         </SectionCard>
 

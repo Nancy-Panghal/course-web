@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Shield, LayoutDashboard, BookOpen, Users, AlertTriangle, Settings, LogOut, Menu, X, Zap, Bell } from 'lucide-react'
+import { Shield, LayoutDashboard, BookOpen, Users, AlertTriangle, Settings, LogOut, Menu, X, Zap, Bell, IndianRupee, Ticket, CheckCircle2 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 
@@ -10,9 +10,39 @@ const navItems = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Courses', href: '/dashboard/courses', icon: BookOpen },
   { label: 'Students', href: '/dashboard/students', icon: Users },
+  { label: 'Revenue', href: '/dashboard/revenue', icon: IndianRupee },
+  { label: 'Coupons', href: '/dashboard/coupons', icon: Ticket },
   { label: 'Piracy Shield', href: '/dashboard/piracy', icon: AlertTriangle },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
+
+type NotificationItem = {
+  id: string
+  type: 'payment' | 'login' | 'piracy' | 'enrollment' | 'completion'
+  title: string
+  message: string
+  href: string
+  createdAt?: string | null
+}
+
+function formatShortTime(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  const diff = Date.now() - date.getTime()
+  const minutes = Math.max(1, Math.floor(diff / 60000))
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
+function notificationVisual(type: NotificationItem['type']) {
+  if (type === 'payment') return { icon: IndianRupee, color: '#22c55e', bg: 'rgba(34,197,94,0.1)' }
+  if (type === 'login') return { icon: CheckCircle2, color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' }
+  if (type === 'piracy') return { icon: AlertTriangle, color: '#ef4444', bg: 'rgba(239,68,68,0.1)' }
+  if (type === 'enrollment') return { icon: Users, color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' }
+  return { icon: BookOpen, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' }
+}
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -20,13 +50,25 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeThreats, setActiveThreats] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [userMetadata, setUserMetadata] = useState<any>(null)
+  const [notificationItems, setNotificationItems] = useState<NotificationItem[]>([])
 
   useEffect(() => {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      setUserMetadata(user.user_metadata)
+      const notificationPrefs = user.user_metadata?.notifications || {}
+      const nextItems: NotificationItem[] = []
+
+      if (notificationPrefs.login !== false && user.last_sign_in_at) {
+        nextItems.push({
+          id: 'login-latest',
+          type: 'login',
+          title: 'New login',
+          message: 'Creator account signed in',
+          href: '/dashboard',
+          createdAt: user.last_sign_in_at,
+        })
+      }
 
       try {
         const { count } = await supabase
@@ -35,9 +77,69 @@ export default function Sidebar() {
           .in('status', ['detected', 'filed'])
           .eq('creator_id', user.id)
         setActiveThreats(count || 0)
+        if (notificationPrefs.piracy !== false && count && count > 0) {
+          nextItems.push({
+            id: 'piracy-active',
+            type: 'piracy',
+            title: 'Piracy alert',
+            message: `${count} active threat${count === 1 ? '' : 's'}`,
+            href: '/dashboard',
+            createdAt: new Date().toISOString(),
+          })
+        }
       } catch (e) {
         // Table might not exist yet
       }
+
+      if (notificationPrefs.payment !== false) {
+        try {
+          const { data } = await supabase.rpc('get_my_recent_payments', { limit_count: 3 })
+          ;(data || [])
+            .filter((payment: any) => payment.status === 'paid')
+            .forEach((payment: any) => {
+              nextItems.push({
+                id: `payment-${payment.payment_id}`,
+                type: 'payment',
+                title: 'Paid sale',
+                message: `₹${Number(payment.net_amount || 0).toLocaleString('en-IN')} · ${payment.course_name || 'Course'}`,
+                href: '/dashboard',
+                createdAt: payment.paid_at || payment.created_at,
+              })
+            })
+        } catch (e) {
+          // Revenue RPC might not be installed yet
+        }
+      }
+
+      if (notificationPrefs.enrollment !== false) {
+        try {
+          const { data } = await supabase
+            .from('enrollments')
+            .select('id, enrolled_at, phone, amount_paid')
+            .eq('creator_id', user.id)
+            .order('enrolled_at', { ascending: false })
+            .limit(3)
+
+          ;(data || []).forEach((enrollment: any) => {
+            nextItems.push({
+              id: `enrollment-${enrollment.id}`,
+              type: 'enrollment',
+              title: 'New enrollment',
+              message: `${enrollment.phone ? `+${enrollment.phone}` : 'Student'}${enrollment.amount_paid ? ` · ₹${Number(enrollment.amount_paid).toLocaleString('en-IN')}` : ''}`,
+              href: '/dashboard',
+              createdAt: enrollment.enrolled_at,
+            })
+          })
+        } catch (e) {
+          // Enrollment table may be unavailable during setup
+        }
+      }
+
+      setNotificationItems(
+        nextItems
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+          .slice(0, 5)
+      )
     }
     fetchData()
   }, [])
@@ -59,14 +161,34 @@ export default function Sidebar() {
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex flex-col gap-3">
-            {userMetadata?.notifications?.piracy && activeThreats > 0 ? (
-              <div className="flex items-start gap-3 p-2 rounded-xl bg-red-500/5 border border-red-500/10">
-                <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5" />
-                <p className="text-xs text-red-200">
-                  {activeThreats} piracy threats detected. Takedowns are being filed.
-                </p>
-              </div>
+          <div className="flex flex-col gap-2">
+            {notificationItems.length > 0 ? (
+              notificationItems.map(item => {
+                const visual = notificationVisual(item.type)
+                const Icon = visual.icon
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    onClick={() => {
+                      setShowNotifications(false)
+                      setMobileOpen(false)
+                    }}
+                    className="flex items-start gap-3 p-2 rounded-xl transition-all hover:bg-white/5"
+                  >
+                    <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: visual.bg }}>
+                      <Icon className="w-4 h-4" style={{ color: visual.color }} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold text-white truncate">{item.title}</span>
+                      <span className="block text-xs truncate" style={{ color: '#a1a1aa' }}>{item.message}</span>
+                      {item.createdAt && (
+                        <span className="block text-[10px] mt-0.5" style={{ color: '#52525b' }}>{formatShortTime(item.createdAt)}</span>
+                      )}
+                    </span>
+                  </Link>
+                )
+              })
             ) : (
               <p className="text-xs text-zinc-500 text-center py-4">No new notifications</p>
             )}
@@ -136,7 +258,7 @@ export default function Sidebar() {
         >
           <Bell className="w-4 h-4" />
           Notifications
-          {activeThreats > 0 && userMetadata?.notifications?.piracy && (
+          {notificationItems.length > 0 && (
             <div className="absolute top-2.5 left-6 w-2 h-2 rounded-full bg-red-500 border border-black" />
           )}
         </button>

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle } from 'lucide-react'
+import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle, Ticket, CheckCircle2 } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 
 const COUNTRIES = [
@@ -109,6 +109,18 @@ interface Props {
 type Step = 'auth' | 'phone' | 'demo' | 'demo-web' | 'payment' | 'success'
 type AuthMode = 'signup' | 'login'
 
+type CouponResult = {
+  valid: boolean
+  reason: string
+  coupon_id: string | null
+  coupon_code: string | null
+  discount_type: string | null
+  discount_value: number | null
+  original_amount: number
+  discount_amount: number
+  final_amount: number
+}
+
 function loadRazorpay(): Promise<boolean> {
   return new Promise(resolve => {
     if (window.Razorpay) return resolve(true)
@@ -165,6 +177,12 @@ export default function EnrollModal({ onClose, course }: Props) {
   // Student data
   const [studentData, setStudentData] = useState<any>(null)
 
+  // Coupon data
+  const [couponCode, setCouponCode] = useState('')
+  const [couponResult, setCouponResult] = useState<CouponResult | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponMessage, setCouponMessage] = useState('')
+
   // Tokens — generated async, non-blocking
   const [telegramToken, setTelegramToken] = useState('')
   const [demoTelegramToken, setDemoTelegramToken] = useState('')
@@ -178,6 +196,9 @@ export default function EnrollModal({ onClose, course }: Props) {
   const courseSlug = slugify(course.creatorSlug)
   const learnUrl = `/course/${creatorSlug}/${courseSlug}/${course.id}`
   const aboutUrl = `/about-course/${creatorSlug}/${courseSlug}/${course.id}`
+  const activeCoupon = couponResult?.valid ? couponResult : null
+  const discountAmount = activeCoupon?.discount_amount || 0
+  const payableAmount = activeCoupon?.final_amount ?? course.price
 
   // ── Token helpers ────────────────────────────────────────────────
   async function generateDemoTokens(data: any) {
@@ -360,6 +381,52 @@ export default function EnrollModal({ onClose, course }: Props) {
     setLoading(false)
   }
 
+  async function handleApplyCoupon() {
+    const code = couponCode.trim()
+    setCouponMessage('')
+    setCouponResult(null)
+
+    if (!code) {
+      setCouponMessage('Enter a coupon code')
+      return
+    }
+
+    setCouponLoading(true)
+    try {
+      const { data, error } = await supabase.rpc('validate_coupon_for_course', {
+        input_course_id: course.id,
+        input_coupon_code: code,
+      })
+
+      if (error) throw error
+
+      const result = data?.[0] as CouponResult | undefined
+      if (!result?.valid) {
+        setCouponMessage(result?.reason || 'Invalid coupon code')
+        return
+      }
+
+      if (result.final_amount <= 0) {
+        setCouponMessage('This coupon makes the course free. Free coupon checkout is not enabled yet.')
+        return
+      }
+
+      setCouponResult(result)
+      setCouponCode(result.coupon_code || code.toUpperCase())
+      setCouponMessage(result.reason || 'Coupon applied')
+    } catch (err: any) {
+      setCouponMessage(err.message || 'Could not apply coupon')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  function clearCoupon() {
+    setCouponCode('')
+    setCouponResult(null)
+    setCouponMessage('')
+  }
+
   // ── Payment ──────────────────────────────────────────────────────
   async function handlePayment() {
     setLoading(true)
@@ -371,14 +438,32 @@ export default function EnrollModal({ onClose, course }: Props) {
       const orderRes = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: course.price, courseId: course.id, creatorSlug: course.creatorSlug }),
+        body: JSON.stringify({
+          amount: course.price,
+          courseId: course.id,
+          creatorSlug: course.creatorSlug,
+          couponCode: activeCoupon?.coupon_code || '',
+        }),
       })
-      const { orderId, error: orderError } = await orderRes.json()
+      const { orderId, amount: orderAmount, pricing, error: orderError } = await orderRes.json()
       if (orderError) throw new Error(orderError)
+      if (pricing) {
+        setCouponResult({
+          valid: true,
+          reason: activeCoupon ? 'Coupon applied' : '',
+          coupon_id: pricing.couponId,
+          coupon_code: pricing.couponCode,
+          discount_type: activeCoupon?.discount_type || null,
+          discount_value: activeCoupon?.discount_value || null,
+          original_amount: pricing.originalAmount,
+          discount_amount: pricing.discountAmount,
+          final_amount: pricing.finalAmount,
+        })
+      }
 
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: course.price * 100,
+        amount: orderAmount,
         currency: 'INR',
         name: 'AcademyKit',
         description: course.name,
@@ -403,7 +488,8 @@ export default function EnrollModal({ onClose, course }: Props) {
               studentPhone: studentData?.phone,
               creatorId: course.creatorId,
               courseId: course.id,
-              amount: course.price,
+              amount: pricing?.finalAmount || payableAmount,
+              couponCode: pricing?.couponCode || activeCoupon?.coupon_code || '',
             }),
           })
           const result = await verifyRes.json()
@@ -720,10 +806,74 @@ export default function EnrollModal({ onClose, course }: Props) {
                 <span className="text-sm text-white">{course.name}</span>
                 <span className="text-sm font-bold text-white">₹{course.price.toLocaleString()}</span>
               </div>
+              <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: activeCoupon ? '#4ade80' : '#52525b' }} />
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={e => {
+                        setCouponCode(e.target.value.toUpperCase())
+                        setCouponResult(null)
+                        setCouponMessage('')
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleApplyCoupon()
+                        }
+                      }}
+                      placeholder="Coupon code"
+                      disabled={Boolean(activeCoupon)}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none uppercase disabled:opacity-80"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                  </div>
+                  {activeCoupon ? (
+                    <button
+                      type="button"
+                      onClick={clearCoupon}
+                      className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={couponLoading || !couponCode.trim()}
+                      className="px-4 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                      style={{ background: 'rgba(124,58,237,0.18)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.3)' }}
+                    >
+                      {couponLoading ? 'Checking' : 'Apply'}
+                    </button>
+                  )}
+                </div>
+                {couponMessage && (
+                  <div className="flex items-center gap-2 mt-2">
+                    {activeCoupon && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />}
+                    <p className="text-xs" style={{ color: activeCoupon ? '#4ade80' : '#ef4444' }}>
+                      {couponMessage}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between items-center mt-3">
+                  <span className="text-sm" style={{ color: '#4ade80' }}>
+                    Discount{activeCoupon?.coupon_code ? ` (${activeCoupon.coupon_code})` : ''}
+                  </span>
+                  <span className="text-sm font-semibold" style={{ color: '#4ade80' }}>
+                    -₹{discountAmount.toLocaleString()}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between items-center pt-3 mt-2"
                 style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <span className="text-sm font-semibold text-white">Total</span>
-                <span className="text-lg font-bold text-white">₹{course.price.toLocaleString()}</span>
+                <span className="text-lg font-bold text-white">₹{payableAmount.toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-2 mt-3">
                 <div className="w-5 h-5 violet-gradient rounded flex items-center justify-center flex-shrink-0">
@@ -760,7 +910,7 @@ export default function EnrollModal({ onClose, course }: Props) {
 
             <button onClick={handlePayment} disabled={loading}
               className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong disabled:opacity-50 text-lg">
-              {loading ? 'Opening payment…' : `Pay ₹${course.price.toLocaleString()} Securely`}
+              {loading ? 'Opening payment…' : `Pay ₹${payableAmount.toLocaleString()} Securely`}
             </button>
             <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Powered by Razorpay · 256-bit SSL</p>
             <button onClick={() => setStep(isNothingFree ? 'auth' : 'demo')}

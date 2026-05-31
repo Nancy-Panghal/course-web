@@ -14,7 +14,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { currency = 'INR', courseId, creatorSlug } = await req.json()
+    const { currency = 'INR', courseId, creatorSlug, couponCode } = await req.json()
 
     if (!courseId) {
       return NextResponse.json({ error: 'Missing course ID' }, { status: 400 })
@@ -31,9 +31,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 })
     }
 
-    const amountInPaise = Math.round(Number(course.price) * 100)
+    let pricing = {
+      originalAmount: Number(course.price),
+      discountAmount: 0,
+      finalAmount: Number(course.price),
+      couponId: null as string | null,
+      couponCode: null as string | null,
+    }
+
+    const normalizedCoupon = String(couponCode || '').trim()
+    if (normalizedCoupon) {
+      const { data: couponRows, error: couponError } = await supabase.rpc(
+        'validate_coupon_for_course',
+        {
+          input_course_id: courseId,
+          input_coupon_code: normalizedCoupon,
+        }
+      )
+
+      if (couponError) throw couponError
+
+      const coupon = couponRows?.[0]
+      if (!coupon?.valid) {
+        return NextResponse.json(
+          { error: coupon?.reason || 'Invalid coupon code' },
+          { status: 400 }
+        )
+      }
+
+      pricing = {
+        originalAmount: Number(coupon.original_amount),
+        discountAmount: Number(coupon.discount_amount),
+        finalAmount: Number(coupon.final_amount),
+        couponId: coupon.coupon_id,
+        couponCode: coupon.coupon_code,
+      }
+    }
+
+    const amountInPaise = Math.round(Number(pricing.finalAmount) * 100)
     if (!Number.isFinite(amountInPaise) || amountInPaise <= 0) {
-      return NextResponse.json({ error: 'Invalid course price' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'This coupon makes the course free. Free coupon checkout is not enabled yet.' },
+        { status: 400 }
+      )
     }
 
     const order = await razorpay.orders.create({
@@ -42,10 +82,19 @@ export async function POST(req: NextRequest) {
       notes: {
         courseId,
         creatorSlug,
+        couponId: pricing.couponId || '',
+        couponCode: pricing.couponCode || '',
+        originalAmount: String(pricing.originalAmount),
+        discountAmount: String(pricing.discountAmount),
+        finalAmount: String(pricing.finalAmount),
       },
     })
 
-    return NextResponse.json({ orderId: order.id, amount: order.amount })
+    return NextResponse.json({
+      orderId: order.id,
+      amount: order.amount,
+      pricing,
+    })
   } catch (err: any) {
     console.error('Razorpay order error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
