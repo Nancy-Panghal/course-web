@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { sendLoggedEmail, escapeHtml } from '@/lib/email'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { escapeHtml } from '@/lib/email'
 
 const SUBJECT_LABELS: Record<string, string> = {
   billing: 'Billing / Subscription',
@@ -22,6 +16,12 @@ export async function POST(req: NextRequest) {
 
     if (!name?.trim() || !email?.trim() || !subject?.trim() || !message?.trim()) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+    }
+
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      console.error('[contact] RESEND_API_KEY is not set')
+      return NextResponse.json({ error: 'Email service is not configured. Please contact us directly.' }, { status: 503 })
     }
 
     const subjectLabel = SUBJECT_LABELS[subject] || subject
@@ -64,21 +64,31 @@ export async function POST(req: NextRequest) {
       </div>
     `
 
-    const result = await sendLoggedEmail({
-      supabase,
-      emailType: 'contact_form',
-      to: 'nancypanghal13@gmail.com',
-      subject: `[AcademyKit Contact] ${subjectLabel} — from ${name.trim()}`,
-      html,
-      metadata: { senderName: name.trim(), senderEmail: email.trim(), subject },
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'onboarding@resend.dev',
+        to: ['nancypanghal13@gmail.com'],
+        subject: `[AcademyKit Contact] ${subjectLabel} — from ${name.trim()}`,
+        html,
+      }),
     })
 
-    if (!result.sent && !result.skipped) {
-      return NextResponse.json({ error: result.error || 'Failed to send message' }, { status: 500 })
+    const resendData = await resendRes.json().catch(() => null)
+
+    if (!resendRes.ok) {
+      const errMsg = resendData?.message || resendData?.error || `Resend error ${resendRes.status}`
+      console.error('[contact] Resend API error:', errMsg, resendData)
+      return NextResponse.json({ error: 'Failed to send message. Please try again or reach out directly.' }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {
+    console.error('[contact] Unexpected error:', err)
     return NextResponse.json({ error: err.message || 'Unexpected error' }, { status: 500 })
   }
 }
