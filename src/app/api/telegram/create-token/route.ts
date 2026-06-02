@@ -1,19 +1,6 @@
-/**
- * src/app/api/telegram/create-token/route.ts
- *
- * Production-safe rewrite.
- *
- * Changes from original:
- *  1. Uses the upsert_telegram_token Postgres function (atomic,
- *     race-condition-safe) instead of a JS-level SELECT then INSERT.
- *  2. Dedup is keyed by student_id (not broken empty-email logic).
- *  3. Never stores empty strings — NULLs are used for missing values.
- *  4. Returns the token and its expiry so callers can persist it.
- *  5. Validates required fields strictly.
- */
-
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,86 +9,76 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
     const {
-      studentId,      // auth.users UUID (Supabase auth id)
+      studentId,
       studentEmail,
       studentName,
       studentPhone,
       creatorId,
       courseId,
-      paymentId,      // null for free/demo tokens, payment id for paid
-    } = body
+      paymentId,
+    } = await req.json()
 
-    // courseId and creatorId are always required
-    if (!courseId || !creatorId) {
-      return NextResponse.json(
-        { error: 'courseId and creatorId are required' },
-        { status: 400 }
-      )
+    if (!courseId || !creatorId || (!studentEmail && !studentPhone)) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // At least one student identifier must be present
-    if (!studentId && !studentEmail && !studentPhone) {
-      return NextResponse.json(
-        { error: 'At least one student identifier (studentId, studentEmail, or studentPhone) is required' },
-        { status: 400 }
-      )
-    }
+    const now = new Date().toISOString()
 
-    // Resolve the students.id (UUID in the students table) from auth id
-    let studentRowId: string | null = null
-
+    // Dedup by student_auth_id first — most reliable, no false-match risk
     if (studentId) {
-      const { data: studentRow } = await supabase
-        .from('students')
-        .select('id')
-        .eq('auth_id', studentId)
+      const { data: byId } = await supabase
+        .from('telegram_tokens')
+        .select('token')
+        .eq('course_id', courseId)
+        .eq('student_auth_id', studentId)
+        .eq('used', false)
+        .gt('expires_at', now)
+        .order('created_at', { ascending: false })
         .limit(1)
-        .single()
 
-      if (studentRow?.id) {
-        studentRowId = studentRow.id
+      if (byId?.[0]?.token) {
+        return NextResponse.json({ token: byId[0].token })
       }
     }
 
-    // Fallback: find student by email
-    if (!studentRowId && studentEmail) {
-      const { data: studentRow } = await supabase
-        .from('students')
-        .select('id')
-        .eq('email', studentEmail)
+    // Dedup by email — only if email is a non-empty string (prevents cross-student collisions)
+    const email = studentEmail?.trim()
+    if (email) {
+      const { data: byEmail } = await supabase
+        .from('telegram_tokens')
+        .select('token')
+        .eq('course_id', courseId)
+        .eq('student_email', email)
+        .eq('used', false)
+        .gt('expires_at', now)
+        .order('created_at', { ascending: false })
         .limit(1)
-        .single()
 
-      if (studentRow?.id) {
-        studentRowId = studentRow.id
+      if (byEmail?.[0]?.token) {
+        return NextResponse.json({ token: byEmail[0].token })
       }
     }
 
-    // Call the atomic Postgres function — handles dedup + insert in one round-trip
-    const { data, error } = await supabase.rpc('upsert_telegram_token', {
-      p_student_id:      studentRowId   || null,
-      p_student_auth_id: studentId      || null,
-      p_student_email:   studentEmail   || null,
-      p_student_name:    studentName    || null,
-      p_student_phone:   studentPhone   || null,
-      p_creator_id:      creatorId,
-      p_course_id:       courseId,
-      p_payment_id:      paymentId      || null,
+    const token = crypto.randomBytes(24).toString('hex')
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    const { error } = await supabase.from('telegram_tokens').insert({
+      token,
+      student_auth_id: studentId || null,
+      student_email: email || null,
+      student_name: studentName || null,
+      student_phone: studentPhone || null,
+      creator_id: creatorId,
+      course_id: courseId,
+      payment_id: paymentId || null,
+      expires_at: expiresAt,
     })
 
-    if (error) {
-      console.error('[telegram/create-token] rpc error:', error.message)
-      return NextResponse.json({ error: 'Failed to create token' }, { status: 500 })
-    }
-
-    const token = data as string
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    if (error) throw error
 
     return NextResponse.json({ token, expiresAt })
   } catch (err: any) {
-    console.error('[telegram/create-token] error:', err.message)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

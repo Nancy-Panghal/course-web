@@ -1,4 +1,4 @@
-'use client'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { Shield, Mail, Phone, MessageCircle, ArrowLeft, Send, CheckCircle } from 'lucide-react'
@@ -10,13 +10,27 @@ export default function ContactPage() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    // Simulate send — replace with real email API later
-    await new Promise(r => setTimeout(r, 1500))
-    setSent(true)
+    setError('')
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, subject, message }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Please try again.')
+      } else {
+        setSent(true)
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+    }
     setLoading(false)
   }
 
@@ -199,6 +213,13 @@ export default function ContactPage() {
                         onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                       />
                     </div>
+
+                    {error && (
+                      <div className="px-4 py-3 rounded-xl text-sm"
+                        style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
+                        {error}
+                      </div>
+                    )}
 
                     <button
                       type="submit" disabled={loading}

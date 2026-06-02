@@ -1,15 +1,3 @@
-'use client'
-/**
- * components/EnrollModal.tsx
- *
- * Token changes from original:
- *  1. generateDemoTokens / generatePaidTokens now both receive `expiresAt`
- *     from the API and pass it back to callers.
- *  2. generatePaidTokens saves the token to the enrollment row via
- *     /api/telegram/save-enrollment-token so the learn page can retrieve
- *     it on load without regenerating.
- *  3. No other logic changed — payment, auth, coupon flows untouched.
- */
 
 import { useState, useEffect, useRef } from 'react'
 import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle, Ticket, CheckCircle2 } from 'lucide-react'
@@ -32,7 +20,7 @@ const COUNTRIES = [
   { name: 'Sri Lanka', code: '+94', flag: '🇱🇰' },
 ]
 
-function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: any) => void }) {
+function CountrySelector({ selected, onSelect }: { selected: any, onSelect: (c: any) => void }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -45,27 +33,23 @@ function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const filtered = COUNTRIES.filter(
-    c => c.name.toLowerCase().includes(search.toLowerCase()) || c.code.includes(search)
+  const filtered = COUNTRIES.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.code.includes(search)
   )
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
+      <button type="button" onClick={() => setOpen(!open)}
         className="h-full px-3 flex items-center gap-1.5 rounded-l-xl border-r border-white/10 transition-all hover:bg-white/5"
-        style={{ background: 'rgba(255,255,255,0.05)' }}
-      >
+        style={{ background: 'rgba(255,255,255,0.05)' }}>
         <span className="text-sm">{selected.flag}</span>
         <span className="text-xs font-bold text-zinc-400">{selected.code}</span>
         <ChevronDown className={`w-3 h-3 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div
-          className="absolute top-full left-0 mt-2 w-64 max-h-64 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[60]"
-          style={{ background: '#121212', backdropFilter: 'blur(20px)' }}
-        >
+        <div className="absolute top-full left-0 mt-2 w-64 max-h-64 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[60]"
+          style={{ background: '#121212', backdropFilter: 'blur(20px)' }}>
           <div className="sticky top-0 p-2 border-b border-white/5" style={{ background: '#121212' }}>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
@@ -80,12 +64,9 @@ function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: 
           </div>
           <div className="p-1">
             {filtered.map(c => (
-              <button
-                key={c.name + c.code}
-                type="button"
+              <button key={c.name + c.code} type="button"
                 onClick={() => { onSelect(c); setOpen(false); setSearch('') }}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors group"
-              >
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors group">
                 <div className="flex items-center gap-3">
                   <span className="text-lg">{c.flag}</span>
                   <span className="text-xs text-zinc-300 font-medium group-hover:text-white">{c.name}</span>
@@ -103,10 +84,14 @@ function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: 
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, findPaidEnrollmentByPhone } from '@/lib/enrollments'
 
-
-
 declare global {
   interface Window { Razorpay: any }
+  interface ImportMetaEnv {
+    readonly RAZORPAY_KEY_ID: string
+  }
+  interface ImportMeta {
+    readonly env: ImportMetaEnv
+  }
 }
 
 interface CourseData {
@@ -125,6 +110,8 @@ interface Props {
   course: CourseData
 }
 
+// step 'demo-web' = student clicked "Watch on Website", modal closed
+// but we re-open and show them the Telegram option + pay option
 type Step = 'auth' | 'phone' | 'demo' | 'demo-web' | 'payment' | 'success'
 type AuthMode = 'signup' | 'login'
 
@@ -151,6 +138,7 @@ function loadRazorpay(): Promise<boolean> {
   })
 }
 
+// ── Telegram button ──────────────────────────────────────────────
 function TelegramButton({ token, username, label }: { token: string; username: string; label?: string }) {
   const clean = username.replace('@', '')
   return (
@@ -167,63 +155,15 @@ function TelegramButton({ token, username, label }: { token: string; username: s
   )
 }
 
+// ── Token spinner placeholder ────────────────────────────────────
 function TokenLoading({ color, label }: { color: string; label: string }) {
   return (
-    <div
-      className="w-full py-4 rounded-xl text-sm text-center animate-pulse"
-      style={{ background: color, color: '#fff', opacity: 0.5 }}
-    >
+    <div className="w-full py-4 rounded-xl text-sm text-center animate-pulse"
+      style={{ background: color, color: '#fff', opacity: 0.5 }}>
       {label}
     </div>
   )
 }
-
-// ─── Internal helper ───────────────────────────────────────────────────────────
-async function createTelegramToken(params: {
-  studentId?: string | null
-  studentEmail?: string | null
-  studentName?: string | null
-  studentPhone?: string | null
-  creatorId: string
-  courseId: string
-  paymentId?: string | null
-}): Promise<{ token: string; expiresAt: string } | null> {
-  try {
-    const res = await fetch('/api/telegram/create-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        studentId:    params.studentId    ?? null,
-        studentEmail: params.studentEmail ?? null,
-        studentName:  params.studentName  ?? null,
-        studentPhone: params.studentPhone ?? null,
-        creatorId:    params.creatorId,
-        courseId:     params.courseId,
-        paymentId:    params.paymentId    ?? null,
-      }),
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    if (!data.token) return null
-    return { token: data.token, expiresAt: data.expiresAt }
-  } catch {
-    return null
-  }
-}
-
-// Save the paid token to the enrollment row so the learn page can retrieve it
-async function saveEnrollmentToken(enrollmentId: string, token: string, expiresAt: string) {
-  try {
-    await fetch('/api/telegram/save-enrollment-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enrollmentId, token, expiresAt }),
-    })
-  } catch {
-    // non-critical — learn page will regenerate if missing
-  }
-}
-// ──────────────────────────────────────────────────────────────────────────────
 
 export default function EnrollModal({ onClose, course }: Props) {
   const [step, setStep] = useState<Step>('auth')
@@ -232,6 +172,7 @@ export default function EnrollModal({ onClose, course }: Props) {
   const [error, setError] = useState('')
   const [checkingAuth, setCheckingAuth] = useState(true)
 
+  // Auth fields
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -239,16 +180,18 @@ export default function EnrollModal({ onClose, course }: Props) {
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
 
+  // Student data
   const [studentData, setStudentData] = useState<any>(null)
 
+  // Coupon data
   const [couponCode, setCouponCode] = useState('')
   const [couponResult, setCouponResult] = useState<CouponResult | null>(null)
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponMessage, setCouponMessage] = useState('')
 
-  // Telegram token state — single source of truth for this modal session
-  const [telegramToken, setTelegramToken] = useState('')       // paid token
-  const [demoTelegramToken, setDemoTelegramToken] = useState('') // free preview token
+  // Tokens — generated async, non-blocking
+  const [telegramToken, setTelegramToken] = useState('')
+  const [demoTelegramToken, setDemoTelegramToken] = useState('')
   const [generatingDemo, setGeneratingDemo] = useState(false)
   const [generatingPaid, setGeneratingPaid] = useState(false)
 
@@ -263,47 +206,72 @@ export default function EnrollModal({ onClose, course }: Props) {
   const discountAmount = activeCoupon?.discount_amount || 0
   const payableAmount = activeCoupon?.final_amount ?? course.price
 
-  // ── Token helpers ──────────────────────────────────────────────────────────
+  // ── Token helpers ────────────────────────────────────────────────
   async function generateDemoTokens(data: any) {
-    if (!data || !hasTelegram) return
+    if (!data) return
     setGeneratingDemo(true)
-    const result = await createTelegramToken({
-      studentId:    data.id,
-      studentEmail: data.email,
-      studentName:  data.name,
-      studentPhone: data.phone,
-      creatorId:    course.creatorId,
-      courseId:     course.id,
-      paymentId:    null,
-    })
-    if (result) setDemoTelegramToken(result.token)
+    try {
+      if (hasTelegram) {
+        const res = await fetch('/api/telegram/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: data.id,
+            studentPhone: data.phone,
+            studentEmail: data.email,
+            studentName: data.name,
+            creatorId: course.creatorId,
+            courseId: course.id,
+            paymentId: null,
+          }),
+        })
+        const { token } = await res.json()
+        if (token) setDemoTelegramToken(token)
+      }
+    } catch (e) {
+      console.error('Demo token error:', e)
+    }
     setGeneratingDemo(false)
   }
 
   async function generatePaidTokens(data: any, paymentId: string, enrollmentId?: string) {
-    if (!data || !hasTelegram) return
+    if (!data) return
     setGeneratingPaid(true)
-    const result = await createTelegramToken({
-      studentId:    data.id,
-      studentEmail: data.email,
-      studentName:  data.name,
-      studentPhone: data.phone,
-      creatorId:    course.creatorId,
-      courseId:     course.id,
-      paymentId,
-    })
-    if (result) {
-      setTelegramToken(result.token)
-      // Persist to enrollment row so the learn page never needs to regenerate
-      if (enrollmentId) {
-        await saveEnrollmentToken(enrollmentId, result.token, result.expiresAt)
+    try {
+      if (hasTelegram) {
+        const res = await fetch('/api/telegram/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: data.id,
+            studentPhone: data.phone,
+            studentEmail: data.email,
+            studentName: data.name,
+            creatorId: course.creatorId,
+            courseId: course.id,
+            paymentId,
+          }),
+        })
+        const { token, expiresAt } = await res.json()
+        if (token) {
+          setTelegramToken(token)
+          // Persist to enrollment row so the learn page can read it without regenerating
+          if (enrollmentId) {
+            fetch('/api/telegram/save-enrollment-token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enrollmentId, token, expiresAt }),
+            }).catch(e => console.error('save-enrollment-token error:', e))
+          }
+        }
       }
+    } catch (e) {
+      console.error('Paid token error:', e)
     }
     setGeneratingPaid(false)
   }
-  // ──────────────────────────────────────────────────────────────────────────
 
-  // Check session on mount
+  // ── Check session on mount ───────────────────────────────────────
   useEffect(() => {
     async function checkSession() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -313,9 +281,9 @@ export default function EnrollModal({ onClose, course }: Props) {
       if (enrollment) { window.location.href = learnUrl; return }
 
       const userData = {
-        id:    user.id,
+        id: user.id,
         email: user.email || '',
-        name:  user.user_metadata?.full_name || user.user_metadata?.name || '',
+        name: user.user_metadata?.full_name || user.user_metadata?.name || '',
         phone: user.user_metadata?.phone || '',
       }
       setStudentData(userData)
@@ -333,9 +301,9 @@ export default function EnrollModal({ onClose, course }: Props) {
       setCheckingAuth(false)
     }
     checkSession()
-  }, [course.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [course.id])
 
-  // ── Auth handlers ──────────────────────────────────────────────────────────
+  // ── Auth handlers ────────────────────────────────────────────────
   async function handleGoogleLogin() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -362,12 +330,11 @@ export default function EnrollModal({ onClose, course }: Props) {
         const existing = await findPaidEnrollmentByPhone(course.id, phoneToStore)
         if (existing) { setError('This mobile number is already enrolled in this course.'); setLoading(false); return }
 
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
+        const { data, error } = await supabase.auth.signUp({
+          email, password,
           options: { data: { full_name: name, role: 'student', phone: phoneToStore } },
         })
-        if (signUpError) throw signUpError
+        if (error) throw error
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) throw signInError
         const sd = { id: data.user?.id, email, name, phone: phoneToStore }
@@ -379,13 +346,13 @@ export default function EnrollModal({ onClose, course }: Props) {
           generateDemoTokens(sd)
         }
       } else {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-        if (signInError) throw signInError
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) throw error
         const user = data.user
         const userData = {
-          id:    user.id,
+          id: user.id,
           email: user.email || '',
-          name:  user.user_metadata?.full_name || name || '',
+          name: user.user_metadata?.full_name || name || '',
           phone: user.user_metadata?.phone || phone,
         }
         setStudentData(userData)
@@ -434,17 +401,32 @@ export default function EnrollModal({ onClose, course }: Props) {
     const code = couponCode.trim()
     setCouponMessage('')
     setCouponResult(null)
-    if (!code) { setCouponMessage('Enter a coupon code'); return }
+
+    if (!code) {
+      setCouponMessage('Enter a coupon code')
+      return
+    }
+
     setCouponLoading(true)
     try {
       const { data, error } = await supabase.rpc('validate_coupon_for_course', {
-        input_course_id:   course.id,
+        input_course_id: course.id,
         input_coupon_code: code,
       })
+
       if (error) throw error
+
       const result = data?.[0] as CouponResult | undefined
-      if (!result?.valid) { setCouponMessage(result?.reason || 'Invalid coupon code'); return }
-      if (result.final_amount <= 0) { setCouponMessage('This coupon makes the course free. Free coupon checkout is not enabled yet.'); return }
+      if (!result?.valid) {
+        setCouponMessage(result?.reason || 'Invalid coupon code')
+        return
+      }
+
+      if (result.final_amount <= 0) {
+        setCouponMessage('This coupon makes the course free. Free coupon checkout is not enabled yet.')
+        return
+      }
+
       setCouponResult(result)
       setCouponCode(result.coupon_code || code.toUpperCase())
       setCouponMessage(result.reason || 'Coupon applied')
@@ -455,9 +437,13 @@ export default function EnrollModal({ onClose, course }: Props) {
     }
   }
 
-  function clearCoupon() { setCouponCode(''); setCouponResult(null); setCouponMessage('') }
+  function clearCoupon() {
+    setCouponCode('')
+    setCouponResult(null)
+    setCouponMessage('')
+  }
 
-  // ── Payment ────────────────────────────────────────────────────────────────
+  // ── Payment ──────────────────────────────────────────────────────
   async function handlePayment() {
     setLoading(true)
     setError('')
@@ -469,38 +455,38 @@ export default function EnrollModal({ onClose, course }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount:      course.price,
-          courseId:    course.id,
+          amount: course.price,
+          courseId: course.id,
           creatorSlug: course.creatorSlug,
-          couponCode:  activeCoupon?.coupon_code || '',
+          couponCode: activeCoupon?.coupon_code || '',
         }),
       })
       const { orderId, amount: orderAmount, pricing, error: orderError } = await orderRes.json()
       if (orderError) throw new Error(orderError)
       if (pricing) {
         setCouponResult({
-          valid:          true,
-          reason:         activeCoupon ? 'Coupon applied' : '',
-          coupon_id:      pricing.couponId,
-          coupon_code:    pricing.couponCode,
-          discount_type:  activeCoupon?.discount_type || null,
+          valid: true,
+          reason: activeCoupon ? 'Coupon applied' : '',
+          coupon_id: pricing.couponId,
+          coupon_code: pricing.couponCode,
+          discount_type: activeCoupon?.discount_type || null,
           discount_value: activeCoupon?.discount_value || null,
           original_amount: pricing.originalAmount,
           discount_amount: pricing.discountAmount,
-          final_amount:   pricing.finalAmount,
+          final_amount: pricing.finalAmount,
         })
       }
 
       const options = {
-        key:         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount:      orderAmount,
-        currency:    'INR',
-        name:        'AcademyKit',
+        key: import.meta.env.RAZORPAY_KEY_ID,
+        amount: orderAmount,
+        currency: 'INR',
+        name: 'AcademyKit',
         description: course.name,
-        order_id:    orderId,
+        order_id: orderId,
         prefill: {
-          name:    studentData?.name  || '',
-          email:   studentData?.email || '',
+          name: studentData?.name || '',
+          email: studentData?.email || '',
           contact: studentData?.phone || '',
         },
         theme: { color: '#7c3aed' },
@@ -509,26 +495,24 @@ export default function EnrollModal({ onClose, course }: Props) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature:  response.razorpay_signature,
-              studentId:    studentData?.id,
+              razorpay_signature: response.razorpay_signature,
+              studentId: studentData?.id,
               studentEmail: studentData?.email,
-              studentName:  studentData?.name,
+              studentName: studentData?.name,
               studentPhone: studentData?.phone,
-              creatorId:    course.creatorId,
-              courseId:     course.id,
-              amount:       pricing?.finalAmount || payableAmount,
-              couponCode:   pricing?.couponCode || activeCoupon?.coupon_code || '',
+              creatorId: course.creatorId,
+              courseId: course.id,
+              amount: pricing?.finalAmount || payableAmount,
+              couponCode: pricing?.couponCode || activeCoupon?.coupon_code || '',
             }),
           })
           const result = await verifyRes.json()
           if (result.success) {
-            // Find the enrollment id so we can persist the token
-            const { data: { user } } = await supabase.auth.getUser()
             const confirmedEnrollment = await findPaidEnrollment({
               courseId: course.id,
-              user,
+              user: (await supabase.auth.getUser()).data.user,
               phone: studentData?.phone,
               select: 'id',
             })
@@ -538,10 +522,9 @@ export default function EnrollModal({ onClose, course }: Props) {
               return
             }
             setStep('success')
-            // Generate paid token and persist it to the enrollment row (non-blocking)
+            // Generate paid tokens in background — non-blocking; persist to enrollment row
             generatePaidTokens(studentData, response.razorpay_payment_id, confirmedEnrollment.id)
-            // Redirect after a short pause — gives token generation time to start
-            setTimeout(() => { window.location.href = learnUrl }, 2500)
+            setTimeout(() => { window.location.href = learnUrl }, 3000)
           } else {
             setError('Payment verification failed. Please contact support.')
           }
@@ -557,48 +540,39 @@ export default function EnrollModal({ onClose, course }: Props) {
     }
   }
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading ──────────────────────────────────────────────────────
   if (checkingAuth) {
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center"
-        style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}
-      >
+      <div className="fixed inset-0 z-50 flex items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
         <div className="w-10 h-10 violet-gradient rounded-xl animate-pulse-glow" />
       </div>
     )
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl overflow-hidden"
-        style={{ background: '#0a0a0a', border: '1px solid rgba(124,58,237,0.3)' }}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: '#0a0a0a', border: '1px solid rgba(124,58,237,0.3)' }}>
+
         {/* Header */}
-        <div
-          className="flex items-center justify-between p-5 border-b"
-          style={{ borderColor: 'rgba(255,255,255,0.06)' }}
-        >
+        <div className="flex items-center justify-between p-5 border-b"
+          style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <div>
             <h2 className="font-semibold text-white">
-              {step === 'auth'     && 'Enroll in Course'}
-              {step === 'phone'    && 'Add Your Number'}
-              {step === 'demo'     && "You're In — Choose How to Start"}
+              {step === 'auth' && 'Enroll in Course'}
+              {step === 'phone' && 'Add Your Number'}
+              {step === 'demo' && 'You\'re In — Choose How to Start'}
               {step === 'demo-web' && 'Continue on Telegram'}
-              {step === 'payment'  && 'Complete Payment'}
-              {step === 'success'  && "You're Enrolled! 🎉"}
+              {step === 'payment' && 'Complete Payment'}
+              {step === 'success' && 'You\'re Enrolled! 🎉'}
             </h2>
             <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>{course.name}</p>
           </div>
-          <button
-            onClick={onClose}
+          <button onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg"
-            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}
-          >
+            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -608,30 +582,25 @@ export default function EnrollModal({ onClose, course }: Props) {
           <div className="p-6">
             <div className="flex rounded-xl p-1 mb-5" style={{ background: 'rgba(255,255,255,0.05)' }}>
               {(['signup', 'login'] as AuthMode[]).map(m => (
-                <button
-                  key={m}
-                  onClick={() => { setAuthMode(m); setError('') }}
+                <button key={m} onClick={() => { setAuthMode(m); setError('') }}
                   className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{
                     background: authMode === m ? 'rgba(124,58,237,0.3)' : 'transparent',
-                    color:      authMode === m ? '#fff' : '#a1a1aa',
-                  }}
-                >
+                    color: authMode === m ? '#fff' : '#a1a1aa',
+                  }}>
                   {m === 'signup' ? 'New Student' : 'Already have account'}
                 </button>
               ))}
             </div>
 
-            <button
-              onClick={handleGoogleLogin}
+            <button onClick={handleGoogleLogin}
               className="w-full flex items-center justify-center gap-3 py-3 rounded-xl text-white text-sm mb-5 transition-all hover:opacity-90"
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
-            >
+              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
               <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
               </svg>
               Continue with Google
             </button>
@@ -646,72 +615,75 @@ export default function EnrollModal({ onClose, course }: Props) {
               {authMode === 'signup' && (
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#52525b' }} />
-                  <input
-                    type="text" value={name} onChange={e => setName(e.target.value)}
+                  <input type="text" value={name} onChange={e => setName(e.target.value)}
                     placeholder="Full name" required
                     className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                     onFocus={e => e.target.style.borderColor = '#7c3aed'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                  />
+                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
                 </div>
               )}
+
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#52525b' }} />
-                <input
-                  type="email" value={email} onChange={e => setEmail(e.target.value)}
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="Email address" required
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                   onFocus={e => e.target.style.borderColor = '#7c3aed'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
               </div>
+
               {authMode === 'signup' && (
                 <div className="flex gap-2">
                   <CountrySelector selected={selectedCountry} onSelect={setSelectedCountry} />
                   <div className="relative flex-1">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#52525b' }} />
-                    <input
-                      type="tel" value={phone}
+                    <input type="tel" value={phone}
                       onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 10) setPhone(v) }}
                       placeholder="Mobile number (10 digits)" required maxLength={10}
                       className="w-full pl-10 pr-4 py-3 rounded-r-xl text-sm text-white outline-none"
                       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: 'none' }}
                       onFocus={e => e.target.style.borderColor = '#7c3aed'}
-                      onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                    />
+                      onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
                   </div>
                 </div>
               )}
+
               <div className="relative">
-                <input
-                  type={showPass ? 'text' : 'password'} value={password}
+                <input type={showPass ? 'text' : 'password'} value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder={authMode === 'signup' ? 'Create password (min 8 chars)' : 'Your password'}
                   required minLength={authMode === 'signup' ? 8 : undefined}
                   className="w-full px-4 pr-10 py-3 rounded-xl text-sm text-white outline-none"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                   onFocus={e => e.target.style.borderColor = '#7c3aed'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#52525b' }}>
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+                <button type="button" onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#52525b' }}>
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+
               {error && (
-                <div className="p-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <div className="p-3 rounded-xl text-sm"
+                  style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
                   {error}
                 </div>
               )}
-              <button type="submit" disabled={loading} className="w-full py-3 rounded-xl font-medium text-white violet-gradient hover:opacity-90 glow disabled:opacity-50 mt-1">
+
+              <button type="submit" disabled={loading}
+                className="w-full py-3 rounded-xl font-medium text-white violet-gradient hover:opacity-90 glow disabled:opacity-50 mt-1">
                 {loading ? 'Please wait...' : authMode === 'signup' ? 'Sign Up & Continue →' : 'Sign In & Continue →'}
               </button>
             </form>
 
-            <div className="flex items-center gap-2 mt-4 p-3 rounded-xl" style={{ background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.1)' }}>
+            <div className="flex items-center gap-2 mt-4 p-3 rounded-xl"
+              style={{ background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.1)' }}>
               <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#4ade80' }} />
-              <p className="text-xs" style={{ color: '#52525b' }}>Your number is needed to deliver lessons on Telegram after payment.</p>
+              <p className="text-xs" style={{ color: '#52525b' }}>
+                Your number is needed to deliver lessons on Telegram after payment.
+              </p>
             </div>
           </div>
         )}
@@ -720,30 +692,32 @@ export default function EnrollModal({ onClose, course }: Props) {
         {step === 'phone' && (
           <div className="p-6">
             <div className="text-center mb-6">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)' }}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
+                style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)' }}>
                 <Phone className="w-6 h-6" style={{ color: '#25d366' }} />
               </div>
               <h3 className="font-semibold text-white mb-1">One more thing</h3>
-              <p className="text-sm" style={{ color: '#a1a1aa' }}>We need your number to deliver lessons on Telegram after payment.</p>
+              <p className="text-sm" style={{ color: '#a1a1aa' }}>
+                We need your number to deliver lessons on Telegram after payment.
+              </p>
             </div>
             <form onSubmit={handlePhoneSubmit} className="flex flex-col gap-4">
               <div className="flex gap-2">
                 <CountrySelector selected={selectedCountry} onSelect={setSelectedCountry} />
                 <div className="relative flex-1">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#52525b' }} />
-                  <input
-                    type="tel" value={phone}
+                  <input type="tel" value={phone}
                     onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 10) setPhone(v) }}
                     placeholder="10 digit number" required maxLength={10}
                     className="w-full pl-10 pr-4 py-3 rounded-r-xl text-sm text-white outline-none"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: 'none' }}
                     onFocus={e => e.target.style.borderColor = '#7c3aed'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                  />
+                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
                 </div>
               </div>
               {error && <p className="text-sm" style={{ color: '#ef4444' }}>{error}</p>}
-              <button type="submit" disabled={loading} className="w-full py-3 rounded-xl font-medium text-white violet-gradient hover:opacity-90 glow disabled:opacity-50">
+              <button type="submit" disabled={loading}
+                className="w-full py-3 rounded-xl font-medium text-white violet-gradient hover:opacity-90 glow disabled:opacity-50">
                 {loading ? 'Saving...' : 'Continue →'}
               </button>
             </form>
@@ -754,51 +728,71 @@ export default function EnrollModal({ onClose, course }: Props) {
         {step === 'demo' && (
           <div className="p-6">
             <div className="text-center mb-5">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
+                style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
                 <Play className="w-6 h-6 text-violet-400" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-1">Welcome{studentData?.name ? `, ${studentData.name.split(' ')[0]}` : ''}!</h3>
-              <p className="text-sm" style={{ color: '#a1a1aa' }}>Free preview unlocked. Start right now — on Telegram or on the website.</p>
+              <h3 className="text-lg font-bold text-white mb-1">
+                Welcome{studentData?.name ? `, ${studentData.name.split(' ')[0]}` : ''}!
+              </h3>
+              <p className="text-sm" style={{ color: '#a1a1aa' }}>
+                Free preview unlocked. Start right now — on Telegram or on the website.
+              </p>
             </div>
+
             <div className="flex flex-col gap-3">
+              {/* Telegram */}
               {hasTelegram && (
                 demoTelegramToken
                   ? <TelegramButton token={demoTelegramToken} username={course.telegramBotUsername!} label="Start Free Lessons on Telegram" />
                   : <TokenLoading color="rgba(34,158,217,0.5)" label="Preparing Telegram link…" />
               )}
+
+              {/* Watch on website — sets demo-web step so Telegram button stays accessible */}
               <button
-                onClick={() => { window.open(learnUrl, '_blank'); setStep('demo-web') }}
+                onClick={() => {
+                  // Open the course in a new tab so the modal stays open
+                  window.open(learnUrl, '_blank')
+                  setStep('demo-web')
+                }}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-medium text-white transition-all hover:opacity-90"
                 style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 Watch Demo on Website
               </button>
-              <button
-                onClick={() => setStep('payment')}
-                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all text-base"
-              >
+
+              {/* Pay CTA */}
+              <button onClick={() => setStep('payment')}
+                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all text-base">
                 Enroll Now — ₹{course.price.toLocaleString()}
               </button>
             </div>
           </div>
         )}
 
-        {/* ── DEMO-WEB ── */}
+        {/* ── DEMO-WEB: student opened website, now show Telegram option + pay ── */}
         {step === 'demo-web' && (
           <div className="p-6">
             <div className="text-center mb-5">
               <p className="text-sm font-semibold text-white mb-1">Enjoying the preview?</p>
-              <p className="text-sm" style={{ color: '#a1a1aa' }}>Get lessons delivered straight to your Telegram — no browser needed.</p>
+              <p className="text-sm" style={{ color: '#a1a1aa' }}>
+                Get lessons delivered straight to your Telegram — no browser needed.
+              </p>
             </div>
+
             <div className="flex flex-col gap-3">
+              {/* Telegram — token already generated during demo step */}
               {hasTelegram && (
                 demoTelegramToken
                   ? <TelegramButton token={demoTelegramToken} username={course.telegramBotUsername!} label="Continue on Telegram" />
                   : <TokenLoading color="rgba(34,158,217,0.5)" label="Preparing Telegram link…" />
               )}
+
+              {/* Back to website */}
               <button
                 onClick={() => window.open(learnUrl, '_blank')}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all hover:opacity-80"
@@ -806,10 +800,10 @@ export default function EnrollModal({ onClose, course }: Props) {
               >
                 Continue watching on website
               </button>
-              <button
-                onClick={() => setStep('payment')}
-                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all text-base"
-              >
+
+              {/* Pay */}
+              <button onClick={() => setStep('payment')}
+                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all text-base">
                 Enroll & Unlock All — ₹{course.price.toLocaleString()}
               </button>
             </div>
@@ -819,8 +813,11 @@ export default function EnrollModal({ onClose, course }: Props) {
         {/* ── PAYMENT ── */}
         {step === 'payment' && (
           <div className="p-6">
-            <div className="rounded-xl p-4 mb-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <p className="text-xs mb-3 font-semibold uppercase tracking-wider" style={{ color: '#52525b' }}>Order Summary</p>
+            <div className="rounded-xl p-4 mb-5"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-xs mb-3 font-semibold uppercase tracking-wider" style={{ color: '#52525b' }}>
+                Order Summary
+              </p>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-white">{course.name}</span>
                 <span className="text-sm font-bold text-white">₹{course.price.toLocaleString()}</span>
@@ -830,18 +827,42 @@ export default function EnrollModal({ onClose, course }: Props) {
                   <div className="relative flex-1">
                     <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: activeCoupon ? '#4ade80' : '#52525b' }} />
                     <input
-                      type="text" value={couponCode}
-                      onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); setCouponMessage('') }}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon() } }}
-                      placeholder="Coupon code" disabled={Boolean(activeCoupon)}
+                      type="text"
+                      value={couponCode}
+                      onChange={e => {
+                        setCouponCode(e.target.value.toUpperCase())
+                        setCouponResult(null)
+                        setCouponMessage('')
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleApplyCoupon()
+                        }
+                      }}
+                      placeholder="Coupon code"
+                      disabled={Boolean(activeCoupon)}
                       className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none uppercase disabled:opacity-80"
                       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                     />
                   </div>
                   {activeCoupon ? (
-                    <button type="button" onClick={clearCoupon} className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>Remove</button>
+                    <button
+                      type="button"
+                      onClick={clearCoupon}
+                      className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                      Remove
+                    </button>
                   ) : (
-                    <button type="button" onClick={handleApplyCoupon} disabled={couponLoading || !couponCode.trim()} className="px-4 py-3 rounded-xl text-sm font-semibold disabled:opacity-50" style={{ background: 'rgba(124,58,237,0.18)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.3)' }}>
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={couponLoading || !couponCode.trim()}
+                      className="px-4 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                      style={{ background: 'rgba(124,58,237,0.18)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.3)' }}
+                    >
                       {couponLoading ? 'Checking' : 'Apply'}
                     </button>
                   )}
@@ -849,17 +870,24 @@ export default function EnrollModal({ onClose, course }: Props) {
                 {couponMessage && (
                   <div className="flex items-center gap-2 mt-2">
                     {activeCoupon && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />}
-                    <p className="text-xs" style={{ color: activeCoupon ? '#4ade80' : '#ef4444' }}>{couponMessage}</p>
+                    <p className="text-xs" style={{ color: activeCoupon ? '#4ade80' : '#ef4444' }}>
+                      {couponMessage}
+                    </p>
                   </div>
                 )}
               </div>
               {discountAmount > 0 && (
                 <div className="flex justify-between items-center mt-3">
-                  <span className="text-sm" style={{ color: '#4ade80' }}>Discount{activeCoupon?.coupon_code ? ` (${activeCoupon.coupon_code})` : ''}</span>
-                  <span className="text-sm font-semibold" style={{ color: '#4ade80' }}>-₹{discountAmount.toLocaleString()}</span>
+                  <span className="text-sm" style={{ color: '#4ade80' }}>
+                    Discount{activeCoupon?.coupon_code ? ` (${activeCoupon.coupon_code})` : ''}
+                  </span>
+                  <span className="text-sm font-semibold" style={{ color: '#4ade80' }}>
+                    -₹{discountAmount.toLocaleString()}
+                  </span>
                 </div>
               )}
-              <div className="flex justify-between items-center pt-3 mt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <div className="flex justify-between items-center pt-3 mt-2"
+                style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <span className="text-sm font-semibold text-white">Total</span>
                 <span className="text-lg font-bold text-white">₹{payableAmount.toLocaleString()}</span>
               </div>
@@ -867,11 +895,14 @@ export default function EnrollModal({ onClose, course }: Props) {
                 <div className="w-5 h-5 violet-gradient rounded flex items-center justify-center flex-shrink-0">
                   <Shield className="w-3 h-3 text-white" />
                 </div>
-                <p className="text-xs" style={{ color: '#52525b' }}>Enrolling as <strong className="text-white">{studentData?.email}</strong></p>
+                <p className="text-xs" style={{ color: '#52525b' }}>
+                  Enrolling as <strong className="text-white">{studentData?.email}</strong>
+                </p>
               </div>
             </div>
 
-            <div className="rounded-xl p-4 mb-5" style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)' }}>
+            <div className="rounded-xl p-4 mb-5"
+              style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)' }}>
               <p className="text-xs font-semibold mb-2" style={{ color: '#8b5cf6' }}>After payment you'll get:</p>
               {[
                 hasTelegram ? 'Lessons delivered to your Telegram instantly' : null,
@@ -887,30 +918,39 @@ export default function EnrollModal({ onClose, course }: Props) {
             </div>
 
             {error && (
-              <div className="p-3 rounded-xl text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <div className="p-3 rounded-xl text-sm mb-4"
+                style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
                 {error}
               </div>
             )}
 
-            <button onClick={handlePayment} disabled={loading} className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong disabled:opacity-50 text-lg">
+            <button onClick={handlePayment} disabled={loading}
+              className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong disabled:opacity-50 text-lg">
               {loading ? 'Opening payment…' : `Pay ₹${payableAmount.toLocaleString()} Securely`}
             </button>
             <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Powered by Razorpay · 256-bit SSL</p>
-            <button onClick={() => setStep(isNothingFree ? 'auth' : 'demo')} className="w-full text-center text-xs mt-2" style={{ color: '#52525b' }}>← Back</button>
+            <button onClick={() => setStep(isNothingFree ? 'auth' : 'demo')}
+              className="w-full text-center text-xs mt-2" style={{ color: '#52525b' }}>
+              ← Back
+            </button>
           </div>
         )}
 
         {/* ── SUCCESS ── */}
         {step === 'success' && (
           <div className="p-8 text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)' }}>
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)' }}>
               <Shield className="w-8 h-8" style={{ color: '#4ade80' }} />
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Payment Successful! 🎉</h3>
             <p className="text-sm mb-6" style={{ color: '#a1a1aa' }}>
-              You are enrolled in <strong className="text-white">{course.name}</strong>. Choose how you want to start:
+              You are enrolled in <strong className="text-white">{course.name}</strong>.
+              Choose how you want to start:
             </p>
+
             <div className="flex flex-col gap-3">
+              {/* Telegram — primary CTA when available */}
               {hasTelegram && (
                 telegramToken
                   ? <TelegramButton token={telegramToken} username={course.telegramBotUsername!} label="Start on Telegram" />
@@ -918,22 +958,31 @@ export default function EnrollModal({ onClose, course }: Props) {
                   ? <TokenLoading color="rgba(34,158,217,0.6)" label="Generating your Telegram link…" />
                   : null
               )}
-              <a
-                href={learnUrl}
+
+              {/* Web portal — always available */}
+              <a href={learnUrl}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-medium text-white transition-all hover:opacity-90"
                 style={{
                   background: hasTelegram ? 'rgba(255,255,255,0.07)' : 'linear-gradient(135deg,#7c3aed,#4f46e5)',
-                  border:     hasTelegram ? '1px solid rgba(255,255,255,0.1)' : 'none',
-                }}
-              >
+                  border: hasTelegram ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                }}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 {hasTelegram ? 'Open Web Portal' : 'Start Learning Now'}
               </a>
-              <button onClick={onClose} className="w-full py-2.5 rounded-xl text-sm transition-all" style={{ background: 'rgba(255,255,255,0.04)', color: '#a1a1aa' }}>Close</button>
+
+              <button onClick={onClose}
+                className="w-full py-2.5 rounded-xl text-sm transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', color: '#a1a1aa' }}>
+                Close
+              </button>
             </div>
-            <p className="text-xs mt-4" style={{ color: '#3f3f46' }}>Progress syncs between Telegram and web automatically.</p>
+
+            <p className="text-xs mt-4" style={{ color: '#3f3f46' }}>
+              Progress syncs between Telegram and web automatically.
+            </p>
           </div>
         )}
       </div>

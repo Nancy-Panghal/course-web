@@ -1,0 +1,84 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { sendLoggedEmail, escapeHtml } from '@/lib/email'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+const SUBJECT_LABELS: Record<string, string> = {
+  billing: 'Billing / Subscription',
+  technical: 'Technical Support',
+  piracy: 'Piracy Shield Help',
+  upgrade: 'Upgrade / Plan Change',
+  refund: 'Refund Request',
+  other: 'Other',
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { name, email, subject, message } = await req.json()
+
+    if (!name?.trim() || !email?.trim() || !subject?.trim() || !message?.trim()) {
+      return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+    }
+
+    const subjectLabel = SUBJECT_LABELS[subject] || subject
+    const safeName = escapeHtml(name.trim())
+    const safeEmail = escapeHtml(email.trim())
+    const safeSubject = escapeHtml(subjectLabel)
+    const safeMessage = escapeHtml(message.trim()).replace(/\n/g, '<br/>')
+
+    const html = `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#e4e4e7;border-radius:12px;overflow:hidden;border:1px solid #27272a;">
+        <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:24px 28px;">
+          <h2 style="margin:0;font-size:20px;color:#fff;">New Contact Form Submission</h2>
+          <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);">AcademyKit — Contact Page</p>
+        </div>
+        <div style="padding:28px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;width:120px;color:#a1a1aa;font-size:13px;font-weight:600;">Name</td>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#fff;font-size:14px;">${safeName}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#a1a1aa;font-size:13px;font-weight:600;">Email</td>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;font-size:14px;">
+                <a href="mailto:${safeEmail}" style="color:#8b5cf6;text-decoration:none;">${safeEmail}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#a1a1aa;font-size:13px;font-weight:600;">Subject</td>
+              <td style="padding:10px 0;border-bottom:1px solid #27272a;color:#fff;font-size:14px;">${safeSubject}</td>
+            </tr>
+            <tr>
+              <td style="padding:14px 0 0;color:#a1a1aa;font-size:13px;font-weight:600;vertical-align:top;">Message</td>
+              <td style="padding:14px 0 0;color:#e4e4e7;font-size:14px;line-height:1.6;">${safeMessage}</td>
+            </tr>
+          </table>
+        </div>
+        <div style="padding:16px 28px;border-top:1px solid #27272a;background:#050505;">
+          <p style="margin:0;font-size:12px;color:#52525b;">Sent via AcademyKit contact form · ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</p>
+        </div>
+      </div>
+    `
+
+    const result = await sendLoggedEmail({
+      supabase,
+      emailType: 'contact_form',
+      to: 'nancypanghal13@gmail.com',
+      subject: `[AcademyKit Contact] ${subjectLabel} — from ${name.trim()}`,
+      html,
+      metadata: { senderName: name.trim(), senderEmail: email.trim(), subject },
+    })
+
+    if (!result.sent && !result.skipped) {
+      return NextResponse.json({ error: result.error || 'Failed to send message' }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Unexpected error' }, { status: 500 })
+  }
+}

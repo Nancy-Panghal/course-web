@@ -1,32 +1,19 @@
-'use client'
-
 /**
  * src/app/course/[creatorName]/[courseName]/[courseId]/page.tsx
- *
- * Telegram token changes (everything else is identical to original):
- *
- *  REMOVED:
- *   - Independent getDemoToken useEffect (was generating a separate token
- *     after page load, inconsistent with EnrollModal's token)
- *   - demoTelegramToken / generatingDemoToken state
- *   - The enrolled CTA that linked to t.me/{bot} with NO token
- *
- *  ADDED:
- *   - telegramToken state — single source of truth for this page
- *   - loadTelegramToken() — called once after auth+enrollment resolves:
- *       • Enrolled students: reads token from enrollments.telegram_start_token
- *         (written there by EnrollModal after payment). If the stored token
- *         has expired or is missing, it silently regenerates and persists.
- *       • Preview students: calls /api/telegram/create-token with paymentId null.
- *   - All Telegram CTAs (enrolled block + preview block + every lesson CTA)
- *     now read from this single telegramToken state.
- *
- *  Result: every Telegram button on every lesson opens the same deep link.
+ * Key fixes:
+ * 1. findPaidEnrollment uses all identifiers — no false "not enrolled"
+ * 2. previous lesson button added
+ * 3. markComplete sends lessonId for quiz tracking
+ * 4. Quiz results loaded from enrollment and shown per-lesson
+ * 5. Progress is cross-platform: shows telegram-completed lessons too
+ * 6. linkStudentToEnrollment called on load to fix bot-created enrollments
  */
 
-import { useState, useEffect, use, useCallback } from 'react'
+
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+
 import {
   Shield, CheckCircle, ChevronRight, ChevronLeft,
   Award, Menu, Clock, Lock, FileText, Play, BookOpen,
@@ -73,7 +60,6 @@ interface Enrollment {
   course_uuid: string
   phone?: string
   student_id?: string | null
-  // Added column — may be null for old enrollments
   telegram_start_token?: string | null
   telegram_start_token_expires_at?: string | null
 }
@@ -106,21 +92,17 @@ function LockedScreen({ course, onEnroll }: { course: Course; onEnroll: () => vo
   return (
     <div className="flex-1 flex items-center justify-center p-8" style={{ background: '#0a0a0a' }}>
       <div className="text-center max-w-md">
-        <div
-          className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5"
-          style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}
-        >
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5"
+          style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
           <Lock className="w-10 h-10" style={{ color: '#8b5cf6' }} />
         </div>
         <h2 className="text-2xl font-bold text-white mb-3">This lesson is locked</h2>
         <p className="mb-6" style={{ color: '#a1a1aa' }}>
           Enroll in <strong className="text-white">{course.name}</strong> to unlock all lessons.
         </p>
-        <button
-          onClick={onEnroll}
+        <button onClick={onEnroll}
           className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-white"
-          style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow: '0 8px 24px rgba(124,58,237,0.4)' }}
-        >
+          style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow: '0 8px 24px rgba(124,58,237,0.4)' }}>
           Enroll Now — ₹{course.price.toLocaleString()}
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -137,14 +119,10 @@ function PdfViewer({ src }: { src: string }) {
   )
 }
 
-export default function CourseLearnPage({
-  params,
-}: {
-  params: Promise<{ creatorName: string; courseName: string; courseId: string }>
-}) {
-  const { courseId } = use(params)
+export default function CourseLearnPage() {
+  const { courseId } = useParams<{ creatorName: string; courseName: string; courseId: string }>()
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const searchParams = new URLSearchParams(window.location.search)
 
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -162,103 +140,9 @@ export default function CourseLearnPage({
   const [contentUrl, setContentUrl] = useState<string | null>(null)
   const [loadingContent, setLoadingContent] = useState(false)
   const [savingProgress, setSavingProgress] = useState(false)
-
-  // ── Single Telegram token for this entire page session ──────────
-  const [telegramToken, setTelegramToken] = useState<string>('')
-  const [loadingToken, setLoadingToken] = useState(false)
-  // ───────────────────────────────────────────────────────────────
-
-  // ── Load one Telegram token for this student+course ─────────────
-  const loadTelegramToken = useCallback(async (
-    enrollmentRow: Enrollment | null,
-    currentUser: any,
-    courseRow: Course,
-    creatorProfileRow: any,
-  ) => {
-    if (!creatorProfileRow?.telegram_bot_username) return
-    if (loadingToken) return
-
-    setLoadingToken(true)
-
-    try {
-      if (enrollmentRow) {
-        // ── Enrolled student path ──────────────────────────────────
-        // Check if a valid token is already stored on the enrollment row
-        const storedToken = enrollmentRow.telegram_start_token
-        const storedExpiry = enrollmentRow.telegram_start_token_expires_at
-
-        const isStoredValid =
-          storedToken &&
-          storedExpiry &&
-          new Date(storedExpiry) > new Date(Date.now() + 60 * 60 * 1000) // at least 1 hour left
-
-        if (isStoredValid) {
-          setTelegramToken(storedToken)
-          setLoadingToken(false)
-          return
-        }
-
-        // Stored token is missing or expired — regenerate and persist
-        const res = await fetch('/api/telegram/create-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId:    currentUser?.id    ?? null,
-            studentEmail: currentUser?.email ?? null,
-            studentName:  currentUser?.user_metadata?.full_name ?? null,
-            studentPhone: currentUser?.user_metadata?.phone ?? null,
-            creatorId:    courseRow.creator_id,
-            courseId:     courseRow.id,
-            paymentId:    null, // enrollment already exists — token is for re-linking
-          }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.token) {
-            setTelegramToken(data.token)
-            // Persist refreshed token back to enrollment row (fire and forget)
-            fetch('/api/telegram/save-enrollment-token', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                enrollmentId: enrollmentRow.id,
-                token:        data.token,
-                expiresAt:    data.expiresAt,
-              }),
-            }).catch(() => {})
-          }
-        }
-      } else {
-        // ── Free preview student path ──────────────────────────────
-        if (!currentUser) {
-          setLoadingToken(false)
-          return
-        }
-        const res = await fetch('/api/telegram/create-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId:    currentUser?.id    ?? null,
-            studentEmail: currentUser?.email ?? null,
-            studentName:  currentUser?.user_metadata?.full_name ?? null,
-            studentPhone: currentUser?.user_metadata?.phone ?? null,
-            creatorId:    courseRow.creator_id,
-            courseId:     courseRow.id,
-            paymentId:    null,
-          }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.token) setTelegramToken(data.token)
-        }
-      }
-    } catch (err) {
-      // Non-critical — CTA simply won't show if token fails
-      console.error('[loadTelegramToken]', err)
-    }
-
-    setLoadingToken(false)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const [demoTelegramToken, setDemoTelegramToken] = useState('')
+  const [generatingDemoToken, setGeneratingDemoToken] = useState(false)
+  const [enrolledTelegramToken, setEnrolledTelegramToken] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -270,15 +154,17 @@ export default function CourseLearnPage({
       if (!courseData) { router.push('/'); return }
       setCourse(courseData)
 
-      let creatorData: any = null
       try {
         const creatorRes = await fetch(`/api/creator/${courseData.creator_id}`)
         if (creatorRes.ok) {
-          creatorData = await creatorRes.json()
+          const creatorData = await creatorRes.json()
           setCreatorProfile(creatorData)
+        } else {
+          setCreatorProfile(null)
         }
       } catch (err) {
         console.error('Failed to load creator profile:', err)
+        setCreatorProfile(null)
       }
 
       const { data: lessonData } = await supabase
@@ -292,10 +178,8 @@ export default function CourseLearnPage({
       const lessonFromUrl = Number(searchParams.get('lesson') || '')
       const fromUrl = fetchedLessons.find((l: Lesson) => l.order_num === lessonFromUrl)
 
-      let enrollData: Enrollment | null = null
-
       if (me) {
-        enrollData = await findPaidEnrollment({ courseId: courseData.id, user: me })
+        const enrollData = await findPaidEnrollment({ courseId: courseData.id, user: me })
 
         if (enrollData) {
           setIsEnrolled(true)
@@ -303,21 +187,26 @@ export default function CourseLearnPage({
           setCompleted(enrollData.completed_lessons || [])
           setQuizResults(enrollData.quiz_results || [])
 
-          // Link student_id to enrollment if missing (bot-created enrollment fix)
+          // Link student_id to this enrollment if missing (bot-created enrollment fix)
           if (!enrollData.student_id && me.id) {
             const { data: studentRow } = await supabase
-              .from('students').select('id').eq('auth_id', me.id).limit(1).single()
+              .from('students')
+              .select('id')
+              .eq('auth_id', me.id)
+              .limit(1)
+              .single()
             if (studentRow?.id) {
               await linkStudentToEnrollment(enrollData.id, studentRow.id)
             }
           }
 
-          const resume =
-            fromUrl ||
-            fetchedLessons.find((l: Lesson) => l.order_num === (enrollData!.current_lesson || 1)) ||
-            fetchedLessons[0]
+          // Resume from URL param, or from saved current_lesson, or lesson 1
+          const resume = fromUrl
+            || fetchedLessons.find((l: Lesson) => l.order_num === (enrollData.current_lesson || 1))
+            || fetchedLessons[0]
           if (resume) setCurrentId(resume.id)
         } else {
+          // Not enrolled — start from URL param or lesson 1
           setCurrentId(fromUrl?.id || fetchedLessons[0]?.id || '')
         }
       } else {
@@ -326,15 +215,85 @@ export default function CourseLearnPage({
 
       setLoading(false)
       setMounted(true)
-
-      // Load one token for the whole page — after enrollment state is known
-      // Pass all resolved values directly to avoid stale closure
-      if (creatorData?.telegram_bot_username) {
-        loadTelegramToken(enrollData, me, courseData, creatorData)
-      }
     }
     load()
-  }, [courseId, router, searchParams, loadTelegramToken])
+  }, [courseId, searchParams])
+
+  // Load (or generate + persist) the enrolled student's Telegram deep-link token.
+  // Runs once when enrollment + creatorProfile + course are all ready.
+  useEffect(() => {
+    async function getEnrolledToken() {
+      if (!isEnrolled || !enrollment || !creatorProfile?.telegram_bot_username || !course || enrolledTelegramToken) return
+
+      // Re-use the persisted token if it exists and hasn't expired
+      const stored = enrollment.telegram_start_token
+      const expiresAt = enrollment.telegram_start_token_expires_at
+      if (stored && expiresAt && new Date(expiresAt) > new Date()) {
+        setEnrolledTelegramToken(stored)
+        return
+      }
+
+      // No valid stored token — generate a fresh one and persist it
+      try {
+        const res = await fetch('/api/telegram/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: user?.id,
+            studentPhone: user?.user_metadata?.phone || '',
+            studentEmail: user?.email || '',
+            studentName: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+            creatorId: course.creator_id,
+            courseId: course.id,
+            paymentId: null,
+          }),
+        })
+        const { token, expiresAt: newExpiry } = await res.json()
+        if (token) {
+          setEnrolledTelegramToken(token)
+          // Persist so the next page load skips regeneration
+          fetch('/api/telegram/save-enrollment-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enrollmentId: enrollment.id, token, expiresAt: newExpiry }),
+          }).catch(e => console.error('[enrolledToken save]', e))
+        }
+      } catch (e) {
+        console.error('[enrolledToken]', e)
+      }
+    }
+    getEnrolledToken()
+  }, [isEnrolled, enrollment, creatorProfile, course, user, enrolledTelegramToken])
+
+  useEffect(() => {
+    async function getDemoToken() {
+      if (!user || isEnrolled || !creatorProfile?.telegram_bot_username || !course || demoTelegramToken || generatingDemoToken) return
+      setGeneratingDemoToken(true)
+      try {
+        const res = await fetch('/api/telegram/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: user.id,
+            studentPhone: user.phone || user.user_metadata?.phone || '',
+            studentEmail: user.email || '',
+            studentName: user.user_metadata?.full_name || user.user_metadata?.name || '',
+            creatorId: course.creator_id,
+            courseId: course.id,
+            paymentId: null,
+          }),
+        })
+        const data = await res.json()
+        if (data?.token) {
+          setDemoTelegramToken(data.token)
+        }
+      } catch (e) {
+        console.error('[demoToken]', e)
+      }
+      setGeneratingDemoToken(false)
+    }
+    getDemoToken()
+  }, [user, isEnrolled, creatorProfile, course, demoTelegramToken, generatingDemoToken])
 
   const currentLesson = lessons.find(l => l.id === currentId) || lessons[0]
   const currentIndex = lessons.findIndex(l => l.id === currentId)
@@ -350,7 +309,7 @@ export default function CourseLearnPage({
   const allDone = plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)
 
-  // Load signed content URL when lesson changes
+  // Load signed content URL
   useEffect(() => {
     if (!currentLesson || !canAccess) { setContentUrl(null); return }
     setLoadingContent(true)
@@ -359,7 +318,7 @@ export default function CourseLearnPage({
     getSignedContentUrl(currentLesson.id, type)
       .then(url => { setContentUrl(url); setLoadingContent(false) })
       .catch(() => setLoadingContent(false))
-  }, [currentLesson?.id, canAccess]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentLesson?.id, canAccess])
 
   async function markComplete(orderNum: number) {
     if (completed.includes(orderNum)) return
@@ -373,11 +332,11 @@ export default function CourseLearnPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enrollmentId: enrollment.id,
-          lessonId:     currentLesson?.id,
-          lessonNum:    orderNum,
+          lessonId: currentLesson?.id,
+          lessonNum: orderNum,
           currentLesson: orderNum + 1,
-          courseId:     course?.id,
-          source:       'web',
+          courseId: course?.id,
+          source: 'web',
         }),
       })
       const data = await res.json()
@@ -385,7 +344,7 @@ export default function CourseLearnPage({
         setEnrollment(e => e ? {
           ...e,
           completed_lessons: data.completed,
-          current_lesson:    data.currentLesson,
+          current_lesson: data.currentLesson,
         } : e)
       }
       setSavingProgress(false)
@@ -399,30 +358,33 @@ export default function CourseLearnPage({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         enrollmentId: enrollment.id,
-        lessonId:     currentLesson.id,
-        lessonNum:    currentLesson.order_num,
-        courseId:     course?.id,
-        source:       'web',
-        quizScore:    score,
-        quizTotal:    total,
+        lessonId: currentLesson.id,
+        lessonNum: currentLesson.order_num,
+        courseId: course?.id,
+        source: 'web',
+        quizScore: score,
+        quizTotal: total,
       }),
     })
     const data = await res.json()
-    if (data.ok && data.quizResults) setQuizResults(data.quizResults)
+    if (data.ok && data.quizResults) {
+      setQuizResults(data.quizResults)
+    }
   }
 
   async function goTo(lesson: Lesson) {
     setCurrentId(lesson.id)
     setSidebarOpen(false)
     if (enrollment && isEnrolled) {
+      // Update current_lesson to max(current, target) — don't go backwards
       const newCurrent = Math.max(enrollment.current_lesson ?? 1, lesson.order_num)
       setEnrollment({ ...enrollment, current_lesson: newCurrent })
       await supabase
         .from('enrollments')
         .update({
-          current_lesson:    newCurrent,
-          last_accessed:     new Date().toISOString(),
-          last_web_sync:     new Date().toISOString(),
+          current_lesson: newCurrent,
+          last_accessed: new Date().toISOString(),
+          last_web_sync: new Date().toISOString(),
         })
         .eq('id', enrollment.id)
     }
@@ -444,93 +406,18 @@ export default function CourseLearnPage({
     ? currentLesson!.quiz_questions!
     : null
 
-  // ── Telegram CTA helper — used in both enrolled and preview blocks ──
-  // Single function so the markup is never duplicated per-lesson
-  function TelegramCTA({ enrolled }: { enrolled: boolean }) {
-    if (!creatorProfile?.telegram_bot_username) return null
-
-    const botUsername = creatorProfile.telegram_bot_username.replace('@', '')
-
-    return (
-      <div style={{
-        padding: 16, borderRadius: 12,
-        background: 'rgba(34,158,217,0.06)',
-        border: '1px solid rgba(34,158,217,0.2)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 12, flexWrap: 'wrap', marginBottom: 18,
-      }}>
-        <div>
-          <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>
-            {enrolled ? 'Continue on Telegram' : 'Learn on Telegram'}
-          </p>
-          <p style={{ color: '#71717a', fontSize: 12 }}>
-            {enrolled
-              ? 'Lessons delivered to your chat. Progress syncs automatically.'
-              : 'Get these free preview lessons delivered straight to your chat.'}
-          </p>
-        </div>
-
-        {telegramToken ? (
-          // Always use the deep-link with token — works for both enrolled and preview
-          <a
-            href={`https://t.me/${botUsername}?start=${telegramToken}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              padding: '8px 16px', borderRadius: 10,
-              background: '#229ED9', color: '#fff',
-              fontSize: 12, fontWeight: 700,
-              textDecoration: 'none', whiteSpace: 'nowrap',
-            }}
-          >
-            {enrolled ? 'Open Telegram' : 'Start Free on Telegram'}
-          </a>
-        ) : loadingToken ? (
-          <button
-            disabled
-            style={{
-              padding: '8px 16px', borderRadius: 10,
-              background: 'rgba(34,158,217,0.5)', color: '#fff',
-              fontSize: 12, fontWeight: 700,
-              border: 'none', cursor: 'not-allowed', whiteSpace: 'nowrap',
-            }}
-          >
-            Preparing link…
-          </button>
-        ) : (
-          // Token failed to load and user is not logged in — prompt sign in
-          !user ? (
-            <button
-              onClick={() => setShowEnroll(true)}
-              style={{
-                padding: '8px 16px', borderRadius: 10,
-                background: '#229ED9', color: '#fff',
-                fontSize: 12, fontWeight: 700,
-                border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-              }}
-            >
-              {enrolled ? 'Open Telegram' : 'Start Free on Telegram'}
-            </button>
-          ) : null
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen flex flex-col text-white" style={{ background: '#080808' }}>
       {showEnroll && (
         <EnrollModal
           onClose={() => setShowEnroll(false)}
           course={{
-            id:                   course.id,
-            name:                 course.name,
-            price:                course.price,
-            creatorSlug:          course.slug,
-            creatorName:          course.host_name || creatorProfile?.name || '',
-            creatorId:            course.creator_id,
-            telegramBotUsername:  creatorProfile?.telegram_bot_username,
-            free_preview_config:  course.free_preview_config,
+            id: course.id, name: course.name, price: course.price,
+            creatorSlug: course.slug,
+            creatorName: course.host_name || creatorProfile?.name || '',
+            creatorId: course.creator_id,
+            telegramBotUsername: creatorProfile?.telegram_bot_username,
+            free_preview_config: course.free_preview_config,
           }}
         />
       )}
@@ -589,6 +476,7 @@ export default function CourseLearnPage({
             </p>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#e4e4e7' }} className="truncate">{course.name}</p>
           </div>
+
           <div style={{ paddingBottom: 40 }}>
             {lessons.map(lesson => {
               const isActive = lesson.id === currentId
@@ -660,10 +548,8 @@ export default function CourseLearnPage({
                       Enroll to unlock all {plannedTotal || lessons.length} lessons + Telegram delivery.
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowEnroll(true)}
-                    style={{ padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
-                  >
+                  <button onClick={() => setShowEnroll(true)}
+                    style={{ padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                     Enroll — ₹{course.price.toLocaleString()}
                   </button>
                 </div>
@@ -711,17 +597,15 @@ export default function CourseLearnPage({
                     </span>
                   </div>
                 </div>
+
                 {currentLesson && (
                   completed.includes(currentLesson.order_num) ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: '#4ade80', fontSize: 13, fontWeight: 700 }}>
                       <CheckCircle className="w-4 h-4" /> Completed
                     </div>
                   ) : (
-                    <button
-                      onClick={() => markComplete(currentLesson.order_num)}
-                      disabled={savingProgress}
-                      style={{ padding: '8px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: savingProgress ? 0.6 : 1 }}
-                    >
+                    <button onClick={() => markComplete(currentLesson.order_num)} disabled={savingProgress}
+                      style={{ padding: '8px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: savingProgress ? 0.6 : 1 }}>
                       {savingProgress ? 'Saving…' : 'Mark as Complete'}
                     </button>
                   )
@@ -762,24 +646,20 @@ export default function CourseLearnPage({
                 <button
                   onClick={() => prevLesson && goTo(prevLesson)}
                   disabled={!prevLesson}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#a1a1aa', background: 'none', border: 'none', cursor: prevLesson ? 'pointer' : 'default', opacity: prevLesson ? 1 : 0.3 }}
-                >
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#a1a1aa', background: 'none', border: 'none', cursor: prevLesson ? 'pointer' : 'default', opacity: prevLesson ? 1 : 0.3 }}>
                   <ChevronLeft className="w-4 h-4" />
                   {prevLesson ? prevLesson.title : 'Previous'}
                 </button>
+
                 {nextLesson ? (
                   isNextLocked ? (
-                    <button
-                      onClick={() => setShowEnroll(true)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-                    >
+                    <button onClick={() => setShowEnroll(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                       Enroll to unlock — ₹{course.price.toLocaleString()} <ChevronRight className="w-4 h-4" />
                     </button>
                   ) : (
-                    <button
-                      onClick={() => goTo(nextLesson)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#fff', background: 'none', border: 'none', cursor: 'pointer' }}
-                    >
+                    <button onClick={() => goTo(nextLesson)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#fff', background: 'none', border: 'none', cursor: 'pointer' }}>
                       {nextLesson.title} <ChevronRight className="w-4 h-4" />
                     </button>
                   )
@@ -799,8 +679,56 @@ export default function CourseLearnPage({
                 )}
               </div>
 
-              {/* ── Telegram CTA — same component, same token, for every lesson ── */}
-              <TelegramCTA enrolled={isEnrolled} />
+              {/* Telegram CTA for all users (enrolled or previewing) */}
+              {creatorProfile?.telegram_bot_username && (
+                isEnrolled ? (
+                  <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                    <div>
+                      <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Continue on Telegram</p>
+                      <p style={{ color: '#71717a', fontSize: 12 }}>Lessons delivered to your chat. Progress syncs automatically.</p>
+                    </div>
+                    {enrolledTelegramToken ? (
+                      <a
+                        href={`https://t.me/${creatorProfile.telegram_bot_username.replace('@', '')}?start=${enrolledTelegramToken}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ padding: '8px 16px', borderRadius: 10, background: '#229ED9', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        Open Telegram
+                      </a>
+                    ) : (
+                      <button disabled
+                        style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(34,158,217,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
+                        Preparing Link...
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                    <div>
+                      <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Learn on Telegram</p>
+                      <p style={{ color: '#71717a', fontSize: 12 }}>Get these free preview lessons delivered straight to your chat.</p>
+                    </div>
+                    {user ? (
+                      demoTelegramToken ? (
+                        <a href={`https://t.me/${creatorProfile.telegram_bot_username.replace('@', '')}?start=${demoTelegramToken}`}
+                          target="_blank" rel="noopener noreferrer"
+                          style={{ padding: '8px 16px', borderRadius: 10, background: '#229ED9', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                          Start Free on Telegram
+                        </a>
+                      ) : (
+                        <button disabled
+                          style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(34,158,217,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
+                          Preparing Link...
+                        </button>
+                      )
+                    ) : (
+                      <button onClick={() => setShowEnroll(true)}
+                        style={{ padding: '8px 16px', borderRadius: 10, background: '#229ED9', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        Start Free on Telegram
+                      </button>
+                    )}
+                  </div>
+                )
+              )}
 
             </div>
           )}
