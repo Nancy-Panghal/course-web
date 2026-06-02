@@ -1,4 +1,4 @@
-
+"use client"
 import { useState, useEffect, useRef } from 'react'
 import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle, Ticket, CheckCircle2 } from 'lucide-react'
 import { slugify } from '@/lib/utils'

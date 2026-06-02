@@ -1,4 +1,4 @@
-
+"use client"
 import { useState } from 'react'
 import Link from 'next/link'
 import { Shield, Mail, Phone, MessageCircle, ArrowLeft, Send, CheckCircle } from 'lucide-react'

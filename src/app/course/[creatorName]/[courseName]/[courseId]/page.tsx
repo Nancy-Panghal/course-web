@@ -9,7 +9,7 @@
  * 6. linkStudentToEnrollment called on load to fix bot-created enrollments
  */
 
-
+"use client"
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams, useParams } from 'next/navigation'
 import Link from 'next/link'
