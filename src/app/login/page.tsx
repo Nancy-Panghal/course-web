@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Shield, Mail, ArrowLeft, Eye, EyeOff, User } from 'lucide-react'
+import { Shield, Mail, ArrowLeft, Eye, EyeOff, User, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ensureCreatorProfile } from '@/lib/creator'
 
-type Mode = 'login' | 'signup'
+type Mode = 'login' | 'signup' | 'forgot'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -20,6 +21,13 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+
+  function switchMode(m: Mode) {
+  setMode(m)
+  setError('')
+  setResetSent(false)
+}
 
   async function handleGoogleLogin() {
     await supabase.auth.signInWithOAuth({
@@ -43,6 +51,25 @@ export default function LoginPage() {
       console.error('Login notification error:', err)
     }
   }
+
+
+  async function handleForgotPassword(e: React.SyntheticEvent) {
+  e.preventDefault()
+  if (!email.trim()) { setError('Please enter your email address.'); return }
+  setLoading(true)
+  setError('')
+
+  const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+
+  setLoading(false)
+  if (resetError) {
+    setError(resetError.message)
+  } else {
+    setResetSent(true)
+  }
+}
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault()
@@ -90,7 +117,7 @@ export default function LoginPage() {
         } else {
           setError('Account created! Please sign in.')
         }
-        setMode('login')
+        switchMode('login')
         setLoading(false)
         return
       }
@@ -120,6 +147,12 @@ export default function LoginPage() {
     setLoading(false)
   }
 
+  const headings: Record<Mode, { title: string; sub: string }> = {
+  login:  { title: 'Welcome back',        sub: 'Sign in to your AcademyKit account' },
+  signup: { title: 'Create your account', sub: 'Start protecting and delivering your courses' },
+  forgot: { title: 'Reset your password', sub: 'We\'ll send a reset link to your email' },
+}
+
   return (
     <div className="min-h-screen bg-black grid-bg flex items-center justify-center px-6">
       <Link href="/" className="fixed top-6 left-6 flex items-center gap-2 text-sm"
@@ -135,24 +168,79 @@ export default function LoginPage() {
             <Shield className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">
-            {mode === 'login' ? 'Welcome back' : 'Create your account'}
+            {headings[mode].title}
           </h1>
           <p className="text-sm" style={{color:'#a1a1aa'}}>
-            {mode === 'login'
-              ? 'Sign in to your AcademyKit creator account'
-              : 'Start protecting and delivering your courses'}
+            {headings[mode].sub}
           </p>
         </div>
 
         <div className="glass rounded-2xl p-8 glow"
           style={{border:'1px solid rgba(124,58,237,0.2)'}}>
 
-          {/* Mode toggle */}
-          <div className="flex rounded-xl p-1 mb-6"
-            style={{background:'rgba(255,255,255,0.05)'}}>
+          {mode === 'forgot' && (
+            <>
+              {resetSent ? (
+                <div className="flex flex-col items-center text-center gap-4 py-4">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                    style={{background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.2)'}}>
+                    <CheckCircle className="w-7 h-7" style={{color:'#4ade80'}} />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold mb-1">Check your inbox</p>
+                    <p className="text-sm" style={{color:'#a1a1aa'}}>
+                      We sent a reset link to <span className="text-white font-medium">{email}</span>.
+                      Click it to set a new password. Check spam if you don't see it.
+                    </p>
+                  </div>
+                  <button onClick={() => switchMode('login')}
+                    className="w-full py-3 rounded-xl font-medium text-sm transition-all hover:opacity-80"
+                    style={{background:'rgba(255,255,255,0.06)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.1)'}}>
+                    Back to Sign In
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-white mb-2 block">Email address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
+                      <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                        placeholder="you@example.com" required autoFocus
+                        className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                        style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+                        onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                        onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+                    </div>
+                  </div>
+                  {error && (
+                    <div className="p-3 rounded-xl text-sm"
+                      style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>
+                      {error}
+                    </div>
+                  )}
+                  <button type="submit" disabled={loading}
+                    className="w-full py-3 rounded-xl font-medium text-white text-sm transition-all violet-gradient hover:opacity-90 glow disabled:opacity-50">
+                    {loading ? 'Sending…' : 'Send Reset Link'}
+                  </button>
+                  <button type="button" onClick={() => switchMode('login')}
+                    className="w-full py-2 text-sm transition-colors"
+                    style={{color:'#52525b'}}>
+                    ← Back to Sign In
+                  </button>
+                </form>
+              )}
+            </>
+          )}
+
+          {mode !== 'forgot' && (
+            <>
+              {/* Mode toggle */}
+              <div className="flex rounded-xl p-1 mb-6"
+                style={{background:'rgba(255,255,255,0.05)'}}>
             {(['login', 'signup'] as Mode[]).map(m => (
               <button key={m}
-                onClick={() => { setMode(m); setError('') }}
+                onClick={() => { switchMode(m); setError('') }}
                 className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
                 style={{
                   background: mode === m ? 'rgba(124,58,237,0.3)' : 'transparent',
@@ -228,7 +316,17 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label className="text-sm font-medium text-white mb-2 block">Password</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-white">Password</label>
+                {mode === 'login' && (
+                  <button type="button"
+                    onClick={() => switchMode('forgot')}
+                    className="text-xs transition-colors hover:opacity-80"
+                    style={{color:'#7c3aed'}}>
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type={showPass ? 'text' : 'password'}
@@ -265,6 +363,8 @@ export default function LoginPage() {
               }
             </button>
           </form>
+            </>
+          )}
         </div>
 
         <p className="text-center text-xs mt-6" style={{color:'#52525b'}}>

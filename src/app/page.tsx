@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Shield, Zap, TrendingUp, Lock, MessageCircle, BarChart3, CheckCircle, ArrowRight, Star, Play, X } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { supabase } from '@/lib/supabase'
+import ResetPasswordPage from "@/app/reset-password/page";
 
 // ─── DATA ───
 const features = [

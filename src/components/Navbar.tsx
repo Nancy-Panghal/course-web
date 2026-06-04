@@ -1,7 +1,7 @@
-'use client'
+
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { Shield, Menu, X, LayoutDashboard } from 'lucide-react'
+import Link from 'next/link' 
+import { Shield, Menu, X, LayoutDashboard, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function Navbar() {
@@ -26,6 +26,10 @@ export default function Navbar() {
     }
   }, [])
 
+  // role is set to 'creator' explicitly at signup (login/page.tsx).
+  // Students don't go through that flow, so their role is absent/undefined.
+  const isCreator = user?.user_metadata?.role === 'creator'
+
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       scrolled ? 'bg-black/80 backdrop-blur-xl border-b border-border' : 'bg-transparent'
@@ -38,18 +42,14 @@ export default function Navbar() {
           <span className="font-semibold text-white text-lg">AcademyKit</span>
         </Link>
 
+        {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-8">
           <Link href="/#features" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Features</Link>
           <Link href="/#how-it-works" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>How it works</Link>
           <Link href="/#pricing" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Pricing</Link>
           <Link href="/contact" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Contact</Link>
-          {user ? (
-            <Link href="/dashboard"
-              className="flex items-center gap-2 violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 glow">
-              <LayoutDashboard className="w-4 h-4" />
-              Dashboard
-            </Link>
-          ) : (
+
+          {!user && (
             <>
               <Link href="/login" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Login</Link>
               <Link href="/login"
@@ -58,14 +58,32 @@ export default function Navbar() {
               </Link>
             </>
           )}
+
+          {user && isCreator && (
+            <Link href="/dashboard"
+              className="flex items-center gap-2 violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 glow">
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </Link>
+          )}
+
+          {user && !isCreator && (
+            <Link href="/my-courses"
+              className="flex items-center gap-2 violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 glow">
+              <BookOpen className="w-4 h-4" />
+              My Courses
+            </Link>
+          )}
         </div>
 
+        {/* Mobile hamburger */}
         <button className="md:hidden" style={{color:'#a1a1aa'}}
           onClick={() => setMenuOpen(!menuOpen)}>
           {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
+      {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden border-b px-6 py-4 flex flex-col gap-4"
           style={{background:'rgba(0,0,0,0.95)', backdropFilter:'blur(20px)', borderColor:'rgba(255,255,255,0.06)'}}>
@@ -73,17 +91,30 @@ export default function Navbar() {
           <Link href="/#how-it-works" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>How it works</Link>
           <Link href="/#pricing" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>Pricing</Link>
           <Link href="/contact" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>Contact</Link>
-          {user ? (
-            <Link href="/dashboard"
-              className="violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium text-center"
-              onClick={() => setMenuOpen(false)}>
-              Dashboard
-            </Link>
-          ) : (
+
+          {!user && (
             <Link href="/login"
               className="violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium text-center"
               onClick={() => setMenuOpen(false)}>
               Get Started Free
+            </Link>
+          )}
+
+          {user && isCreator && (
+            <Link href="/dashboard"
+              className="flex items-center justify-center gap-2 violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium"
+              onClick={() => setMenuOpen(false)}>
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </Link>
+          )}
+
+          {user && !isCreator && (
+            <Link href="/my-courses"
+              className="flex items-center justify-center gap-2 violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium"
+              onClick={() => setMenuOpen(false)}>
+              <BookOpen className="w-4 h-4" />
+              My Courses
             </Link>
           )}
         </div>
