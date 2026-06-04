@@ -91,6 +91,8 @@ const emptySummary: RevenueSummary = {
   last_sale_at: null,
 }
 
+type RevenueSectionErrors = Partial<Record<'summary' | 'courses' | 'payments' | 'monthly', string>>
+
 const money = new Intl.NumberFormat('en-IN', {
   style: 'currency',
   currency: 'INR',
@@ -142,29 +144,49 @@ export default function RevenuePage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [sectionErrors, setSectionErrors] = useState<RevenueSectionErrors>({})
 
   async function fetchRevenue(showRefresh = false) {
     if (showRefresh) setRefreshing(true)
     setError('')
+    setSectionErrors({})
+
+    async function loadSection<T>(
+      section: keyof RevenueSectionErrors,
+      request: () => PromiseLike<{ data: T | null; error: any }>,
+      fallback: T,
+      nextErrors: RevenueSectionErrors
+    ) {
+      try {
+        const { data, error } = await request()
+        if (error) throw error
+        return data ?? fallback
+      } catch (err: any) {
+        console.warn(`[revenue/${section}]`, err)
+        nextErrors[section] = err?.message || 'Revenue data unavailable.'
+        return fallback
+      }
+    }
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const [summaryRes, courseRes, paymentRes, monthlyRes] = await Promise.all([
-        supabase.rpc('get_my_revenue_summary'),
-        supabase.rpc('get_my_course_revenue'),
-        supabase.rpc('get_my_recent_payments', { limit_count: 20 }),
-        supabase.rpc('get_my_monthly_revenue', { month_count: 6 }),
+      const nextErrors: RevenueSectionErrors = {}
+      const summaryFallback = [{ ...emptySummary, creator_id: user.id }]
+
+      const [summaryData, courseData, paymentData, monthlyData] = await Promise.all([
+        loadSection('summary', () => supabase.rpc('get_my_revenue_summary'), summaryFallback, nextErrors),
+        loadSection('courses', () => supabase.rpc('get_my_course_revenue'), [] as CourseRevenue[], nextErrors),
+        loadSection('payments', () => supabase.rpc('get_my_recent_payments', { limit_count: 20 }), [] as RecentPayment[], nextErrors),
+        loadSection('monthly', () => supabase.rpc('get_my_monthly_revenue', { month_count: 6 }), [] as MonthlyRevenue[], nextErrors),
       ])
 
-      const firstError = summaryRes.error || courseRes.error || paymentRes.error || monthlyRes.error
-      if (firstError) throw firstError
-
-      setSummary((summaryRes.data?.[0] as RevenueSummary | undefined) || { ...emptySummary, creator_id: user.id })
-      setCourses((courseRes.data || []) as CourseRevenue[])
-      setPayments((paymentRes.data || []) as RecentPayment[])
-      setMonthly((monthlyRes.data || []) as MonthlyRevenue[])
+      setSummary((summaryData?.[0] as RevenueSummary | undefined) || { ...emptySummary, creator_id: user.id })
+      setCourses((courseData || []) as CourseRevenue[])
+      setPayments((paymentData || []) as RecentPayment[])
+      setMonthly((monthlyData || []) as MonthlyRevenue[])
+      setSectionErrors(nextErrors)
     } catch (err: any) {
       console.error('Error loading revenue dashboard:', err)
       setError(err?.message || 'Could not load revenue data.')
@@ -279,6 +301,17 @@ export default function RevenuePage() {
               })}
             </div>
 
+            {sectionErrors.summary && (
+              <div className="mb-8 rounded-2xl p-4 flex items-start gap-3"
+                style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.16)' }}>
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
+                <div>
+                  <p className="text-sm font-semibold text-white">Revenue totals are waiting for setup</p>
+                  <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>Course, chart, and payment sections will still load when their data is available.</p>
+                </div>
+              </div>
+            )}
+
             {!hasRevenue && (
               <div className="rounded-2xl p-8 mb-8 glass flex flex-col md:flex-row md:items-center justify-between gap-5"
                 style={{ border: '1px solid rgba(139,92,246,0.18)', background: 'rgba(139,92,246,0.05)' }}>
@@ -316,7 +349,11 @@ export default function RevenuePage() {
 
                 {monthly.length === 0 ? (
                   <div className="h-64 flex items-center justify-center text-center">
-                    <p className="text-sm" style={{ color: '#52525b' }}>Your revenue chart will appear after your first paid sale.</p>
+                    <p className="text-sm" style={{ color: '#52525b' }}>
+                      {sectionErrors.monthly
+                        ? 'Monthly revenue setup is not installed yet.'
+                        : 'Your revenue chart will appear after your first paid sale.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="h-64 flex items-end gap-3">
@@ -379,7 +416,11 @@ export default function RevenuePage() {
 
                 {courses.length === 0 ? (
                   <div className="p-10 text-center">
-                    <p className="text-sm" style={{ color: '#52525b' }}>Create a course to start tracking sales.</p>
+                    <p className="text-sm" style={{ color: '#52525b' }}>
+                      {sectionErrors.courses
+                        ? 'Course revenue setup is not installed yet.'
+                        : 'Create a course to start tracking sales.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="divide-y divide-white/[0.05]">
@@ -424,7 +465,11 @@ export default function RevenuePage() {
 
                 {payments.length === 0 ? (
                   <div className="p-10 text-center">
-                    <p className="text-sm" style={{ color: '#52525b' }}>No payment records yet.</p>
+                    <p className="text-sm" style={{ color: '#52525b' }}>
+                      {sectionErrors.payments
+                        ? 'Recent payment setup is not installed yet.'
+                        : 'No payment records yet.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">

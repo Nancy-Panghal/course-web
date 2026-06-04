@@ -11,7 +11,7 @@
 
 "use client"
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams, useParams } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 
 import {
@@ -122,7 +122,6 @@ function PdfViewer({ src }: { src: string }) {
 export default function CourseLearnPage() {
   const { courseId } = useParams<{ creatorName: string; courseName: string; courseId: string }>()
   const router = useRouter()
-  const searchParams = new URLSearchParams(window.location.search)
 
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -175,7 +174,8 @@ export default function CourseLearnPage() {
       const fetchedLessons = lessonData || []
       setLessons(fetchedLessons)
 
-      const lessonFromUrl = Number(searchParams.get('lesson') || '')
+      const initialSearchParams = new URLSearchParams(window.location.search)
+      const lessonFromUrl = Number(initialSearchParams.get('lesson') || '')
       const fromUrl = fetchedLessons.find((l: Lesson) => l.order_num === lessonFromUrl)
 
       if (me) {
@@ -217,7 +217,7 @@ export default function CourseLearnPage() {
       setMounted(true)
     }
     load()
-  }, [courseId, searchParams])
+  }, [courseId, router])
 
   // Load (or generate + persist) the enrolled student's Telegram deep-link token.
   // Runs once when enrollment + creatorProfile + course are all ready.
@@ -375,6 +375,11 @@ export default function CourseLearnPage() {
   async function goTo(lesson: Lesson) {
     setCurrentId(lesson.id)
     setSidebarOpen(false)
+
+    const nextParams = new URLSearchParams(window.location.search)
+    nextParams.set('lesson', String(lesson.order_num))
+    router.replace(`${window.location.pathname}?${nextParams.toString()}`, { scroll: false })
+
     if (enrollment && isEnrolled) {
       // Update current_lesson to max(current, target) — don't go backwards
       const newCurrent = Math.max(enrollment.current_lesson ?? 1, lesson.order_num)

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, use } from 'react'
+import { useEffect, useRef, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
@@ -712,6 +712,7 @@ export default function CourseManagePage({
   const [creatorId, setCreatorId] = useState('')
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const publishingRef = useRef(false)
   const [activeTab, setActiveTab] = useState<'lessons' | 'settings'>('lessons')
 
   // Settings state
@@ -918,21 +919,36 @@ export default function CourseManagePage({
   }
 
   async function publishAllLessons() {
+    if (publishingRef.current) return
+
+    publishingRef.current = true
     setPublishing(true)
-    await supabase
-      .from('lessons')
-      .update({ is_published: true })
-      .eq('course_id', id)
 
-    // Also publish the course itself
-    await supabase
-      .from('courses')
-      .update({ is_published: true })
-      .eq('id', id)
+    try {
+      const { error: lessonsError } = await supabase
+        .from('lessons')
+        .update({ is_published: true })
+        .eq('course_id', id)
 
-    if (course) setCourse({ ...course, is_published: true })
-    await fetchLessons()
-    setPublishing(false)
+      if (lessonsError) throw lessonsError
+
+      // Also publish the course itself
+      const { error: courseError } = await supabase
+        .from('courses')
+        .update({ is_published: true })
+        .eq('id', id)
+
+      if (courseError) throw courseError
+
+      if (course) setCourse({ ...course, is_published: true })
+      await fetchLessons()
+    } catch (err: any) {
+      console.error('Failed to publish all lessons:', err)
+      alert(err?.message || 'Failed to publish all lessons. Please try again.')
+    } finally {
+      publishingRef.current = false
+      setPublishing(false)
+    }
   }
 
   async function toggleCoursePublish() {

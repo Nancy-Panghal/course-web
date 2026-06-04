@@ -117,13 +117,16 @@ export default function CurriculumAccordion({
                 {/* Lessons list — animated open/close */}
                 <div
                   style={{
-                    maxHeight: isOpen ? `${mod.lessons.length * 56 + 8}px` : '0px',
+                    display: 'grid',
+                    gridTemplateRows: isOpen ? '1fr' : '0fr',
                     overflow: 'hidden',
-                    transition: 'max-height 0.3s cubic-bezier(0.4,0,0.2,1)',
+                    transition: 'grid-template-rows 0.25s cubic-bezier(0.4,0,0.2,1)',
                   }}
                 >
                   <div
                     style={{
+                      minHeight: 0,
+                      overflow: 'hidden',
                       borderTop: '1px solid rgba(255,255,255,0.05)',
                       padding: '4px 0',
                     }}

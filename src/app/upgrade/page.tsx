@@ -96,28 +96,38 @@ export default function UpgradePage() {
   }, [])
 
   async function handleUpgrade(plan: typeof plans[0]) {
+    if (payingPlan) return
+
     setPayingPlan(plan.id)
     setError('')
+    setSuccess('')
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error('Please log in before upgrading.')
+      }
+
       const loaded = await loadRazorpay()
       if (!loaded) throw new Error('Failed to load Razorpay')
 
-      const orderRes = await fetch('/api/razorpay/create-order', {
+      const orderRes = await fetch('/api/razorpay/create-subscription-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
-          amount: plan.price,
+          planId: plan.id,
           currency: 'INR',
-          courseId: `subscription_${plan.id}`,
         }),
       })
-      const { orderId, error: orderError } = await orderRes.json()
+      const { orderId, amount, error: orderError } = await orderRes.json()
       if (orderError) throw new Error(orderError)
 
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: plan.price * 100,
+        amount,
         currency: 'INR',
         name: 'AcademyKit',
         description: `${plan.name} Plan — Monthly Subscription`,
@@ -128,29 +138,34 @@ export default function UpgradePage() {
         },
         theme: { color: '#7c3aed' },
         handler: async (response: any) => {
-          // Update creator plan in Supabase
-          const { error: updateError } = await supabase
-            .from('creators')
-            .update({
-              plan: plan.id,
-              is_active: true,
+          try {
+            const verifyRes = await fetch('/api/razorpay/verify-subscription', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                planId: plan.id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
             })
-            .eq('id', creator.id)
+            const verifyData = await verifyRes.json()
 
-          if (updateError) {
-            setError('Payment received but plan update failed. Contact support.')
-          } else {
+            if (!verifyRes.ok || verifyData.error) {
+              throw new Error(verifyData.error || 'Payment verification failed.')
+            }
+
             setSuccess(`Successfully upgraded to ${plan.name} plan! Your academy is now fully active.`)
-            // Refresh creator data
-            const { data } = await supabase
-              .from('creators')
-              .select('*')
-              .eq('id', creator.id)
-              .single()
-            setCreator(data)
-            setTrialStatus(getTrialStatus(data))
+            setCreator(verifyData.creator)
+            setTrialStatus(getTrialStatus(verifyData.creator))
+          } catch (err: any) {
+            setError(err.message || 'Payment received but plan activation failed. Contact support.')
+          } finally {
+            setPayingPlan(null)
           }
-          setPayingPlan(null)
         },
         modal: {
           ondismiss: () => setPayingPlan(null),
