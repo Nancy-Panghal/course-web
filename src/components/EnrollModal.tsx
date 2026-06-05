@@ -1,5 +1,6 @@
 "use client"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle, Ticket, CheckCircle2 } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 
@@ -20,67 +21,217 @@ const COUNTRIES = [
   { name: 'Sri Lanka', code: '+94', flag: '🇱🇰' },
 ]
 
-function CountrySelector({ selected, onSelect }: { selected: any, onSelect: (c: any) => void }) {
+function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: any) => void }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const ref = useRef<HTMLDivElement>(null)
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+  
+  const reposition = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const dropdownHeight = 280 // max-h we'll enforce on the portal div
+    const spaceBelow = viewportHeight - rect.bottom
+    const spaceAbove = rect.top
+
+    // Prefer opening downward; flip upward only when there isn't enough
+    // space below AND there's more space above.
+    const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
+
+    setDropdownStyle({
+      position: 'fixed',
+      left: rect.left,
+      width: Math.max(rect.width, 256), // at least 256px wide
+      zIndex: 9999,
+      ...(openUpward
+        ? { bottom: viewportHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+    })
   }, [])
 
-  const filtered = COUNTRIES.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.includes(search)
+  useEffect(() => {
+    if (!open) return
+    reposition()
+    // Focus the search input once the portal has mounted
+    const t = setTimeout(() => searchRef.current?.focus(), 30)
+
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+    }
+  }, [open, reposition])
+
+  // Close on outside click — must check both trigger and portal dropdown
+  useEffect(() => {
+    if (!open) return
+    function handleMouseDown(e: MouseEvent) {
+      const target = e.target as Node
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) return
+      setOpen(false)
+      setSearch('')
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [open])
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!open) return
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setOpen(false); setSearch('') }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [open])
+
+  const filtered = COUNTRIES.filter(
+    c =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.code.includes(search)
   )
+
+  const dropdown = open ? (
+    <div
+      ref={dropdownRef}
+      style={{
+        ...dropdownStyle,
+        background: '#121212',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: 280,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Search bar — sticky inside the portal */}
+      <div
+        style={{
+          padding: '8px 8px 6px',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          background: '#121212',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ position: 'relative' }}>
+          <Search
+            style={{
+              position: 'absolute', left: 10,
+              top: '50%', transform: 'translateY(-50%)',
+              width: 14, height: 14, color: '#71717a',
+              pointerEvents: 'none',
+            }}
+          />
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search country..."
+            style={{
+              width: '100%',
+              paddingLeft: 30, paddingRight: 10,
+              paddingTop: 6, paddingBottom: 6,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid transparent',
+              borderRadius: 8,
+              fontSize: 12, color: '#fff',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+            onFocus={e => (e.target.style.borderColor = 'rgba(124,58,237,0.5)')}
+            onBlur={e => (e.target.style.borderColor = 'transparent')}
+          />
+        </div>
+      </div>
+
+      {/* Country list — scrollable */}
+      <div style={{ overflowY: 'auto', padding: 4, flex: 1 }}>
+        {filtered.length === 0 ? (
+          <p style={{ textAlign: 'center', padding: '12px 0', fontSize: 12, color: '#52525b' }}>
+            No results
+          </p>
+        ) : (
+          filtered.map(c => (
+            <button
+              key={c.name + c.code}
+              type="button"
+              onClick={() => { onSelect(c); setOpen(false); setSearch('') }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 10px', borderRadius: 8,
+                background: 'transparent', border: 'none',
+                cursor: 'pointer', textAlign: 'left',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>{c.flag}</span>
+                <span style={{ fontSize: 12, color: '#d4d4d8', fontWeight: 500 }}>{c.name}</span>
+              </div>
+              <span style={{ fontSize: 11, color: '#71717a', fontWeight: 700 }}>{c.code}</span>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  ) : null
 
   return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(!open)}
-        className="h-full px-3 flex items-center gap-1.5 rounded-l-xl border-r border-white/10 transition-all hover:bg-white/5"
-        style={{ background: 'rgba(255,255,255,0.05)' }}>
-        <span className="text-sm">{selected.flag}</span>
-        <span className="text-xs font-bold text-zinc-400">{selected.code}</span>
-        <ChevronDown className={`w-3 h-3 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+    <>
+      {/* Trigger button — sits inline in the form */}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        style={{
+          height: '100%',
+          padding: '0 12px',
+          display: 'flex', alignItems: 'center', gap: 6,
+          borderRadius: '12px 0 0 12px',
+          borderRight: '1px solid rgba(255,255,255,0.1)',
+          background: 'rgba(255,255,255,0.05)',
+          border: 'none',
+          cursor: 'pointer',
+          flexShrink: 0,
+          transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+      >
+        <span style={{ fontSize: 16 }}>{selected.flag}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#a1a1aa' }}>{selected.code}</span>
+        <ChevronDown
+          style={{
+            width: 12, height: 12, color: '#71717a',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+            flexShrink: 0,
+          }}
+        />
       </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-2 w-64 max-h-64 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[60]"
-          style={{ background: '#121212', backdropFilter: 'blur(20px)' }}>
-          <div className="sticky top-0 p-2 border-b border-white/5" style={{ background: '#121212' }}>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
-              <input
-                autoFocus
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search country..."
-                className="w-full pl-8 pr-3 py-2 bg-white/5 rounded-lg text-xs text-white outline-none border border-transparent focus:border-violet-500/50"
-              />
-            </div>
-          </div>
-          <div className="p-1">
-            {filtered.map(c => (
-              <button key={c.name + c.code} type="button"
-                onClick={() => { onSelect(c); setOpen(false); setSearch('') }}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">{c.flag}</span>
-                  <span className="text-xs text-zinc-300 font-medium group-hover:text-white">{c.name}</span>
-                </div>
-                <span className="text-xs text-zinc-500 font-bold">{c.code}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+
+      {/* Portal — renders at document.body, escapes all overflow clipping */}
+      {typeof document !== 'undefined' && dropdown
+        ? createPortal(dropdown, document.body)
+        : null}
+    </>
   )
 }
-
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, findPaidEnrollmentByPhone } from '@/lib/enrollments'
 
@@ -277,6 +428,15 @@ export default function EnrollModal({ onClose, course }: Props) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setCheckingAuth(false); return }
 
+      // Hard guard: if this user is the course owner, close the modal immediately.
+      // This is the belt-and-suspenders check — the enroll button should already
+      // be hidden for owners, but this handles any edge case where the modal
+      // was opened before the owner check resolved.
+      if (user.id === course.creatorId) {
+        onClose()
+        return
+      }
+
       const enrollment = await findPaidEnrollment({ courseId: course.id, user, select: 'id' })
       if (enrollment) { window.location.href = learnUrl; return }
 
@@ -334,7 +494,23 @@ export default function EnrollModal({ onClose, course }: Props) {
           email, password,
           options: { data: { full_name: name, role: 'student', phone: phoneToStore } },
         })
-        if (error) throw error
+
+        // If the email is already registered (e.g. a creator signing up on
+        // another creator's course page), catch it gracefully and switch to
+        // login mode instead of showing a cryptic error.
+        if (error) {
+          if (
+            error.message.toLowerCase().includes('already registered') ||
+            error.message.toLowerCase().includes('user already exists') ||
+            error.message.toLowerCase().includes('already been registered')
+          ) {
+            setAuthMode('login')
+            setError('This email is already registered. Please sign in below to enroll.')
+            setLoading(false)
+            return
+          }
+          throw error
+        }
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) throw signInError
         const sd = { id: data.user?.id, email, name, phone: phoneToStore }

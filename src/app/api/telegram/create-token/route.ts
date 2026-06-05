@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Dedup by email — only if email is a non-empty string (prevents cross-student collisions)
-    const email = studentEmail?.trim()
+    const email = studentEmail?.trim() || null
     if (email) {
       const { data: byEmail } = await supabase
         .from('telegram_tokens')
@@ -63,17 +63,18 @@ export async function POST(req: NextRequest) {
     const token = crypto.randomBytes(24).toString('hex')
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
-    const { error } = await supabase.from('telegram_tokens').insert({
-      token,
-      student_auth_id: studentId || null,
-      student_email: email || null,
-      student_name: studentName || null,
-      student_phone: studentPhone || null,
-      creator_id: creatorId,
-      course_id: courseId,
-      payment_id: paymentId || null,
-      expires_at: expiresAt,
-    })
+    // AFTER — never write empty string for student_email
+const { error } = await supabase.from('telegram_tokens').insert({
+  token,
+  student_auth_id: studentId || null,
+  student_email: email || null,          // 
+  student_name: studentName || null,
+  student_phone: studentPhone?.trim() || null,
+  creator_id: creatorId,
+  course_id: courseId,
+  payment_id: paymentId || null,
+  expires_at: expiresAt,
+})
 
     if (error) throw error
 

@@ -35,20 +35,26 @@ export default function CoursePageClient({ course, variant }: Props) {
   const aboutUrl = `/about-course/${creatorSlug}/${courseSlug}/${course.id}`
   const learnUrl = `/course/${creatorSlug}/${courseSlug}/${course.id}`
 
+  // REPLACE WITH:
   useEffect(() => {
     async function check() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) { setChecking(false); return }
 
-      // Check if this user is the creator
+      // STEP 1: Owner check runs FIRST — before any enrollment query.
+      // This prevents even one frame where the enroll button could render
+      // for the course owner. creatorId is passed from the server-rendered page
+      // so it is always available synchronously here.
       if (user.id === course.creatorId) {
         setIsCreator(true)
         setChecking(false)
         return
       }
 
-      // Check if student is already enrolled
+      // STEP 2: Enrollment check — only runs for non-owners.
+      // A creator viewing ANOTHER creator's course reaches this path,
+      // which is correct: they should be able to enroll as a student.
       const enrollment = await findPaidEnrollment({
         courseId: course.id,
         user,
@@ -57,7 +63,6 @@ export default function CoursePageClient({ course, variant }: Props) {
 
       if (enrollment) {
         setIsEnrolled(true)
-        // Automatic redirect to learn page if already enrolled
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/course/')) {
           window.location.href = learnUrl
         }
@@ -73,19 +78,38 @@ export default function CoursePageClient({ course, variant }: Props) {
     setTimeout(() => setCopied(false), 2500)
   }
 
-  // ── CREATOR VIEW ──
+  // REPLACE WITH:
+  // ── OWNER VIEW ──
+  // The course creator should never see an enroll button on their own course.
+  // We show a friendly badge for card/cta variants and nothing for nav.
   if (isCreator) {
     if (variant === 'nav') return null
-    if (variant === 'card') {
+
+    if (variant === 'card' || variant === 'cta') {
       return (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs text-center" style={{color:'#52525b'}}>
-            You are viewing your own course
-          </p>
+        <div
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
+          style={{
+            background: 'rgba(124,58,237,0.08)',
+            border: '1px solid rgba(124,58,237,0.2)',
+            color: '#a78bfa',
+            cursor: 'default',
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4 flex-shrink-0"
+            viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth={2}
+            strokeLinecap="round" strokeLinejoin="round"
+          >
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+          You are the creator of this course
         </div>
       )
     }
-    if (variant === 'cta') return null
   }
 
   // ── ALREADY ENROLLED ──

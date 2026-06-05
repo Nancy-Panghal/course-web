@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Play, BookOpen, ChevronDown, FileText, Mic } from 'lucide-react'
 
 interface Lesson {
@@ -31,9 +31,41 @@ export default function CurriculumAccordion({
   totalLessons: number
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const [closingIndex, setClosingIndex] = useState<number | null>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clear any in-progress close timer when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [])
 
   function toggle(i: number) {
-    setOpenIndex(prev => (prev === i ? null : i))
+    setOpenIndex(prev => {
+      if (prev === i) {
+        // Closing the currently open section: start close animation,
+        // then clear openIndex after transition completes (250ms matches CSS)
+        setClosingIndex(i)
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = setTimeout(() => {
+          setClosingIndex(null)
+        }, 260)
+        return null
+      }
+
+      // Opening a new section while another is open:
+      // mark the previous one as closing so its CSS transition runs
+      if (prev !== null) {
+        setClosingIndex(prev)
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = setTimeout(() => {
+          setClosingIndex(null)
+        }, 260)
+      }
+
+      return i
+    })
   }
 
   return (
@@ -58,6 +90,7 @@ export default function CurriculumAccordion({
         <div className="flex flex-col gap-2">
           {modules.map((mod, i) => {
             const isOpen = openIndex === i
+            const isClosing = closingIndex === i
             return (
               <div
                 key={i}
@@ -115,6 +148,10 @@ export default function CurriculumAccordion({
                 </button>
 
                 {/* Lessons list — animated open/close */}
+                {/* isClosing keeps the DOM node mounted during the exit transition.
+                    Without this, React removes the node instantly on close and the
+                    grid-template-rows transition never runs. */}
+                {(isOpen || closingIndex === i) && (
                 <div
                   style={{
                     display: 'grid',
@@ -174,6 +211,7 @@ export default function CurriculumAccordion({
                     ))}
                   </div>
                 </div>
+                )}
               </div>
             )
           })}
