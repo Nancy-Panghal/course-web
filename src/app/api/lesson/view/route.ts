@@ -731,13 +731,29 @@ function lessonHtml({
       e.preventDefault()
     })
     progressTrack.addEventListener('click', seekFromEvent)
+    ` : ''}
+
+    // ── Mark lesson done ──────────────────────────────────────────
+    async function markDone() {
+      const btn = document.getElementById('doneBtn')
+      const msg = document.getElementById('doneMsg')
+      const tgCta = document.getElementById('telegramCtaWrap')
+      btn.disabled = true
+      btn.textContent = 'Saving...'
+
+      try {
+        const res = await fetch('/api/lesson/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             identity: ${JSON.stringify(identity)},
             lessonNum: ${lesson.order_num},
             courseId: ${JSON.stringify(lesson.course_id)},
           }),
         })
         if (res.ok) {
-          btn.textContent = '✅ Completed!'
+          btn.textContent = '✅ Lesson Completed'
+          if (tgCta) tgCta.style.display = 'block'
           msg.style.display = 'block'
         } else {
           btn.disabled = false
