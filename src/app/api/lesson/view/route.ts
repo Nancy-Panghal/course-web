@@ -6,6 +6,14 @@
  *
  * This route:
  *  1. Verifies the signed URL
+/**
+ * app/api/lesson/view/route.ts
+ * ─────────────────────────────────────────────────────────────────
+ * Entry point for Telegram lesson links.
+ * Telegram bot sends:  https://yourapp.com/api/lesson/view?...signed params
+ *
+ * This route:
+ *  1. Verifies the signed URL
  *  2. Verifies enrollment in Supabase
  *  3. Logs access (piracy detection)
  *  4. Returns HTML page with the lesson content — watermarked
@@ -18,7 +26,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { verifyLessonPageUrl, signVideoUrl, signPdfUrl, encodeFingerprint } from '@/lib/signer'
+import { verifyLessonPageUrl, signVideoUrl, signPdfUrl, encodeFingerprint, signLessonResourceUrl } from '@/lib/signer'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,7 +62,7 @@ export async function GET(req: NextRequest) {
   // 2. Fetch lesson
   const { data: lesson } = await supabase
     .from('lessons')
-    .select('id, title, content_type, order_num, duration, is_published, course_id')
+    .select('id, title, content_type, order_num, duration, is_published, course_id, summary_url, notes_url, quiz_questions')
     .eq('id', lessonId)
     .single()
 
@@ -68,7 +76,7 @@ export async function GET(req: NextRequest) {
   // 3. Fetch course
   const { data: course } = await supabase
     .from('courses')
-    .select('id, name, host_name')
+    .select('id, name, host_name, creator_id')
     .eq('id', courseId)
     .single()
 
@@ -76,7 +84,7 @@ export async function GET(req: NextRequest) {
   let studentName = `User ${identity.slice(-6)}`
   const { data: enrollment } = await supabase
     .from('enrollments')
-    .select('phone, payment_status')
+    .select('phone, payment_status, completed_lessons, quiz_results')
     .eq('telegram_chat_id', identity)
     .eq('course_uuid', courseId)
     .limit(1)
@@ -95,7 +103,39 @@ export async function GET(req: NextRequest) {
   // 7. Build invisible fingerprint
   const fingerprint = encodeFingerprint(identity)
 
-  // 8. Return HTML lesson viewer page
+  // 8. Generate signed resource URLs
+  const summaryUrl = lesson.summary_url
+    ? signLessonResourceUrl(lesson.id, 'summary', identity)
+    : null
+
+  const notesUrl = lesson.notes_url
+    ? signLessonResourceUrl(lesson.id, 'notes', identity)
+    : null
+
+  const quizUrl = (Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0)
+    ? signLessonResourceUrl(lesson.id, 'quiz', identity)
+    : null
+
+  const quizResult = Array.isArray(enrollment?.quiz_results)
+    ? enrollment.quiz_results.find((r: any) => r.lessonId === lesson.id)
+    : null
+
+  const isCompleted = Array.isArray(enrollment?.completed_lessons) && enrollment.completed_lessons.includes(lesson.order_num)
+
+  // 9. Fetch creator profile for bot username
+  let telegramBotUsername = ''
+  if (course?.creator_id) {
+    const { data: creator } = await supabase
+      .from('creators')
+      .select('telegram_bot_username')
+      .eq('id', course.creator_id)
+      .single()
+    if (creator?.telegram_bot_username) {
+      telegramBotUsername = creator.telegram_bot_username.replace('@', '')
+    }
+  }
+
+  // 10. Return HTML lesson viewer page
   const html = lessonHtml({
     lesson,
     course,
@@ -104,6 +144,12 @@ export async function GET(req: NextRequest) {
     contentUrl,
     fingerprint,
     isPdf: lesson.content_type === 'pdf',
+    summaryUrl,
+    notesUrl,
+    quizUrl,
+    quizResult,
+    telegramBotUsername,
+    isCompleted,
   })
 
   return new NextResponse(html, {
@@ -127,9 +173,29 @@ interface LessonHtmlParams {
   contentUrl: string
   fingerprint: string
   isPdf: boolean
+  summaryUrl: string | null
+  notesUrl: string | null
+  quizUrl: string | null
+  quizResult: any
+  telegramBotUsername: string
+  isCompleted: boolean
 }
 
-function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerprint, isPdf }: LessonHtmlParams) {
+function lessonHtml({
+  lesson,
+  course,
+  studentName,
+  identity,
+  contentUrl,
+  fingerprint,
+  isPdf,
+  summaryUrl,
+  notesUrl,
+  quizUrl,
+  quizResult,
+  telegramBotUsername,
+  isCompleted,
+}: LessonHtmlParams) {
   const title = lesson.title || 'Lesson'
   const courseName = course?.name || 'Course'
   const shortId = identity.slice(-6)
@@ -309,7 +375,7 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
     }
 
     /* ── Done button ── */
-    .done-section { padding: 20px 16px; }
+    .done-section { padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
     .done-btn {
       width: 100%; padding: 14px;
       background: linear-gradient(135deg,#7c3aed,#4f46e5);
@@ -320,7 +386,81 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
     .done-btn:hover { opacity: 0.9; }
     .done-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .done-msg {
-      text-align: center; margin-top: 10px; font-size: 13px; color: #4ade80;
+      text-align: center; font-size: 13px; color: #4ade80;
+    }
+
+    /* ── Resources Section ── */
+    .resources-section {
+      padding: 24px 16px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .resources-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--purple-light);
+    }
+    .resources-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .resource-link {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 14px;
+      border-radius: 10px;
+      background: rgba(124,58,237,0.12);
+      color: #c4b5fd;
+      border: 1px solid rgba(124,58,237,0.22);
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .resource-link:hover {
+      background: rgba(124,58,237,0.2);
+      border-color: rgba(124,58,237,0.35);
+      transform: translateY(-1px);
+    }
+    .resource-link.quiz-complete-badge {
+      background: rgba(74,222,128,0.1);
+      color: #4ade80;
+      border-color: rgba(74,222,128,0.22);
+    }
+    .resource-link.quiz-complete-badge:hover {
+      background: rgba(74,222,128,0.18);
+      border-color: rgba(74,222,128,0.35);
+    }
+
+    /* ── Telegram CTA ── */
+    .telegram-cta-container {
+      margin-top: 4px;
+    }
+    .telegram-cta-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px;
+      background: #229ED9;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(34,158,217,0.2);
+    }
+    .telegram-cta-btn:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
     }
   </style>
 </head>
@@ -391,13 +531,45 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
       Licensed to ${studentName} · ID: ${shortId} · AcademyKit · Sharing violates your license
     </div>
 
+    <!-- Lesson Resources -->
+    ${(summaryUrl || notesUrl || quizUrl) ? `
+    <div class="resources-section">
+      <h2 class="resources-title">Lesson Resources</h2>
+      <div class="resources-grid">
+        ${summaryUrl ? `
+          <a href="${summaryUrl}" target="_blank" class="resource-link">
+            📄 Summary
+          </a>
+        ` : ''}
+        ${notesUrl ? `
+          <a href="${notesUrl}" target="_blank" class="resource-link">
+            📝 Notes
+          </a>
+        ` : ''}
+        ${quizUrl ? `
+          <a href="${quizUrl}" target="_blank" class="resource-link ${quizResult ? 'quiz-complete-badge' : ''}">
+            🧠 ${quizResult ? `Quiz: ${quizResult.score}/${quizResult.total}` : 'Take Quiz'}
+          </a>
+        ` : ''}
+      </div>
+    </div>
+    ` : ''}
+
     <!-- Mark done -->
     <div class="done-section">
-      <button class="done-btn" id="doneBtn" onclick="markDone()">
-        ✅ Mark Lesson Complete
+      <button class="done-btn" id="doneBtn" onclick="markDone()" ${isCompleted ? 'disabled' : ''}>
+        ${isCompleted ? '✅ Lesson Completed' : '✅ Mark Lesson Complete'}
       </button>
-      <p class="done-msg" id="doneMsg" style="display:none">
-        Lesson marked complete! Go back to Telegram to access the next lesson.
+
+      <!-- Telegram CTA, hidden by default unless lesson is completed and bot username is available -->
+      <div class="telegram-cta-container" id="telegramCtaWrap" style="${isCompleted && telegramBotUsername ? 'display: block;' : 'display: none;'}">
+        <a href="https://t.me/${telegramBotUsername}?start=done_${lesson.order_num}" target="_blank" class="telegram-cta-btn">
+          💬 Continue on Telegram
+        </a>
+      </div>
+
+      <p class="done-msg" id="doneMsg" style="${isCompleted ? 'display: block;' : 'display: none;'}">
+        Lesson marked complete! Click above to return to Telegram.
       </p>
     </div>
 
@@ -559,20 +731,6 @@ function lessonHtml({ lesson, course, studentName, identity, contentUrl, fingerp
       e.preventDefault()
     })
     progressTrack.addEventListener('click', seekFromEvent)
-    ` : ''}
-
-    // ── Mark lesson done ──────────────────────────────────────────
-    async function markDone() {
-      const btn = document.getElementById('doneBtn')
-      const msg = document.getElementById('doneMsg')
-      btn.disabled = true
-      btn.textContent = 'Saving...'
-
-      try {
-        const res = await fetch('/api/lesson/complete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
             identity: ${JSON.stringify(identity)},
             lessonNum: ${lesson.order_num},
             courseId: ${JSON.stringify(lesson.course_id)},
