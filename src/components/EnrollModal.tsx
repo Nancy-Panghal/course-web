@@ -654,7 +654,7 @@ export default function EnrollModal({ onClose, course }: Props) {
       }
 
       const options = {
-        key: import.meta.env.RAZORPAY_KEY_ID,
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderAmount,
         currency: 'INR',
         name: 'AcademyKit',

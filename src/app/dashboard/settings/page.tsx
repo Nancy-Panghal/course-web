@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
@@ -48,16 +49,16 @@ function Toggle({ label, desc, value, onChange }: {
 }) {
   return (
     <div className="flex items-center justify-between py-3"
-      style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
       <div>
         <p className="text-sm font-medium text-white">{label}</p>
-        <p className="text-xs mt-0.5" style={{color:'#52525b'}}>{desc}</p>
+        <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>{desc}</p>
       </div>
       <button onClick={() => onChange(!value)}
         className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
-        style={{background: value ? '#7c3aed' : 'rgba(255,255,255,0.1)'}}>
+        style={{ background: value ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}>
         <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
-          style={{left: value ? '24px' : '4px'}} />
+          style={{ left: value ? '24px' : '4px' }} />
       </button>
     </div>
   )
@@ -70,11 +71,11 @@ function SectionCard({ title, icon: Icon, children }: {
 }) {
   return (
     <div className="rounded-2xl p-6 glass mb-4"
-      style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+      style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="flex items-center gap-2 mb-6">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{background:'rgba(124,58,237,0.1)'}}>
-          <Icon className="w-4 h-4" style={{color:'#8b5cf6'}} />
+          style={{ background: 'rgba(124,58,237,0.1)' }}>
+          <Icon className="w-4 h-4" style={{ color: '#8b5cf6' }} />
         </div>
         <h2 className="font-semibold text-white">{title}</h2>
       </div>
@@ -115,6 +116,7 @@ export default function SettingsPage() {
   const [deleteInput, setDeleteInput] = useState('')
   const [deleteScheduledAt, setDeleteScheduledAt] = useState<Date | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteApiError, setDeleteApiError] = useState('')
 
   const hasChanges =
     name !== originalName ||
@@ -132,7 +134,7 @@ export default function SettingsPage() {
       if (u) {
         const { data: creator } = await supabase
           .from('creators')
-          .select('whatsapp_number, telegram_bot_username, telegram_bot_token')
+          .select('whatsapp_number, telegram_bot_username, telegram_bot_token, scheduled_deletion_at')
           .eq('id', u.id)
           .limit(1)
 
@@ -145,8 +147,17 @@ export default function SettingsPage() {
         setOriginalTelegramBotUsername(tgUsername)
         setTelegramBotToken(tgToken)
         setOriginalTelegramBotToken(tgToken)
+        // Restore scheduled deletion state if already scheduled
+        if (creator?.[0]?.scheduled_deletion_at) {
+          const scheduledDate = new Date(creator[0].scheduled_deletion_at)
+          if (scheduledDate > new Date()) {
+            setDeleteScheduledAt(scheduledDate)
+            setDeleteStep('scheduled')
+          }
+        }
       }
-      
+
+
       // Load notifications from metadata if they exist
       if (u?.user_metadata?.notifications) {
         setNotifications(current => ({ ...current, ...u.user_metadata.notifications }))
@@ -198,7 +209,7 @@ export default function SettingsPage() {
   async function updateNotificationSetting(key: string, value: boolean) {
     const nextNotifications = { ...notifications, [key]: value }
     setNotifications(nextNotifications)
-    
+
     // Save to database immediately
     await supabase.auth.updateUser({
       data: {
@@ -221,20 +232,51 @@ export default function SettingsPage() {
   async function handleScheduleDelete() {
     if (deleteInput !== 'DELETE') return
     setDeleting(true)
-    setTimeout(() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 7)
+    setDeleteApiError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('No active session. Please log in again.')
+
+      const res = await fetch('/api/creator/schedule-deletion', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to schedule deletion')
+
+      const d = new Date(data.deletionDate)
       setDeleteScheduledAt(d)
       setDeleteStep('scheduled')
+    } catch (err: any) {
+      setDeleteApiError(err.message || 'Something went wrong. Please try again.')
+    } finally {
       setDeleting(false)
-    }, 1500)
+    }
   }
 
-  function handleCancelDelete() {
-    setDeleteStep('cancelled')
-    setDeleteScheduledAt(null)
-    setDeleteInput('')
-    setTimeout(() => setDeleteStep('idle'), 3000)
+  async function handleCancelDelete() {
+    setDeleting(true)
+    setDeleteApiError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('No active session.')
+
+      const res = await fetch('/api/creator/cancel-deletion', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to cancel deletion')
+
+      setDeleteStep('cancelled')
+      setDeleteScheduledAt(null)
+      setDeleteInput('')
+      setTimeout(() => setDeleteStep('idle'), 3000)
+    } catch (err: any) {
+      setDeleteApiError(err.message || 'Failed to cancel. Please contact support.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -244,7 +286,7 @@ export default function SettingsPage() {
 
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
-          <p className="text-sm" style={{color:'#a1a1aa'}}>Manage your account and preferences</p>
+          <p className="text-sm" style={{ color: '#a1a1aa' }}>Manage your account and preferences</p>
         </div>
 
         {/* Profile */}
@@ -286,9 +328,9 @@ export default function SettingsPage() {
             placeholder="Example: 15551234567 or 919876543210"
           />
           <div className="p-4 rounded-xl"
-            style={{background:'rgba(37,211,102,0.06)', border:'1px solid rgba(37,211,102,0.15)'}}>
+            style={{ background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.15)' }}>
             <p className="text-sm font-medium text-white mb-1">Use your Meta test number here while testing.</p>
-            <p className="text-xs leading-relaxed" style={{color:'#a1a1aa'}}>
+            <p className="text-xs leading-relaxed" style={{ color: '#a1a1aa' }}>
               Paste the WhatsApp sender number connected to your Meta Cloud API app, with country code and no plus sign.
               Once saved, course enroll modals can show “Start Free Lessons on WhatsApp” or “Join via WhatsApp”.
             </p>
@@ -317,9 +359,9 @@ export default function SettingsPage() {
             type="password"
           />
           <div className="p-4 rounded-xl"
-            style={{background:'rgba(59,130,246,0.06)', border:'1px solid rgba(59,130,246,0.15)'}}>
+            style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
             <p className="text-sm font-medium text-white mb-1">Telegram is the MVP chat channel.</p>
-            <p className="text-xs leading-relaxed" style={{color:'#a1a1aa'}}>
+            <p className="text-xs leading-relaxed" style={{ color: '#a1a1aa' }}>
               Create a bot in BotFather, paste its username and token here, then deploy the Telegram bot service with the same token.
               Students will see a “Start on Telegram” button after free signup or successful Razorpay payment.
             </p>
@@ -404,28 +446,28 @@ export default function SettingsPage() {
 
         {/* Danger Zone */}
         <div className="rounded-2xl p-6"
-          style={{background:'rgba(239,68,68,0.05)', border:'1px solid rgba(239,68,68,0.2)'}}>
+          style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}>
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5" style={{color:'#ef4444'}} />
-            <h2 className="font-semibold" style={{color:'#ef4444'}}>Danger Zone</h2>
+            <AlertTriangle className="w-5 h-5" style={{ color: '#ef4444' }} />
+            <h2 className="font-semibold" style={{ color: '#ef4444' }}>Danger Zone</h2>
           </div>
-          <p className="text-sm mb-6" style={{color:'#a1a1aa'}}>
+          <p className="text-sm mb-6" style={{ color: '#a1a1aa' }}>
             These actions are irreversible. Please read carefully.
           </p>
 
           {deleteStep === 'idle' && (
             <div className="flex items-center justify-between p-4 rounded-xl"
-              style={{background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.15)'}}>
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
               <div>
                 <p className="text-sm font-semibold text-white">Delete Account</p>
-                <p className="text-xs mt-1" style={{color:'#a1a1aa'}}>
-                  All your data will be deleted after a 7-day grace period.
+                <p className="text-xs mt-1" style={{ color: '#a1a1aa' }}>
+                  All your data will be permanently deleted after a 7-day grace period.
                 </p>
               </div>
               <button
-                onClick={() => setDeleteStep('confirm')}
+                onClick={() => { setDeleteStep('confirm'); setDeleteApiError('') }}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium flex-shrink-0 ml-4 transition-all"
-                style={{background:'rgba(239,68,68,0.15)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.3)'}}>
+                style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
                 <Trash2 className="w-4 h-4" />Delete
               </button>
             </div>
@@ -433,13 +475,34 @@ export default function SettingsPage() {
 
           {deleteStep === 'confirm' && (
             <div className="p-5 rounded-xl"
-              style={{background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.3)'}}>
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
               <p className="text-sm font-semibold text-white mb-1">Are you absolutely sure?</p>
-              <p className="text-sm mb-4" style={{color:'#a1a1aa'}}>
-                Your account and all data — lessons, students, piracy logs — will be permanently
-                deleted after <strong className="text-white">7 days</strong>. You can cancel anytime before then.
+              <p className="text-sm mb-4" style={{ color: '#a1a1aa' }}>
+                Scheduling deletion will permanently remove after <strong className="text-white">7 days</strong>:
               </p>
-              <p className="text-sm mb-3" style={{color:'#a1a1aa'}}>
+
+              {/* What will be deleted */}
+              <div className="mb-4 p-3 rounded-xl"
+                style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#ef4444' }}>
+                  Data that will be deleted
+                </p>
+                {[
+                  'Your creator profile and account',
+                  'All courses and lesson content',
+                  'All student enrollments and progress',
+                  'All payments and revenue records',
+                  'All coupons and piracy reports',
+                  'All email logs and Telegram tokens',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 mb-1">
+                    <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: '#ef4444' }} />
+                    <p className="text-xs" style={{ color: '#a1a1aa' }}>{item}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-sm mb-3" style={{ color: '#a1a1aa' }}>
                 Type <span className="font-mono font-bold text-white">DELETE</span> to confirm:
               </p>
               <input
@@ -449,62 +512,119 @@ export default function SettingsPage() {
                 placeholder="Type DELETE"
                 className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none mb-4 font-mono"
                 style={{
-                  background:'rgba(0,0,0,0.3)',
+                  background: 'rgba(0,0,0,0.3)',
                   border: deleteInput === 'DELETE'
                     ? '1px solid rgba(239,68,68,0.6)'
                     : '1px solid rgba(255,255,255,0.1)',
                 }}
               />
-              <div className="flex gap-3">
+
+              {deleteApiError && (
+                <div className="mb-4 p-3 rounded-xl text-sm"
+                  style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  {deleteApiError}
+                </div>
+              )}
+
+              <div className="flex gap-3 mb-4">
                 <button
-                  onClick={() => { setDeleteStep('idle'); setDeleteInput('') }}
+                  onClick={() => { setDeleteStep('idle'); setDeleteInput(''); setDeleteApiError('') }}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
-                  style={{background:'rgba(255,255,255,0.08)', color:'#a1a1aa'}}>
+                  style={{ background: 'rgba(255,255,255,0.08)', color: '#a1a1aa' }}>
                   <X className="w-4 h-4" />Cancel
                 </button>
                 <button
                   onClick={handleScheduleDelete}
                   disabled={deleteInput !== 'DELETE' || deleting}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40"
-                  style={{background:'rgba(239,68,68,0.8)', color:'#fff'}}>
+                  style={{ background: 'rgba(239,68,68,0.8)', color: '#fff' }}>
                   <Trash2 className="w-4 h-4" />
                   {deleting ? 'Scheduling...' : 'Schedule Deletion'}
                 </button>
               </div>
+
+              {/* Contact link */}
+              <p className="text-xs text-center" style={{ color: '#52525b' }}>
+                Having second thoughts?{' '}
+                <Link href="/contact" style={{ color: '#8b5cf6' }}>
+                  Contact us
+                </Link>
+                {' '}and we can help.
+              </p>
             </div>
           )}
 
           {deleteStep === 'scheduled' && deleteScheduledAt && (
             <div className="p-5 rounded-xl"
-              style={{background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.3)'}}>
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
               <div className="flex items-start gap-3 mb-4">
-                <Clock className="w-5 h-5 flex-shrink-0 mt-0.5" style={{color:'#ef4444'}} />
+                <Clock className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
                 <div>
                   <p className="text-sm font-semibold text-white mb-1">Deletion Scheduled</p>
-                  <p className="text-sm" style={{color:'#a1a1aa'}}>
-                    Your account will be permanently deleted on{' '}
+                  <p className="text-sm" style={{ color: '#a1a1aa' }}>
+                    Your account and all data will be permanently deleted on{' '}
                     <strong className="text-white">
                       {deleteScheduledAt.toLocaleDateString('en-IN', {
-                        weekday:'long', day:'numeric', month:'long', year:'numeric'
+                        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                       })}
                     </strong>.
                   </p>
                 </div>
               </div>
+
+              {/* What will be deleted reminder */}
+              <div className="mb-4 p-3 rounded-xl"
+                style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#ef4444' }}>
+                  Scheduled for deletion
+                </p>
+                {[
+                  'Your creator profile and account',
+                  'All courses and lesson content',
+                  'All student enrollments and progress',
+                  'All payments and revenue records',
+                  'All coupons and piracy reports',
+                  'All email logs and Telegram tokens',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 mb-1">
+                    <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: '#ef4444' }} />
+                    <p className="text-xs" style={{ color: '#a1a1aa' }}>{item}</p>
+                  </div>
+                ))}
+              </div>
+
+              {deleteApiError && (
+                <div className="mb-4 p-3 rounded-xl text-sm"
+                  style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  {deleteApiError}
+                </div>
+              )}
+
               <button
                 onClick={handleCancelDelete}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all"
-                style={{background:'rgba(74,222,128,0.15)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.3)'}}>
-                <X className="w-4 h-4" />Cancel Scheduled Deletion
+                disabled={deleting}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                style={{ background: 'rgba(74,222,128,0.15)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)' }}>
+                <X className="w-4 h-4" />
+                {deleting ? 'Cancelling...' : 'Cancel Scheduled Deletion'}
               </button>
+
+              {/* Contact link */}
+              <p className="text-xs text-center mt-4" style={{ color: '#52525b' }}>
+                If you have any issue you can{' '}
+                <Link href="/contact" style={{ color: '#8b5cf6' }}>
+                  contact us
+                </Link>
+                {' '}and we will help you.
+              </p>
             </div>
           )}
 
           {deleteStep === 'cancelled' && (
             <div className="flex items-center gap-3 p-4 rounded-xl"
-              style={{background:'rgba(74,222,128,0.08)', border:'1px solid rgba(74,222,128,0.2)'}}>
-              <Check className="w-5 h-5" style={{color:'#4ade80'}} />
-              <p className="text-sm" style={{color:'#4ade80'}}>
+              style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
+              <Check className="w-5 h-5" style={{ color: '#4ade80' }} />
+              <p className="text-sm" style={{ color: '#4ade80' }}>
                 Deletion cancelled. Your account is safe.
               </p>
             </div>
