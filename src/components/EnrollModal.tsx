@@ -29,7 +29,7 @@ function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: 
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  
+
   const reposition = useCallback(() => {
     if (!triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
@@ -946,6 +946,10 @@ export default function EnrollModal({ onClose, course }: Props) {
                 className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all text-base">
                 Enroll Now — ₹{course.price.toLocaleString()}
               </button>
+              <p className="text-center text-xs" style={{ color: '#98989b', fontSize: '1.1rem' }}>
+                Already enrolled?{' '}
+                <a href="/my-courses" style={{ color: '#8453f7', fontSize: '1.1rem' }}>View my courses →</a>
+              </p>
             </div>
           </div>
         )}
@@ -982,6 +986,10 @@ export default function EnrollModal({ onClose, course }: Props) {
                 className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all text-base">
                 Enroll & Unlock All — ₹{course.price.toLocaleString()}
               </button>
+              <p className="text-center text-xs" style={{ color: '#8b8b8d', fontSize: '1.1rem' }}>
+                Already enrolled?{' '}
+                <a href="/my-courses" style={{ color: '#8b5cf6', fontSize: '1.1rem' }}>View my courses →</a>
+              </p>
             </div>
           </div>
         )}
@@ -1131,8 +1139,8 @@ export default function EnrollModal({ onClose, course }: Props) {
                 telegramToken
                   ? <TelegramButton token={telegramToken} username={course.telegramBotUsername!} label="Start on Telegram" />
                   : generatingPaid
-                  ? <TokenLoading color="rgba(34,158,217,0.6)" label="Generating your Telegram link…" />
-                  : null
+                    ? <TokenLoading color="rgba(34,158,217,0.6)" label="Generating your Telegram link…" />
+                    : null
               )}
 
               {/* Web portal — always available */}

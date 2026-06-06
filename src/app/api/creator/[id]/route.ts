@@ -28,7 +28,10 @@ export async function GET(
       return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
     }
 
-    return NextResponse.json(creator)
+    return NextResponse.json({
+  ...creator,
+  telegram_bot_username: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || creator.telegram_bot_username || '',
+})
   } catch (err: any) {
     console.error('[api/creator/[id]] error:', err.message)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

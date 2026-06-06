@@ -461,6 +461,16 @@ export default function CourseLearnPage() {
               <Award className="w-3.5 h-3.5" /> Certificate
             </button>
           )}
+          {isEnrolled && (
+            <a href="/my-courses"
+              style={{
+                fontSize: 11, color: '#52525b',
+                textDecoration: 'none', whiteSpace: 'nowrap',
+              }}
+              className="hidden sm:block hover:text-white transition-colors">
+              ← My Courses
+            </a>
+          )}
         </div>
       </nav>
 
@@ -503,10 +513,10 @@ export default function CourseLearnPage() {
                     {isLocked
                       ? <Lock className="w-3.5 h-3.5" style={{ color: '#3f3f46' }} />
                       : isDone
-                      ? <CheckCircle className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />
-                      : isActive
-                      ? <Play className="w-3.5 h-3.5 fill-current" style={{ color: '#a78bfa' }} />
-                      : <span style={{ fontSize: 10, fontWeight: 700, color: '#3f3f46' }}>{lesson.order_num}</span>
+                        ? <CheckCircle className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />
+                        : isActive
+                          ? <Play className="w-3.5 h-3.5 fill-current" style={{ color: '#a78bfa' }} />
+                          : <span style={{ fontSize: 10, fontWeight: 700, color: '#3f3f46' }}>{lesson.order_num}</span>
                     }
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>

@@ -91,10 +91,7 @@ export default function SettingsPage() {
   const [originalName, setOriginalName] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [originalWhatsappNumber, setOriginalWhatsappNumber] = useState('')
-  const [telegramBotUsername, setTelegramBotUsername] = useState('')
-  const [telegramBotToken, setTelegramBotToken] = useState('')
-  const [originalTelegramBotUsername, setOriginalTelegramBotUsername] = useState('')
-  const [originalTelegramBotToken, setOriginalTelegramBotToken] = useState('')
+
   const [notifications, setNotifications] = useState({
     piracy: true,
     enrollment: true,
@@ -121,58 +118,52 @@ export default function SettingsPage() {
   const hasChanges =
     name !== originalName ||
     whatsappNumber !== originalWhatsappNumber ||
-    telegramBotUsername !== originalTelegramBotUsername ||
-    telegramBotToken !== originalTelegramBotToken
 
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      const u = data.user
-      setUser(u)
-      const n = u?.user_metadata?.full_name || u?.user_metadata?.username || ''
-      setName(n); setOriginalName(n)
 
-      if (u) {
-        const { data: creator } = await supabase
-          .from('creators')
-          .select('whatsapp_number, telegram_bot_username, telegram_bot_token, scheduled_deletion_at')
-          .eq('id', u.id)
-          .limit(1)
+    useEffect(() => {
+      supabase.auth.getUser().then(async ({ data }) => {
+        const u = data.user
+        setUser(u)
+        const n = u?.user_metadata?.full_name || u?.user_metadata?.username || ''
+        setName(n); setOriginalName(n)
 
-        const wa = creator?.[0]?.whatsapp_number || ''
-        const tgUsername = creator?.[0]?.telegram_bot_username || ''
-        const tgToken = creator?.[0]?.telegram_bot_token || ''
-        setWhatsappNumber(wa)
-        setOriginalWhatsappNumber(wa)
-        setTelegramBotUsername(tgUsername)
-        setOriginalTelegramBotUsername(tgUsername)
-        setTelegramBotToken(tgToken)
-        setOriginalTelegramBotToken(tgToken)
-        // Restore scheduled deletion state if already scheduled
-        if (creator?.[0]?.scheduled_deletion_at) {
-          const scheduledDate = new Date(creator[0].scheduled_deletion_at)
-          if (scheduledDate > new Date()) {
-            setDeleteScheduledAt(scheduledDate)
-            setDeleteStep('scheduled')
+        if (u) {
+          const { data: creator } = await supabase
+            .from('creators')
+            .select('whatsapp_number, telegram_bot_username, telegram_bot_token, scheduled_deletion_at')
+            .eq('id', u.id)
+            .limit(1)
+
+          const wa = creator?.[0]?.whatsapp_number || ''
+
+          setWhatsappNumber(wa)
+          setOriginalWhatsappNumber(wa)
+
+          // Restore scheduled deletion state if already scheduled
+          if (creator?.[0]?.scheduled_deletion_at) {
+            const scheduledDate = new Date(creator[0].scheduled_deletion_at)
+            if (scheduledDate > new Date()) {
+              setDeleteScheduledAt(scheduledDate)
+              setDeleteStep('scheduled')
+            }
           }
         }
-      }
 
 
-      // Load notifications from metadata if they exist
-      if (u?.user_metadata?.notifications) {
-        setNotifications(current => ({ ...current, ...u.user_metadata.notifications }))
-      }
-      if (u?.user_metadata?.email_notifications) {
-        setEmailNotifications(current => ({ ...current, ...u.user_metadata.email_notifications }))
-      }
-    })
-  }, [])
+        // Load notifications from metadata if they exist
+        if (u?.user_metadata?.notifications) {
+          setNotifications(current => ({ ...current, ...u.user_metadata.notifications }))
+        }
+        if (u?.user_metadata?.email_notifications) {
+          setEmailNotifications(current => ({ ...current, ...u.user_metadata.email_notifications }))
+        }
+      })
+    }, [])
 
   async function handleSave() {
     setSaving(true)
     const cleanWhatsapp = whatsappNumber.trim().replace(/[\s+\-()]/g, '')
-    const cleanTelegramUsername = telegramBotUsername.trim().replace(/^@/, '')
-    const cleanTelegramToken = telegramBotToken.trim()
+
     const { error } = await supabase.auth.updateUser({
       data: {
         full_name: name,
@@ -188,18 +179,14 @@ export default function SettingsPage() {
         name,
         username: user.email?.split('@')[0],
         whatsapp_number: cleanWhatsapp || null,
-        telegram_bot_username: cleanTelegramUsername || null,
-        telegram_bot_token: cleanTelegramToken || null,
+
       })
 
     if (!error && !creatorError) {
       setOriginalName(name)
       setWhatsappNumber(cleanWhatsapp)
       setOriginalWhatsappNumber(cleanWhatsapp)
-      setTelegramBotUsername(cleanTelegramUsername)
-      setOriginalTelegramBotUsername(cleanTelegramUsername)
-      setTelegramBotToken(cleanTelegramToken)
-      setOriginalTelegramBotToken(cleanTelegramToken)
+
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     }
@@ -345,34 +332,13 @@ export default function SettingsPage() {
         </SectionCard>
 
         <SectionCard title="Telegram Delivery" icon={MessageCircle}>
-          <InputField
-            label="Telegram Bot Username"
-            value={telegramBotUsername}
-            onChange={setTelegramBotUsername}
-            placeholder="Example: AcademyKitDemoBot"
-          />
-          <InputField
-            label="Telegram Bot Token"
-            value={telegramBotToken}
-            onChange={setTelegramBotToken}
-            placeholder="Paste token from BotFather"
-            type="password"
-          />
           <div className="p-4 rounded-xl"
             style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
-            <p className="text-sm font-medium text-white mb-1">Telegram is the MVP chat channel.</p>
+            <p className="text-sm font-medium text-white mb-1">Telegram delivery is managed centrally.</p>
             <p className="text-xs leading-relaxed" style={{ color: '#a1a1aa' }}>
-              Create a bot in BotFather, paste its username and token here, then deploy the Telegram bot service with the same token.
-              Students will see a “Start on Telegram” button after free signup or successful Razorpay payment.
+              Your students can access lessons on Telegram after enrollment. No setup needed — the shared AcademyKit bot handles delivery automatically.
             </p>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={!hasChanges || saving}
-            className="mt-4 w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient disabled:opacity-40"
-          >
-            {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Telegram Settings'}
-          </button>
         </SectionCard>
 
         {/* Notifications */}

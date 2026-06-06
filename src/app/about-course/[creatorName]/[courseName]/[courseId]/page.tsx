@@ -98,7 +98,7 @@ export default async function AboutCoursePage({
     creatorName: course.host_name || creatorProfile?.name || '',
     creatorId: creatorProfile?.id || '',
     waNumber: creatorProfile?.whatsapp_number || '',
-    telegramBotUsername: creatorProfile?.telegram_bot_username || '',
+    telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || creatorProfile?.telegram_bot_username || '',
     free_preview_config: course.free_preview_config,
   }
 

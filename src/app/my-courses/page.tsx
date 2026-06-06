@@ -22,6 +22,8 @@ interface EnrolledCourse {
   totalLessons: number
   telegramToken: string | null
   telegramTokenExpiresAt: string | null
+  telegramBotUsername: string | null
+  payment_status: string
 }
 
 function ProgressRing({ pct, size = 48 }: { pct: number; size?: number }) {
@@ -66,6 +68,9 @@ export default function MyCoursesPage() {
   const [courses, setCourses] = useState<EnrolledCourse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || ''
+const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
+const displayEmail = user?.email || ''
 
   useEffect(() => {
     async function load() {
@@ -104,27 +109,37 @@ export default function MyCoursesPage() {
             }
           }
         }
+        const baseSelect = 'id, course_uuid, current_lesson, completed_lessons, enrolled_at, telegram_start_token, telegram_start_token_expires_at, payment_status, amount_paid'
 
-        const baseSelect = 'id, course_uuid, current_lesson, completed_lessons, enrolled_at, telegram_start_token, telegram_start_token_expires_at'
-        const baseFilter = supabase.from('enrollments').select(baseSelect).eq('payment_status', 'paid').order('enrolled_at', { ascending: false })
+        function makeBase() {
+          return supabase
+            .from('enrollments')
+            .select(baseSelect)
+            .order('enrolled_at', { ascending: false })
+        }
 
         const fetches: Promise<void>[] = []
 
         if (studentRow?.id) {
-          fetches.push(absorb(baseFilter.eq('student_id', studentRow.id)))
+          fetches.push(absorb(makeBase().eq('student_id', studentRow.id)))
         }
 
-        const phones: string[] = [me.user_metadata?.phone, me.phone].filter(Boolean)
+        const phones: string[] = [
+          me.user_metadata?.phone,
+          me.phone,
+        ].filter(Boolean) as string[]
+
         for (const p of phones) {
-          fetches.push(absorb(baseFilter.eq('phone', p)))
+          fetches.push(absorb(makeBase().eq('phone', p)))
         }
 
         if (me.email) {
-          // Some legacy enrollments store email in the phone field
-          fetches.push(absorb(baseFilter.eq('phone', me.email)))
+          fetches.push(absorb(makeBase().eq('phone', me.email)))
         }
 
         await Promise.all(fetches)
+
+
 
         if (allEnrollments.length === 0) {
           setLoading(false)
@@ -172,6 +187,8 @@ export default function MyCoursesPage() {
               totalLessons: total,
               telegramToken: e.telegram_start_token || null,
               telegramTokenExpiresAt: e.telegram_start_token_expires_at || null,
+              telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || null,
+              payment_status: e.payment_status || 'free',
             }
           })
           .filter(Boolean) as EnrolledCourse[]
@@ -198,9 +215,9 @@ export default function MyCoursesPage() {
   }
 
   function getCourseUrl(c: EnrolledCourse) {
-    const creator = slugify(c.creatorName)
+    const creator = slugify(c.creatorName || 'instructor')
     const course = c.courseSlug || slugify(c.courseName)
-    return `/course/${creator}/${course}/${c.courseId}?lesson=${c.currentLesson}`
+    return `/course/${creator}/${course}/${c.courseId}?lesson=${c.currentLesson || 1}`
   }
 
   function getTelegramLink(c: EnrolledCourse, botUsername?: string) {
@@ -209,209 +226,219 @@ export default function MyCoursesPage() {
     return `https://t.me/${botUsername.replace('@', '')}?start=${c.telegramToken}`
   }
 
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Student'
+  
   const completedCount = courses.filter(c => getProgress(c) >= 100).length
   const inProgressCount = courses.filter(c => { const p = getProgress(c); return p > 0 && p < 100 }).length
   const totalLessonsDone = courses.reduce((sum, c) => sum + c.completedLessons.length, 0)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#080808' }}>
+    <div style={{ minHeight: '100vh', background: '#080808', fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+      `}</style>
 
-      {/* Sticky nav */}
+      {/* Nav */}
       <nav style={{
         height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 20px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(8,8,8,0.96)', backdropFilter: 'blur(16px)',
+        padding: '0 24px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(8,8,8,0.97)', backdropFilter: 'blur(16px)',
         position: 'sticky', top: 0, zIndex: 50,
       }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Shield className="w-3.5 h-3.5 text-white" />
           </div>
-          <span style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>AcademyKit</span>
+          <span style={{ fontWeight: 700, color: '#fff', fontSize: 14 }}>AcademyKit</span>
         </Link>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Link href="/dashboard"
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 12, color: '#a1a1aa', textDecoration: 'none', background: 'rgba(255,255,255,0.04)' }}>
-            <LayoutDashboard className="w-3.5 h-3.5" /> Creator Dashboard
-          </Link>
-          <button
-            onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 12, color: '#52525b', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <LogOut className="w-3.5 h-3.5" /> Sign out
-          </button>
-        </div>
+        <button
+          onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, fontSize: 12, color: '#71717a', background: 'none', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>
+          <LogOut className="w-3.5 h-3.5" /> Sign out
+        </button>
       </nav>
 
-      <div style={{ maxWidth: 920, margin: '0 auto', padding: '44px 16px 80px' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 20px 80px' }}>
 
-        {/* Page header */}
+        {/* User info header */}
         <div style={{ marginBottom: 36 }}>
-          <h1 style={{ fontSize: 'clamp(1.5rem,4vw,2rem)', fontWeight: 800, color: '#fff', marginBottom: 6 }}>
-            My Learning 👋
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12,
+              background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, fontWeight: 700, color: '#fff', flexShrink: 0,
+            }}>
+              {displayName ? displayName.charAt(0).toUpperCase() : displayEmail.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              {displayName && (
+                <p style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: 0 }}>{displayName}</p>
+              )}
+              <p style={{ fontSize: 13, color: '#71717a', margin: 0 }}>{displayEmail}</p>
+            </div>
+          </div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '16px 0 4px' }}>
+            My Learning
           </h1>
-          <p style={{ color: '#71717a', fontSize: 14 }}>
+          <p style={{ fontSize: 13, color: '#52525b', margin: 0 }}>
             {loading
               ? 'Loading your courses…'
               : courses.length === 0
-                ? "You haven't enrolled in any courses yet."
-                : `Welcome back, ${displayName}. ${courses.length} course${courses.length !== 1 ? 's' : ''} in your library.`}
+              ? 'No enrollments yet.'
+              : `${courses.length} course${courses.length !== 1 ? 's' : ''} · ${courses.filter(c => getProgress(c) >= 100).length} completed`
+            }
           </p>
         </div>
 
-        {/* Stats */}
-        {!loading && courses.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 36 }}>
-            {[
-              { label: 'Total Courses', value: courses.length, icon: Layers, color: '#8b5cf6' },
-              { label: 'Completed', value: completedCount, icon: Award, color: '#4ade80' },
-              { label: 'In Progress', value: inProgressCount, icon: TrendingUp, color: '#3b82f6' },
-              { label: 'Lessons Done', value: totalLessonsDone, icon: CheckCircle, color: '#f59e0b' },
-            ].map(({ label, value, icon: Icon, color }, i) => (
-              <div key={i} style={{ padding: '18px 20px', borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                  <Icon className="w-4 h-4" style={{ color }} />
-                </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{value}</div>
-                <div style={{ fontSize: 11, color: '#52525b', marginTop: 5 }}>{label}</div>
-              </div>
-            ))}
+        {/* Error */}
+        {error && (
+          <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: 13, marginBottom: 24 }}>
+            {error}
           </div>
         )}
 
         {/* Loading skeletons */}
         {loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[1, 2].map(i => (
+              <div key={i} style={{ height: 110, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            ))}
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <div style={{ padding: '14px 18px', borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: 13 }}>
-            Something went wrong: {error}
-          </div>
-        )}
-
-        {/* Empty state */}
+        {/* Empty state — no browse button */}
         {!loading && !error && courses.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '72px 20px' }}>
-            <div style={{ width: 72, height: 72, borderRadius: 20, background: 'rgba(124,58,237,0.09)', border: '1px solid rgba(124,58,237,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-              <BookOpen className="w-8 h-8" style={{ color: '#8b5cf6' }} />
+          <div style={{ textAlign: 'center', padding: '64px 20px' }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 16,
+              background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+            }}>
+              <BookOpen className="w-6 h-6" style={{ color: '#6d28d9' }} />
             </div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 8 }}>No courses yet</h2>
-            <p style={{ color: '#71717a', fontSize: 13, maxWidth: 300, margin: '0 auto 24px' }}>
-              Once you enroll in a course, it will appear here so you can pick up right where you left off.
+            <p style={{ fontSize: 16, fontWeight: 600, color: '#e4e4e7', marginBottom: 8 }}>No courses yet</p>
+            <p style={{ fontSize: 13, color: '#52525b', maxWidth: 280, margin: '0 auto' }}>
+              Once you enroll in a course, your progress will appear here.
             </p>
-            <Link href="/"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderRadius: 12, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-              Browse Courses <ChevronRight className="w-4 h-4" />
-            </Link>
           </div>
         )}
 
         {/* Course cards */}
         {!loading && courses.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {courses.map(c => {
               const progress = getProgress(c)
-              const status = getStatus(c)
-              const courseUrl = getCourseUrl(c)
               const isComplete = progress >= 100
+              const isPaid = c.payment_status === 'paid'
+              const courseUrl = getCourseUrl(c)
+              const hasValidToken = c.telegramToken && c.telegramTokenExpiresAt && new Date(c.telegramTokenExpiresAt) > new Date()
 
               return (
-                <div key={c.enrollmentId}
-                  style={{ borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden', transition: 'border-color 0.2s' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(124,58,237,0.35)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}>
+                <div key={c.enrollmentId} style={{
+                  borderRadius: 14,
+                  background: 'rgba(255,255,255,0.02)',
+                  border: isComplete
+                    ? '1px solid rgba(74,222,128,0.2)'
+                    : '1px solid rgba(255,255,255,0.07)',
+                  overflow: 'hidden',
+                  transition: 'border-color 0.2s',
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = isComplete ? 'rgba(74,222,128,0.35)' : 'rgba(124,58,237,0.3)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = isComplete ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.07)')}
+                >
+                  <div style={{ padding: '18px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
 
-                  <div style={{ padding: '22px 22px 18px' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-
-                      {/* Left: text */}
+                      {/* Left: info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        {/* Status + creator */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', padding: '3px 9px', borderRadius: 20, background: status.bg, color: status.color }}>
-                            {status.label}
+
+                        {/* Badges row */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                          {isComplete ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)', letterSpacing: '0.04em' }}>
+                              ✓ COMPLETE
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)', letterSpacing: '0.04em' }}>
+                              IN PROGRESS
+                            </span>
+                          )}
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, letterSpacing: '0.04em',
+                            background: isPaid ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)',
+                            color: isPaid ? '#22c55e' : '#f59e0b',
+                            border: isPaid ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(245,158,11,0.2)',
+                          }}>
+                            {isPaid ? 'PAID' : 'FREE PREVIEW'}
                           </span>
-                          <span style={{ fontSize: 11, color: '#52525b', display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <User className="w-3 h-3" /> {c.creatorName}
+                          <span style={{ fontSize: 11, color: '#3f3f46' }}>
+                            {c.creatorName}
                           </span>
                         </div>
 
                         {/* Course name */}
-                        <h2 style={{ fontSize: 'clamp(0.95rem,2.5vw,1.1rem)', fontWeight: 700, color: '#fff', marginBottom: 8, lineHeight: 1.3 }}>
+                        <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: '0 0 6px', lineHeight: 1.3 }}>
                           {c.courseName}
-                        </h2>
+                        </p>
 
-                        {/* Meta row */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 12, color: '#52525b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <BookOpen className="w-3 h-3" />
-                            {c.completedLessons.length}/{c.totalLessons} lessons
-                          </span>
-                          <span style={{ fontSize: 12, color: '#52525b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Clock className="w-3 h-3" />
-                            {new Date(c.enrolledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                          {!isComplete && c.totalLessons > 0 && (
-                            <span style={{ fontSize: 12, color: '#52525b' }}>
-                              {c.totalLessons - c.completedLessons.length} lesson{c.totalLessons - c.completedLessons.length !== 1 ? 's' : ''} left
+                        {/* Lessons count */}
+                        <p style={{ fontSize: 12, color: '#52525b', margin: 0 }}>
+                          {c.completedLessons.length} of {c.totalLessons} lessons complete
+                          {c.enrolledAt && (
+                            <span style={{ marginLeft: 10 }}>
+                              · Enrolled {new Date(c.enrolledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </span>
                           )}
-                        </div>
+                        </p>
                       </div>
 
-                      {/* Right: ring + CTA */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flexShrink: 0 }}>
-                        <ProgressRing pct={progress} size={52} />
-
-                        <Link href={courseUrl}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 5,
-                            padding: '8px 16px', borderRadius: 10,
-                            background: isComplete ? 'rgba(74,222,128,0.1)' : 'linear-gradient(135deg,#7c3aed,#4f46e5)',
-                            color: isComplete ? '#4ade80' : '#fff',
-                            fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap',
-                            border: isComplete ? '1px solid rgba(74,222,128,0.2)' : 'none',
-                          }}>
-                          {isComplete
-                            ? <><Award className="w-3.5 h-3.5" /> Review</>
-                            : <><Play className="w-3.5 h-3.5 fill-current" /> Continue</>}
-                          <ChevronRight className="w-3 h-3" />
+                      {/* Right: progress + CTA */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: isComplete ? '#4ade80' : '#fff', lineHeight: 1 }}>
+                          {progress}%
+                        </span>
+                        <Link href={courseUrl} style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          padding: '7px 14px', borderRadius: 8,
+                          background: isComplete ? 'rgba(74,222,128,0.08)' : 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+                          color: isComplete ? '#4ade80' : '#fff',
+                          fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                          border: isComplete ? '1px solid rgba(74,222,128,0.2)' : 'none',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {isComplete ? 'Review' : 'Continue'} →
                         </Link>
                       </div>
                     </div>
 
                     {/* Progress bar */}
-                    <div style={{ marginTop: 18 }}>
-                      <div style={{ height: 3, borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
-                        <div style={{
-                          height: '100%', borderRadius: 3,
-                          width: `${progress}%`,
-                          background: isComplete ? '#4ade80' : 'linear-gradient(90deg,#7c3aed,#4f46e5)',
-                          transition: 'width 0.7s ease',
-                        }} />
-                      </div>
+                    <div style={{ marginTop: 14, height: 3, borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 3,
+                        width: `${progress}%`,
+                        background: isComplete ? '#4ade80' : 'linear-gradient(90deg,#7c3aed,#4f46e5)',
+                        transition: 'width 0.6s ease',
+                      }} />
                     </div>
                   </div>
 
-                  {/* Telegram footer strip — shown only when a valid token exists */}
-                  {c.telegramToken && c.telegramTokenExpiresAt && new Date(c.telegramTokenExpiresAt) > new Date() && (
-                    <div style={{ padding: '10px 22px', background: 'rgba(34,158,217,0.04)', borderTop: '1px solid rgba(34,158,217,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                      <span style={{ fontSize: 12, color: '#71717a' }}>
-                        <MessageCircle className="w-3.5 h-3.5 inline mr-1.5" style={{ color: '#229ED9', verticalAlign: 'middle' }} />
-                        Also available on Telegram
+                  {/* Telegram strip */}
+                  {hasValidToken && botUsername && (
+                    <div style={{
+                      padding: '9px 20px',
+                      background: 'rgba(34,158,217,0.04)',
+                      borderTop: '1px solid rgba(34,158,217,0.1)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                    }}>
+                      <span style={{ fontSize: 11, color: '#52525b', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <MessageCircle className="w-3.5 h-3.5 inline" style={{ color: '#229ED9' }} />
+                        Continue on Telegram
                       </span>
                       <a
-                        href={`https://t.me/${c.telegramToken}`}
+                        href={`https://t.me/${botUsername}?start=${c.telegramToken}`}
                         target="_blank" rel="noopener noreferrer"
                         style={{ fontSize: 11, fontWeight: 700, color: '#229ED9', textDecoration: 'none' }}>
-                        Open Bot →
+                        Open →
                       </a>
                     </div>
                   )}
