@@ -81,18 +81,7 @@ export async function findPaidEnrollment({
       if (row) return row
     }
 
-    // 2. By auth_id stored directly on enrollment (legacy path)
-    // Some older enrollments may have been created before students table was used
-    const byAuthId = await firstRow(
-      supabase
-        .from('enrollments')
-        .select(select)
-        .eq('course_uuid', courseId)
-        .eq('payment_status', 'paid')
-        .eq('phone', user.email ?? '')  // edge case: email used as phone key
-        .order('enrolled_at', { ascending: false })
-    )
-    if (byAuthId) return byAuthId
+    
   }
 
   // 3. By phone (works for both web and Telegram enrollments)

@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { escapeHtml, sendLoggedEmail } from '@/lib/email'
+import { issueCertificate, type CertTemplate } from '@/lib/certificate'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
     if (!identity && !enrollmentId) {
       return NextResponse.json({ error: 'identity or enrollmentId required' }, { status: 400 })
     }
+    
 
     // ── Find enrollment ───────────────────────────────────────────
     let query = supabase
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest) {
       .eq('is_published', true)
 
     const courseCompleted = Boolean(totalLessons && completed.length >= totalLessons)
+    let certResult: { certificateId: string; pdfUrl: string } | null = null
 
     if (courseCompleted) {
       const { data: existingCompletionEmail } = await supabase
@@ -205,12 +208,54 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    // ── Auto-issue certificate (idempotent, non-fatal) ─────────────────────
+      try {
+        const { data: certCourse } = await supabase
+          .from('courses')
+          .select('name, host_name, cert_enabled, cert_template, cert_custom_message')
+          .eq('id', courseId)
+          .maybeSingle()
+
+        if (certCourse?.cert_enabled !== false) {
+          let certStudentName = 'Student'
+          if (enrollment.student_id) {
+            const { data: certStudent } = await supabase
+              .from('students')
+              .select('name, phone')
+              .eq('id', enrollment.student_id)
+              .maybeSingle()
+            if (certStudent?.name?.trim()) {
+              certStudentName = certStudent.name.trim()
+            } else if (certStudent?.phone) {
+              certStudentName = `Student ****${String(certStudent.phone).slice(-4)}`
+            }
+          }
+          certResult = await issueCertificate(supabase, {
+            enrollmentId:  enrollment.id,
+            courseId,
+            studentId:     enrollment.student_id ?? null,
+            studentName:   certStudentName,
+            courseName:    certCourse!.name,
+            creatorName:   certCourse!.host_name || 'Creator',
+            template:      (certCourse!.cert_template ?? 'classic') as CertTemplate,
+            customMessage: certCourse!.cert_custom_message ?? undefined,
+          })
+        }
+      } catch (certErr: any) {
+        // Non-fatal — certificate failure must never block lesson progress
+        console.error('[lesson/complete] certificate error:', certErr.message)
+      }
+    
+
 
     return NextResponse.json({
       ok: true,
       completed,
       currentLesson: newCurrentLesson,
       quizResults,
+      ...(certResult
+        ? { certificateIssued: true, certificateId: certResult.certificateId, certificateUrl: certResult.pdfUrl }
+        : {}),
     })
   } catch (err: any) {
     console.error('[lesson/complete]', err.message)

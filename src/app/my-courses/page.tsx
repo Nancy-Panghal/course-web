@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Shield, BookOpen, CheckCircle, Clock, TrendingUp,
   Play, ChevronRight, User, Award, LayoutDashboard,
-  LogOut, MessageCircle, Layers
+  LogOut, MessageCircle, Layers,Download, ExternalLink,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { slugify } from '@/lib/utils'
@@ -22,6 +22,8 @@ interface EnrolledCourse {
   totalLessons: number
   telegramToken: string | null
   telegramTokenExpiresAt: string | null
+  certificateId: string | null
+  certificateUrl: string | null
   telegramBotUsername: string | null
   payment_status: string
 }
@@ -68,6 +70,7 @@ export default function MyCoursesPage() {
   const [courses, setCourses] = useState<EnrolledCourse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [certGenerating, setCertGenerating] = useState<Set<string>>(new Set())
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || ''
 const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
 const displayEmail = user?.email || ''
@@ -109,7 +112,7 @@ const displayEmail = user?.email || ''
             }
           }
         }
-        const baseSelect = 'id, course_uuid, current_lesson, completed_lessons, enrolled_at, telegram_start_token, telegram_start_token_expires_at, payment_status, amount_paid'
+        const baseSelect = 'id, course_uuid, current_lesson, completed_lessons, enrolled_at, telegram_start_token, telegram_start_token_expires_at, payment_status, amount_paid, certificate_id, certificate_url'
 
         function makeBase() {
           return supabase
@@ -187,6 +190,8 @@ const displayEmail = user?.email || ''
               totalLessons: total,
               telegramToken: e.telegram_start_token || null,
               telegramTokenExpiresAt: e.telegram_start_token_expires_at || null,
+              certificateId: e.certificate_id || null,
+              certificateUrl: e.certificate_url || null,
               telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || null,
               payment_status: e.payment_status || 'free',
             }
@@ -218,6 +223,27 @@ const displayEmail = user?.email || ''
     const creator = slugify(c.creatorName || 'instructor')
     const course = c.courseSlug || slugify(c.courseName)
     return `/course/${creator}/${course}/${c.courseId}?lesson=${c.currentLesson || 1}`
+  }
+
+  async function requestCertificate(c: EnrolledCourse) {
+    setCertGenerating(prev => new Set(prev).add(c.enrollmentId))
+    try {
+      const BASE = (process.env.BASE_URL || '/').replace(/\/$/, '')
+      const res = await fetch(`${BASE}/api/certificate/issue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enrollmentId: c.enrollmentId, courseId: c.courseId }),
+      })
+      const data = await res.json()
+      if ((data.issued || data.alreadyIssued) && data.pdfUrl) {
+        setCourses(prev => prev.map(course =>
+          course.enrollmentId === c.enrollmentId
+            ? { ...course, certificateId: data.certificateId, certificateUrl: data.pdfUrl }
+            : course
+        ))
+      }
+    } catch {}
+    setCertGenerating(prev => { const s = new Set(prev); s.delete(c.enrollmentId); return s })
   }
 
   function getTelegramLink(c: EnrolledCourse, botUsername?: string) {
@@ -440,6 +466,69 @@ const displayEmail = user?.email || ''
                         style={{ fontSize: 11, fontWeight: 700, color: '#229ED9', textDecoration: 'none' }}>
                         Open →
                       </a>
+                      </div>
+                  )}
+
+                  {/* Certificate strip — shown only for completed courses */}
+                  {isComplete && (
+                    <div style={{
+                      padding: '11px 22px',
+                      borderTop: '1px solid rgba(212,175,55,0.12)',
+                      background: 'rgba(212,175,55,0.03)',
+                      display: 'flex', alignItems: 'center',
+                      justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+                    }}>
+                      {c.certificateUrl ? (
+                        <>
+                          <span style={{ fontSize: 12, color: '#c9a227', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Award className="w-3.5 h-3.5" />
+                            Certificate of Completion
+                          </span>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <a
+                              href={c.certificateUrl}
+                              target="_blank" rel="noopener noreferrer"
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                fontSize: 11, fontWeight: 700, color: '#c9a227',
+                                textDecoration: 'none', padding: '4px 12px',
+                                border: '1px solid rgba(201,162,39,0.3)', borderRadius: 8,
+                              }}>
+                              <Download className="w-3 h-3" /> Download PDF
+                            </a>
+                            {c.certificateId && (
+                              <Link
+                                href={`/certificate/${c.certificateId}`}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 4,
+                                  fontSize: 11, fontWeight: 700, color: '#a78bfa',
+                                  textDecoration: 'none',
+                                }}>
+                                <ExternalLink className="w-3 h-3" /> Verify
+                              </Link>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: 12, color: '#52525b', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Award className="w-3.5 h-3.5" />
+                            Certificate available
+                          </span>
+                          <button
+                            onClick={() => requestCertificate(c)}
+                            disabled={certGenerating.has(c.enrollmentId)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 5,
+                              fontSize: 11, fontWeight: 700,
+                              color: certGenerating.has(c.enrollmentId) ? '#52525b' : '#c9a227',
+                              background: 'none', border: '1px solid rgba(201,162,39,0.2)',
+                              padding: '4px 12px', borderRadius: 8, cursor: 'pointer',
+                            }}>
+                            {certGenerating.has(c.enrollmentId) ? 'Generating…' : 'Get Certificate'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

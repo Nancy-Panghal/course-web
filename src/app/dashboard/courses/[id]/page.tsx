@@ -853,35 +853,65 @@ export default function CourseManagePage({
   }
 
   async function handleDeleteCourse() {
-    if (deleteInput !== course?.name) return
-    setIsDeleting(true)
-    
-    try {
-      // Delete enrollments first (foreign key)
-      await supabase.from('enrollments').delete().eq('course_uuid', id)
-      
-      // Delete lessons
-      await supabase.from('lessons').delete().eq('course_id', id)
-      
-      // Delete course modules
-      await supabase.from('course_modules').delete().eq('course_id', id)
-      
-      // Finally delete the course
-      const { error } = await supabase
-        .from('courses')
-        .delete()
-        .eq('id', id)
+  if (deleteInput !== course?.name) return
+  setIsDeleting(true)
+  try {
+    // 1. Get lesson IDs first — needed for lesson_access_logs cleanup
+    const { data: lessonRows } = await supabase
+      .from('lessons')
+      .select('id')
+      .eq('course_id', id)
 
-      if (!error) {
-        router.push('/dashboard/courses')
-      } else {
-        alert('Failed to delete course: ' + error.message)
-      }
-    } catch (err: any) {
-      alert('Error deleting course: ' + err.message)
+    const lessonIds = (lessonRows || []).map((l: any) => l.id)
+
+    // 2. Delete lesson_access_logs (no FK cascade, must be manual)
+    if (lessonIds.length > 0) {
+      await supabase
+        .from('lesson_access_logs')
+        .delete()
+        .in('lesson_id', lessonIds)
     }
-    setIsDeleting(false)
+
+    // 3. Delete payments (no CASCADE on course_id FK)
+    await supabase
+      .from('payments')
+      .delete()
+      .eq('course_id', id)
+
+    // 4. Delete enrollments
+    await supabase
+      .from('enrollments')
+      .delete()
+      .eq('course_uuid', id)
+
+    // 5. Delete lessons
+    await supabase
+      .from('lessons')
+      .delete()
+      .eq('course_id', id)
+
+    // 6. Delete course_modules
+    await supabase
+      .from('course_modules')
+      .delete()
+      .eq('course_id', id)
+
+    // 7. Delete course — telegram_tokens, coupons, email_logs
+    //    handled automatically by DB CASCADE / SET NULL
+    const { error } = await supabase
+      .from('courses')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    router.push('/dashboard/courses')
+  } catch (err: any) {
+    alert('Error deleting course: ' + err.message)
   }
+  setIsDeleting(false)
+}
+
 
   async function fetchLessons() {
     const { data } = await supabase
