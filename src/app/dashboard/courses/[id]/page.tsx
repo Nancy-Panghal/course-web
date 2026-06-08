@@ -9,7 +9,7 @@ import {
   ArrowLeft, Plus, Video, FileText, Globe,
   Eye, EyeOff, ExternalLink, Copy, Check,
   GripVertical, Trash2, CheckCircle, AlertCircle,
-  MessageCircle, Monitor, Share2, ChevronDown, ChevronUp,AlertTriangle
+  MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle
 } from 'lucide-react'
 
 interface Course {
@@ -86,7 +86,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl
     if (uploadError) {
       // Provide specific error messages for common issues
       let errorMsg = uploadError.message
-      
+
       if (errorMsg?.includes('row-level security') || errorMsg?.includes('RLS')) {
         errorMsg = 'Storage policy error: Please contact admin to enable file uploads. See STORAGE_RLS_FIX.md for fix.'
       } else if (errorMsg?.includes('unauthorized') || errorMsg?.includes('auth')) {
@@ -94,7 +94,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl
       } else if (errorMsg?.includes('not found')) {
         errorMsg = 'Storage bucket not found. Please check configuration.'
       }
-      
+
       console.error('Supabase upload error:', uploadError)
       throw new Error(`Upload failed: ${errorMsg}`)
     }
@@ -108,9 +108,9 @@ async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl
       .from('lessons')
       .getPublicUrl(safeName)
 
-    return { 
-      publicUrl: publicUrlData.publicUrl, 
-      storagePath: safeName 
+    return {
+      publicUrl: publicUrlData.publicUrl,
+      storagePath: safeName
     }
   } catch (err: any) {
     console.error('Upload error:', err)
@@ -164,13 +164,13 @@ function AddModuleModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{background:'rgba(0,0,0,0.85)', backdropFilter:'blur(8px)'}}>
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
       <div className="w-full max-w-md rounded-2xl p-6"
-        style={{background:'#111', border:'1px solid rgba(124,58,237,0.3)'}}>
+        style={{ background: '#111', border: '1px solid rgba(124,58,237,0.3)' }}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-white">Add Module</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg"
-            style={{background:'rgba(255,255,255,0.06)', color:'#a1a1aa'}}>
+            style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
             X
           </button>
         </div>
@@ -180,25 +180,25 @@ function AddModuleModal({
             <input value={name} onChange={e => setName(e.target.value)}
               placeholder="e.g. Week 1, Foundation, Advanced SEO"
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}} />
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
           </div>
           <div>
             <label className="text-sm font-medium text-white mb-2 block">How many lessons?</label>
             <input value={plannedLessons} onChange={e => setPlannedLessons(e.target.value)}
               type="number" min="0" placeholder="3"
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}} />
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
           </div>
           {error && (
             <div className="p-3 rounded-xl text-sm"
-              style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
               {error}
             </div>
           )}
           <div className="flex gap-3 mt-2">
             <button type="button" onClick={onClose}
               className="flex-1 py-3 rounded-xl text-sm font-medium"
-              style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
               Cancel
             </button>
             <button type="submit" disabled={loading}
@@ -304,14 +304,14 @@ function AddLessonModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{background:'rgba(0,0,0,0.85)', backdropFilter:'blur(8px)'}}>
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
       <div className="w-full max-w-md rounded-2xl p-6"
-        style={{background:'#111', border:'1px solid rgba(124,58,237,0.3)'}}>
+        style={{ background: '#111', border: '1px solid rgba(124,58,237,0.3)' }}>
 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-white">Add Lesson {nextOrder}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg"
-            style={{background:'rgba(255,255,255,0.06)', color:'#a1a1aa'}}>
+            style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
             ✕
           </button>
         </div>
@@ -347,11 +347,11 @@ function AddLessonModal({
                 value={moduleId}
                 onChange={e => setModuleId(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-                style={{background:'#050505', border:'1px solid rgba(255,255,255,0.1)'}}
+                style={{ background: '#050505', border: '1px solid rgba(255,255,255,0.1)' }}
               >
-                <option value="" style={{background:'#050505', color:'#fff'}}>No module</option>
+                <option value="" style={{ background: '#050505', color: '#fff' }}>No module</option>
                 {modules.map(module => (
-                  <option key={module.id} value={module.id} style={{background:'#050505', color:'#fff'}}>
+                  <option key={module.id} value={module.id} style={{ background: '#050505', color: '#fff' }}>
                     {module.name}
                   </option>
                 ))}
@@ -367,7 +367,7 @@ function AddLessonModal({
               placeholder="e.g. Introduction to Keyword Research"
               required
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
               onFocus={e => e.target.style.borderColor = '#7c3aed'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
@@ -378,7 +378,7 @@ function AddLessonModal({
             <label className="text-sm font-medium text-white mb-2 block">
               {type === 'video' ? 'Video Source' : 'PDF Source'} *
             </label>
-            
+
             <div className="flex flex-col gap-3">
               {/* File Upload */}
               <div className="relative group">
@@ -406,7 +406,7 @@ function AddLessonModal({
                   {file ? file.name : `Upload ${type === 'video' ? 'Video' : 'PDF'}`}
                 </label>
                 {file && (
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setFile(null)}
                     className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
@@ -431,13 +431,13 @@ function AddLessonModal({
                 placeholder={type === 'video' ? "Paste Telegram/YouTube/Direct link" : "Paste PDF link"}
                 disabled={!!file}
                 className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none disabled:opacity-50"
-                style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                 onFocus={e => e.target.style.borderColor = '#7c3aed'}
                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
             </div>
-            <p className="text-xs mt-1.5" style={{color:'#52525b'}}>
-              {type === 'video' 
+            <p className="text-xs mt-1.5" style={{ color: '#52525b' }}>
+              {type === 'video'
                 ? "Files will be stored securely in your academy storage."
                 : "PDFs will be stored securely in your academy storage."}
             </p>
@@ -450,7 +450,7 @@ function AddLessonModal({
               type="text" value={duration} onChange={e => setDuration(e.target.value)}
               placeholder="e.g. 18 min"
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
               onFocus={e => e.target.style.borderColor = '#7c3aed'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
@@ -458,7 +458,7 @@ function AddLessonModal({
 
           {error && (
             <div className="p-3 rounded-xl text-sm"
-              style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
               {error}
             </div>
           )}
@@ -466,7 +466,7 @@ function AddLessonModal({
           <div className="flex gap-3 mt-2">
             <button type="button" onClick={onClose}
               className="flex-1 py-3 rounded-xl text-sm font-medium"
-              style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
               Cancel
             </button>
             <button type="submit" disabled={loading}
@@ -546,20 +546,20 @@ function LessonWidget({
       {/* Main row */}
       <div className="flex items-center gap-4 p-4">
         <GripVertical className="w-4 h-4 flex-shrink-0"
-          style={{color:'#3f3f46'}} />
+          style={{ color: '#3f3f46' }} />
 
         {/* Order badge */}
         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
-          style={{background:'rgba(124,58,237,0.15)', color:'#8b5cf6'}}>
+          style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6' }}>
           {String(lesson.order_num).padStart(2, '0')}
         </div>
 
         {/* Type icon */}
         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{background:'rgba(255,255,255,0.05)'}}>
+          style={{ background: 'rgba(255,255,255,0.05)' }}>
           {lesson.content_type === 'pdf'
-            ? <FileText className="w-4 h-4" style={{color:'#f59e0b'}} />
-            : <Video className="w-4 h-4" style={{color:'#8b5cf6'}} />
+            ? <FileText className="w-4 h-4" style={{ color: '#f59e0b' }} />
+            : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
           }
         </div>
 
@@ -568,7 +568,7 @@ function LessonWidget({
           <p className="text-sm font-medium text-white truncate">{lesson.title}</p>
           <div className="flex items-center gap-3 mt-0.5">
             {lesson.duration && (
-              <span className="text-xs" style={{color:'#52525b'}}>{lesson.duration}</span>
+              <span className="text-xs" style={{ color: '#52525b' }}>{lesson.duration}</span>
             )}
             <span className="text-xs" style={{
               color: lesson.is_published ? '#4ade80' : '#52525b'
@@ -596,7 +596,7 @@ function LessonWidget({
 
           <button onClick={() => setExpanded(!expanded)}
             className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-            style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
+            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
@@ -605,15 +605,15 @@ function LessonWidget({
       {/* Expanded section */}
       {expanded && (
         <div className="px-4 pb-4 border-t"
-          style={{borderColor:'rgba(255,255,255,0.04)'}}>
+          style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
           <div className="pt-4 flex flex-col gap-3">
 
             {/* Visit lesson — URL hidden from display */}
             <div className="flex items-center gap-3 p-3 rounded-xl"
-              style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-white mb-0.5">Lesson Content</p>
-                <p className="text-xs truncate" style={{color:'#52525b'}}>
+                <p className="text-xs truncate" style={{ color: '#52525b' }}>
                   {lesson.content_type === 'video' ? '🎬' : '📄'} {lesson.content_type.toUpperCase()} · URL stored securely
                 </p>
               </div>
@@ -622,7 +622,7 @@ function LessonWidget({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
-                style={{background:'rgba(124,58,237,0.15)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+                style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
                 <ExternalLink className="w-3 h-3" />
                 Preview
               </a>
@@ -634,11 +634,11 @@ function LessonWidget({
                 const name = kind === 'summary' ? lesson.summary_name : lesson.notes_name
                 return (
                   <div key={kind} className="p-3 rounded-xl"
-                    style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-white capitalize">{kind}</p>
-                        <p className="text-[10px] truncate" style={{color:'#52525b'}}>
+                        <p className="text-[10px] truncate" style={{ color: '#52525b' }}>
                           {hasFile ? name || 'Uploaded' : 'PDF or text document'}
                         </p>
                       </div>
@@ -658,7 +658,7 @@ function LessonWidget({
                     />
                     <label htmlFor={`${kind}-${lesson.id}`}
                       className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
-                      style={{background:'rgba(124,58,237,0.12)', color:'#a78bfa', border:'1px solid rgba(124,58,237,0.2)'}}>
+                      style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
                       {resourceSaving === kind ? 'Uploading...' : hasFile ? 'Replace File' : `Add ${kind}`}
                     </label>
                   </div>
@@ -669,7 +669,7 @@ function LessonWidget({
             <Link
               href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
               className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
-              style={{background:'rgba(124,58,237,0.08)', border:'1px solid rgba(124,58,237,0.18)', color:'#fff'}}>
+              style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.18)', color: '#fff' }}>
               <span>Quiz Builder</span>
               <span className="text-xs text-violet-300">
                 {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
@@ -682,7 +682,7 @@ function LessonWidget({
             <button
               onClick={() => onDelete(lesson.id)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all w-fit"
-              style={{background:'rgba(239,68,68,0.08)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.15)'}}>
+              style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
               <Trash2 className="w-3.5 h-3.5" />
               Delete Lesson
             </button>
@@ -733,6 +733,9 @@ export default function CourseManagePage({
   const [editFaq, setEditFaq] = useState<{ question: string; answer: string }[]>([])
   const [editHostImage, setEditHostImage] = useState('')
   const [editFreePreview, setEditFreePreview] = useState('nothing free')
+  const [editCertEnabled, setEditCertEnabled] = useState(true)
+  const [editCertTemplate, setEditCertTemplate] = useState<string>('classic')
+  const [editCertCustomMessage, setEditCertCustomMessage] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
 
@@ -756,7 +759,7 @@ export default function CourseManagePage({
 
       if (!courseData) { router.push('/dashboard/courses'); return }
       setCourse(courseData)
-      
+
       // Init settings state
       setEditName(courseData.name)
       setEditDesc(courseData.description)
@@ -775,6 +778,9 @@ export default function CourseManagePage({
       setEditFaq(courseData.faq || [{ question: '', answer: '' }])
       setEditHostImage(courseData.host_image || '')
       setEditFreePreview(courseData.free_preview_config || 'nothing free')
+      setEditCertEnabled(courseData.cert_enabled !== false)
+      setEditCertTemplate(courseData.cert_template || 'classic')
+      setEditCertCustomMessage(courseData.cert_custom_message || '')
 
       await Promise.all([fetchLessons(), fetchModules()])
       setLoading(false)
@@ -783,24 +789,24 @@ export default function CourseManagePage({
   }, [id])
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-  const file = e.target.files?.[0]
-  if (!file) return
+    const file = e.target.files?.[0]
+    if (!file) return
 
-  if (file.size > 2 * 1024 * 1024) {
-    alert('Image must be 2MB or smaller.')
-    return
-  }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image must be 2MB or smaller.')
+      return
+    }
 
-  setUploadingImage(true)
-  try {
-    const { publicUrl } = await uploadToSupabase(file, 'images')
-    setEditHostImage(publicUrl)
-  } catch (err: any) {
-    alert(err.message)
-  } finally {
-    setUploadingImage(false)
+    setUploadingImage(true)
+    try {
+      const { publicUrl } = await uploadToSupabase(file, 'images')
+      setEditHostImage(publicUrl)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setUploadingImage(false)
+    }
   }
-}
 
   async function updateSettings() {
     setSavingSettings(true)
@@ -824,6 +830,9 @@ export default function CourseManagePage({
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
         free_preview_config: editFreePreview,
+        cert_enabled: editCertEnabled,
+        cert_template: editCertTemplate,
+        cert_custom_message: editCertCustomMessage.trim() || null,
       })
       .eq('id', id)
 
@@ -853,64 +862,64 @@ export default function CourseManagePage({
   }
 
   async function handleDeleteCourse() {
-  if (deleteInput !== course?.name) return
-  setIsDeleting(true)
-  try {
-    // 1. Get lesson IDs first — needed for lesson_access_logs cleanup
-    const { data: lessonRows } = await supabase
-      .from('lessons')
-      .select('id')
-      .eq('course_id', id)
+    if (deleteInput !== course?.name) return
+    setIsDeleting(true)
+    try {
+      // 1. Get lesson IDs first — needed for lesson_access_logs cleanup
+      const { data: lessonRows } = await supabase
+        .from('lessons')
+        .select('id')
+        .eq('course_id', id)
 
-    const lessonIds = (lessonRows || []).map((l: any) => l.id)
+      const lessonIds = (lessonRows || []).map((l: any) => l.id)
 
-    // 2. Delete lesson_access_logs (no FK cascade, must be manual)
-    if (lessonIds.length > 0) {
+      // 2. Delete lesson_access_logs (no FK cascade, must be manual)
+      if (lessonIds.length > 0) {
+        await supabase
+          .from('lesson_access_logs')
+          .delete()
+          .in('lesson_id', lessonIds)
+      }
+
+      // 3. Delete payments (no CASCADE on course_id FK)
       await supabase
-        .from('lesson_access_logs')
+        .from('payments')
         .delete()
-        .in('lesson_id', lessonIds)
+        .eq('course_id', id)
+
+      // 4. Delete enrollments
+      await supabase
+        .from('enrollments')
+        .delete()
+        .eq('course_uuid', id)
+
+      // 5. Delete lessons
+      await supabase
+        .from('lessons')
+        .delete()
+        .eq('course_id', id)
+
+      // 6. Delete course_modules
+      await supabase
+        .from('course_modules')
+        .delete()
+        .eq('course_id', id)
+
+      // 7. Delete course — telegram_tokens, coupons, email_logs
+      //    handled automatically by DB CASCADE / SET NULL
+      const { error } = await supabase
+        .from('courses')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      router.push('/dashboard/courses')
+    } catch (err: any) {
+      alert('Error deleting course: ' + err.message)
     }
-
-    // 3. Delete payments (no CASCADE on course_id FK)
-    await supabase
-      .from('payments')
-      .delete()
-      .eq('course_id', id)
-
-    // 4. Delete enrollments
-    await supabase
-      .from('enrollments')
-      .delete()
-      .eq('course_uuid', id)
-
-    // 5. Delete lessons
-    await supabase
-      .from('lessons')
-      .delete()
-      .eq('course_id', id)
-
-    // 6. Delete course_modules
-    await supabase
-      .from('course_modules')
-      .delete()
-      .eq('course_id', id)
-
-    // 7. Delete course — telegram_tokens, coupons, email_logs
-    //    handled automatically by DB CASCADE / SET NULL
-    const { error } = await supabase
-      .from('courses')
-      .delete()
-      .eq('id', id)
-
-    if (error) throw error
-
-    router.push('/dashboard/courses')
-  } catch (err: any) {
-    alert('Error deleting course: ' + err.message)
+    setIsDeleting(false)
   }
-  setIsDeleting(false)
-}
 
 
   async function fetchLessons() {
@@ -933,10 +942,10 @@ export default function CourseManagePage({
 
   async function deleteLesson(lessonId: string) {
     await supabase.from('lessons').delete().eq('id', lessonId)
-    
+
     // Renumber remaining lessons to fill gap
     await renumberLessons(supabase, id)
-    
+
     await fetchLessons()
   }
 
@@ -1075,7 +1084,7 @@ export default function CourseManagePage({
               <p className="text-sm text-zinc-400 text-center mb-6">
                 This will permanently delete the course <strong className="text-white">"{course.name}"</strong> and all its data. This action cannot be undone.
               </p>
-              
+
               <div className="mb-6">
                 <p className="text-xs text-zinc-500 mb-2 uppercase font-bold tracking-widest">Type course name to confirm:</p>
                 <input
@@ -1106,7 +1115,7 @@ export default function CourseManagePage({
         <div className="flex items-start gap-4 mb-8">
           <button onClick={() => router.push('/dashboard/courses')}
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-            style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
+            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
@@ -1149,14 +1158,14 @@ export default function CourseManagePage({
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="font-semibold text-white">Lessons</h2>
-                    <p className="text-xs mt-0.5" style={{color:'#52525b'}}>
+                    <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
                       {lessons.length} total · {publishedCount} published
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => setShowModuleModal(true)}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                      style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.08)'}}>
+                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
                       <Plus className="w-4 h-4" />
                       Add Module
                     </button>
@@ -1169,7 +1178,7 @@ export default function CourseManagePage({
                 </div>
 
                 <div className="rounded-2xl p-4 mb-4"
-                  style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)'}}>
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                     <div>
                       <p className="text-sm font-semibold text-white">Release Schedule</p>
@@ -1219,10 +1228,10 @@ export default function CourseManagePage({
                 {/* Lesson list */}
                 {lessons.length === 0 && modules.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center glass"
-                    style={{border:'1px solid rgba(255,255,255,0.06)'}}>
-                    <Video className="w-10 h-10 mx-auto mb-3" style={{color:'#3f3f46'}} />
+                    style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <Video className="w-10 h-10 mx-auto mb-3" style={{ color: '#3f3f46' }} />
                     <p className="text-sm font-medium text-white mb-1">No lessons yet</p>
-                    <p className="text-xs mb-4" style={{color:'#52525b'}}>
+                    <p className="text-xs mb-4" style={{ color: '#52525b' }}>
                       Add your first lesson to get started
                     </p>
                     <button onClick={() => setShowAddModal(true)}
@@ -1242,11 +1251,11 @@ export default function CourseManagePage({
                             const lessonId = e.dataTransfer.getData('lessonId')
                             if (lessonId) handleLessonDrop(lessonId, module.id)
                           }}
-                          style={{background:'rgba(255,255,255,0.015)', border:'1px solid rgba(255,255,255,0.06)'}}>
+                          style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div className="flex items-center justify-between mb-3">
                             <div>
                               <h3 className="text-sm font-semibold text-white">{module.name}</h3>
-                              <p className="text-xs" style={{color:'#52525b'}}>
+                              <p className="text-xs" style={{ color: '#52525b' }}>
                                 {moduleLessons.length} / {module.planned_lessons || moduleLessons.length} lessons
                               </p>
                             </div>
@@ -1255,13 +1264,13 @@ export default function CourseManagePage({
                               setShowAddModal(true)
                             }}
                               className="text-xs px-3 py-1.5 rounded-lg"
-                              style={{background:'rgba(124,58,237,0.12)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+                              style={{ background: 'rgba(124,58,237,0.12)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
                               Add Lesson
                             </button>
                           </div>
                           <div className="flex flex-col gap-3">
                             {moduleLessons.length === 0 ? (
-                              <p className="text-xs py-3" style={{color:'#52525b'}}>No lessons in this module yet.</p>
+                              <p className="text-xs py-3" style={{ color: '#52525b' }}>No lessons in this module yet.</p>
                             ) : moduleLessons.map(lesson => (
                               <LessonWidget
                                 key={lesson.id}
@@ -1300,9 +1309,9 @@ export default function CourseManagePage({
                     <button onClick={() => setShowAddModal(true)}
                       className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm transition-all"
                       style={{
-                        background:'rgba(255,255,255,0.02)',
-                        border:'1px dashed rgba(255,255,255,0.1)',
-                        color:'#52525b',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px dashed rgba(255,255,255,0.1)',
+                        color: '#52525b',
                       }}
                       onMouseEnter={e => {
                         e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)'
@@ -1321,9 +1330,9 @@ export default function CourseManagePage({
                       <button onClick={publishAllLessons} disabled={publishing}
                         className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all disabled:opacity-50"
                         style={{
-                          background:'rgba(74,222,128,0.08)',
-                          border:'1px solid rgba(74,222,128,0.2)',
-                          color:'#4ade80',
+                          background: 'rgba(74,222,128,0.08)',
+                          border: '1px solid rgba(74,222,128,0.2)',
+                          color: '#4ade80',
                         }}>
                         <CheckCircle className="w-4 h-4" />
                         {publishing ? 'Publishing...' : `Publish All ${lessons.length} Lessons`}
@@ -1332,9 +1341,9 @@ export default function CourseManagePage({
 
                     {allPublished && (
                       <div className="flex items-center gap-2 p-3 rounded-xl"
-                        style={{background:'rgba(74,222,128,0.06)', border:'1px solid rgba(74,222,128,0.15)'}}>
-                        <CheckCircle className="w-4 h-4" style={{color:'#4ade80'}} />
-                        <p className="text-sm" style={{color:'#4ade80'}}>
+                        style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
+                        <CheckCircle className="w-4 h-4" style={{ color: '#4ade80' }} />
+                        <p className="text-sm" style={{ color: '#4ade80' }}>
                           All lessons published
                         </p>
                       </div>
@@ -1346,7 +1355,7 @@ export default function CourseManagePage({
               <div className="flex flex-col gap-6">
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                   <h2 className="font-semibold text-white mb-5">Course Settings</h2>
-                  
+
                   <div className="flex flex-col gap-4">
                     <div>
                       <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Course Name</label>
@@ -1379,14 +1388,14 @@ export default function CourseManagePage({
                         value={editFreePreview}
                         onChange={e => setEditFreePreview(e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 appearance-none cursor-pointer"
-                        style={{ background:'#050505', color:'#fff' }}
+                        style={{ background: '#050505', color: '#fff' }}
                       >
-                        <option value="nothing free" style={{background:'#050505', color:'#fff'}}>Nothing free (Pay immediately)</option>
-                        <option value="lesson 1 free" style={{background:'#050505', color:'#fff'}}>Lesson 1 free</option>
-                        <option value="2 lessons free" style={{background:'#050505', color:'#fff'}}>2 lessons free</option>
-                        <option value="3 lessons free" style={{background:'#050505', color:'#fff'}}>3 lessons free</option>
-                        <option value="module 1 free" style={{background:'#050505', color:'#fff'}}>Module 1 free</option>
-                        <option value="2 modules free" style={{background:'#050505', color:'#fff'}}>2 modules free</option>
+                        <option value="nothing free" style={{ background: '#050505', color: '#fff' }}>Nothing free (Pay immediately)</option>
+                        <option value="lesson 1 free" style={{ background: '#050505', color: '#fff' }}>Lesson 1 free</option>
+                        <option value="2 lessons free" style={{ background: '#050505', color: '#fff' }}>2 lessons free</option>
+                        <option value="3 lessons free" style={{ background: '#050505', color: '#fff' }}>3 lessons free</option>
+                        <option value="module 1 free" style={{ background: '#050505', color: '#fff' }}>Module 1 free</option>
+                        <option value="2 modules free" style={{ background: '#050505', color: '#fff' }}>2 modules free</option>
                       </select>
                       <p className="text-[10px] text-zinc-500 mt-1.5">Select how much content is free for students</p>
                     </div>
@@ -1499,6 +1508,120 @@ export default function CourseManagePage({
                           className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add FAQ</button>
                       </div>
                     </div>
+                    {/* Certificate Settings */}
+                    <div className="pt-6 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white">Completion Certificates</p>
+                          <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+                            Auto-issued as PDF when a student completes all lessons
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setEditCertEnabled(v => !v)}
+                          className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
+                          style={{ background: editCertEnabled ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}
+                        >
+                          <div
+                            className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                            style={{ left: editCertEnabled ? '24px' : '4px' }}
+                          />
+                        </button>
+                      </div>
+
+                      {editCertEnabled && (
+                        <div className="flex flex-col gap-4 mt-2">
+                          {/* Template picker */}
+                          <div>
+                            <label className="text-xs font-medium text-zinc-500 mb-2 block">Certificate Template</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {([
+                                { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
+                                { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
+                                { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
+                                { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
+                                { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
+                              ] as const).map(t => (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => setEditCertTemplate(t.id)}
+                                  className="flex items-start gap-3 p-3 rounded-xl text-left transition-all"
+                                  style={{
+                                    background: editCertTemplate === t.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
+                                    border: editCertTemplate === t.id
+                                      ? '1px solid rgba(124,58,237,0.45)'
+                                      : '1px solid rgba(255,255,255,0.08)',
+                                  }}
+                                >
+                                  {/* Tiny colour swatch */}
+                                  <div
+                                    className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
+                                    style={{
+                                      background:
+                                        t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
+                                          t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,#7c3aed)' :
+                                            t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
+                                              t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,#7c3aed)' :
+                                                'linear-gradient(135deg,#060d2e,#d4af37)',
+                                    }}
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-white">{t.label}</p>
+                                    <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
+                                  </div>
+                                  {editCertTemplate === t.id && (
+                                    <div
+                                      className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
+                                      style={{ background: '#7c3aed', marginTop: 2 }}
+                                    >
+                                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                        <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Custom message */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="text-xs font-medium text-zinc-500">Custom Message on Certificate</label>
+                              <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={editCertCustomMessage}
+                              onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
+                              placeholder="e.g. Keep building, keep shipping. — Your Name"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                            />
+                            <p className="text-xs mt-1" style={{ color: '#52525b' }}>
+                              Appears as a small line on the certificate. Leave blank to omit.
+                            </p>
+                          </div>
+
+                          {/* Preview badge */}
+                          <div
+                            className="flex items-center gap-3 p-3 rounded-xl"
+                            style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.15)' }}
+                          >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <circle cx="12" cy="8" r="6" /><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+                            </svg>
+                            <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                              Students get a PDF certificate at{' '}
+                              <span style={{ color: '#d4af37' }}>
+                                academykit.in/certificate/[ID]
+                              </span>{' '}
+                              — shareable verification link included.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <button onClick={updateSettings} disabled={savingSettings}
                       className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50 mt-4">
@@ -1535,7 +1658,7 @@ export default function CourseManagePage({
 
             {/* Course stats */}
             <div className="rounded-2xl p-5 glass"
-              style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
               <h3 className="font-semibold text-white mb-4">Course Details</h3>
               <div className="flex flex-col gap-3">
                 {[
@@ -1546,8 +1669,8 @@ export default function CourseManagePage({
                   { label: 'Language', value: course.language?.join(', ') || 'English' },
                 ].map((item, i) => (
                   <div key={i} className="flex justify-between items-center py-2"
-                    style={{borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.04)' : 'none'}}>
-                    <span className="text-xs" style={{color:'#52525b'}}>{item.label}</span>
+                    style={{ borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <span className="text-xs" style={{ color: '#52525b' }}>{item.label}</span>
                     <span className="text-xs font-medium text-white">{item.value}</span>
                   </div>
                 ))}
@@ -1565,7 +1688,7 @@ export default function CourseManagePage({
                   <p className="text-sm font-semibold text-white">
                     {course.is_published ? 'Course is Live' : 'Course is Draft'}
                   </p>
-                  <p className="text-xs mt-0.5" style={{color:'#52525b'}}>
+                  <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
                     {course.is_published
                       ? 'Students can find and enroll'
                       : 'Not visible to students yet'}
@@ -1573,16 +1696,16 @@ export default function CourseManagePage({
                 </div>
                 <button onClick={toggleCoursePublish}
                   className="relative w-12 h-6 rounded-full transition-all"
-                  style={{background: course.is_published ? '#7c3aed' : 'rgba(255,255,255,0.1)'}}>
+                  style={{ background: course.is_published ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}>
                   <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
-                    style={{left: course.is_published ? '28px' : '4px'}} />
+                    style={{ left: course.is_published ? '28px' : '4px' }} />
                 </button>
               </div>
               {!course.is_published && lessons.length === 0 && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg"
-                  style={{background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.15)'}}>
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{color:'#f59e0b'}} />
-                  <p className="text-xs" style={{color:'#f59e0b'}}>
+                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
+                  <p className="text-xs" style={{ color: '#f59e0b' }}>
                     Add at least one lesson before publishing
                   </p>
                 </div>
@@ -1591,17 +1714,17 @@ export default function CourseManagePage({
 
             {/* Course page preview */}
             <div className="rounded-2xl p-5 glass"
-              style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
               <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                <Eye className="w-4 h-4" style={{color:'#8b5cf6'}} />
+                <Eye className="w-4 h-4" style={{ color: '#8b5cf6' }} />
                 Course Page
               </h3>
-              <p className="text-xs mb-3" style={{color:'#52525b'}}>
+              <p className="text-xs mb-3" style={{ color: '#52525b' }}>
                 This is what students see when they visit your course link.
               </p>
               <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all mb-2"
-                style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+                style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
                 <ExternalLink className="w-4 h-4" />
                 Preview Course Page
               </Link>
@@ -1609,19 +1732,19 @@ export default function CourseManagePage({
 
             {/* Share section */}
             <div className="rounded-2xl p-5"
-              style={{background:'rgba(124,58,237,0.06)', border:'1px solid rgba(124,58,237,0.2)'}}>
+              style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
               <h3 className="font-semibold text-white mb-1 flex items-center gap-2">
-                <Share2 className="w-4 h-4" style={{color:'#8b5cf6'}} />
+                <Share2 className="w-4 h-4" style={{ color: '#8b5cf6' }} />
                 Share Course
               </h3>
-              <p className="text-xs mb-4" style={{color:'#52525b'}}>
+              <p className="text-xs mb-4" style={{ color: '#52525b' }}>
                 Share this link with your students to enroll and pay.
               </p>
 
               {/* URL display */}
               <div className="flex items-center gap-2 p-2.5 rounded-xl mb-3"
-                style={{background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.08)'}}>
-                <p className="text-xs flex-1 truncate font-mono" style={{color:'#a1a1aa'}}>
+                style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-xs flex-1 truncate font-mono" style={{ color: '#a1a1aa' }}>
                   /about-course/.../{course.id.slice(0, 8)}
                 </p>
               </div>
@@ -1629,9 +1752,9 @@ export default function CourseManagePage({
               {/* Copy link */}
               <button onClick={copyCourseLink}
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all mb-2"
-                style={{background:'rgba(255,255,255,0.08)', color:'#fff', border:'1px solid rgba(255,255,255,0.1)'}}>
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
                 {copied
-                  ? <><Check className="w-4 h-4" style={{color:'#4ade80'}} />Copied!</>
+                  ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
                   : <><Copy className="w-4 h-4" />Copy Course Link</>
                 }
               </button>
@@ -1641,7 +1764,7 @@ export default function CourseManagePage({
                 href={`https://wa.me/?text=${encodeURIComponent(`Hey! Enroll in my course "${course.name}" here: ${courseUrl}`)}`}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
-                style={{background:'#25d366', color:'#fff'}}>
+                style={{ background: '#25d366', color: '#fff' }}>
                 <MessageCircle className="w-4 h-4" />
                 Share to WhatsApp
               </a>
