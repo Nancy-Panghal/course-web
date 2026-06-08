@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Shield, CheckCircle, Play, ChevronRight,
-  ChevronLeft, Award, Menu, X, Clock, Lock
+  ChevronLeft, Award, Menu, X, Clock, Lock, Download
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment } from '@/lib/enrollments'
@@ -100,6 +100,9 @@ export default function LearnPage({
   const [user, setUser] = useState<any>(null)
   const [savingProgress, setSavingProgress] = useState(false)
   const [videoStreamUrl, setVideoStreamUrl] = useState<string>('')
+  const [certGenerating, setCertGenerating] = useState(false)
+  const [certificateId, setCertificateId] = useState<string | null>(null)
+  const [certificatePdfUrl, setCertificatePdfUrl] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -214,6 +217,52 @@ export default function LearnPage({
 
     generateSignedUrl()
   }, [currentLesson?.id, currentLesson?.content_type])
+
+  // Issue certificate when modal is shown and enrollment is available
+  useEffect(() => {
+    async function issueCert() {
+      console.log('[certificate] useEffect triggered:', { showCertificate, enrollmentId: enrollment?.id, courseId: course?.id, certificateId })
+      if (!showCertificate || !enrollment || certificateId) {
+        console.log('[certificate] Skipping - conditions not met:', { showCertificate, hasEnrollment: !!enrollment, alreadyHasCert: !!certificateId })
+        return
+      }
+      
+      setCertGenerating(true)
+      const payload = { enrollmentId: enrollment.id, courseId: course?.id }
+      console.log('[certificate] Sending request with payload:', payload)
+      
+      try {
+        const res = await fetch('/api/certificate/issue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        
+        console.log('[certificate] Response status:', res.status, res.statusText)
+        
+        const data = await res.json()
+        console.log('[certificate] Response data:', data)
+        
+        if (!res.ok) {
+          console.error('[certificate] API returned error:', res.status, data)
+          return
+        }
+        
+        if ((data.issued || data.alreadyIssued) && data.pdfUrl) {
+          console.log('[certificate] Certificate issued successfully:', { certificateId: data.certificateId, pdfUrl: data.pdfUrl })
+          setCertificateId(data.certificateId)
+          setCertificatePdfUrl(data.pdfUrl)
+        } else {
+          console.warn('[certificate] Certificate not ready:', data)
+        }
+      } catch (err) {
+        console.error('[certificate] Error:', err)
+      }
+      setCertGenerating(false)
+    }
+    
+    issueCert()
+  }, [showCertificate, enrollment, course?.id, certificateId])
 
   // Check if current lesson is accessible
   const isFirstLesson = currentLesson?.order_num === 1
@@ -789,6 +838,21 @@ export default function LearnPage({
                 Back to Course
               </button>
               
+              {certificatePdfUrl && (
+                <a href={certificatePdfUrl} download
+                  className="w-full py-3 rounded-xl font-medium text-white text-center transition-all flex items-center justify-center gap-2"
+                  style={{background:'rgba(250,204,21,0.15)', color:'#facc15', border:'1px solid rgba(250,204,21,0.2)'}}>
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </a>
+              )}
+
+              {certGenerating && (
+                <div className="flex items-center justify-center gap-2 py-3 text-sm" style={{color:'#a1a1aa'}}>
+                  <div className="w-4 h-4 rounded-full animate-pulse-glow" style={{background:'#8b5cf6'}} />
+                  Generating certificate...
+                </div>
+              )}
             </div>
           </div>
         </div>

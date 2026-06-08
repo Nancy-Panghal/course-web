@@ -226,23 +226,41 @@ const displayEmail = user?.email || ''
   }
 
   async function requestCertificate(c: EnrolledCourse) {
+    console.log('[my-courses] requestCertificate called for:', { enrollmentId: c.enrollmentId, courseId: c.courseId })
     setCertGenerating(prev => new Set(prev).add(c.enrollmentId))
     try {
-      const BASE = (process.env.BASE_URL || '/').replace(/\/$/, '')
-      const res = await fetch(`${BASE}/api/certificate/issue`, {
+      const payload = { enrollmentId: c.enrollmentId, courseId: c.courseId }
+      console.log('[my-courses] Sending certificate request:', payload)
+      
+      const res = await fetch(`/api/certificate/issue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enrollmentId: c.enrollmentId, courseId: c.courseId }),
+        body: JSON.stringify(payload),
       })
+      
+      console.log('[my-courses] Response status:', res.status, res.statusText)
+      
       const data = await res.json()
+      console.log('[my-courses] Response data:', data)
+      
+      if (!res.ok) {
+        console.error('[my-courses] API returned error:', res.status, data)
+        return
+      }
+      
       if ((data.issued || data.alreadyIssued) && data.pdfUrl) {
+        console.log('[my-courses] Certificate issued successfully')
         setCourses(prev => prev.map(course =>
           course.enrollmentId === c.enrollmentId
             ? { ...course, certificateId: data.certificateId, certificateUrl: data.pdfUrl }
             : course
         ))
+      } else {
+        console.warn('[my-courses] Certificate not ready:', data)
       }
-    } catch {}
+    } catch (err) {
+      console.error('[my-courses] Error calling certificate API:', err)
+    }
     setCertGenerating(prev => { const s = new Set(prev); s.delete(c.enrollmentId); return s })
   }
 

@@ -238,4 +238,4 @@ export async function GET(req: NextRequest) {
   })
 }
 
-export const config = { api: { responseLimit: false, bodyParser: false } }
+export const maxDuration = 60
