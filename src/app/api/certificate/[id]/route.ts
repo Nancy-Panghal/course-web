@@ -16,10 +16,11 @@ const supabase = createClient(
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
-    const certificateId = params.id?.trim()
+    const { id } = await props.params
+    const certificateId = id?.trim()
 
     if (!certificateId) {
       return NextResponse.json({ error: 'Certificate ID is required' }, { status: 400 })

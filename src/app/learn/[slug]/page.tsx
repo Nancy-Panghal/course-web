@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Shield, CheckCircle, Play, ChevronRight,
-  ChevronLeft, Award, Menu, X, Clock, Lock, Download
+  ChevronLeft, Award, Menu, X, Clock, Lock, Download,
+  FileText, Send, CheckCircle2, AlertCircle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment } from '@/lib/enrollments'
@@ -104,11 +105,21 @@ export default function LearnPage({
   const [certificateId, setCertificateId] = useState<string | null>(null)
   const [certificatePdfUrl, setCertificatePdfUrl] = useState<string | null>(null)
 
+  // Assignment state
+  const [assignmentText, setAssignmentText] = useState('')
+  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false)
+  const [assignmentSubmission, setAssignmentSubmission] = useState<any>(null)
+  const [assignmentLoadedForLesson, setAssignmentLoadedForLesson] = useState<string | null>(null)
+  const [sessionToken, setSessionToken] = useState('')
+
   useEffect(() => {
     async function load() {
       // Get current user
       const { data: { user: currentUser } } = await supabase.auth.getUser()
       setUser(currentUser)
+      // Grab session token for API calls
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) setSessionToken(session.access_token)
 
       // Fetch course by slug
       const { data: courseData } = await supabase
@@ -155,9 +166,17 @@ export default function LearnPage({
 
           // Resume from last lesson
           const currentOrder = enrollmentData.current_lesson || 1
-          const resumeLesson = fetchedLessons.find(
-            (l: Lesson) => l.order_num === currentOrder
-          ) || fetchedLessons[0]
+          // If all lessons done, stay on the last lesson (so Get Certificate button is visible)
+          const savedCompletedLocal = enrollmentData.completed_lessons || []
+          const isAllDoneOnLoad = fetchedLessons.length > 0 && savedCompletedLocal.length >= fetchedLessons.length
+          let resumeLesson
+          if (isAllDoneOnLoad) {
+            resumeLesson = fetchedLessons[fetchedLessons.length - 1]
+          } else {
+            resumeLesson = fetchedLessons.find(
+              (l: Lesson) => l.order_num === currentOrder
+            ) || fetchedLessons[0]
+          }
 
           if (resumeLesson) setCurrentLessonId(resumeLesson.id)
         }
@@ -183,8 +202,7 @@ export default function LearnPage({
   const prevLesson = currentIndex > 0 ? lessons[currentIndex - 1] : null
   const nextLesson = currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null
   const progress = lessons.length > 0 ? Math.round((completed.length / lessons.length) * 100) : 0
-  const allDone = lessons.length > 0 && completed.length === lessons.length
-  console.log('[computed] allDone:', allDone, 'completed:', completed.length, 'total:', lessons.length, 'enrolled:', isEnrolled)
+  const allDone = lessons.length > 0 && completed.length >= lessons.length
   const sections = groupBySections(lessons)
 
   // Generate signed video URL when lesson changes
@@ -221,19 +239,14 @@ export default function LearnPage({
 
   // Issue certificate when modal is shown and enrollment is available
   useEffect(() => {
-    console.log('[cert-effect] useEffect triggered', { showCertificate, enrollmentId: enrollment?.id, courseId: course?.id, certificateId })
     async function issueCert() {
-      console.log('[cert-issueFunc] issueCert() called')
-      if (!showCertificate || !enrollment?.id || !course?.id || certificateId) {
-        console.log('[cert-blocked] blocked:', { showCertificate, enrollmentId: enrollment?.id, courseId: course?.id, certificateId })
-        return
-      }
-      console.log('[cert-proceeding] proceeding with:', { enrollmentId: enrollment.id, courseId: course.id })
-      
-      console.log('[cert-gen] setCertGenerating(true)')
+      if (!showCertificate) return
+      if (!enrollment?.id) return
+      if (!course?.id) return
+      if (certificateId) return  // already issued this session
+
       setCertGenerating(true)
       try {
-        console.log('[cert-fetch] Fetching /api/certificate/issue')
         const res = await fetch('/api/certificate/issue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -242,23 +255,16 @@ export default function LearnPage({
             courseId: course.id,
           }),
         })
-        console.log('[cert-response] Response status:', res.status)
         const data = await res.json()
-        console.log('[cert-data] Response data:', data)
         if ((data.issued || data.alreadyIssued) && data.pdfUrl) {
-          console.log('[cert-success] Certificate issued/already issued, setting state')
           setCertificateId(data.certificateId)
           setCertificatePdfUrl(data.pdfUrl)
-        } else {
-          console.log('[cert-nodata] No pdfUrl in response or not issued')
         }
       } catch (err) {
-        console.error('[cert-error] API call failed:', err)
+        console.error('[certificate] API call failed:', err)
       }
-      console.log('[cert-done] setCertGenerating(false)')
       setCertGenerating(false)
     }
-    console.log('[cert-calling] Calling issueCert() from useEffect')
     issueCert()
   }, [showCertificate, enrollment?.id, course?.id, certificateId])
 
@@ -267,6 +273,28 @@ export default function LearnPage({
   // Check if current lesson is accessible
   const isFirstLesson = currentLesson?.order_num === 1
   const canAccessLesson = isEnrolled || isFirstLesson
+
+  // Load assignment submission when lesson changes
+  useEffect(() => {
+    async function loadAssignment() {
+      if (!enrollment?.id || !currentLesson?.id || !sessionToken) return
+      if (assignmentLoadedForLesson === currentLesson.id) return
+      setAssignmentLoadedForLesson(currentLesson.id)
+      setAssignmentSubmission(null)
+      setAssignmentText('')
+      try {
+        const res = await fetch(
+          `/api/assignments/my?lessonId=${currentLesson.id}&enrollmentId=${enrollment.id}`,
+          { headers: { Authorization: `Bearer ${sessionToken}` } }
+        )
+        if (res.ok) {
+          const json = await res.json()
+          setAssignmentSubmission(json.assignment || null)
+        }
+      } catch { /* non-fatal */ }
+    }
+    loadAssignment()
+  }, [currentLesson?.id, enrollment?.id, sessionToken])
 
   async function markComplete(lessonOrderNum: number) {
     if (completed.includes(lessonOrderNum)) return
@@ -299,6 +327,29 @@ export default function LearnPage({
     if (newCompleted.length === lessons.length) {
       setTimeout(() => setShowCertificate(true), 400)
     }
+  }
+
+  async function submitAssignment() {
+    if (!currentLesson || !enrollment?.id || !assignmentText.trim()) return
+    setAssignmentSubmitting(true)
+    try {
+      const res = await fetch('/api/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({
+          lessonId: currentLesson.id,
+          courseId: course!.id,
+          enrollmentId: enrollment.id,
+          submissionText: assignmentText.trim(),
+        }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setAssignmentSubmission({ status: 'pending', submission_text: assignmentText.trim(), submitted_at: new Date().toISOString() })
+        setAssignmentText('')
+      }
+    } catch { /* non-fatal */ }
+    finally { setAssignmentSubmitting(false) }
   }
 
   function goToLesson(lesson: Lesson) {
@@ -377,14 +428,11 @@ export default function LearnPage({
           </div>
 
           {allDone && (
-            <button onClick={() => {
-              console.log('[cert-btn] Certificate button clicked')
-              setShowCertificate(true)
-            }}
+            <button onClick={() => { console.log('🔴 CERT NAV BTN CLICKED'); setShowCertificate(true) }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
               style={{background:'rgba(250,204,21,0.15)', color:'#facc15', border:'1px solid rgba(250,204,21,0.2)'}}>
               <Award className="w-3.5 h-3.5" />
-              Certificate
+              Certificate {/* 🔴 */}
             </button>
           )}
 
@@ -740,7 +788,14 @@ export default function LearnPage({
                   </div>
 
                   {/* Next or enroll or certificate */}
-                  {hasNext ? (
+                  {allDone ? (
+                    <button onClick={() => { console.log('🔴 CERT BOTTOM BTN CLICKED'); setShowCertificate(true) }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{background:'rgba(250,204,21,0.15)', color:'#facc15', border:'1px solid rgba(250,204,21,0.2)'}}>
+                      <Award className="w-4 h-4" />
+                      Get Certificate {/* 🔴 */}
+                    </button>
+                  ) : hasNext ? (
                     nextLesson && (!isEnrolled && nextLesson.order_num !== 1) ? (
                       <Link href={`/c/${course.slug}`}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all text-white violet-gradient hover:opacity-90">
@@ -756,10 +811,7 @@ export default function LearnPage({
                       </button>
                     )
                   ) : (
-                    <button onClick={() => {
-                      console.log('[cert-btn-nav] Navigation Get Certificate button clicked')
-                      setShowCertificate(true)
-                    }}
+                    <button onClick={() => setShowCertificate(true)}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
                       style={{background:'rgba(250,204,21,0.15)', color:'#facc15', border:'1px solid rgba(250,204,21,0.2)'}}>
                       <Award className="w-4 h-4" />
@@ -770,7 +822,6 @@ export default function LearnPage({
 
                 {/* Progress saved */}
                 <div className="flex items-center gap-2 p-3 rounded-xl mb-3"
-                  style={{background:'rgba(124,58,237,0.05)', border:'1px solid rgba(124,58,237,0.1)'}}>
                   <CheckCircle className="w-4 h-4 flex-shrink-0" style={{color:'#8b5cf6'}} />
                   <p className="text-xs" style={{color:'#52525b'}}>
                     {isEnrolled
@@ -798,10 +849,6 @@ export default function LearnPage({
       {showCertificate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{background:'rgba(0,0,0,0.85)', backdropFilter:'blur(12px)'}}>
-          {(() => {
-            console.log('[cert-modal] Modal is open, certGenerating:', certGenerating, 'certificatePdfUrl:', certificatePdfUrl)
-            return null
-          })()}
           <div className="w-full max-w-md rounded-2xl p-8 text-center"
             style={{background:'#0a0a0a', border:'1px solid rgba(250,204,21,0.3)'}}>
 
@@ -843,10 +890,7 @@ export default function LearnPage({
             </div>
 
             <div className="flex flex-col gap-3">
-              <button onClick={() => {
-                console.log('[cert-modal-back] Back to Course button clicked in modal')
-                setShowCertificate(false)
-              }}
+              <button onClick={() => setShowCertificate(false)}
                 className="w-full py-3 rounded-xl font-medium text-white violet-gradient hover:opacity-90 glow">
                 Back to Course
               </button>

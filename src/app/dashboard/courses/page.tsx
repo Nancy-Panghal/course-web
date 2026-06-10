@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   Plus, BookOpen, Users, Eye, Globe,
   MessageCircle, Monitor, MoreVertical,
-  CheckCircle, Clock, ExternalLink, Shield
+  CheckCircle, Clock, ExternalLink, Shield, BarChart3
 } from 'lucide-react'
 
 interface Course {
@@ -163,11 +163,15 @@ export default function CoursesPage() {
                       <BookOpen className="w-4 h-4" />
                       Manage
                     </Link>
+                    <Link href={`/dashboard/analytics/${course.id}`}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all"
+                      style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.08)'}}>
+                      <BarChart3 className="w-4 h-4" />
+                    </Link>
                     <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
                       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all"
                       style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
                       <ExternalLink className="w-4 h-4" />
-                      Preview
                     </Link>
                   </div>
                 </div>

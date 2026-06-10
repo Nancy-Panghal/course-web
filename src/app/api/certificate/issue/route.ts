@@ -48,10 +48,10 @@ export async function POST(req: NextRequest) {
     // Already issued — return immediately (idempotent)
     if (enrollment.certificate_id) {
       return NextResponse.json({
-        issued:        true,
+        issued: true,
         alreadyIssued: true,
         certificateId: enrollment.certificate_id,
-        pdfUrl:        enrollment.certificate_url,
+        pdfUrl: enrollment.certificate_url,
       })
     }
 
@@ -59,8 +59,7 @@ export async function POST(req: NextRequest) {
     const { count: totalLessons } = await supabase
       .from('lessons')
       .select('*', { count: 'exact', head: true })
-      .eq('course_id', effectiveCourseId)
-      .eq('is_published', true)
+      .eq('course_id', enrollment.course_uuid)
 
     console.log('[certificate/issue] Total lessons:', totalLessons)
 
@@ -72,19 +71,20 @@ export async function POST(req: NextRequest) {
 
     if (!totalLessons || completedLessons.length < totalLessons) {
       return NextResponse.json({
-        issued:    false,
-        reason:    'incomplete',
+        issued: false,
+        reason: 'incomplete',
         completed: completedLessons.length,
-        total:     totalLessons ?? 0,
+        total: totalLessons ?? 0,
       })
     }
 
     // ── Fetch course cert settings ───────────────────────────────────────
     console.log('[certificate/issue] Looking up course:', effectiveCourseId)
+    // Use the enrollment's own course_uuid as the authoritative course ID
     const { data: course, error: courseErr } = await supabase
       .from('courses')
       .select('id, name, host_name, cert_enabled, cert_template, cert_custom_message')
-      .eq('id', effectiveCourseId)
+      .eq('id', enrollment.course_uuid)
       .maybeSingle()
 
     console.log('[certificate/issue] Course lookup:', { found: !!course, error: courseErr?.message })
@@ -116,11 +116,11 @@ export async function POST(req: NextRequest) {
     const { certificateId, pdfUrl } = await issueCertificate(supabase, {
       enrollmentId,
       courseId: effectiveCourseId,
-      studentId:     enrollment.student_id ?? null,
+      studentId: enrollment.student_id ?? null,
       studentName,
-      courseName:    course.name,
-      creatorName:   course.host_name || 'Creator',
-      template:      (course.cert_template ?? 'classic') as CertTemplate,
+      courseName: course.name,
+      creatorName: course.host_name || 'Creator',
+      template: (course.cert_template ?? 'classic') as CertTemplate,
       customMessage: course.cert_custom_message ?? undefined,
     })
 

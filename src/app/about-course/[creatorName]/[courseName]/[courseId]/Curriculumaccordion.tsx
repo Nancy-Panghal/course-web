@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Play, BookOpen, ChevronDown, FileText, Mic } from 'lucide-react'
+import { Play, BookOpen, ChevronDown, FileText, Mic, Calendar, Clock, Video } from 'lucide-react'
 
 interface Lesson {
   id: string
@@ -9,6 +9,16 @@ interface Lesson {
   content_type: string
   order_num: number
   duration?: string
+}
+
+interface LiveSession {
+  id: string
+  title: string
+  description?: string | null
+  scheduled_at: string
+  duration_minutes: number
+  join_url: string
+  recording_url?: string | null
 }
 
 interface Module {
@@ -23,12 +33,21 @@ function contentIcon(type: string) {
   return <BookOpen className="w-3.5 h-3.5" style={{ color: '#60a5fa' }} />
 }
 
+function formatSessionDate(iso: string) {
+  return new Date(iso).toLocaleString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  })
+}
+
 export default function CurriculumAccordion({
   modules,
   totalLessons,
+  liveSessions = [],
 }: {
   modules: Module[]
   totalLessons: number
+  liveSessions?: LiveSession[]
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const [closingIndex, setClosingIndex] = useState<number | null>(null)
@@ -85,6 +104,7 @@ export default function CurriculumAccordion({
         <p className="text-center mb-10" style={{ color: '#71717a', fontSize: '0.95rem' }}>
           {totalLessons} lessons · {modules.length}{' '}
           {modules.length === 1 ? 'section' : 'sections'} · Telegram + Web
+          {liveSessions.length > 0 && ` · ${liveSessions.length} live session${liveSessions.length !== 1 ? 's' : ''}`}
         </p>
 
         <div className="flex flex-col gap-2">
@@ -216,6 +236,89 @@ export default function CurriculumAccordion({
             )
           })}
         </div>
+
+        {/* ── Live Sessions ── */}
+        {liveSessions.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-3 mb-3 px-1">
+              <Calendar className="w-4 h-4" style={{ color: '#38bdf8' }} />
+              <span className="text-sm font-semibold text-white">
+                Live Sessions ({liveSessions.length})
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {liveSessions.map((s) => {
+                const isPast = new Date(s.scheduled_at) < new Date()
+                return (
+                  <div
+                    key={s.id}
+                    className="flex items-start gap-3 px-4 py-3 rounded-2xl"
+                    style={{
+                      background: isPast ? 'rgba(255,255,255,0.02)' : 'rgba(56,189,248,0.05)',
+                      border: isPast
+                        ? '1px solid rgba(255,255,255,0.06)'
+                        : '1px solid rgba(56,189,248,0.18)',
+                    }}
+                  >
+                    {/* Icon */}
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                      style={{
+                        background: isPast ? 'rgba(255,255,255,0.04)' : 'rgba(56,189,248,0.1)',
+                      }}
+                    >
+                      {s.recording_url ? (
+                        <Video className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />
+                      ) : (
+                        <Calendar className="w-3.5 h-3.5" style={{ color: isPast ? '#52525b' : '#38bdf8' }} />
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{s.title}</p>
+                      {s.description && (
+                        <p className="text-xs mt-0.5 truncate" style={{ color: '#71717a' }}>
+                          {s.description}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                        <span className="flex items-center gap-1 text-xs" style={{ color: '#71717a' }}>
+                          <Calendar className="w-3 h-3" />
+                          {formatSessionDate(s.scheduled_at)}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs" style={{ color: '#71717a' }}>
+                          <Clock className="w-3 h-3" />
+                          {s.duration_minutes} min
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Badge */}
+                    <div className="flex-shrink-0">
+                      {s.recording_url ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
+                          Recording
+                        </span>
+                      ) : isPast ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(255,255,255,0.05)', color: '#52525b' }}>
+                          Past
+                        </span>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(56,189,248,0.12)', color: '#38bdf8' }}>
+                          Upcoming
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )

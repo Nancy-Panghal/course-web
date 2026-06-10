@@ -58,6 +58,13 @@ export default async function AboutCoursePage({
     .eq('course_id', course.id)
     .order('order_num', { ascending: true })
 
+  // Fetch live sessions for this course
+  const { data: liveSessions } = await supabase
+    .from('live_sessions')
+    .select('id, title, description, scheduled_at, duration_minutes, join_url, recording_url')
+    .eq('course_id', course.id)
+    .order('scheduled_at', { ascending: true })
+
   const publishedLessons = lessons || []
   const modules = courseModules || []
 
@@ -321,6 +328,7 @@ export default async function AboutCoursePage({
           <CurriculumAccordion
             modules={groupedModules}
             totalLessons={publishedLessons.length}
+            liveSessions={liveSessions || []}
           />
         </section>
       )}

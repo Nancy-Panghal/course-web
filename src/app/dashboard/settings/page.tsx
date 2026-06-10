@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle } from 'lucide-react'
+import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 
 // ── OUTSIDE the page component — fixes input focus loss ──
 function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false, rightElement }: {
@@ -115,6 +115,32 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false)
   const [deleteApiError, setDeleteApiError] = useState('')
 
+  // ── Payout settings state ──────────────────────────────────────
+  const [payoutToken, setPayoutToken] = useState('')
+  const [payoutLoading, setPayoutLoading] = useState(true)
+  const [payoutSaving, setPayoutSaving] = useState(false)
+  const [payoutError, setPayoutError] = useState('')
+  const [payoutSuccess, setPayoutSuccess] = useState('')
+  // Existing saved details (display only — masked)
+  const [savedAccountHolder, setSavedAccountHolder] = useState('')
+  const [savedBankLast4, setSavedBankLast4] = useState('')
+  const [savedIfsc, setSavedIfsc] = useState('')
+  const [savedUpiMasked, setSavedUpiMasked] = useState('')
+  const [savedPanMasked, setSavedPanMasked] = useState('')
+  const [savedPayoutStatus, setSavedPayoutStatus] = useState('not_set')
+  // Form inputs
+  const [payoutMode, setPayoutMode] = useState<'bank' | 'upi'>('bank')
+  const [fAccountHolder, setFAccountHolder] = useState('')
+  const [fAccountNumber, setFAccountNumber] = useState('')
+  const [fIfsc, setFIfsc] = useState('')
+  const [fUpiId, setFUpiId] = useState('')
+  const [fPan, setFPan] = useState('')
+  const [showAccountNumber, setShowAccountNumber] = useState(false)
+  const [showPan, setShowPan] = useState(false)
+  // Payout history
+  const [payouts, setPayouts] = useState<any[]>([])
+  const [payoutsLoading, setPayoutsLoading] = useState(true)
+
   const hasChanges =
     name !== originalName ||
     whatsappNumber !== originalWhatsappNumber ||
@@ -159,6 +185,42 @@ export default function SettingsPage() {
         }
       })
     }, [])
+
+  // ── Load payout settings + history ────────────────────────────
+  useEffect(() => {
+    async function loadPayout() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      setPayoutToken(session.access_token)
+
+      const [settingsRes, payoutsRes] = await Promise.all([
+        fetch('/api/creator/payout-settings', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+        fetch('/api/creator/payouts', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+      ])
+
+      if (settingsRes.ok) {
+        const d = await settingsRes.json()
+        setSavedAccountHolder(d.accountHolder || '')
+        setSavedBankLast4(d.bankLast4 || '')
+        setSavedIfsc(d.ifsc || '')
+        setSavedUpiMasked(d.upiMasked || '')
+        setSavedPanMasked(d.panMasked || '')
+        setSavedPayoutStatus(d.status || 'not_set')
+      }
+      setPayoutLoading(false)
+
+      if (payoutsRes.ok) {
+        const d = await payoutsRes.json()
+        setPayouts(d.payouts || [])
+      }
+      setPayoutsLoading(false)
+    }
+    loadPayout()
+  }, [])
 
   async function handleSave() {
     setSaving(true)
@@ -214,6 +276,58 @@ export default function SettingsPage() {
         email_notifications: nextNotifications
       }
     })
+  }
+
+  async function handlePayoutSave() {
+    setPayoutError('')
+    setPayoutSuccess('')
+    setPayoutSaving(true)
+    try {
+      const body: any = { pan: fPan.trim() || undefined }
+      if (payoutMode === 'bank') {
+        body.accountHolder = fAccountHolder.trim()
+        body.bankAccountNumber = fAccountNumber.trim()
+        body.ifsc = fIfsc.trim()
+      } else {
+        body.upiId = fUpiId.trim()
+      }
+
+      const res = await fetch('/api/creator/payout-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${payoutToken}`,
+        },
+        body: JSON.stringify(body),
+      })
+
+      const json = await res.json()
+      if (!res.ok) {
+        setPayoutError(json.error || 'Failed to save payout details.')
+        return
+      }
+
+      // Refresh display — clear sensitive form fields
+      setSavedPayoutStatus('pending_verification')
+      if (json.bankLast4) setSavedBankLast4(json.bankLast4)
+      if (json.panMasked) setSavedPanMasked(json.panMasked)
+      if (payoutMode === 'bank') {
+        setSavedAccountHolder(fAccountHolder.trim())
+        setSavedIfsc(fIfsc.trim().toUpperCase())
+      }
+      if (payoutMode === 'upi') setSavedUpiMasked(fUpiId.trim())
+
+      // Clear sensitive fields from state immediately
+      setFAccountNumber('')
+      setFPan('')
+      setShowAccountNumber(false)
+      setShowPan(false)
+      setPayoutSuccess('Payout details saved. We will verify and activate within 2 business days.')
+    } catch {
+      setPayoutError('Network error. Please try again.')
+    } finally {
+      setPayoutSaving(false)
+    }
   }
 
   async function handleScheduleDelete() {
@@ -406,6 +520,273 @@ export default function SettingsPage() {
             value={emailNotifications.courseCompletion}
             onChange={v => updateEmailNotificationSetting('courseCompletion', v)}
           />
+        </SectionCard>
+
+        <div className="mb-12" />
+
+        {/* ── Payout Settings ── */}
+        <SectionCard title="Payout Settings" icon={IndianRupee}>
+          {payoutLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              {/* Current status banner */}
+              {savedPayoutStatus !== 'not_set' && (
+                <div className="mb-5 flex items-center gap-3 p-3 rounded-xl"
+                  style={{
+                    background: savedPayoutStatus === 'active'
+                      ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)',
+                    border: savedPayoutStatus === 'active'
+                      ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(245,158,11,0.2)',
+                  }}>
+                  {savedPayoutStatus === 'active'
+                    ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
+                    : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#f59e0b' }} />
+                  }
+                  <div>
+                    <p className="text-sm font-medium text-white">
+                      {savedPayoutStatus === 'active' ? 'Payout account active' : 'Pending verification'}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
+                      {savedPayoutStatus === 'active'
+                        ? `Account ••••${savedBankLast4 || savedUpiMasked} · ${savedIfsc || 'UPI'}`
+                        : 'We will verify your details within 2 business days.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Saved summary */}
+              {savedPayoutStatus !== 'not_set' && (
+                <div className="mb-5 p-4 rounded-xl flex flex-col gap-2"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-xs font-semibold text-white mb-1">Saved details</p>
+                  {savedAccountHolder && (
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: '#71717a' }}>Account holder</span>
+                      <span className="text-white">{savedAccountHolder}</span>
+                    </div>
+                  )}
+                  {savedBankLast4 && (
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: '#71717a' }}>Account number</span>
+                      <span className="text-white font-mono">••••{savedBankLast4}</span>
+                    </div>
+                  )}
+                  {savedIfsc && (
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: '#71717a' }}>IFSC</span>
+                      <span className="text-white font-mono">{savedIfsc}</span>
+                    </div>
+                  )}
+                  {savedUpiMasked && (
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: '#71717a' }}>UPI ID</span>
+                      <span className="text-white font-mono">{savedUpiMasked}</span>
+                    </div>
+                  )}
+                  {savedPanMasked && (
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: '#71717a' }}>PAN</span>
+                      <span className="text-white font-mono">{savedPanMasked}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Mode toggle */}
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {(['bank', 'upi'] as const).map(mode => (
+                  <button key={mode} type="button"
+                    onClick={() => { setPayoutMode(mode); setPayoutError(''); setPayoutSuccess('') }}
+                    className="py-2.5 rounded-xl text-sm font-medium transition-all capitalize"
+                    style={{
+                      background: payoutMode === mode ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.04)',
+                      border: payoutMode === mode ? '1px solid rgba(124,58,237,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                      color: payoutMode === mode ? '#8b5cf6' : '#a1a1aa',
+                    }}>
+                    {mode === 'bank' ? '🏦 Bank Account' : '📱 UPI ID'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Bank form */}
+              {payoutMode === 'bank' && (
+                <div className="flex flex-col gap-3 mb-4">
+                  <div>
+                    <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                      Account Holder Name (as on bank account) *
+                    </label>
+                    <input value={fAccountHolder} onChange={e => setFAccountHolder(e.target.value)}
+                      placeholder="Full name exactly as on bank account"
+                      autoComplete="off"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                      Bank Account Number *
+                    </label>
+                    <div className="relative">
+                      <input
+                        value={fAccountNumber}
+                        onChange={e => setFAccountNumber(e.target.value.replace(/\D/g, ''))}
+                        type={showAccountNumber ? 'text' : 'password'}
+                        placeholder="Enter account number"
+                        autoComplete="new-password"
+                        maxLength={18}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pr-10 text-sm text-white outline-none focus:border-violet-500/50 font-mono"
+                      />
+                      <button type="button"
+                        onClick={() => setShowAccountNumber(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2"
+                        style={{ color: '#52525b' }}>
+                        {showAccountNumber
+                          ? <EyeOff className="w-4 h-4" />
+                          : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] mt-1" style={{ color: '#52525b' }}>
+                      Only the last 4 digits are stored. The full number is never saved.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-500 mb-1.5 block">IFSC Code *</label>
+                    <input value={fIfsc} onChange={e => setFIfsc(e.target.value.toUpperCase())}
+                      placeholder="e.g. HDFC0001234"
+                      maxLength={11}
+                      autoComplete="off"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 font-mono uppercase" />
+                  </div>
+                </div>
+              )}
+
+              {/* UPI form */}
+              {payoutMode === 'upi' && (
+                <div className="mb-4">
+                  <label className="text-xs font-medium text-zinc-500 mb-1.5 block">UPI ID *</label>
+                  <input value={fUpiId} onChange={e => setFUpiId(e.target.value)}
+                    placeholder="yourname@upi or yourname@okicici"
+                    autoComplete="off"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 font-mono" />
+                </div>
+              )}
+
+              {/* PAN (required for KYC — both modes) */}
+              <div className="mb-4">
+                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                  PAN Number (required for KYC)
+                  {savedPanMasked && (
+                    <span className="ml-2 text-violet-400">— saved as {savedPanMasked}</span>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    value={fPan}
+                    onChange={e => setFPan(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                    type={showPan ? 'text' : 'password'}
+                    placeholder={savedPanMasked ? 'Enter to update PAN' : 'ABCDE1234F'}
+                    maxLength={10}
+                    autoComplete="new-password"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pr-10 text-sm text-white outline-none focus:border-violet-500/50 font-mono uppercase"
+                  />
+                  <button type="button"
+                    onClick={() => setShowPan(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    style={{ color: '#52525b' }}>
+                    {showPan
+                      ? <EyeOff className="w-4 h-4" />
+                      : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] mt-1" style={{ color: '#52525b' }}>
+                  Required by Razorpay for payout KYC. Stored masked — the raw PAN is never saved.
+                </p>
+              </div>
+
+              {/* Security note */}
+              <div className="mb-4 p-3 rounded-xl flex items-start gap-2"
+                style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
+                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#38bdf8' }} />
+                <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                  Your financial details are encrypted in transit (HTTPS). Full account numbers and raw PAN are never stored — only masked references used for display.
+                </p>
+              </div>
+
+              {payoutError && (
+                <div className="mb-3 p-3 rounded-xl flex items-start gap-2"
+                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
+                  <p className="text-xs" style={{ color: '#fca5a5' }}>{payoutError}</p>
+                </div>
+              )}
+
+              {payoutSuccess && (
+                <div className="mb-3 p-3 rounded-xl flex items-start gap-2"
+                  style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#4ade80' }} />
+                  <p className="text-xs" style={{ color: '#86efac' }}>{payoutSuccess}</p>
+                </div>
+              )}
+
+              <button onClick={handlePayoutSave} disabled={payoutSaving}
+                className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+                {payoutSaving ? 'Saving...' : savedPayoutStatus !== 'not_set' ? 'Update Payout Details' : 'Save Payout Details'}
+              </button>
+            </>
+          )}
+
+          {/* Payout history */}
+          <div className="mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="text-sm font-semibold text-white mb-3">Payout History</p>
+            {payoutsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : payouts.length === 0 ? (
+              <p className="text-xs py-4 text-center" style={{ color: '#52525b' }}>
+                No payouts yet. Once Razorpay Route is active, your earnings will appear here.
+              </p>
+            ) : (
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ background: 'rgba(255,255,255,0.03)', color: '#52525b', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="col-span-3">Date</div>
+                  <div className="col-span-3">Gross</div>
+                  <div className="col-span-2">Fee</div>
+                  <div className="col-span-2">Net</div>
+                  <div className="col-span-2">Status</div>
+                </div>
+                {payouts.map((p: any, i: number) => (
+                  <div key={p.id}
+                    className="grid grid-cols-12 gap-2 px-4 py-3 items-center text-xs"
+                    style={{ borderBottom: i < payouts.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <div className="col-span-3" style={{ color: '#a1a1aa' }}>
+                      {new Date(p.payout_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                    </div>
+                    <div className="col-span-3 text-white font-medium">₹{Number(p.amount).toLocaleString('en-IN')}</div>
+                    <div className="col-span-2" style={{ color: '#f59e0b' }}>₹{Number(p.platform_fee).toLocaleString('en-IN')}</div>
+                    <div className="col-span-2 font-semibold" style={{ color: '#4ade80' }}>
+                      ₹{Number(p.net_amount ?? p.amount - p.platform_fee).toLocaleString('en-IN')}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                        style={
+                          p.status === 'paid'
+                            ? { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }
+                            : p.status === 'failed'
+                            ? { background: 'rgba(239,68,68,0.1)', color: '#ef4444' }
+                            : { background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }
+                        }>
+                        {p.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </SectionCard>
 
         <div className="mb-12" />

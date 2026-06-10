@@ -9,7 +9,8 @@ import {
   ArrowLeft, Plus, Video, FileText, Globe,
   Eye, EyeOff, ExternalLink, Copy, Check,
   GripVertical, Trash2, CheckCircle, AlertCircle,
-  MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle
+  MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle,
+  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X
 } from 'lucide-react'
 
 interface Course {
@@ -54,6 +55,8 @@ interface Lesson {
   notes_url?: string | null
   notes_name?: string | null
   quiz_questions?: QuizQuestion[] | null
+  assignment_prompt?: string | null
+  assignment_required?: boolean
 }
 
 interface QuizQuestion {
@@ -480,6 +483,99 @@ function AddLessonModal({
   )
 }
 
+// ── ASSIGNMENT EDITOR (inside lesson widget) ──
+function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [prompt, setPrompt] = useState(lesson.assignment_prompt || '')
+  const [required, setRequired] = useState(lesson.assignment_required || false)
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    await supabase
+      .from('lessons')
+      .update({
+        assignment_prompt: prompt.trim() || null,
+        assignment_required: required,
+      })
+      .eq('id', lesson.id)
+    setSaving(false)
+    setEditing(false)
+    onRefresh()
+  }
+
+  async function remove() {
+    setSaving(true)
+    await supabase
+      .from('lessons')
+      .update({ assignment_prompt: null, assignment_required: false })
+      .eq('id', lesson.id)
+    setPrompt('')
+    setRequired(false)
+    setSaving(false)
+    setEditing(false)
+    onRefresh()
+  }
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => { setPrompt(lesson.assignment_prompt || ''); setRequired(lesson.assignment_required || false); setEditing(true) }}
+        className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm w-full"
+        style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)', color: '#fff' }}>
+        <span>Assignment</span>
+        <span className="text-xs" style={{ color: lesson.assignment_prompt ? '#f59e0b' : '#52525b' }}>
+          {lesson.assignment_prompt ? 'Edit prompt' : 'Add assignment'}
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="p-3 rounded-xl flex flex-col gap-3"
+      style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
+      <label className="text-xs font-medium text-white">Assignment Prompt</label>
+      <textarea
+        value={prompt}
+        onChange={e => setPrompt(e.target.value)}
+        rows={3}
+        placeholder="e.g. Write a 300-word analysis of today's strategy. Upload as PDF or type your answer."
+        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none focus:border-amber-500/50"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setRequired(v => !v)}
+          className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+          style={{ background: required ? '#f59e0b' : 'rgba(255,255,255,0.1)' }}>
+          <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+            style={{ left: required ? '20px' : '2px' }} />
+        </button>
+        <span className="text-xs" style={{ color: '#a1a1aa' }}>
+          {required ? 'Required to proceed' : 'Optional'}
+        </span>
+      </div>
+      <div className="flex gap-2">
+        {lesson.assignment_prompt && (
+          <button onClick={remove} disabled={saving}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+            Remove
+          </button>
+        )}
+        <button onClick={() => setEditing(false)}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium"
+          style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+          Cancel
+        </button>
+        <button onClick={save} disabled={saving || !prompt.trim()}
+          className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white violet-gradient disabled:opacity-50">
+          {saving ? 'Saving...' : 'Save Assignment'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── LESSON WIDGET ──
 function LessonWidget({
   lesson,
@@ -678,6 +774,9 @@ function LessonWidget({
               </span>
             </Link>
 
+            {/* Assignment prompt */}
+            <AssignmentEditor lesson={lesson} onRefresh={onRefresh} />
+
             {/* Delete */}
             <button
               onClick={() => onDelete(lesson.id)}
@@ -687,6 +786,357 @@ function LessonWidget({
               Delete Lesson
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── LIVE SESSIONS TAB ──
+interface LiveSession {
+  id: string
+  title: string
+  description?: string | null
+  scheduled_at: string
+  duration_minutes: number
+  join_url: string
+  recording_url?: string | null
+}
+
+function LiveSessionsTab({ courseId, token }: { courseId: string; token: string }) {
+  const [sessions, setSessions] = useState<LiveSession[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editingSession, setEditingSession] = useState<LiveSession | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  // Form state
+  const [fTitle, setFTitle] = useState('')
+  const [fDesc, setFDesc] = useState('')
+  const [fDate, setFDate] = useState('')
+  const [fTime, setFTime] = useState('')
+  const [fDuration, setFDuration] = useState('60')
+  const [fJoinUrl, setFJoinUrl] = useState('')
+  const [fRecordingUrl, setFRecordingUrl] = useState('')
+  const [recordingSessionId, setRecordingSessionId] = useState<string | null>(null)
+  const [recordingUrl, setRecordingUrlState] = useState('')
+  const [savingRecording, setSavingRecording] = useState(false)
+
+  useEffect(() => { fetchSessions() }, [courseId])
+
+  async function fetchSessions() {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/live-sessions?courseId=${courseId}`)
+      const json = await res.json()
+      setSessions(json.sessions || [])
+    } catch { /* non-fatal */ }
+    finally { setLoading(false) }
+  }
+
+  function openAddForm() {
+    setEditingSession(null)
+    setFTitle(''); setFDesc(''); setFDate(''); setFTime('')
+    setFDuration('60'); setFJoinUrl(''); setFRecordingUrl('')
+    setError('')
+    setShowForm(true)
+  }
+
+  function openEditForm(s: LiveSession) {
+    setEditingSession(s)
+    const dt = new Date(s.scheduled_at)
+    setFTitle(s.title)
+    setFDesc(s.description || '')
+    setFDate(dt.toISOString().slice(0, 10))
+    setFTime(dt.toISOString().slice(11, 16))
+    setFDuration(String(s.duration_minutes))
+    setFJoinUrl(s.join_url)
+    setFRecordingUrl(s.recording_url || '')
+    setError('')
+    setShowForm(true)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!fTitle.trim() || !fDate || !fTime || !fJoinUrl.trim()) {
+      setError('Title, date, time and join URL are required.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const scheduledAt = new Date(`${fDate}T${fTime}`).toISOString()
+      const body = {
+        courseId,
+        title: fTitle.trim(),
+        description: fDesc.trim() || null,
+        scheduledAt,
+        durationMinutes: parseInt(fDuration) || 60,
+        joinUrl: fJoinUrl.trim(),
+      }
+
+      if (editingSession) {
+        const res = await fetch(`/api/live-sessions/${editingSession.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) throw new Error((await res.json()).error || 'Update failed')
+      } else {
+        const res = await fetch('/api/live-sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) throw new Error((await res.json()).error || 'Create failed')
+      }
+
+      setShowForm(false)
+      await fetchSessions()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(sessionId: string) {
+    if (!confirm('Delete this live session?')) return
+    await fetch(`/api/live-sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    await fetchSessions()
+  }
+
+  async function saveRecording(sessionId: string) {
+    if (!recordingUrl.trim()) return
+    setSavingRecording(true)
+    try {
+      await fetch(`/api/live-sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ recording_url: recordingUrl.trim() }),
+      })
+      setRecordingSessionId(null)
+      setRecordingUrlState('')
+      await fetchSessions()
+    } catch { /* non-fatal */ }
+    finally { setSavingRecording(false) }
+  }
+
+  function formatSessionDate(iso: string) {
+    const d = new Date(iso)
+    return d.toLocaleString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: 'numeric', minute: '2-digit',
+    })
+  }
+
+  function isUpcoming(iso: string) {
+    return new Date(iso) > new Date()
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-white">Live Sessions</h2>
+          <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
+            Schedule Zoom/Meet classes — reminders auto-sent via Telegram
+          </p>
+        </div>
+        <button
+          onClick={openAddForm}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90"
+        >
+          <Plus className="w-4 h-4" />
+          Schedule Session
+        </button>
+      </div>
+
+      {/* Add / Edit form */}
+      {showForm && (
+        <div className="rounded-2xl p-5 glass" style={{ border: '1px solid rgba(124,58,237,0.3)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-white">
+              {editingSession ? 'Edit Session' : 'New Live Session'}
+            </h3>
+            <button onClick={() => setShowForm(false)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg"
+              style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Session Title *</label>
+              <input value={fTitle} onChange={e => setFTitle(e.target.value)}
+                placeholder="e.g. Live Q&A — Week 3"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Description (optional)</label>
+              <textarea value={fDesc} onChange={e => setFDesc(e.target.value)}
+                rows={2} placeholder="What will be covered in this session?"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none focus:border-violet-500/50" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Date *</label>
+                <input value={fDate} onChange={e => setFDate(e.target.value)}
+                  type="date"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Time *</label>
+                <input value={fTime} onChange={e => setFTime(e.target.value)}
+                  type="time"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Duration (minutes)</label>
+              <input value={fDuration} onChange={e => setFDuration(e.target.value)}
+                type="number" min="15" max="480"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Zoom / Meet Join URL *</label>
+              <input value={fJoinUrl} onChange={e => setFJoinUrl(e.target.value)}
+                type="url" placeholder="https://zoom.us/j/... or meet.google.com/..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+            </div>
+            {error && (
+              <p className="text-xs px-3 py-2 rounded-xl"
+                style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                {error}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setShowForm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                Cancel
+              </button>
+              <button type="submit" disabled={saving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+                {saving ? 'Saving...' : editingSession ? 'Save Changes' : 'Schedule Session'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Session list */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : sessions.length === 0 ? (
+        <div className="rounded-2xl p-12 text-center glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
+            style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
+            <Calendar className="w-6 h-6" style={{ color: '#8b5cf6' }} />
+          </div>
+          <p className="text-sm font-medium text-white mb-1">No live sessions yet</p>
+          <p className="text-xs" style={{ color: '#52525b' }}>
+            Schedule a session — students get automatic Telegram reminders 24h and 15 min before.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {sessions.map(s => {
+            const upcoming = isUpcoming(s.scheduled_at)
+            return (
+              <div key={s.id} className="rounded-2xl p-5 glass"
+                style={{ border: upcoming ? '1px solid rgba(124,58,237,0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <p className="text-sm font-semibold text-white">{s.title}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full"
+                        style={upcoming
+                          ? { background: 'rgba(124,58,237,0.15)', color: '#8b5cf6' }
+                          : { background: 'rgba(255,255,255,0.05)', color: '#52525b' }}>
+                        {upcoming ? 'Upcoming' : 'Past'}
+                      </span>
+                      {s.recording_url && (
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+                          Recording added
+                        </span>
+                      )}
+                    </div>
+                    {s.description && (
+                      <p className="text-xs mb-2" style={{ color: '#a1a1aa' }}>{s.description}</p>
+                    )}
+                    <div className="flex flex-wrap gap-3">
+                      <span className="flex items-center gap-1.5 text-xs" style={{ color: '#71717a' }}>
+                        <Calendar className="w-3.5 h-3.5" />
+                        {formatSessionDate(s.scheduled_at)}
+                      </span>
+                      <span className="flex items-center gap-1.5 text-xs" style={{ color: '#71717a' }}>
+                        <Clock className="w-3.5 h-3.5" />
+                        {s.duration_minutes} min
+                      </span>
+                      <a href={s.join_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs hover:underline"
+                        style={{ color: '#8b5cf6' }}>
+                        <LinkIcon className="w-3.5 h-3.5" />
+                        Join link
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => openEditForm(s)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleDelete(s.id)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Add recording (for past sessions without one) */}
+                {!upcoming && !s.recording_url && recordingSessionId !== s.id && (
+                  <button
+                    onClick={() => { setRecordingSessionId(s.id); setRecordingUrlState('') }}
+                    className="text-xs px-3 py-1.5 rounded-lg mt-1"
+                    style={{ background: 'rgba(34,197,94,0.08)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
+                    + Add Recording URL
+                  </button>
+                )}
+
+                {recordingSessionId === s.id && (
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      value={recordingUrl}
+                      onChange={e => setRecordingUrlState(e.target.value)}
+                      type="url"
+                      placeholder="Recording link..."
+                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-violet-500/50"
+                    />
+                    <button onClick={() => saveRecording(s.id)} disabled={savingRecording}
+                      className="px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient disabled:opacity-50">
+                      {savingRecording ? '...' : 'Save'}
+                    </button>
+                    <button onClick={() => setRecordingSessionId(null)}
+                      className="px-3 py-2 rounded-xl text-sm"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -713,7 +1163,8 @@ export default function CourseManagePage({
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<'lessons' | 'settings'>('lessons')
+  const [activeTab, setActiveTab] = useState<'lessons' | 'live' | 'settings'>('lessons')
+  const [token, setToken] = useState('')
 
   // Settings state
   const [editName, setEditName] = useState('')
@@ -749,6 +1200,8 @@ export default function CourseManagePage({
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setCreatorId(user.id)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) setToken(session.access_token)
 
       const { data: courseData } = await supabase
         .from('courses')
@@ -1131,14 +1584,14 @@ export default function CourseManagePage({
               </span>
             </div>
             <div className="flex items-center gap-4 mt-4 border-b border-white/5">
-              {(['lessons', 'settings'] as const).map(tab => (
+              {(['lessons', 'live', 'settings'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className="px-4 py-2 text-sm font-medium capitalize transition-all relative"
                   style={{ color: activeTab === tab ? '#8b5cf6' : '#52525b' }}
                 >
-                  {tab}
+                  {tab === 'live' ? 'Live Sessions' : tab}
                   {activeTab === tab && (
                     <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#8b5cf6]" />
                   )}
@@ -1351,6 +1804,8 @@ export default function CourseManagePage({
                   </div>
                 )}
               </>
+            ) : activeTab === 'live' ? (
+              <LiveSessionsTab courseId={id} token={token} />
             ) : (
               <div className="flex flex-col gap-6">
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>

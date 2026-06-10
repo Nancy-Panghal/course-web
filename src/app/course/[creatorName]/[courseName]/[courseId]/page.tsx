@@ -17,7 +17,7 @@ import Link from 'next/link'
 import {
   Shield, CheckCircle, ChevronRight, ChevronLeft,
   Award, Menu, Clock, Lock, FileText, Play, BookOpen,
-  HelpCircle
+  HelpCircle, Download, ExternalLink
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, linkStudentToEnrollment } from '@/lib/enrollments'
@@ -142,6 +142,10 @@ export default function CourseLearnPage() {
   const [demoTelegramToken, setDemoTelegramToken] = useState('')
   const [generatingDemoToken, setGeneratingDemoToken] = useState(false)
   const [enrolledTelegramToken, setEnrolledTelegramToken] = useState('')
+  const [showCertModal, setShowCertModal] = useState(false)
+  const [certGenerating, setCertGenerating] = useState(false)
+  const [certId, setCertId] = useState<string | null>(null)
+  const [certPdfUrl, setCertPdfUrl] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -396,6 +400,28 @@ export default function CourseLearnPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  async function openCertificate() {
+    setShowCertModal(true)
+    if (certId) return // already fetched this session
+    if (!enrollment?.id || !course?.id) return
+    setCertGenerating(true)
+    try {
+      const res = await fetch('/api/certificate/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enrollmentId: enrollment.id, courseId: course.id }),
+      })
+      const data = await res.json()
+      if ((data.issued || data.alreadyIssued) && data.pdfUrl) {
+        setCertId(data.certificateId)
+        setCertPdfUrl(data.pdfUrl)
+      }
+    } catch (err) {
+      console.error('[certificate]', err)
+    }
+    setCertGenerating(false)
+  }
+
   if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -457,7 +483,9 @@ export default function CourseLearnPage() {
             </span>
           </div>
           {allDone && (
-            <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: 'rgba(234,179,8,0.08)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            <button
+              onClick={openCertificate}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: 'rgba(234,179,8,0.08)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               <Award className="w-3.5 h-3.5" /> Certificate
             </button>
           )}
@@ -688,7 +716,9 @@ export default function CourseLearnPage() {
                     </p>
                   </div>
                 ) : (
-                  <button style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(234,179,8,0.08)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  <button
+                    onClick={openCertificate}
+                    style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(234,179,8,0.08)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                     <Award className="w-4 h-4 inline mr-1" />Get Certificate
                   </button>
                 )}
@@ -749,6 +779,101 @@ export default function CourseLearnPage() {
           )}
         </main>
       </div>
+
+      {/* ── CERTIFICATE MODAL ── */}
+      {showCertModal && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCertModal(false) }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 60,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}>
+          <div style={{
+            width: '100%', maxWidth: 420, borderRadius: 20, padding: 32,
+            background: '#0a0a0a', border: '1px solid rgba(234,179,8,0.25)',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: 18, margin: '0 auto 20px',
+              background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Award style={{ width: 36, height: 36, color: '#eab308' }} />
+            </div>
+
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 8 }}>
+              Course Completed! 🎉
+            </h2>
+            <p style={{ color: '#a1a1aa', fontSize: 14, marginBottom: 24 }}>
+              You've completed <strong style={{ color: '#fff' }}>{course?.name}</strong>
+            </p>
+
+            {/* Certificate preview card */}
+            <div style={{
+              borderRadius: 12, padding: 18, marginBottom: 24, textAlign: 'left',
+              background: 'rgba(234,179,8,0.04)', border: '1px solid rgba(234,179,8,0.12)',
+            }}>
+              <p style={{ fontSize: 10, color: '#52525b', marginBottom: 4 }}>This certifies that</p>
+              <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>
+                {user?.user_metadata?.full_name || user?.email || 'You'}
+              </p>
+              <p style={{ fontSize: 11, color: '#52525b', marginBottom: 4 }}>has successfully completed</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>{course?.name}</p>
+              <p style={{ fontSize: 11, color: '#52525b' }}>
+                Issued by {course?.host_name || 'Creator'} · {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {certGenerating && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0', color: '#a1a1aa', fontSize: 13 }}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', animation: 'pulse 1s infinite' }} />
+                  Generating certificate…
+                </div>
+              )}
+
+              {certPdfUrl && (
+                <a
+                  href={certPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '12px 0', borderRadius: 12, fontWeight: 700, fontSize: 14,
+                    color: '#eab308', background: 'rgba(234,179,8,0.1)',
+                    border: '1px solid rgba(234,179,8,0.25)', textDecoration: 'none',
+                  }}>
+                  <Download style={{ width: 16, height: 16 }} /> Download Certificate PDF
+                </a>
+              )}
+
+              {certId && (
+                <Link
+                  href={`/certificate/${certId}`}
+                  target="_blank"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    padding: '10px 0', fontSize: 12, fontWeight: 600,
+                    color: '#a78bfa', textDecoration: 'none',
+                  }}>
+                  <ExternalLink style={{ width: 13, height: 13 }} /> View verification page
+                </Link>
+              )}
+
+              <button
+                onClick={() => setShowCertModal(false)}
+                style={{
+                  padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 13,
+                  color: '#a1a1aa', background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer',
+                }}>
+                Back to Course
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
