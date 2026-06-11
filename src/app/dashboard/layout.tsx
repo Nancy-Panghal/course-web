@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { ensureCreatorProfile, getTrialStatus } from '@/lib/creator'
+import { resolveAccountType } from '@/lib/account'
+import { ensureCreatorProfile, createCreatorProfile, getTrialStatus } from '@/lib/creator'
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
 
@@ -21,15 +22,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return
       }
 
-      // Also check if user is a creator
-      const role = session.user?.user_metadata?.role
-      if (role === 'student') {
-        router.push('/')
+      const accountType = await resolveAccountType(session.user)
+
+      if (accountType === 'student') {
+        router.push('/my-courses')
         return
       }
 
-      // Ensure creator profile exists
-      const creator = await ensureCreatorProfile()
+      if (accountType !== 'creator') {
+        router.push('/login?role=creator')
+        return
+      }
+
+      let creator = await ensureCreatorProfile()
+      if (!creator && session.user.user_metadata?.role === 'creator') {
+        creator = await createCreatorProfile()
+      }
+
+      if (!creator) {
+        router.push('/login?role=creator')
+        return
+      }
+
       const trial = getTrialStatus(creator)
 
       // Show banner if less than 7 days left or expired

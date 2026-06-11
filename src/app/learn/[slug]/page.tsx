@@ -821,7 +821,7 @@ export default function LearnPage({
                 </div>
 
                 {/* Progress saved */}
-                <div className="flex items-center gap-2 p-3 rounded-xl mb-3"
+                <div className="flex items-center gap-2 p-3 rounded-xl mb-3">
                   <CheckCircle className="w-4 h-4 flex-shrink-0" style={{color:'#8b5cf6'}} />
                   <p className="text-xs" style={{color:'#52525b'}}>
                     {isEnrolled

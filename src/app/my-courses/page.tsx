@@ -8,6 +8,7 @@ import {
   LogOut, MessageCircle, Layers,Download, ExternalLink,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { resolveAccountType } from '@/lib/account'
 import { slugify } from '@/lib/utils'
 
 interface EnrolledCourse {
@@ -82,8 +83,8 @@ const displayEmail = user?.email || ''
         router.push('/login?redirect=/my-courses')
         return
       }
-      // Creators belong in their own dashboard, not here
-      if (me.user_metadata?.role === 'creator') {
+      const accountType = await resolveAccountType(me)
+      if (accountType === 'creator') {
         router.push('/dashboard')
         return
       }

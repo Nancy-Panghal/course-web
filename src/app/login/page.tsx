@@ -5,7 +5,8 @@ import Link from 'next/link'
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { ensureCreatorProfile } from '@/lib/creator'
+import { resolvePostLoginRedirect } from '@/lib/account'
+import { createCreatorProfile } from '@/lib/creator'
 
 type Mode = 'login' | 'signup' | 'forgot'
 
@@ -122,10 +123,9 @@ export default function LoginPage() {
         return
       }
 
-      // Create creator profile
-      await ensureCreatorProfile()
+      await createCreatorProfile()
       await sendLoginNotification()
-      router.push(redirect)
+      router.push('/dashboard')
 
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -138,10 +138,9 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
-      // Ensure creator profile exists
-      await ensureCreatorProfile()
       await sendLoginNotification()
-      router.push(redirect)
+      const dest = await resolvePostLoginRedirect(data.user!, redirect)
+      router.push(dest)
     }
 
     setLoading(false)

@@ -3,21 +3,33 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link' 
 import { Shield, Menu, X, LayoutDashboard, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { resolveAccountType } from '@/lib/account'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [isCreator, setIsCreator] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', handleScroll)
 
+    async function syncUser(sessionUser: any | null) {
+      setUser(sessionUser ?? null)
+      if (!sessionUser) {
+        setIsCreator(false)
+        return
+      }
+      const accountType = await resolveAccountType(sessionUser)
+      setIsCreator(accountType === 'creator')
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+      syncUser(session?.user ?? null)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
+      syncUser(session?.user ?? null)
     })
 
     return () => {
@@ -25,10 +37,6 @@ export default function Navbar() {
       subscription.unsubscribe()
     }
   }, [])
-
-  // role is set to 'creator' explicitly at signup (login/page.tsx).
-  // Students don't go through that flow, so their role is absent/undefined.
-  const isCreator = user?.user_metadata?.role === 'creator'
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${

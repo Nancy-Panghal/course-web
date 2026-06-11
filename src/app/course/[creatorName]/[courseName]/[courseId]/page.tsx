@@ -22,6 +22,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, linkStudentToEnrollment } from '@/lib/enrollments'
 import EnrollModal from '@/components/EnrollModal'
+import AssignmentSubmit from '@/components/AssignmentSubmit'
 import WatermarkedPlayer from '@/components/WatermarkedPlayer'
 
 interface Lesson {
@@ -148,13 +149,10 @@ export default function CourseLearnPage() {
   const [certGenerating, setCertGenerating] = useState(false)
   const [certId, setCertId] = useState<string | null>(null)
   
-  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false)
   const [assignmentSubmission, setAssignmentSubmission] = useState<any>(null)
   const [assignmentLoadedForLesson, setAssignmentLoadedForLesson] = useState<string | null>(null)
   const [certPdfUrl, setCertPdfUrl] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState('')
-  // Assignment state
-  const [assignmentText, setAssignmentText] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -343,7 +341,6 @@ export default function CourseLearnPage() {
       if (assignmentLoadedForLesson === currentLesson.id) return
       setAssignmentLoadedForLesson(currentLesson.id)
       setAssignmentSubmission(null)
-      setAssignmentText('')
       try {
         const res = await fetch(
           `/api/assignments/my?lessonId=${currentLesson.id}&enrollmentId=${enrollment.id}`,
@@ -357,35 +354,6 @@ export default function CourseLearnPage() {
     }
     loadAssignment()
   }, [currentLesson?.id, enrollment?.id, sessionToken])
-
-  async function submitAssignment() {
-  if (!currentLesson || !enrollment?.id || !assignmentText.trim()) return
-  setAssignmentSubmitting(true)
-  try {
-    const res = await fetch('/api/assignments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${sessionToken}`,
-      },
-      body: JSON.stringify({
-        lessonId: currentLesson.id,
-        courseId: course?.id,
-        enrollmentId: enrollment.id,
-        submissionText: assignmentText.trim(),
-      }),
-    })
-    if (res.ok) {
-      setAssignmentSubmission({
-        status: 'pending',
-        submission_text: assignmentText.trim(),
-        submitted_at: new Date().toISOString(),
-      })
-      setAssignmentText('')
-    }
-  } catch { /* non-fatal */ }
-  finally { setAssignmentSubmitting(false) }
-}
 
   async function markComplete(orderNum: number) {
     if (completed.includes(orderNum)) return
@@ -813,6 +781,16 @@ export default function CourseLearnPage() {
                           {assignmentSubmission.submission_text.length > 200 ? '…' : ''}
                         </p>
                       )}
+                      {assignmentSubmission.submission_url && (
+                        <a
+                          href={assignmentSubmission.submission_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: 12, color: '#a78bfa', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <Download className="w-3.5 h-3.5" /> View attached file
+                        </a>
+                      )}
                       {assignmentSubmission.status === 'reviewed' && (
                         <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)' }}>
                           <p style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', marginBottom: 4 }}>
@@ -830,40 +808,16 @@ export default function CourseLearnPage() {
                         <p style={{ fontSize: 11, color: '#71717a' }}>Awaiting instructor review…</p>
                       )}
                     </div>
-                  ) : (
-                    <div>
-                      <textarea
-                        value={assignmentText}
-                        onChange={e => setAssignmentText(e.target.value)}
-                        placeholder="Type your answer here (max 2000 characters)…"
-                        rows={4}
-                        maxLength={2000}
-                        style={{
-                          width: '100%', padding: '10px 12px', borderRadius: 10,
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: '#fff', fontSize: 13, resize: 'vertical',
-                          outline: 'none', marginBottom: 8, boxSizing: 'border-box' as const,
-                        }}
-                      />
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 11, color: '#52525b' }}>{assignmentText.length}/2000</span>
-                        <button
-                          onClick={submitAssignment}
-                          disabled={assignmentSubmitting || !assignmentText.trim()}
-                          style={{
-                            padding: '8px 18px', borderRadius: 10,
-                            background: 'linear-gradient(135deg,#f59e0b,#d97706)',
-                            border: 'none', color: '#fff',
-                            fontSize: 13, fontWeight: 700,
-                            cursor: assignmentSubmitting || !assignmentText.trim() ? 'not-allowed' : 'pointer',
-                            opacity: assignmentSubmitting || !assignmentText.trim() ? 0.5 : 1,
-                          }}>
-                          {assignmentSubmitting ? 'Submitting…' : 'Submit Assignment'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  ) : currentLesson && enrollment?.id && course?.id && sessionToken ? (
+                    <AssignmentSubmit
+                      key={currentLesson.id}
+                      sessionToken={sessionToken}
+                      lessonId={currentLesson.id}
+                      courseId={course.id}
+                      enrollmentId={enrollment.id}
+                      onSubmitted={setAssignmentSubmission}
+                    />
+                  ) : null}
                 </div>
               )}
 

@@ -170,14 +170,28 @@ export default function AssignmentsPage() {
                 </div>
 
                 {/* Submission content */}
-                {a.submission_text && (
+                {(a.submission_text || a.submission_url) && (
                   <div style={{
                     padding: 12, borderRadius: 10, marginBottom: 12,
                     background: 'rgba(255,255,255,0.03)',
                     border: '1px solid rgba(255,255,255,0.07)',
                   }}>
                     <p className="text-xs font-semibold mb-2" style={{ color: '#71717a' }}>Student submission:</p>
-                    <p className="text-sm" style={{ color: '#e4e4e7', lineHeight: 1.6 }}>{a.submission_text}</p>
+                    {a.submission_text && (
+                      <p className="text-sm" style={{ color: '#e4e4e7', lineHeight: 1.6 }}>{a.submission_text}</p>
+                    )}
+                    {a.submission_url && (
+                      <a
+                        href={a.submission_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium mt-2 inline-flex items-center gap-1"
+                        style={{ color: '#a78bfa' }}
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        Download attached file
+                      </a>
+                    )}
                   </div>
                 )}
 

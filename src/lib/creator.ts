@@ -1,19 +1,27 @@
 import { supabase } from './supabase'
 
+/** Fetch creator profile only — never auto-creates (prevents student accounts becoming creators). */
 export async function ensureCreatorProfile() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // Check if creator profile exists
   const { data: existing } = await supabase
     .from('creators')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
+  return existing
+}
+
+/** Explicitly create a creator profile at creator signup. */
+export async function createCreatorProfile() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const existing = await ensureCreatorProfile()
   if (existing) return existing
 
-  // Create new creator profile
   const { data, error } = await supabase
     .from('creators')
     .insert({
@@ -27,6 +35,11 @@ export async function ensureCreatorProfile() {
     })
     .select()
     .single()
+
+  if (error) {
+    console.error('[createCreatorProfile]', error.message)
+    return null
+  }
 
   return data
 }
