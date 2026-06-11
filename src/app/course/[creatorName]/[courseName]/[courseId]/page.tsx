@@ -36,6 +36,8 @@ interface Lesson {
   summary_url?: string | null
   notes_url?: string | null
   quiz_questions?: { question: string; options: string[]; answerIndex: number }[] | null
+  assignment_prompt?: string | null
+  assignment_required?: boolean | null
 }
 
 interface Course {
@@ -145,12 +147,21 @@ export default function CourseLearnPage() {
   const [showCertModal, setShowCertModal] = useState(false)
   const [certGenerating, setCertGenerating] = useState(false)
   const [certId, setCertId] = useState<string | null>(null)
+  
+  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false)
+  const [assignmentSubmission, setAssignmentSubmission] = useState<any>(null)
+  const [assignmentLoadedForLesson, setAssignmentLoadedForLesson] = useState<string | null>(null)
   const [certPdfUrl, setCertPdfUrl] = useState<string | null>(null)
+  const [sessionToken, setSessionToken] = useState('')
+  // Assignment state
+  const [assignmentText, setAssignmentText] = useState('')
 
   useEffect(() => {
     async function load() {
       const { data: { user: me } } = await supabase.auth.getUser()
       setUser(me)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) setSessionToken(session.access_token)
 
       const { data: courseData } = await supabase
         .from('courses').select('*').eq('id', courseId).single()
@@ -312,6 +323,7 @@ export default function CourseLearnPage() {
   const canAccess = isEnrolled || isFree
   const allDone = plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)
+  
 
   // Load signed content URL
   useEffect(() => {
@@ -323,6 +335,57 @@ export default function CourseLearnPage() {
       .then(url => { setContentUrl(url); setLoadingContent(false) })
       .catch(() => setLoadingContent(false))
   }, [currentLesson?.id, canAccess])
+
+  // Load assignment submission when lesson changes
+  useEffect(() => {
+    async function loadAssignment() {
+      if (!enrollment?.id || !currentLesson?.id || !sessionToken) return
+      if (assignmentLoadedForLesson === currentLesson.id) return
+      setAssignmentLoadedForLesson(currentLesson.id)
+      setAssignmentSubmission(null)
+      setAssignmentText('')
+      try {
+        const res = await fetch(
+          `/api/assignments/my?lessonId=${currentLesson.id}&enrollmentId=${enrollment.id}`,
+          { headers: { Authorization: `Bearer ${sessionToken}` } }
+        )
+        if (res.ok) {
+          const json = await res.json()
+          setAssignmentSubmission(json.assignment || null)
+        }
+      } catch { /* non-fatal */ }
+    }
+    loadAssignment()
+  }, [currentLesson?.id, enrollment?.id, sessionToken])
+
+  async function submitAssignment() {
+  if (!currentLesson || !enrollment?.id || !assignmentText.trim()) return
+  setAssignmentSubmitting(true)
+  try {
+    const res = await fetch('/api/assignments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        lessonId: currentLesson.id,
+        courseId: course?.id,
+        enrollmentId: enrollment.id,
+        submissionText: assignmentText.trim(),
+      }),
+    })
+    if (res.ok) {
+      setAssignmentSubmission({
+        status: 'pending',
+        submission_text: assignmentText.trim(),
+        submitted_at: new Date().toISOString(),
+      })
+      setAssignmentText('')
+    }
+  } catch { /* non-fatal */ }
+  finally { setAssignmentSubmitting(false) }
+}
 
   async function markComplete(orderNum: number) {
     if (completed.includes(orderNum)) return
@@ -715,6 +778,7 @@ export default function CourseLearnPage() {
                         : `${remainingPlanned} more lesson${remainingPlanned > 1 ? 's' : ''} planned`}
                     </p>
                   </div>
+                  
                 ) : (
                   <button
                     onClick={openCertificate}
@@ -723,6 +787,85 @@ export default function CourseLearnPage() {
                   </button>
                 )}
               </div>
+
+              {/* Assignment section */}
+              {currentLesson?.assignment_prompt && isEnrolled && (
+                <div style={{
+                  marginBottom: 18, padding: 16, borderRadius: 12,
+                  background: 'rgba(245,158,11,0.06)',
+                  border: '1px solid rgba(245,158,11,0.2)',
+                }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', marginBottom: 6 }}>
+                    📝 Assignment{currentLesson.assignment_required ? ' (Required)' : ' (Optional)'}
+                  </p>
+                  <p style={{ fontSize: 13, color: '#e4e4e7', marginBottom: 12, lineHeight: 1.6 }}>
+                    {currentLesson.assignment_prompt}
+                  </p>
+
+                  {assignmentSubmission ? (
+                    <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#4ade80', marginBottom: 4 }}>
+                        ✅ Submitted {new Date(assignmentSubmission.submitted_at).toLocaleDateString('en-IN')}
+                      </p>
+                      {assignmentSubmission.submission_text && (
+                        <p style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 8 }}>
+                          {assignmentSubmission.submission_text.slice(0, 200)}
+                          {assignmentSubmission.submission_text.length > 200 ? '…' : ''}
+                        </p>
+                      )}
+                      {assignmentSubmission.status === 'reviewed' && (
+                        <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)' }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', marginBottom: 4 }}>
+                            Instructor Feedback:
+                          </p>
+                          <p style={{ fontSize: 12, color: '#e4e4e7' }}>{assignmentSubmission.creator_feedback}</p>
+                          {assignmentSubmission.score !== null && assignmentSubmission.score !== undefined && (
+                            <p style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', marginTop: 6 }}>
+                              Score: {assignmentSubmission.score}/10
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {assignmentSubmission.status === 'pending' && (
+                        <p style={{ fontSize: 11, color: '#71717a' }}>Awaiting instructor review…</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <textarea
+                        value={assignmentText}
+                        onChange={e => setAssignmentText(e.target.value)}
+                        placeholder="Type your answer here (max 2000 characters)…"
+                        rows={4}
+                        maxLength={2000}
+                        style={{
+                          width: '100%', padding: '10px 12px', borderRadius: 10,
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: '#fff', fontSize: 13, resize: 'vertical',
+                          outline: 'none', marginBottom: 8, boxSizing: 'border-box' as const,
+                        }}
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 11, color: '#52525b' }}>{assignmentText.length}/2000</span>
+                        <button
+                          onClick={submitAssignment}
+                          disabled={assignmentSubmitting || !assignmentText.trim()}
+                          style={{
+                            padding: '8px 18px', borderRadius: 10,
+                            background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+                            border: 'none', color: '#fff',
+                            fontSize: 13, fontWeight: 700,
+                            cursor: assignmentSubmitting || !assignmentText.trim() ? 'not-allowed' : 'pointer',
+                            opacity: assignmentSubmitting || !assignmentText.trim() ? 0.5 : 1,
+                          }}>
+                          {assignmentSubmitting ? 'Submitting…' : 'Submit Assignment'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Telegram CTA for all users (enrolled or previewing) */}
               {creatorProfile?.telegram_bot_username && (
