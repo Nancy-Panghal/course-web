@@ -66,6 +66,7 @@ interface Enrollment {
   student_id?: string | null
   telegram_start_token?: string | null
   telegram_start_token_expires_at?: string | null
+  certificate_student_name?: string | null
 }
 
 function isLessonFree(lesson: Lesson, config: string): boolean {
@@ -149,6 +150,8 @@ export default function CourseLearnPage() {
   const [showCertModal, setShowCertModal] = useState(false)
   const [certGenerating, setCertGenerating] = useState(false)
   const [certId, setCertId] = useState<string | null>(null)
+  const [studentFullName, setStudentFullName] = useState('')
+  const [savingStudentName, setSavingStudentName] = useState(false)
   
   const [assignmentSubmission, setAssignmentSubmission] = useState<any>(null)
   const [assignmentLoadedForLesson, setAssignmentLoadedForLesson] = useState<string | null>(null)
@@ -442,14 +445,27 @@ export default function CourseLearnPage() {
 
   async function openCertificate() {
     setShowCertModal(true)
+    
+    let currentName = studentFullName
+    // Load saved student name from enrollment if available
+    if (enrollment?.certificate_student_name && !studentFullName) {
+      setStudentFullName(enrollment.certificate_student_name)
+      currentName = enrollment.certificate_student_name
+    }
+
     if (certId) return // already fetched this session
     if (!enrollment?.id || !course?.id) return
+    if (!currentName.trim()) return // wait for student to enter name
     setCertGenerating(true)
     try {
       const res = await fetch('/api/certificate/issue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enrollmentId: enrollment.id, courseId: course.id }),
+        body: JSON.stringify({ 
+          enrollmentId: enrollment.id, 
+          courseId: course.id,
+          studentName: studentFullName.trim(),
+        }),
       })
       const data = await res.json()
       if ((data.issued || data.alreadyIssued) && data.pdfUrl) {
@@ -460,6 +476,20 @@ export default function CourseLearnPage() {
       console.error('[certificate]', err)
     }
     setCertGenerating(false)
+  }
+
+  async function saveStudentNameToEnrollment() {
+    if (!enrollment?.id || !studentFullName.trim()) return
+    setSavingStudentName(true)
+    try {
+      await supabase
+        .from('enrollments')
+        .update({ certificate_student_name: studentFullName.trim() })
+        .eq('id', enrollment.id)
+    } catch (err) {
+      console.error('[saveStudentName]', err)
+    }
+    setSavingStudentName(false)
   }
 
   if (!mounted || loading) {
@@ -915,6 +945,38 @@ export default function CourseLearnPage() {
               You've completed <strong style={{ color: '#fff' }}>{course?.name}</strong>
             </p>
 
+            {/* Name input field */}
+            <div style={{ marginBottom: 20, textAlign: 'left' }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#a1a1aa', marginBottom: 8 }}>
+                Enter your full name for the certificate:
+              </label>
+              <input
+                type="text"
+                value={studentFullName}
+                onChange={(e) => setStudentFullName(e.target.value)}
+                placeholder="John Doe"
+                autoComplete="name"
+                style={{
+                  width: '100%', padding: '12px 16px', borderRadius: 10,
+                  fontSize: 14, fontWeight: 600, color: '#fff',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  outline: 'none',
+                }}
+                onFocus={(e) => e.target.style.borderColor = 'rgba(234,179,8,0.5)'}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(255,255,255,0.1)'
+                  if (studentFullName.trim()) {
+                    saveStudentNameToEnrollment()
+                  }
+                }}
+              />
+              <p style={{ fontSize: 11, color: '#52525b', marginTop: 6 }}>
+                This name will appear on your certificate. Make sure it's spelled correctly.
+                {savingStudentName && ' Saving...'}
+              </p>
+            </div>
+
             {/* Certificate preview card */}
             <div style={{
               borderRadius: 12, padding: 18, marginBottom: 24, textAlign: 'left',
@@ -922,7 +984,7 @@ export default function CourseLearnPage() {
             }}>
               <p style={{ fontSize: 10, color: '#52525b', marginBottom: 4 }}>This certifies that</p>
               <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>
-                {user?.user_metadata?.full_name || user?.email || 'You'}
+                {studentFullName.trim() || user?.user_metadata?.full_name || user?.email || 'Your Name'}
               </p>
               <p style={{ fontSize: 11, color: '#52525b', marginBottom: 4 }}>has successfully completed</p>
               <p style={{ fontSize: 14, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>{course?.name}</p>
@@ -932,6 +994,19 @@ export default function CourseLearnPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {studentFullName.trim() && !certPdfUrl && !certGenerating && (
+                <button
+                  onClick={() => openCertificate()}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '12px 0', borderRadius: 12, fontWeight: 700, fontSize: 14,
+                    color: '#eab308', background: 'rgba(234,179,8,0.1)',
+                    border: '1px solid rgba(234,179,8,0.25)', cursor: 'pointer',
+                  }}>
+                  <Download style={{ width: 16, height: 16 }} /> Generate Certificate
+                </button>
+              )}
+
               {certGenerating && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0', color: '#a1a1aa', fontSize: 13 }}>
                   <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', animation: 'pulse 1s infinite' }} />

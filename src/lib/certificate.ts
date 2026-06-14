@@ -30,6 +30,12 @@ interface DrawData {
   certificateId: string
   issuedAt: Date
   customMessage?: string
+  courseDuration?: string
+  totalHours?: string
+  instructorName?: string
+  instructorTitle?: string
+  skills?: string[]
+  verificationUrl?: string
 }
 
 // ─── Page dimensions (A4 landscape, in points) ───────────────────────────────
@@ -126,6 +132,18 @@ function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: P
   const creator = `Presented by ${d.creatorName}`
   page.drawText(creator, { x: cx(creator, tr, 14), y: H - 378, size: 14, font: tr, color: hx('#444444') })
 
+  // Course duration and hours (if available)
+  if (d.courseDuration || d.totalHours) {
+    const durationInfo = [d.courseDuration, d.totalHours].filter(Boolean).join(' · ')
+    page.drawText(durationInfo, { x: cx(durationInfo, ti, 11), y: H - 358, size: 11, font: ti, color: hx('#666666') })
+  }
+
+  // Skills (if available)
+  if (d.skills && d.skills.length > 0) {
+    const skillsText = `Skills: ${d.skills.slice(0, 4).join(', ')}${d.skills.length > 4 ? '...' : ''}`
+    page.drawText(skillsText, { x: cx(skillsText, ti, 10), y: H - 342, size: 10, font: ti, color: hx('#777777') })
+  }
+
   // Bottom divider
   page.drawRectangle({ x: 40, y: 112, width: W - 80, height: 1.5, color: gold })
 
@@ -201,6 +219,18 @@ function drawModern(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont)
   const creator = `Presented by ${d.creatorName}`
   page.drawText(creator, { x: cx(creator, regular, 13), y: H - 378, size: 13, font: regular, color: hx('#d1d5db') })
 
+  // Course duration and hours (if available)
+  if (d.courseDuration || d.totalHours) {
+    const durationInfo = [d.courseDuration, d.totalHours].filter(Boolean).join(' · ')
+    page.drawText(durationInfo, { x: cx(durationInfo, regular, 10), y: H - 358, size: 10, font: regular, color: muted })
+  }
+
+  // Skills (if available)
+  if (d.skills && d.skills.length > 0) {
+    const skillsText = `Skills: ${d.skills.slice(0, 4).join(', ')}${d.skills.length > 4 ? '...' : ''}`
+    page.drawText(skillsText, { x: cx(skillsText, regular, 9), y: H - 342, size: 9, font: regular, color: muted })
+  }
+
   // Bottom labels
   page.drawText('DATE',           { x: 60, y: 86, size: 9,  font: bold,    color: muted })
   page.drawText(fmt(d.issuedAt),  { x: 60, y: 68, size: 13, font: bold,    color: rgb(1, 1, 1) })
@@ -274,6 +304,18 @@ function drawGold(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFF
   const creator = `Awarded by ${d.creatorName}`
   page.drawText(creator, { x: cx(creator, tr, 14), y: H - 378, size: 14, font: tr, color: brown })
 
+  // Course duration and hours (if available)
+  if (d.courseDuration || d.totalHours) {
+    const durationInfo = [d.courseDuration, d.totalHours].filter(Boolean).join(' · ')
+    page.drawText(durationInfo, { x: cx(durationInfo, ti, 11), y: H - 358, size: 11, font: ti, color: hx('#666666') })
+  }
+
+  // Skills (if available)
+  if (d.skills && d.skills.length > 0) {
+    const skillsText = `Skills: ${d.skills.slice(0, 4).join(', ')}${d.skills.length > 4 ? '...' : ''}`
+    page.drawText(skillsText, { x: cx(skillsText, ti, 10), y: H - 342, size: 10, font: ti, color: hx('#777777') })
+  }
+
   // Bottom dividers
   page.drawRectangle({ x: 40, y: 112, width: W - 80, height: 1.5, color: gold })
   page.drawRectangle({ x: 40, y: 108, width: W - 80, height: 0.5, color: dkGld })
@@ -332,6 +374,18 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
 
   // Creator
   page.drawText(`by ${d.creatorName}`, { x: 60, y: H - 310, size: 14, font: regular, color: mid })
+
+  // Course duration and hours (if available)
+  if (d.courseDuration || d.totalHours) {
+    const durationInfo = [d.courseDuration, d.totalHours].filter(Boolean).join(' · ')
+    page.drawText(durationInfo, { x: 60, y: H - 290, size: 11, font: regular, color: mid })
+  }
+
+  // Skills (if available)
+  if (d.skills && d.skills.length > 0) {
+    const skillsText = `Skills: ${d.skills.slice(0, 4).join(', ')}${d.skills.length > 4 ? '...' : ''}`
+    page.drawText(skillsText, { x: 60, y: H - 274, size: 10, font: regular, color: mid })
+  }
 
   // Bottom hairline
   page.drawRectangle({ x: 60, y: 104, width: W - 120, height: 0.8, color: faint })
@@ -414,6 +468,18 @@ function drawRoyal(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDF
   const creator = `Presented by ${d.creatorName}`
   page.drawText(creator, { x: cx(creator, tr, 14), y: H - 378, size: 14, font: tr, color: rgb(1, 1, 1) })
 
+  // Course duration and hours (if available)
+  if (d.courseDuration || d.totalHours) {
+    const durationInfo = [d.courseDuration, d.totalHours].filter(Boolean).join(' · ')
+    page.drawText(durationInfo, { x: cx(durationInfo, ti, 11), y: H - 358, size: 11, font: ti, color: muted })
+  }
+
+  // Skills (if available)
+  if (d.skills && d.skills.length > 0) {
+    const skillsText = `Skills: ${d.skills.slice(0, 4).join(', ')}${d.skills.length > 4 ? '...' : ''}`
+    page.drawText(skillsText, { x: cx(skillsText, ti, 10), y: H - 342, size: 10, font: ti, color: muted })
+  }
+
   // Bottom divider
   page.drawRectangle({ x: 36, y: 112, width: W - 72, height: 1.5, color: gold })
 
@@ -440,6 +506,12 @@ export async function generateCertificatePDF(data: {
   issuedAt:      Date
   template:      CertTemplate
   customMessage?: string
+  courseDuration?: string
+  totalHours?: string
+  instructorName?: string
+  instructorTitle?: string
+  skills?: string[]
+  verificationUrl?: string
 }): Promise<Uint8Array> {
   const doc  = await PDFDocument.create()
   const page = doc.addPage([W, H])
@@ -475,24 +547,28 @@ export async function issueCertificate(
     creatorName:   string
     template:      CertTemplate
     customMessage?: string
+    courseDuration?: string
+    totalHours?: string
+    instructorName?: string
+    instructorTitle?: string
+    skills?: string[]
   },
 ): Promise<{ certificateId: string; pdfUrl: string }> {
 
-  // ── Idempotent: return if already issued ───────────────────────────────────
+  // ── Idempotent: return if already issued with same name ────────────────────
   const { data: existing } = await supabase
     .from('certificates')
-    .select('certificate_id, pdf_url')
+    .select('certificate_id, pdf_url, student_name')
     .eq('enrollment_id', params.enrollmentId)
     .maybeSingle()
 
-  if (existing?.certificate_id) {
+  // Only return existing if student name matches - otherwise regenerate
+  if (existing?.certificate_id && existing.student_name === params.studentName) {
     return { certificateId: existing.certificate_id, pdfUrl: existing.pdf_url }
   }
 
-  // ── Generate unique certificate ID ────────────────────────────────────────
-  const year    = new Date().getFullYear()
-  const rand    = Math.floor(Math.random() * 100_000_000).toString().padStart(8, '0')
-  const certId  = `AK-${year}-${rand}`
+  // ── Generate unique certificate ID (reuse existing if name changed) ─────────
+  const certId = existing?.certificate_id || `AK-${new Date().getFullYear()}-${Math.floor(Math.random() * 100_000_000).toString().padStart(8, '0')}`
   const issuedAt = new Date()
 
   // ── Build PDF ─────────────────────────────────────────────────────────────
@@ -504,6 +580,12 @@ export async function issueCertificate(
     issuedAt,
     template:      params.template,
     customMessage: params.customMessage,
+    courseDuration: params.courseDuration,
+    totalHours: params.totalHours,
+    instructorName: params.instructorName,
+    instructorTitle: params.instructorTitle,
+    skills: params.skills,
+    verificationUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://academykit.in'}/certificate/${certId}`,
   })
 
   // ── Upload to Supabase Storage ────────────────────────────────────────────
@@ -519,20 +601,30 @@ export async function issueCertificate(
     .from('certificates')
     .getPublicUrl(storagePath)
 
-  // ── Insert into certificates table ────────────────────────────────────────
-  const { error: insertError } = await supabase.from('certificates').insert({
-    enrollment_id:  params.enrollmentId,
-    course_id:      params.courseId,
-    student_id:     params.studentId,
-    certificate_id: certId,
-    student_name:   params.studentName,
-    course_name:    params.courseName,
-    creator_name:   params.creatorName,
-    issued_at:      issuedAt.toISOString(),
-    pdf_url:        publicUrl,
-  })
-
-  if (insertError) throw new Error(`Certificate record failed: ${insertError.message}`)
+  // ── Insert or update certificates table ────────────────────────────────────
+  if (existing?.certificate_id) {
+    // Update existing record
+    const { error: updateError } = await supabase.from('certificates').update({
+      student_name:   params.studentName,
+      issued_at:      issuedAt.toISOString(),
+      pdf_url:        publicUrl,
+    }).eq('certificate_id', existing.certificate_id)
+    if (updateError) throw new Error(`Certificate update failed: ${updateError.message}`)
+  } else {
+    // Insert new record
+    const { error: insertError } = await supabase.from('certificates').insert({
+      enrollment_id:  params.enrollmentId,
+      course_id:      params.courseId,
+      student_id:     params.studentId,
+      certificate_id: certId,
+      student_name:   params.studentName,
+      course_name:    params.courseName,
+      creator_name:   params.creatorName,
+      issued_at:      issuedAt.toISOString(),
+      pdf_url:        publicUrl,
+    })
+    if (insertError) throw new Error(`Certificate record failed: ${insertError.message}`)
+  }
 
   // ── Update enrollment row ─────────────────────────────────────────────────
   await supabase.from('enrollments').update({

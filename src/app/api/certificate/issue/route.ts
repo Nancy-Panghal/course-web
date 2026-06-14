@@ -15,9 +15,9 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { enrollmentId, courseId } = body
+    const { enrollmentId, courseId, studentName } = body
 
-    console.log('[certificate/issue] Request received:', { enrollmentId, courseId })
+    console.log('[certificate/issue] Request received:', { enrollmentId, courseId, studentName })
 
     if (!enrollmentId || !courseId) {
       return NextResponse.json({ error: 'enrollmentId and courseId are required' }, { status: 400 })
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     // Use the enrollment's own course_uuid as the authoritative course ID
     const { data: course, error: courseErr } = await supabase
       .from('courses')
-      .select('id, name, host_name, cert_enabled, cert_template, cert_custom_message')
+      .select('id, name, host_name, cert_enabled, cert_template, cert_custom_message, duration, total_hours, skills, instructor_name, instructor_title')
       .eq('id', enrollment.course_uuid)
       .maybeSingle()
 
@@ -101,15 +101,20 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Resolve student name ─────────────────────────────────────────────
-    let studentName = 'Student'
-    if (enrollment.student_id) {
+    let finalStudentName = 'Student'
+    
+    // Use provided studentName from request if available
+    if (studentName && studentName.trim()) {
+      finalStudentName = studentName.trim()
+    } else if (enrollment.student_id) {
+      // Fallback to database lookup
       const { data: student } = await supabase
         .from('students')
         .select('name, phone')
         .eq('id', enrollment.student_id)
         .maybeSingle()
-      if (student?.name?.trim()) studentName = student.name.trim()
-      else if (student?.phone) studentName = `Student ****${String(student.phone).slice(-4)}`
+      if (student?.name?.trim()) finalStudentName = student.name.trim()
+      else if (student?.phone) finalStudentName = `Student ****${String(student.phone).slice(-4)}`
     }
 
     // ── Issue ─────────────────────────────────────────────────────────────
@@ -117,11 +122,16 @@ export async function POST(req: NextRequest) {
       enrollmentId,
       courseId: effectiveCourseId,
       studentId: enrollment.student_id ?? null,
-      studentName,
+      studentName: finalStudentName,
       courseName: course.name,
       creatorName: course.host_name || 'Creator',
       template: (course.cert_template ?? 'classic') as CertTemplate,
       customMessage: course.cert_custom_message ?? undefined,
+      courseDuration: course.duration,
+      totalHours: course.total_hours,
+      instructorName: course.instructor_name,
+      instructorTitle: course.instructor_title,
+      skills: course.skills,
     })
 
     return NextResponse.json({ issued: true, certificateId, pdfUrl })

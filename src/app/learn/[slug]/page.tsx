@@ -105,6 +105,7 @@ export default function LearnPage({
   const [certGenerating, setCertGenerating] = useState(false)
   const [certificateId, setCertificateId] = useState<string | null>(null)
   const [certificatePdfUrl, setCertificatePdfUrl] = useState<string | null>(null)
+  const [studentFullName, setStudentFullName] = useState('')
 
   // Assignment state
   const [assignmentText, setAssignmentText] = useState('')
@@ -250,6 +251,7 @@ export default function LearnPage({
       if (!enrollment?.id) return
       if (!course?.id) return
       if (certificateId) return  // already issued this session
+      if (!studentFullName.trim()) return  // wait for student to enter name
 
       setCertGenerating(true)
       try {
@@ -259,6 +261,7 @@ export default function LearnPage({
           body: JSON.stringify({
             enrollmentId: enrollment.id,
             courseId: course.id,
+            studentName: studentFullName.trim(),
           }),
         })
         const data = await res.json()
@@ -272,7 +275,7 @@ export default function LearnPage({
       setCertGenerating(false)
     }
     issueCert()
-  }, [showCertificate, enrollment?.id, course?.id, certificateId])
+  }, [showCertificate, enrollment?.id, course?.id, certificateId, studentFullName])
 
 
 
@@ -873,6 +876,29 @@ export default function LearnPage({
                 : 'Your certificate is ready to download.'}
             </p>
 
+            {/* Name input field */}
+            <div className="mb-6 text-left">
+              <label className="block text-xs font-semibold mb-2" style={{color:'#a1a1aa'}}>
+                Enter your full name for the certificate:
+              </label>
+              <input
+                type="text"
+                value={studentFullName}
+                onChange={(e) => setStudentFullName(e.target.value)}
+                placeholder="John Doe"
+                className="w-full px-4 py-3 rounded-xl text-sm font-medium text-white bg-transparent border focus:outline-none focus:ring-2 transition-all"
+                style={{
+                  background:'rgba(255,255,255,0.05)',
+                  borderColor:'rgba(255,255,255,0.1)'
+                }}
+                onFocus={(e) => e.target.style.borderColor = 'rgba(250,204,21,0.5)'}
+                onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+              />
+              <p className="text-xs mt-2" style={{color:'#52525b'}}>
+                This name will appear on your certificate. Make sure it's spelled correctly.
+              </p>
+            </div>
+
             {/* Certificate preview */}
             <div className="rounded-xl p-5 mb-6 text-left"
               style={{background:'rgba(250,204,21,0.05)', border:'1px solid rgba(250,204,21,0.15)'}}>
@@ -884,7 +910,7 @@ export default function LearnPage({
               </div>
               <p className="text-xs mb-1" style={{color:'#52525b'}}>This certifies that</p>
               <p className="text-lg font-bold text-white mb-1">
-                {user?.user_metadata?.full_name || user?.email || 'You'}
+                {studentFullName.trim() || user?.user_metadata?.full_name || user?.email || 'Your Name'}
               </p>
               <p className="text-xs mb-1" style={{color:'#52525b'}}>has successfully completed</p>
               <p className="text-sm font-semibold" style={{color:'#facc15'}}>{course.name}</p>
@@ -900,6 +926,16 @@ export default function LearnPage({
                 className="w-full py-3 rounded-xl font-medium text-white violet-gradient hover:opacity-90 glow">
                 Back to Course
               </button>
+              
+              {studentFullName.trim() && !certificatePdfUrl && !certGenerating && (
+                <button
+                  onClick={() => {}}
+                  className="w-full py-3 rounded-xl font-medium text-white text-center transition-all flex items-center justify-center gap-2"
+                  style={{background:'rgba(250,204,21,0.15)', color:'#facc15', border:'1px solid rgba(250,204,21,0.2)'}}>
+                  <Download className="w-4 h-4" />
+                  Generate Certificate
+                </button>
+              )}
               
               {certificatePdfUrl && (
                 <a href={certificatePdfUrl} download
