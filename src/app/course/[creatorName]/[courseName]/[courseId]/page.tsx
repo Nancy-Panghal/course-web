@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, linkStudentToEnrollment } from '@/lib/enrollments'
+import { resolveAccountType } from '@/lib/account'
 import EnrollModal from '@/components/EnrollModal'
 import AssignmentSubmit from '@/components/AssignmentSubmit'
 import WatermarkedPlayer from '@/components/WatermarkedPlayer'
@@ -163,7 +164,15 @@ export default function CourseLearnPage() {
 
       const { data: courseData } = await supabase
         .from('courses').select('*').eq('id', courseId).single()
-      if (!courseData) { router.push('/'); return }
+      if (!courseData) {
+        if (me) {
+          const type = await resolveAccountType(me)
+          router.push(type === 'creator' ? '/dashboard' : '/my-courses')
+        } else {
+          router.push('/my-courses')
+        }
+        return
+      }
       setCourse(courseData)
 
       try {

@@ -47,6 +47,75 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
     }
 
+    // ── NEW: verify enrollment once here, then return direct signed URL ──
+    const { data: course } = await supabase
+      .from('courses')
+      .select('free_preview_config')
+      .eq('id', lesson.course_id)
+      .single()
+
+    const config = course?.free_preview_config || 'nothing free'
+    const maxFree: Record<string, number> = {
+      'lesson 1 free': 1, '2 lessons free': 2, '3 lessons free': 3,
+      'module 1 free': 3, '2 modules free': 6,
+    }
+    const isFree = lesson.order_num <= (maxFree[config] ?? 0)
+
+    if (!isFree && userId === 'web') {
+      return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })
+    }
+
+    if (!isFree && userId !== 'web') {
+      // Single query — check enrollment by student auth_id join
+      const { data: student } = await supabase
+        .from('students')
+        .select('id')
+        .eq('auth_id', userId)
+        .limit(1)
+        .single()
+
+      const { data: enrollment } = student?.id ? await supabase
+        .from('enrollments')
+        .select('id')
+        .eq('student_id', student.id)
+        .eq('course_uuid', lesson.course_id)
+        .eq('payment_status', 'paid')
+        .limit(1)
+        .single() : { data: null }
+
+      if (!enrollment) {
+        return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })
+      }
+    }
+
+    // ── NEW: for video, return a direct Supabase signed URL (no proxy) ──
+    if (type === 'video') {
+      const { data: lessonContent } = await supabase
+        .from('lessons')
+        .select('video_storage_path, content_url')
+        .eq('id', lessonId)
+        .single()
+
+      const storagePath = lessonContent?.video_storage_path
+      if (storagePath && !storagePath.startsWith('http')) {
+        const { data: signed } = await supabase.storage
+          .from('lessons')
+          .createSignedUrl(storagePath, 60 * 60) // 1 hour — given directly to browser
+        if (signed?.signedUrl) {
+          // Log then return
+          void supabase.from('lesson_access_logs').insert({
+            lesson_id: lessonId,
+            course_id: lesson.course_id,
+            web_user_id: webUserId,
+            source: 'web',
+            accessed_at: new Date().toISOString(),
+          }).then(() => {}, () => {})
+          return NextResponse.json({ url: signed.signedUrl })
+        }
+      }
+    }
+    
+
     // Log access for piracy detection (web path)
     // Fire and forget — never block content delivery for logging
     void supabase.from('lesson_access_logs').insert({

@@ -38,12 +38,14 @@ export default function Navbar() {
     }
   }, [])
 
+  const logoHref = user ? (isCreator ? '/dashboard' : '/my-courses') : '/'
+
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       scrolled ? 'bg-black/80 backdrop-blur-xl border-b border-border' : 'bg-transparent'
     }`}>
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href={logoHref} className="flex items-center gap-2 group">
           <div className="w-8 h-8 violet-gradient rounded-lg flex items-center justify-center">
             <Shield className="w-4 h-4 text-white" />
           </div>

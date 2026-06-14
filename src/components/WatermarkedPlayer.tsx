@@ -35,19 +35,65 @@ export default function WatermarkedPlayer({
   lessonTitle?: string
   onEnded?: () => void
 }) {
-  const videoRef   = useRef<HTMLVideoElement>(null)
-  const canvasRef  = useRef<HTMLCanvasElement>(null)
-  const animRef    = useRef<number>(0)
-  const tRef       = useRef<number>(0)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animRef = useRef<number>(0)
+  const tRef = useRef<number>(0)
   const playPromiseRef = useRef<Promise<void> | null>(null)
+  const skipRef = useRef<(seconds: number) => void>(() => { })
+  const toggleRef = useRef<() => void>(() => { })
 
-  const [playing,  setPlaying]  = useState(false)
+  const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [muted,    setMuted]    = useState(false)
-  const [volume,   setVolume]   = useState(1)
-  const [fullscreen, setFS]     = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [muted, setMuted] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const [fullscreen, setFS] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const seekBarRef = useRef<HTMLDivElement>(null)
+  const [dragging, setDragging] = useState(false)
+
+  const applySeek = useCallback((clientX: number) => {
+    const v = videoRef.current
+    const bar = seekBarRef.current
+    if (!v || !bar || !v.duration) return
+    const r = bar.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
+    v.currentTime = ratio * v.duration
+  }, [])
+
+  const toggle = () => {
+    const v = videoRef.current
+    if (!v) return
+    if (v.paused) {
+      playPromiseRef.current = v.play()
+      playPromiseRef.current
+        .then(() => setPlaying(true))
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            console.error('Play request failed:', err)
+          }
+        })
+    } else {
+      if (playPromiseRef.current) {
+        playPromiseRef.current
+          .then(() => { v.pause(); setPlaying(false) })
+          .catch(() => { v.pause(); setPlaying(false) })
+      } else {
+        v.pause()
+        setPlaying(false)
+      }
+    }
+  }
+
+  const skip = useCallback((seconds: number) => {
+    const v = videoRef.current
+    if (!v || !v.duration) return
+    v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + seconds))
+  }, [])
+
+  skipRef.current = skip
+  toggleRef.current = toggle
 
   const wmText = studentId ? `${studentName} · ${studentId}` : studentName
 
@@ -58,7 +104,7 @@ export default function WatermarkedPlayer({
     if (!v || !c) return
     const ro = new ResizeObserver(() => {
       const r = v.getBoundingClientRect()
-      c.width  = r.width
+      c.width = r.width
       c.height = r.height
     })
     ro.observe(v)
@@ -156,11 +202,20 @@ export default function WatermarkedPlayer({
     container?.addEventListener('contextmenu', block)
 
     const blockKeys = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault(); skipRef.current(10); return
+      }
+      if (e.key === 'ArrowLeft' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault(); skipRef.current(-10); return
+      }
+      if ((e.key === ' ' || e.key === 'k') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault(); toggleRef.current(); return
+      }
       const blocked =
         e.key === 'PrintScreen' ||
         e.key === 'F12' ||
-        (e.ctrlKey && e.shiftKey && ['i','I','j','J','c','C'].includes(e.key)) ||
-        (e.ctrlKey && ['s','S','u','U'].includes(e.key))
+        (e.ctrlKey && e.shiftKey && ['i', 'I', 'j', 'J', 'c', 'C'].includes(e.key)) ||
+        (e.ctrlKey && ['s', 'S', 'u', 'U'].includes(e.key))
       if (blocked) { e.preventDefault(); e.stopPropagation() }
     }
     document.addEventListener('keydown', blockKeys, true)
@@ -199,36 +254,7 @@ export default function WatermarkedPlayer({
     setError(msgs[code ?? 4] || 'Playback failed. Link may have expired.')
   }
 
-  // ── Controls (With AbortError play/pause promise management) ────
-  const toggle = () => {
-    const v = videoRef.current
-    if (!v) return
-    if (v.paused) {
-      playPromiseRef.current = v.play()
-      playPromiseRef.current
-        .then(() => setPlaying(true))
-        .catch(err => {
-          if (err.name !== 'AbortError') {
-            console.error('Play request failed:', err)
-          }
-        })
-    } else {
-      if (playPromiseRef.current) {
-        playPromiseRef.current
-          .then(() => {
-            v.pause()
-            setPlaying(false)
-          })
-          .catch(() => {
-            v.pause()
-            setPlaying(false)
-          })
-      } else {
-        v.pause()
-        setPlaying(false)
-      }
-    }
-  }
+  
 
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current
@@ -325,17 +351,44 @@ export default function WatermarkedPlayer({
       {/* Progress + controls */}
       <div style={{ padding: '8px 12px 10px', background: 'rgba(0,0,0,0.6)' }}>
         <div
-          onClick={seek}
+          ref={seekBarRef}
+          onMouseDown={(e) => { setDragging(true); applySeek(e.clientX) }}
+          onMouseMove={(e) => { if (dragging) applySeek(e.clientX) }}
+          onMouseUp={() => setDragging(false)}
+          onMouseLeave={() => setDragging(false)}
+          onTouchStart={(e) => { setDragging(true); applySeek(e.touches[0].clientX) }}
+          onTouchMove={(e) => { if (dragging) applySeek(e.touches[0].clientX) }}
+          onTouchEnd={() => setDragging(false)}
           style={{
-            width: '100%', height: 4, background: 'rgba(255,255,255,0.1)',
-            borderRadius: 2, cursor: 'pointer', marginBottom: 8,
+            width: '100%', height: 6, background: 'rgba(255,255,255,0.1)',
+            borderRadius: 3, cursor: 'pointer', marginBottom: 8,
+            position: 'relative',
           }}
         >
-          <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg,#7c3aed,#4f46e5)', borderRadius: 2, transition: 'width 0.1s linear' }} />
+          <div style={{
+            height: '100%', width: `${progress}%`,
+            background: 'linear-gradient(90deg,#7c3aed,#4f46e5)',
+            borderRadius: 3, transition: dragging ? 'none' : 'width 0.1s linear',
+            position: 'relative',
+          }}>
+            <div style={{
+              position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)',
+              width: 12, height: 12, borderRadius: '50%',
+              background: '#fff', boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+            }} />
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={toggle} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer' }}>
             {playing ? '⏸' : '▶️'}
+          </button>
+          <button onClick={() => skip(-10)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <span style={{ fontSize: 16 }}>⏪</span>
+            <span style={{ fontSize: 9 }}>10s</span>
+          </button>
+          <button onClick={() => skip(10)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <span style={{ fontSize: 16 }}>⏩</span>
+            <span style={{ fontSize: 9 }}>10s</span>
           </button>
           <button onClick={() => { if (videoRef.current) { videoRef.current.muted = !videoRef.current.muted; setMuted(m => !m) } }} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 16, cursor: 'pointer' }}>
             {muted ? '🔇' : '🔊'}

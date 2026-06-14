@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment } from '@/lib/enrollments'
+import { resolveAccountType } from '@/lib/account'
 import WatermarkedPlayer from '@/components/WatermarkedPlayer'
 
 interface Lesson {
@@ -129,7 +130,12 @@ export default function LearnPage({
         .single()
 
       if (!courseData) {
-        router.push('/')
+        if (currentUser) {
+          const type = await resolveAccountType(currentUser)
+          router.push(type === 'creator' ? '/dashboard' : '/my-courses')
+        } else {
+          router.push('/my-courses')
+        }
         return
       }
       setCourse(courseData)

@@ -1,9 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Shield, Zap, TrendingUp, Lock, MessageCircle, BarChart3, CheckCircle, ArrowRight, Star, Play, X } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { supabase } from '@/lib/supabase'
+import { resolveAccountType } from '@/lib/account'
 import ResetPasswordPage from "@/app/reset-password/page";
 
 // ─── DATA ───
@@ -259,19 +261,30 @@ function VideoModal({ onClose, user }: { onClose: () => void; user: any }) {
 
 // ─── PAGE ───
 export default function HomePage() {
+  const router = useRouter()
   const [videoOpen, setVideoOpen] = useState(false)
 
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
+    async function checkUser(sessionUser: any | null) {
+      setUser(sessionUser ?? null)
+      if (sessionUser) {
+        const accountType = await resolveAccountType(sessionUser)
+        if (accountType === 'student') {
+          router.replace('/my-courses')
+        }
+      }
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+      checkUser(session?.user ?? null)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
+      checkUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [router])
 
   return (
     <div className="min-h-screen bg-black grid-bg">

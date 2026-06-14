@@ -37,16 +37,35 @@ function isRateLimited(key: string): boolean {
   return entry.count > RATE_MAX
 }
 
+
+
+// ── Enrollment result cache (avoids 5 DB queries on every range request) ──
+const enrollmentCache = new Map<string, { result: boolean; expiresAt: number }>()
+
+function getCachedEnrollment(key: string): boolean | null {
+  const entry = enrollmentCache.get(key)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) { enrollmentCache.delete(key); return null }
+  return entry.result
+}
+
+function setCachedEnrollment(key: string, result: boolean) {
+  enrollmentCache.set(key, { result, expiresAt: Date.now() + 5 * 60 * 1000 })
+}
+
 async function verifyEnrollment(lessonId: string, identity: string): Promise<boolean> {
+  const cacheKey = `${lessonId}:${identity}`
+  const cached = getCachedEnrollment(cacheKey)
+  if (cached !== null) return cached
+
   const { data: lesson } = await supabase
     .from('lessons')
     .select('course_id, order_num')
     .eq('id', lessonId)
     .single()
 
-  if (!lesson) return false
+  if (!lesson) { setCachedEnrollment(cacheKey, false); return false }
 
-  // 1. Free preview check first
   const { data: course } = await supabase
     .from('courses')
     .select('free_preview_config')
@@ -59,16 +78,13 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
     'module 1 free': 3, '2 modules free': 6,
   }
   const isFree = lesson.order_num <= (maxFree[config] ?? 0)
-  if (isFree) return true
+  if (isFree) { setCachedEnrollment(cacheKey, true); return true }
 
-  // 2. If it's guest 'web' access and not free, deny
-  if (identity === 'web') return false
+  if (identity === 'web') { setCachedEnrollment(cacheKey, false); return false }
 
-  // 3. Check if identity is a UUID (website user ID)
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identity)
 
   if (isUuid) {
-    // Look up the student record by auth_id (user.id)
     const { data: student } = await supabase
       .from('students')
       .select('id, email, phone')
@@ -76,7 +92,6 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
       .limit(1)
       .single()
 
-    // Query enrollments using student_id
     if (student?.id) {
       const { data: enrollment } = await supabase
         .from('enrollments')
@@ -86,11 +101,10 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
         .eq('payment_status', 'paid')
         .limit(1)
         .single()
-      
-      if (enrollment) return true
+
+      if (enrollment) { setCachedEnrollment(cacheKey, true); return true }
     }
 
-    // Fallback: look up by student's email/phone on the enrollment
     if (student) {
       const identifiers: string[] = []
       if (student.phone) identifiers.push(student.phone)
@@ -105,12 +119,11 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
           .in('phone', identifiers)
           .limit(1)
           .single()
-        
-        if (enrollment) return true
+
+        if (enrollment) { setCachedEnrollment(cacheKey, true); return true }
       }
     }
 
-    // Additional check: fetch from auth to check phone/email
     try {
       const { data: { user } } = await supabase.auth.admin.getUserById(identity)
       if (user) {
@@ -127,18 +140,19 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
             .in('phone', fallbackIdentifiers)
             .limit(1)
             .single()
-          
-          if (enrollment) return true
+
+          if (enrollment) { setCachedEnrollment(cacheKey, true); return true }
         }
       }
     } catch (e) {
       console.warn('[verifyEnrollment] admin auth user lookup failed:', e)
     }
 
+    setCachedEnrollment(cacheKey, false)
     return false
   }
 
-  // 4. Otherwise, look up by Telegram chat ID (numeric string)
+  // Telegram chat ID path
   const { data: enrollment } = await supabase
     .from('enrollments')
     .select('payment_status')
@@ -147,8 +161,12 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
     .limit(1)
     .single()
 
-  if (enrollment && enrollment.payment_status === 'paid') return true
+  if (enrollment && enrollment.payment_status === 'paid') {
+    setCachedEnrollment(cacheKey, true)
+    return true
+  }
 
+  setCachedEnrollment(cacheKey, false)
   return false
 }
 
