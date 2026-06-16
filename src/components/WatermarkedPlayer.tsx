@@ -202,6 +202,14 @@ export default function WatermarkedPlayer({
     container?.addEventListener('contextmenu', block)
 
     const blockKeys = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const isTyping =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+
+      if (isTyping) return // let the input handle the keypress normally
+
       if (e.key === 'ArrowRight' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault(); skipRef.current(10); return
       }

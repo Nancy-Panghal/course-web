@@ -505,7 +505,8 @@ const displayEmail = user?.email || ''
                           </span>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <a
-                              href={c.certificateUrl}
+                              href={`${c.certificateUrl}${c.certificateUrl?.includes('?') ? '&' : '?'}v=${c.enrollmentId}`}
+  
                               target="_blank" rel="noopener noreferrer"
                               style={{
                                 display: 'flex', alignItems: 'center', gap: 5,

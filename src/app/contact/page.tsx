@@ -82,10 +82,10 @@ export default function ContactPage() {
               <p className="text-sm mb-3" style={{color:'#a1a1aa'}}>
                 For general enquiries and support
               </p>
-              <a href="mailto:your@email.com"
+              <a href="mailto:nancypanghal13@gmail.com"
                 className="text-sm font-medium transition-colors"
                 style={{color:'#8b5cf6'}}>
-                your@email.com
+                nancypanghal13@gmail.com
               </a>
             </div>
 
@@ -169,7 +169,7 @@ export default function ContactPage() {
                         <label className="text-sm font-medium text-white mb-2 block">Email</label>
                         <input
                           type="email" value={email} onChange={e => setEmail(e.target.value)}
-                          placeholder="my@email.com" required
+                          placeholder="your@email.com" required
                           className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                           style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
                           onFocus={e => e.target.style.borderColor = '#7c3aed'}

@@ -10,7 +10,7 @@ import {
   Eye, EyeOff, ExternalLink, Copy, Check,
   GripVertical, Trash2, CheckCircle, AlertCircle,
   MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle,
-  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X
+  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X,
 } from 'lucide-react'
 
 interface Course {
@@ -241,6 +241,7 @@ function AddLessonModal({
   const [moduleId, setModuleId] = useState(initialModuleId)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault()
@@ -1194,6 +1195,9 @@ export default function CourseManagePage({
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
+  const [editSkills, setEditSkills] = useState('') // comma-separated in the UI
+  const [editCertLogoUrl, setEditCertLogoUrl] = useState('')
+  const [editCertSignatureUrl, setEditCertSignatureUrl] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -1223,6 +1227,8 @@ export default function CourseManagePage({
       setEditStartDate(courseData.start_date || '')
       setEditStartTime(courseData.start_time || '')
       setEditDuration(courseData.duration || '')
+      
+      setEditSkills(Array.isArray(courseData.skills) ? courseData.skills.join(', ') : '')
       setEditPlannedLessons(courseData.total_lessons?.toString() || '')
       setEditNextLessonDate(courseData.next_lesson_date || '')
       setEditCourseEndDate(courseData.course_end_date || '')
@@ -1234,6 +1240,8 @@ export default function CourseManagePage({
       setEditCertEnabled(courseData.cert_enabled !== false)
       setEditCertTemplate(courseData.cert_template || 'classic')
       setEditCertCustomMessage(courseData.cert_custom_message || '')
+      setEditCertLogoUrl(courseData.cert_logo_url || '')
+      setEditCertSignatureUrl(courseData.cert_signature_url || '')
 
       await Promise.all([fetchLessons(), fetchModules()])
       setLoading(false)
@@ -1285,7 +1293,12 @@ export default function CourseManagePage({
         free_preview_config: editFreePreview,
         cert_enabled: editCertEnabled,
         cert_template: editCertTemplate,
+        cert_logo_url: editCertLogoUrl || null,
+        cert_signature_url: editCertSignatureUrl || null,
         cert_custom_message: editCertCustomMessage.trim() || null,
+        skills: editSkills.trim()
+          ? editSkills.split(',').map(s => s.trim()).filter(Boolean)
+          : null,
       })
       .eq('id', id)
 
@@ -1873,6 +1886,14 @@ export default function CourseManagePage({
                       </div>
                     </div>
 
+
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Skills Covered (comma separated, for certificate)</label>
+                      <input value={editSkills} onChange={e => setEditSkills(e.target.value)}
+                        placeholder="e.g. SEO, Content Marketing, Keyword Research"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                    </div>
+
                     <div>
                       <label className="text-xs font-medium text-zinc-500 mb-1.5 block">What You Will Learn</label>
                       <div className="flex flex-col gap-2">
@@ -2039,6 +2060,39 @@ export default function CourseManagePage({
                               ))}
                             </div>
                           </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Brand Logo (optional)</label>
+                              <input type="file" accept="image/png,image/jpeg" id="cert-logo"
+                                className="hidden"
+                                onChange={async e => {
+                                  const file = e.target.files?.[0]
+                                  if (!file) return
+                                  const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
+                                  setEditCertLogoUrl(publicUrl)
+                                }} />
+                              <label htmlFor="cert-logo" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
+                                {editCertLogoUrl ? 'Replace Logo' : 'Upload Logo'}
+                              </label>
+                              {editCertLogoUrl && <span className="text-xs text-zinc-500 ml-2">Uploaded</span>}
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Instructor Signature (optional)</label>
+                              <input type="file" accept="image/png,image/jpeg" id="cert-sig"
+                                className="hidden"
+                                onChange={async e => {
+                                  const file = e.target.files?.[0]
+                                  if (!file) return
+                                  const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
+                                  setEditCertSignatureUrl(publicUrl)
+                                }} />
+                              <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
+                                {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
+                              </label>
+                              {editCertSignatureUrl && <span className="text-xs text-zinc-500 ml-2">Uploaded</span>}
+                            </div>
+                          </div>
 
                           {/* Custom message */}
                           <div>
@@ -2196,13 +2250,7 @@ export default function CourseManagePage({
                 Share this link with your students to enroll and pay.
               </p>
 
-              {/* URL display */}
-              <div className="flex items-center gap-2 p-2.5 rounded-xl mb-3"
-                style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-xs flex-1 truncate font-mono" style={{ color: '#a1a1aa' }}>
-                  /about-course/.../{course.id.slice(0, 8)}
-                </p>
-              </div>
+              
 
               {/* Copy link */}
               <button onClick={copyCourseLink}
@@ -2221,7 +2269,7 @@ export default function CourseManagePage({
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
                 style={{ background: '#25d366', color: '#fff' }}>
                 <MessageCircle className="w-4 h-4" />
-                Share to WhatsApp
+                Share on WhatsApp
               </a>
             </div>
 

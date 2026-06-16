@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     // ── Fetch enrollment (only match on enrollmentId, courseId check is secondary) ──
     const { data: enrollment, error: enrollErr } = await supabase
       .from('enrollments')
-      .select('id, student_id, completed_lessons, payment_status, certificate_id, certificate_url, course_uuid')
+      .select('id, student_id, completed_lessons, payment_status, certificate_id, certificate_url, course_uuid, certificate_student_name')
       .eq('id', enrollmentId)
       .maybeSingle()
 
@@ -43,16 +43,6 @@ export async function POST(req: NextRequest) {
 
     if (enrollment.payment_status !== 'paid') {
       return NextResponse.json({ issued: false, reason: 'not_paid' })
-    }
-
-    // Already issued — return immediately (idempotent)
-    if (enrollment.certificate_id) {
-      return NextResponse.json({
-        issued: true,
-        alreadyIssued: true,
-        certificateId: enrollment.certificate_id,
-        pdfUrl: enrollment.certificate_url,
-      })
     }
 
     // ── Check completion ──────────────────────────────────────────────────
@@ -83,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Use the enrollment's own course_uuid as the authoritative course ID
     const { data: course, error: courseErr } = await supabase
       .from('courses')
-      .select('id, name, host_name, cert_enabled, cert_template, cert_custom_message, duration, total_hours, skills, instructor_name, instructor_title')
+      .select('id, name, host_name, cert_enabled, cert_template, cert_custom_message, duration, total_hours, skills, instructor_name, instructor_title, cert_logo_url, cert_signature_url')
       .eq('id', enrollment.course_uuid)
       .maybeSingle()
 
@@ -102,10 +92,12 @@ export async function POST(req: NextRequest) {
 
     // ── Resolve student name ─────────────────────────────────────────────
     let finalStudentName = 'Student'
-    
+
     // Use provided studentName from request if available
     if (studentName && studentName.trim()) {
       finalStudentName = studentName.trim()
+    } else if (enrollment.certificate_student_name?.trim()) {
+      finalStudentName = enrollment.certificate_student_name.trim()
     } else if (enrollment.student_id) {
       // Fallback to database lookup
       const { data: student } = await supabase
@@ -132,7 +124,10 @@ export async function POST(req: NextRequest) {
       instructorName: course.instructor_name,
       instructorTitle: course.instructor_title,
       skills: course.skills,
+      logoUrl: course.cert_logo_url || undefined,
+      signatureUrl: course.cert_signature_url || undefined
     })
+    
 
     return NextResponse.json({ issued: true, certificateId, pdfUrl })
 

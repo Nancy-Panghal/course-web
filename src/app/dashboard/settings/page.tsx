@@ -89,16 +89,9 @@ export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
   const [name, setName] = useState('')
   const [originalName, setOriginalName] = useState('')
-  const [whatsappNumber, setWhatsappNumber] = useState('')
-  const [originalWhatsappNumber, setOriginalWhatsappNumber] = useState('')
+  
 
-  const [notifications, setNotifications] = useState({
-    piracy: true,
-    enrollment: true,
-    completion: false,
-    payment: true,
-    login: true,
-  })
+  
   const [emailNotifications, setEmailNotifications] = useState({
     newLogin: true,
     paidSale: true,
@@ -142,8 +135,8 @@ export default function SettingsPage() {
   const [payoutsLoading, setPayoutsLoading] = useState(true)
 
   const hasChanges =
-    name !== originalName ||
-    whatsappNumber !== originalWhatsappNumber ||
+    name !== originalName
+    
 
 
     useEffect(() => {
@@ -160,10 +153,7 @@ export default function SettingsPage() {
             .eq('id', u.id)
             .limit(1)
 
-          const wa = creator?.[0]?.whatsapp_number || ''
-
-          setWhatsappNumber(wa)
-          setOriginalWhatsappNumber(wa)
+          
 
           // Restore scheduled deletion state if already scheduled
           if (creator?.[0]?.scheduled_deletion_at) {
@@ -176,10 +166,7 @@ export default function SettingsPage() {
         }
 
 
-        // Load notifications from metadata if they exist
-        if (u?.user_metadata?.notifications) {
-          setNotifications(current => ({ ...current, ...u.user_metadata.notifications }))
-        }
+        
         if (u?.user_metadata?.email_notifications) {
           setEmailNotifications(current => ({ ...current, ...u.user_metadata.email_notifications }))
         }
@@ -224,7 +211,7 @@ export default function SettingsPage() {
 
   async function handleSave() {
     setSaving(true)
-    const cleanWhatsapp = whatsappNumber.trim().replace(/[\s+\-()]/g, '')
+    
 
     const { error } = await supabase.auth.updateUser({
       data: {
@@ -240,14 +227,13 @@ export default function SettingsPage() {
         email: user.email,
         name,
         username: user.email?.split('@')[0],
-        whatsapp_number: cleanWhatsapp || null,
+        
 
       })
 
     if (!error && !creatorError) {
       setOriginalName(name)
-      setWhatsappNumber(cleanWhatsapp)
-      setOriginalWhatsappNumber(cleanWhatsapp)
+      
 
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -255,17 +241,7 @@ export default function SettingsPage() {
     setSaving(false)
   }
 
-  async function updateNotificationSetting(key: string, value: boolean) {
-    const nextNotifications = { ...notifications, [key]: value }
-    setNotifications(nextNotifications)
-
-    // Save to database immediately
-    await supabase.auth.updateUser({
-      data: {
-        notifications: nextNotifications
-      }
-    })
-  }
+  
 
   async function updateEmailNotificationSetting(key: string, value: boolean) {
     const nextNotifications = { ...emailNotifications, [key]: value }
@@ -421,29 +397,7 @@ export default function SettingsPage() {
           />
         </SectionCard>
 
-        <SectionCard title="WhatsApp Delivery" icon={MessageCircle}>
-          <InputField
-            label="WhatsApp Cloud API Sender Number"
-            value={whatsappNumber}
-            onChange={setWhatsappNumber}
-            placeholder="Example: 15551234567 or 919876543210"
-          />
-          <div className="p-4 rounded-xl"
-            style={{ background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.15)' }}>
-            <p className="text-sm font-medium text-white mb-1">Use your Meta test number here while testing.</p>
-            <p className="text-xs leading-relaxed" style={{ color: '#a1a1aa' }}>
-              Paste the WhatsApp sender number connected to your Meta Cloud API app, with country code and no plus sign.
-              Once saved, course enroll modals can show “Start Free Lessons on WhatsApp” or “Join via WhatsApp”.
-            </p>
-          </div>
-          <button
-            onClick={handleSave}
-            disabled={!hasChanges || saving}
-            className="mt-4 w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient disabled:opacity-40"
-          >
-            {saved ? 'Saved!' : saving ? 'Saving...' : 'Save WhatsApp Settings'}
-          </button>
-        </SectionCard>
+        
 
         <SectionCard title="Telegram Delivery" icon={MessageCircle}>
           <div className="p-4 rounded-xl"
@@ -455,40 +409,7 @@ export default function SettingsPage() {
           </div>
         </SectionCard>
 
-        {/* Notifications */}
-        <SectionCard title="Notification Bar" icon={Bell}>
-          <Toggle
-            label="Payment updates"
-            desc="Show short sale alerts in the dashboard notification bar"
-            value={notifications.payment}
-            onChange={v => updateNotificationSetting('payment', v)}
-          />
-          <Toggle
-            label="Login activity"
-            desc="Show recent sign-in activity in the notification bar"
-            value={notifications.login}
-            onChange={v => updateNotificationSetting('login', v)}
-          />
-          <Toggle
-            label="Piracy detected"
-            desc="Show piracy alerts in the notification bar"
-            value={notifications.piracy}
-            onChange={v => updateNotificationSetting('piracy', v)}
-          />
-          <Toggle
-            label="New enrollment"
-            desc="Show student enrollment updates"
-            value={notifications.enrollment}
-            onChange={v => updateNotificationSetting('enrollment', v)}
-          />
-          <Toggle
-            label="Course completion"
-            desc="Show course completion updates"
-            value={notifications.completion}
-            onChange={v => updateNotificationSetting('completion', v)}
-          />
-        </SectionCard>
-
+        
         <SectionCard title="Email Notifications" icon={Bell}>
           <Toggle
             label="New login"

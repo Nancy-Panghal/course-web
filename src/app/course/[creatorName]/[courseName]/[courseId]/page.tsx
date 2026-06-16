@@ -152,10 +152,11 @@ export default function CourseLearnPage() {
   const [certId, setCertId] = useState<string | null>(null)
   const [studentFullName, setStudentFullName] = useState('')
   const [savingStudentName, setSavingStudentName] = useState(false)
-  
+
   const [assignmentSubmission, setAssignmentSubmission] = useState<any>(null)
   const [assignmentLoadedForLesson, setAssignmentLoadedForLesson] = useState<string | null>(null)
   const [certPdfUrl, setCertPdfUrl] = useState<string | null>(null)
+  const [certError, setCertError] = useState('')
   const [sessionToken, setSessionToken] = useState('')
 
   useEffect(() => {
@@ -333,7 +334,7 @@ export default function CourseLearnPage() {
   const canAccess = isEnrolled || isFree
   const allDone = plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)
-  
+
 
   // Load signed content URL
   useEffect(() => {
@@ -443,37 +444,47 @@ export default function CourseLearnPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  async function openCertificate() {
+  function openCertificate() {
     setShowCertModal(true)
-    
-    let currentName = studentFullName
-    // Load saved student name from enrollment if available
-    if (enrollment?.certificate_student_name && !studentFullName) {
+    if (!studentFullName && enrollment?.certificate_student_name) {
       setStudentFullName(enrollment.certificate_student_name)
-      currentName = enrollment.certificate_student_name
     }
+    // no fetch here — user must confirm the name and click Generate
+  }
 
-    if (certId) return // already fetched this session
+  async function generateCertificate() {
     if (!enrollment?.id || !course?.id) return
-    if (!currentName.trim()) return // wait for student to enter name
+    const name = studentFullName.trim()
+    if (!name) return
+
     setCertGenerating(true)
+    setCertError('')
     try {
+      await supabase
+        .from('enrollments')
+        .update({ certificate_student_name: name })
+        .eq('id', enrollment.id)
+
       const res = await fetch('/api/certificate/issue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          enrollmentId: enrollment.id, 
+        body: JSON.stringify({
+          enrollmentId: enrollment.id,
           courseId: course.id,
-          studentName: studentFullName.trim(),
+          studentName: name,
         }),
       })
       const data = await res.json()
       if ((data.issued || data.alreadyIssued) && data.pdfUrl) {
         setCertId(data.certificateId)
         setCertPdfUrl(data.pdfUrl)
+      } else {
+        console.error('[certificate] issue failed:', data)
+        setCertError(data.error || data.reason || 'Could not generate certificate. Please try again.')
       }
     } catch (err) {
       console.error('[certificate]', err)
+      setCertError('Network error while generating certificate.')
     }
     setCertGenerating(false)
   }
@@ -785,7 +796,7 @@ export default function CourseLearnPage() {
                         : `${remainingPlanned} more lesson${remainingPlanned > 1 ? 's' : ''} planned`}
                     </p>
                   </div>
-                  
+
                 ) : (
                   <button
                     onClick={openCertificate}
@@ -953,7 +964,12 @@ export default function CourseLearnPage() {
               <input
                 type="text"
                 value={studentFullName}
-                onChange={(e) => setStudentFullName(e.target.value)}
+                onChange={(e) => {
+                  setStudentFullName(e.target.value)
+                  setCertPdfUrl(null)
+                  setCertId(null)
+                  setCertError('')
+                }}
                 placeholder="John Doe"
                 autoComplete="name"
                 style={{
@@ -966,9 +982,7 @@ export default function CourseLearnPage() {
                 onFocus={(e) => e.target.style.borderColor = 'rgba(234,179,8,0.5)'}
                 onBlur={(e) => {
                   e.target.style.borderColor = 'rgba(255,255,255,0.1)'
-                  if (studentFullName.trim()) {
-                    saveStudentNameToEnrollment()
-                  }
+                  
                 }}
               />
               <p style={{ fontSize: 11, color: '#52525b', marginTop: 6 }}>
@@ -996,7 +1010,7 @@ export default function CourseLearnPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {studentFullName.trim() && !certPdfUrl && !certGenerating && (
                 <button
-                  onClick={() => openCertificate()}
+                  onClick={() => generateCertificate()}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     padding: '12px 0', borderRadius: 12, fontWeight: 700, fontSize: 14,
@@ -1012,6 +1026,11 @@ export default function CourseLearnPage() {
                   <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', animation: 'pulse 1s infinite' }} />
                   Generating certificate…
                 </div>
+              )}
+              {certError && !certGenerating && (
+                <p style={{ color: '#f87171', fontSize: 12, textAlign: 'center' }}>
+                  {certError}
+                </p>
               )}
 
               {certPdfUrl && (
