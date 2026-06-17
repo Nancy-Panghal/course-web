@@ -95,6 +95,23 @@ async function getSignedContentUrl(lessonId: string, type: 'video' | 'pdf'): Pro
 }
 
 function LockedScreen({ course, onEnroll }: { course: Course; onEnroll: () => void }) {
+  if (course.is_published === false) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8" style={{ background: '#0a0a0a' }}>
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5"
+            style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
+            <Lock className="w-10 h-10" style={{ color: '#8b5cf6' }} />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-3">Course Not Available</h2>
+          <p style={{ color: '#a1a1aa' }}>
+            This course is currently unavailable. It may be under maintenance or not yet launched.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex items-center justify-center p-8" style={{ background: '#0a0a0a' }}>
       <div className="text-center max-w-md">

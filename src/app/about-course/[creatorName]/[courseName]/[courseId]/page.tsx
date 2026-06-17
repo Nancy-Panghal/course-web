@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import CoursePageClient from '@/components/CoursePageClient'
 
 import CurriculumAccordion from './Curriculumaccordion'
+import DraftGate from '@/components/DraftGate'
 
 
 const supabase = createClient(
@@ -38,26 +39,6 @@ export default async function AboutCoursePage({
     .single()
 
   if (!course || courseError) notFound()
-
-  // Draft courses are not publicly accessible
-  // (Enrolled students access via /course/... not here)
-  if (!course.is_published) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#080808', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <div style={{ textAlign: 'center', maxWidth: 400 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-          <h2 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800, marginBottom: 12 }}>
-            Course Not Available
-          </h2>
-          <p style={{ color: '#71717a', fontSize: '0.95rem', lineHeight: 1.6 }}>
-            This course is currently unavailable. It may be under maintenance or not yet launched.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  
 
   const { data: creatorProfile } = await supabase
     .from('creators')
@@ -127,9 +108,11 @@ export default async function AboutCoursePage({
     waNumber: creatorProfile?.whatsapp_number || '',
     telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || creatorProfile?.telegram_bot_username || '',
     free_preview_config: course.free_preview_config,
+    isPublished: course.is_published,
   }
 
   return (
+    <DraftGate isPublished={course.is_published} courseData={courseData}>
     <div
       className="min-h-screen text-white"
       style={{ background: '#080808', fontFamily: "'DM Sans', sans-serif" }}
@@ -669,5 +652,6 @@ export default async function AboutCoursePage({
         </p>
       </footer>
     </div>
+    </DraftGate>
   )
 }
