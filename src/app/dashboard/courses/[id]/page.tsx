@@ -2200,7 +2200,7 @@ export default function CourseManagePage({
                   <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
                     {course.is_published
                       ? 'Students can find and enroll'
-                      : 'Not visible to students yet'}
+                      : 'Course page hidden · enrollment blocked · enrolled students unaffected'}
                   </p>
                 </div>
                 <button onClick={toggleCoursePublish}

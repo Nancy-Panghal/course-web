@@ -39,6 +39,26 @@ export default async function AboutCoursePage({
 
   if (!course || courseError) notFound()
 
+  // Draft courses are not publicly accessible
+  // (Enrolled students access via /course/... not here)
+  if (!course.is_published) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#080808', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ textAlign: 'center', maxWidth: 400 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+          <h2 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800, marginBottom: 12 }}>
+            Course Not Available
+          </h2>
+          <p style={{ color: '#71717a', fontSize: '0.95rem', lineHeight: 1.6 }}>
+            This course is currently unavailable. It may be under maintenance or not yet launched.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  
+
   const { data: creatorProfile } = await supabase
     .from('creators')
     .select('id, name, email, whatsapp_number, telegram_bot_username')

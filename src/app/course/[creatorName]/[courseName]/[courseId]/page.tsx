@@ -54,6 +54,7 @@ interface Course {
   course_end_date?: string
   student_update_message?: string
   free_preview_config?: string
+  is_published?: boolean
 }
 
 interface Enrollment {
@@ -330,7 +331,7 @@ export default function CourseLearnPage() {
     ? Math.round((completed.length / Math.max(plannedTotal, lessons.length)) * 100)
     : 0
   const remainingPlanned = Math.max(plannedTotal - lessons.length, 0)
-  const isFree = currentLesson && isLessonFree(currentLesson, course?.free_preview_config || 'nothing free')
+  const isFree = currentLesson && course?.is_published !== false && isLessonFree(currentLesson, course?.free_preview_config || 'nothing free')
   const canAccess = isEnrolled || isFree
   const allDone = plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)

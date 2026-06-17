@@ -22,13 +22,17 @@ export async function POST(req: NextRequest) {
 
     const { data: courseRows, error: courseError } = await supabase
       .from('courses')
-      .select('id, price')
+      .select('id, price, is_published')
       .eq('id', courseId)
       .limit(1)
 
     const course = courseRows?.[0]
     if (courseError || !course) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 })
+    }
+
+    if (!course.is_published) {
+      return NextResponse.json({ error: 'This course is not currently available for enrollment.' }, { status: 403 })
     }
 
     let pricing = {
