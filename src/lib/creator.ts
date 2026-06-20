@@ -31,7 +31,7 @@ export async function createCreatorProfile() {
       username: user.user_metadata?.username || user.email?.split('@')[0],
       plan: 'trial',
       trial_started_at: new Date().toISOString(),
-      trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     })
     .select()
     .single()
@@ -58,7 +58,7 @@ export async function getCreatorProfile() {
 }
 
 export function getTrialStatus(creator: any) {
-  if (!creator) return { expired: false, daysLeft: 30 }
+  if (!creator) return { expired: false, daysLeft: 7 }
   const trialEnd = new Date(creator.trial_ends_at)
   const now = new Date()
   const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))

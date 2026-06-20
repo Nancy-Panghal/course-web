@@ -96,7 +96,6 @@ export default function SettingsPage() {
     newLogin: true,
     paidSale: true,
     newEnrollment: true,
-    piracyDetected: true,
     courseCompletion: false,
   })
   const [saved, setSaved] = useState(false)
@@ -428,12 +427,6 @@ export default function SettingsPage() {
             desc="Email me when a student gets enrolled"
             value={emailNotifications.newEnrollment}
             onChange={v => updateEmailNotificationSetting('newEnrollment', v)}
-          />
-          <Toggle
-            label="Piracy detected"
-            desc="Email me when a piracy threat is detected"
-            value={emailNotifications.piracyDetected}
-            onChange={v => updateEmailNotificationSetting('piracyDetected', v)}
           />
           <Toggle
             label="Course completion"

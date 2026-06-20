@@ -40,6 +40,8 @@ interface Lesson {
   quiz_questions?: { question: string; options: string[]; answerIndex: number }[] | null
   assignment_prompt?: string | null
   assignment_required?: boolean | null
+  assignment_file_url?: string | null
+  assignment_file_name?: string | null
 }
 
 interface Course {
@@ -837,6 +839,29 @@ export default function CourseLearnPage() {
                   <p style={{ fontSize: 13, color: '#e4e4e7', marginBottom: 12, lineHeight: 1.6 }}>
                     {currentLesson.assignment_prompt}
                   </p>
+                  {currentLesson.assignment_file_url && (
+                    <a
+                      href={currentLesson.assignment_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 12,
+                        color: '#c4b5fd',
+                        marginBottom: 12,
+                        padding: '6px 12px',
+                        borderRadius: 8,
+                        background: 'rgba(124,58,237,0.12)',
+                        border: '1px solid rgba(124,58,237,0.22)',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      {currentLesson.assignment_file_name || 'Download Assignment File'}
+                    </a>
+                  )}
 
                   {assignmentSubmission ? (
                     <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>

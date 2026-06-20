@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Shield, LayoutDashboard, BookOpen, Users, AlertTriangle, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList } from 'lucide-react'
+import { Shield, LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 
@@ -15,7 +15,6 @@ const navItems = [
   { label: 'Coupons', href: '/dashboard/coupons', icon: Ticket },
   { label: 'Broadcast', href: '/dashboard/broadcast', icon: Megaphone },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { label: 'Piracy Shield', href: '/dashboard/piracy', icon: AlertTriangle },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
@@ -23,26 +22,6 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [activeThreats, setActiveThreats] = useState(0)
-
-  useEffect(() => {
-    async function fetchActiveThreats() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      try {
-        const { count } = await supabase
-          .from('piracy_log')
-          .select('*', { count: 'exact', head: true })
-          .in('status', ['detected', 'filed'])
-          .eq('creator_id', user.id)
-        setActiveThreats(count || 0)
-      } catch (e) {
-        // Table might not exist yet
-      }
-    }
-    fetchActiveThreats()
-  }, [])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -77,12 +56,6 @@ export default function Sidebar() {
             >
               <Icon className="w-4 h-4" />
               {label}
-              {label === 'Piracy Shield' && activeThreats > 0 && (
-                <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{background:'rgba(239,68,68,0.15)', color:'#ef4444'}}>
-                  {activeThreats}
-                </span>
-              )}
             </Link>
           )
         })}

@@ -4,7 +4,6 @@ import { escapeHtml } from '@/lib/email'
 const SUBJECT_LABELS: Record<string, string> = {
   billing: 'Billing / Subscription',
   technical: 'Technical Support',
-  piracy: 'Piracy Shield Help',
   upgrade: 'Upgrade / Plan Change',
   refund: 'Refund Request',
   other: 'Other',

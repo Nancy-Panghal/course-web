@@ -211,7 +211,7 @@ export default function UpgradePage() {
       <div className="max-w-5xl mx-auto px-6 py-16">
 
         {/* Trial status banner */}
-        {trialStatus && (
+        {trialStatus && trialStatus.plan === 'trial' && (
           <div className="mb-10 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
             style={{
               background: trialStatus.expired
@@ -228,7 +228,7 @@ export default function UpgradePage() {
                 <p className="font-semibold text-white">
                   {trialStatus.expired
                     ? 'Your free trial has ended'
-                    : `${trialStatus.daysLeft} days left in your free trial`
+                    : `${trialStatus.daysLeft} day${trialStatus.daysLeft !== 1 ? 's' : ''} left in your free trial`
                   }
                 </p>
                 <p className="text-sm mt-0.5" style={{color:'#a1a1aa'}}>

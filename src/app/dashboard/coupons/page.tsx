@@ -164,9 +164,9 @@ export default function CouponsPage() {
       return
     }
 
-    if (form.discountType === 'percentage' && discountValue >= 100) {
-      setError('Use 99% or less for now. Free coupons need a separate zero-payment enrollment flow.')
-      return
+    if (form.discountType === 'percentage' && discountValue > 100) {
+      setError('Discount cannot be more than 100%.');
+      return;
     }
 
     if (form.discountType === 'fixed' && form.courseId) {
@@ -298,7 +298,7 @@ export default function CouponsPage() {
               <Plus className="w-5 h-5" style={{ color: '#8b5cf6' }} />
               <h2 className="font-semibold text-white">Create coupon</h2>
             </div>
-            <p className="text-xs" style={{ color: '#71717a' }}>Free coupons are coming later; use up to 99% for paid checkout.</p>
+
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

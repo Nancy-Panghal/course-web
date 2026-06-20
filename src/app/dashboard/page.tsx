@@ -35,9 +35,6 @@ interface CourseStats {
   thisMonthRevenue: number
   avgOrderValue: number
   paidCount: number
-  // piracy
-  activeThreats: number
-  nuked: number
   // coupons
   activeCoupons: number
   couponUses: number
@@ -53,7 +50,6 @@ const emptyStats: CourseStats = {
   plannedLessons: 0, uploadedLessons: 0, publishedLessons: 0,
   totalStudents: 0, activeStudents: 0, completedStudents: 0, avgProgress: 0,
   totalRevenue: 0, thisMonthRevenue: 0, avgOrderValue: 0, paidCount: 0,
-  activeThreats: 0, nuked: 0,
   activeCoupons: 0, couponUses: 0,
   pendingAssignments: 0, totalAssignments: 0,
   totalBroadcasts: 0, latestBroadcast: null,
@@ -66,8 +62,8 @@ function CourseSelector({
   onSelect,
 }: {
   courses: Course[]
-  selected: string | null
-  onSelect: (id: string | null) => void
+  selected: string
+  onSelect: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -81,25 +77,33 @@ function CourseSelector({
   }, [])
 
   const selectedCourse = courses.find(c => c.id === selected)
-  const label = selectedCourse ? selectedCourse.name : 'All Courses'
+  const label = selectedCourse ? selectedCourse.name : ''
 
   return (
-    <div ref={ref} className="relative" style={{ minWidth: 220 }}>
+    <div ref={ref} className="relative" style={{ minWidth: 280 }}>
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+        className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all"
         style={{
-          background: selected ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.06)',
-          border: selected ? '1px solid rgba(124,58,237,0.4)' : '1px solid rgba(255,255,255,0.1)',
-          color: selected ? '#c4b5fd' : '#e4e4e7',
+          background: 'rgba(124,58,237,0.2)',
+          border: '2px solid rgba(124,58,237,0.5)',
+          color: '#e4e4e7',
           width: '100%',
         }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'rgba(124,58,237,0.25)'
+          e.currentTarget.style.borderColor = 'rgba(124,58,237,0.7)'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'rgba(124,58,237,0.2)'
+          e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)'
+        }}
       >
-        <BookOpen className="w-4 h-4 flex-shrink-0" style={{ color: selected ? '#a78bfa' : '#71717a' }} />
-        <span className="flex-1 text-left truncate">{label}</span>
+        <BookOpen className="w-5 h-5 flex-shrink-0" style={{ color: '#a78bfa' }} />
+        <span className="flex-1 text-left truncate font-bold">{label}</span>
         <ChevronDown
-          className="w-4 h-4 flex-shrink-0 transition-transform"
-          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', color: '#71717a' }}
+          className="w-5 h-5 flex-shrink-0 transition-transform"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', color: '#a78bfa' }}
         />
       </button>
 
@@ -108,53 +112,34 @@ function CourseSelector({
           className="absolute left-0 right-0 mt-1.5 rounded-xl overflow-hidden z-50"
           style={{
             background: '#111',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '2px solid rgba(124,58,237,0.5)',
             boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
             top: '100%',
           }}
         >
-          {/* All courses option */}
-          <button
-            onClick={() => { onSelect(null); setOpen(false) }}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-all text-left"
-            style={{
-              background: !selected ? 'rgba(124,58,237,0.12)' : 'transparent',
-              color: !selected ? '#c4b5fd' : '#a1a1aa',
-              borderBottom: '1px solid rgba(255,255,255,0.05)',
-            }}
-            onMouseEnter={e => { if (selected) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-            onMouseLeave={e => { if (selected) e.currentTarget.style.background = 'transparent' }}
-          >
-            <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-              {!selected && <Check className="w-3.5 h-3.5" style={{ color: '#a78bfa' }} />}
-            </div>
-            <span className="font-medium">All Courses</span>
-          </button>
-
           {/* Individual courses */}
-          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+          <div style={{ maxHeight: 280, overflowY: 'auto' }}>
             {courses.map(course => {
               const isActive = selected === course.id
               return (
                 <button
                   key={course.id}
                   onClick={() => { onSelect(course.id); setOpen(false) }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-all text-left group"
+                  className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-all text-left group"
                   style={{
-                    background: isActive ? 'rgba(124,58,237,0.12)' : 'transparent',
-                    color: isActive ? '#c4b5fd' : '#a1a1aa',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)',
+                    background: isActive ? 'rgba(124,58,237,0.15)' : 'transparent',
+                    color: isActive ? '#e4e4e7' : '#a1a1aa',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
                   }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                 >
                   <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                    {isActive && <Check className="w-3.5 h-3.5" style={{ color: '#a78bfa' }} />}
+                    {isActive && <Check className="w-4 h-4" style={{ color: '#a78bfa' }} />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    {/* Truncated by default, tooltip via title attr shows full */}
                     <p
-                      className="font-medium truncate"
+                      className="font-semibold truncate"
                       style={{ color: isActive ? '#e4e4e7' : '#d4d4d8' }}
                       title={course.name}
                     >
@@ -265,11 +250,12 @@ function BigCard({
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null)
   const [courses, setCourses] = useState<Course[]>([])
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('')
   const [stats, setStats] = useState<CourseStats>(emptyStats)
+  const [totalAllRevenue, setTotalAllRevenue] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  // Fetch all courses on mount
+  // Fetch all courses on mount and set default to most recent
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
     async function loadCourses() {
@@ -280,14 +266,34 @@ export default function DashboardPage() {
         .select('id, name, price, total_lessons, is_published, created_at')
         .eq('creator_id', currentUser.id)
         .order('created_at', { ascending: false })
-      setCourses(data || [])
+      const loadedCourses = data || []
+      setCourses(loadedCourses)
+      if (loadedCourses.length > 0) {
+        setSelectedCourseId(loadedCourses[0].id)
+      }
     }
     loadCourses()
   }, [])
 
+  // Load total revenue across all courses separately
+  useEffect(() => {
+    async function loadTotalRevenue() {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser) return
+      const { data: enrolls } = await supabase
+        .from('enrollments')
+        .select('amount_paid, payment_status')
+        .eq('creator_id', currentUser.id)
+      const paid = (enrolls || []).filter(e => e.payment_status === 'paid')
+      const total = paid.reduce((acc, e) => acc + (e.amount_paid || 0), 0)
+      setTotalAllRevenue(total)
+    }
+    loadTotalRevenue()
+  }, [])
+
   // Re-fetch stats whenever selected course changes
   useEffect(() => {
-    if (courses.length === 0) return
+    if (courses.length === 0 || !selectedCourseId) return
     loadStats()
   }, [selectedCourseId, courses])
 
@@ -296,9 +302,7 @@ export default function DashboardPage() {
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     if (!currentUser) return
 
-    const courseIds = selectedCourseId
-      ? [selectedCourseId]
-      : courses.map(c => c.id)
+    const courseIds = [selectedCourseId]
 
     try {
       // ── Lessons ──
@@ -315,12 +319,8 @@ export default function DashboardPage() {
         uploadedLessons = lessonRows?.length || 0
         publishedLessons = lessonRows?.filter(l => l.is_published).length || 0
 
-        if (selectedCourseId) {
-          const course = courses.find(c => c.id === selectedCourseId)
-          plannedLessons = Math.max(course?.total_lessons || 0, uploadedLessons)
-        } else {
-          plannedLessons = courses.reduce((acc, c) => acc + (c.total_lessons || 0), 0)
-        }
+        const course = courses.find(c => c.id === selectedCourseId)
+        plannedLessons = Math.max(course?.total_lessons || 0, uploadedLessons)
       }
 
       // ── Enrollments / Students ──
@@ -328,8 +328,7 @@ export default function DashboardPage() {
         .from('enrollments')
         .select('id, amount_paid, completed_lessons, current_lesson, last_accessed, payment_status, enrolled_at')
         .eq('creator_id', currentUser.id)
-
-      if (selectedCourseId) enrollQ = enrollQ.eq('course_uuid', selectedCourseId)
+        .eq('course_uuid', selectedCourseId)
 
       const { data: enrolls } = await enrollQ
       const paid = (enrolls || []).filter(e => e.payment_status === 'paid')
@@ -337,9 +336,7 @@ export default function DashboardPage() {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
       const activeStudents = paid.filter(e => e.last_accessed && e.last_accessed >= sevenDaysAgo).length
       const completedStudents = paid.filter(e => {
-        const target = selectedCourseId
-          ? courses.find(c => c.id === selectedCourseId)?.total_lessons || publishedLessons
-          : publishedLessons
+        const target = courses.find(c => c.id === selectedCourseId)?.total_lessons || publishedLessons
         return Array.isArray(e.completed_lessons) && e.completed_lessons.length >= target && target > 0
       }).length
 
@@ -364,19 +361,6 @@ export default function DashboardPage() {
         avgProgress = Math.round(totalPct / paid.length)
       }
 
-      // ── Piracy ──
-      let activeThreats = 0
-      let nuked = 0
-      try {
-        let piracyQ = supabase.from('piracy_log').select('status, course_id').eq('creator_id', currentUser.id)
-        if (selectedCourseId) piracyQ = piracyQ.eq('course_id', selectedCourseId)
-        const { data: threats } = await piracyQ
-        if (threats) {
-          activeThreats = threats.filter(t => t.status === 'detected' || t.status === 'filed').length
-          nuked = threats.filter(t => t.status === 'resolved' || t.status === 'nuked').length
-        }
-      } catch { /* non-fatal */ }
-
       // ── Assignments ──
       let totalAssignments = 0
       let pendingAssignments = 0
@@ -397,8 +381,7 @@ export default function DashboardPage() {
       let activeCoupons = 0
       let couponUses = 0
       try {
-        let couponQ = supabase.from('coupons').select('id, times_used, is_active').eq('creator_id', currentUser.id)
-        if (selectedCourseId) couponQ = couponQ.eq('course_id', selectedCourseId)
+        let couponQ = supabase.from('coupons').select('id, times_used, is_active').eq('creator_id', currentUser.id).eq('course_id', selectedCourseId)
         const { data: coupons } = await couponQ
         if (coupons) {
           activeCoupons = coupons.filter(c => c.is_active).length
@@ -414,8 +397,8 @@ export default function DashboardPage() {
           .from('broadcasts')
           .select('*')
           .eq('creator_id', currentUser.id)
+          .eq('course_id', selectedCourseId)
           .order('sent_at', { ascending: false })
-        if (selectedCourseId) bcQ = bcQ.eq('course_id', selectedCourseId)
         const { data: broadcasts } = await bcQ
         if (broadcasts) {
           totalBroadcasts = broadcasts.length
@@ -435,8 +418,6 @@ export default function DashboardPage() {
         thisMonthRevenue,
         avgOrderValue,
         paidCount: paid.length,
-        activeThreats,
-        nuked,
         activeCoupons,
         couponUses,
         pendingAssignments,
@@ -514,7 +495,7 @@ export default function DashboardPage() {
 
         {loading ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
+            {Array.from({ length: 7 }).map((_, i) => (
               <div key={i} className="h-40 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }} />
             ))}
           </div>
@@ -529,7 +510,7 @@ export default function DashboardPage() {
                 subtitle="Content library"
                 value={stats.uploadedLessons}
                 accent="#a78bfa"
-                href={selectedCourseId ? `/dashboard/courses/${selectedCourseId}` : '/dashboard/courses'}
+                href={`/dashboard/courses/${selectedCourseId}`}
                 badge={
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0"
@@ -578,10 +559,10 @@ export default function DashboardPage() {
                 </div>
               </BigCard>
 
-              {/* Revenue */}
+              {/* Revenue (selected course) */}
               <BigCard
-                title="Revenue"
-                subtitle="Gross sales"
+                title="Course Revenue"
+                subtitle="Gross sales for this course"
                 value={stats.totalRevenue.toLocaleString('en-IN')}
                 unit="₹"
                 accent="#4ade80"
@@ -603,38 +584,32 @@ export default function DashboardPage() {
                 </div>
               </BigCard>
 
-              {/* Piracy Shield */}
+              {/* Total Revenue (all courses) */}
               <BigCard
-                title="Piracy Shield"
-                subtitle="Content protection"
-                value={stats.nuked}
-                accent="#f87171"
-                href="/dashboard/piracy"
+                title="Total Revenue"
+                subtitle="Gross sales across all courses"
+                value={totalAllRevenue.toLocaleString('en-IN')}
+                unit="₹"
+                accent="#ec4899"
+                href="/dashboard/revenue"
                 badge={
-                  stats.activeThreats > 0 ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full font-bold animate-pulse flex-shrink-0"
-                      style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
-                      {stats.activeThreats} active
-                    </span>
-                  ) : (
-                    <span className="text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0"
-                      style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
-                      Secure
-                    </span>
-                  )
+                  <span className="text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0"
+                    style={{ background: 'rgba(236,72,153,0.12)', color: '#ec4899' }}>
+                    All courses
+                  </span>
                 }
               >
-                <div className="flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5" style={{ color: stats.activeThreats > 0 ? '#f87171' : '#4ade80' }} />
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" style={{ color: '#ec4899' }} />
                   <span className="text-xs" style={{ color: '#52525b' }}>
-                    {stats.activeThreats > 0 ? `${stats.activeThreats} threats need attention` : 'No active threats'}
+                    View detailed report
                   </span>
                 </div>
               </BigCard>
             </div>
 
             {/* ── ROW 2: Secondary stats ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 
               {/* Assignments */}
               <BigCard
@@ -720,31 +695,6 @@ export default function DashboardPage() {
                   <p className="text-xs" style={{ color: '#3f3f46' }}>No broadcasts sent yet</p>
                 )}
               </BigCard>
-
-              {/* Analytics */}
-              <BigCard
-                title="Completion"
-                subtitle="Course progress"
-                value={`${stats.avgProgress}%`}
-                accent="#34d399"
-                href={selectedCourseId ? `/dashboard/analytics/${selectedCourseId}` : '/dashboard/analytics'}
-                badge={
-                  stats.activeStudents > 0 ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0"
-                      style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>
-                      {stats.activeStudents} active
-                    </span>
-                  ) : undefined
-                }
-              >
-                <div className="flex flex-col gap-1.5">
-                  <ProgressBar value={stats.avgProgress} max={100} color="#34d399" />
-                  <div className="flex justify-between text-xs" style={{ color: '#52525b' }}>
-                    <span>{stats.completedStudents} finished</span>
-                    <span>{stats.totalStudents - stats.activeStudents} inactive</span>
-                  </div>
-                </div>
-              </BigCard>
             </div>
 
             {/* ── QUICK ACTIONS ── */}
@@ -752,7 +702,7 @@ export default function DashboardPage() {
               className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2"
             >
               {[
-                { label: 'Add lesson', href: selectedCourseId ? `/dashboard/courses/${selectedCourseId}` : '/dashboard/courses', icon: BookOpen, color: '#a78bfa' },
+                { label: 'Add lesson', href: `/dashboard/courses/${selectedCourseId}`, icon: BookOpen, color: '#a78bfa' },
                 { label: 'View students', href: '/dashboard/students', icon: Users, color: '#38bdf8' },
                 { label: 'Send broadcast', href: '/dashboard/broadcast', icon: Megaphone, color: '#fbbf24' },
                 { label: 'Revenue report', href: '/dashboard/revenue', icon: TrendingUp, color: '#4ade80' },

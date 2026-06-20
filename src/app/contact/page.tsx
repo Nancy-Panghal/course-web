@@ -194,7 +194,6 @@ export default function ContactPage() {
                         <option value="" style={{background:'#111'}}>Select a subject</option>
                         <option value="billing" style={{background:'#111'}}>Billing / Subscription</option>
                         <option value="technical" style={{background:'#111'}}>Technical Support</option>
-                        <option value="piracy" style={{background:'#111'}}>Piracy Shield Help</option>
                         <option value="upgrade" style={{background:'#111'}}>Upgrade / Plan Change</option>
                         <option value="refund" style={{background:'#111'}}>Refund Request</option>
                         <option value="other" style={{background:'#111'}}>Other</option>

@@ -57,6 +57,8 @@ interface Lesson {
   quiz_questions?: QuizQuestion[] | null
   assignment_prompt?: string | null
   assignment_required?: boolean
+  assignment_file_url?: string | null
+  assignment_file_name?: string | null
 }
 
 interface QuizQuestion {
@@ -490,6 +492,81 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
   const [prompt, setPrompt] = useState(lesson.assignment_prompt || '')
   const [required, setRequired] = useState(lesson.assignment_required || false)
   const [saving, setSaving] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [localFileUrl, setLocalFileUrl] = useState<string | null>(lesson.assignment_file_url || null)
+  const [localFileName, setLocalFileName] = useState<string | null>(lesson.assignment_file_name || null)
+
+  // Sync with lesson prop when it changes
+  useEffect(() => {
+    if (!editing) {
+      setPrompt(lesson.assignment_prompt || '')
+      setRequired(lesson.assignment_required || false)
+      setLocalFileUrl(lesson.assignment_file_url || null)
+      setLocalFileName(lesson.assignment_file_name || null)
+    }
+  }, [lesson, editing])
+
+  async function handleFileUpload(file: File) {
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB.')
+      return
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'text/plain',
+      'text/markdown',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ]
+    const allowedExtensions = ['.pdf', '.txt', '.md', '.jpg', '.jpeg', '.png', '.gif', '.webp']
+    const fileNameLower = file.name.toLowerCase()
+    const isValidType = allowedTypes.includes(file.type) || allowedExtensions.some(ext => fileNameLower.endsWith(ext))
+    if (!isValidType) {
+      alert('Only PDF, TXT, MD, JPG, JPEG, PNG, GIF, or WEBP files are allowed.')
+      return
+    }
+
+    setUploadingFile(true)
+    try {
+      const { publicUrl } = await uploadToSupabase(file, 'assignments')
+      await supabase
+        .from('lessons')
+        .update({
+          assignment_file_url: publicUrl,
+          assignment_file_name: file.name
+        })
+        .eq('id', lesson.id)
+      setLocalFileUrl(publicUrl)
+      setLocalFileName(file.name)
+      onRefresh()
+    } catch (err: any) {
+      alert(err.message || 'File upload failed.')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  async function deleteAssignmentFile() {
+    try {
+      await supabase
+        .from('lessons')
+        .update({
+          assignment_file_url: null,
+          assignment_file_name: null
+        })
+        .eq('id', lesson.id)
+      setLocalFileUrl(null)
+      setLocalFileName(null)
+      onRefresh()
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete file.')
+    }
+  }
 
   async function save() {
     setSaving(true)
@@ -509,33 +586,79 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
     setSaving(true)
     await supabase
       .from('lessons')
-      .update({ assignment_prompt: null, assignment_required: false })
+      .update({ 
+        assignment_prompt: null, 
+        assignment_required: false,
+        assignment_file_url: null,
+        assignment_file_name: null
+      })
       .eq('id', lesson.id)
     setPrompt('')
     setRequired(false)
+    setLocalFileUrl(null)
+    setLocalFileName(null)
     setSaving(false)
     setEditing(false)
     onRefresh()
   }
 
   if (!editing) {
+    const hasContent = lesson.assignment_prompt || lesson.assignment_file_url
     return (
-      <button
-        onClick={() => { setPrompt(lesson.assignment_prompt || ''); setRequired(lesson.assignment_required || false); setEditing(true) }}
-        className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm w-full"
+      <div className="flex items-center gap-3 p-3 rounded-xl text-sm w-full"
         style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)', color: '#fff' }}>
-        <span>Assignment</span>
-        <span className="text-xs" style={{ color: lesson.assignment_prompt ? '#f59e0b' : '#52525b' }}>
-          {lesson.assignment_prompt ? 'Edit prompt' : 'Add assignment'}
-        </span>
-      </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <FileText className="w-4 h-4" />
+            <span className="font-medium">Assignment</span>
+          </div>
+          {hasContent && (
+            <div className="flex flex-col gap-1 mt-1">
+              {lesson.assignment_prompt && (
+              <p className="text-xs opacity-80 line-clamp-2">{lesson.assignment_prompt}</p>
+            )}
+              {lesson.assignment_file_url && (
+                <Link href={lesson.assignment_file_url} target="_blank" className="text-xs text-violet-400 hover:text-violet-300 truncate">
+                  {lesson.assignment_file_name || 'View Assignment File'}
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {hasContent && (
+            <button
+              onClick={remove}
+              disabled={saving}
+              className="w-8 h-8 flex items-center justify-center rounded-lg transition-all"
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={() => { 
+              setPrompt(lesson.assignment_prompt || ''); 
+              setRequired(lesson.assignment_required || false); 
+              setLocalFileUrl(lesson.assignment_file_url || null);
+              setLocalFileName(lesson.assignment_file_name || null);
+              setEditing(true) 
+            }}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ 
+              background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+            {hasContent ? 'Edit' : 'Add'}
+          </button>
+        </div>
+      </div>
     )
   }
 
   return (
     <div className="p-3 rounded-xl flex flex-col gap-3"
       style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
-      <label className="text-xs font-medium text-white">Assignment Prompt</label>
+      <div className="flex items-center justify-between gap-3">
+        <label className="text-xs font-medium text-white">Assignment Prompt</label>
+      </div>
       <textarea
         value={prompt}
         onChange={e => setPrompt(e.target.value)}
@@ -543,35 +666,140 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
         placeholder="e.g. Write a 300-word analysis of today's strategy. Upload as PDF or type your answer."
         className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none focus:border-amber-500/50"
       />
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setRequired(v => !v)}
-          className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-          style={{ background: required ? '#f59e0b' : 'rgba(255,255,255,0.1)' }}>
-          <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-            style={{ left: required ? '20px' : '2px' }} />
-        </button>
-        <span className="text-xs" style={{ color: '#a1a1aa' }}>
-          {required ? 'Required to proceed' : 'Optional'}
-        </span>
+
+      {/* OR separator */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1 h-px bg-white/5" />
+        <span className="text-[10px] uppercase tracking-widest text-zinc-600">OR</span>
+        <div className="flex-1 h-px bg-white/5" />
       </div>
-      <div className="flex gap-2">
-        {lesson.assignment_prompt && (
-          <button onClick={remove} disabled={saving}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
-            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-            Remove
+
+      {/* File Upload */}
+      <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <label className="text-xs font-medium text-white">Assignment File</label>
+          {localFileUrl && (
+            <div className="flex items-center gap-2">
+              <Link href={localFileUrl} target="_blank" className="text-xs text-violet-400 hover:text-violet-300 truncate max-w-[150px]">
+                {localFileName}
+              </Link>
+              <button
+                onClick={deleteAssignmentFile}
+                className="w-8 h-8 flex items-center justify-center rounded-lg"
+                style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+        <input
+          type="file"
+          accept=".pdf,.txt,.md,.jpg,.jpeg,.png,.gif,.webp,application/pdf,text/plain,text/markdown,image/jpeg,image/png,image/gif,image/webp"
+          className="hidden"
+          id={`assignment-file-${lesson.id}`}
+          onChange={e => {
+            const file = e.target.files?.[0] || null
+            if (file) {
+              handleFileUpload(file)
+            }
+          }}
+        />
+        <label htmlFor={`assignment-file-${lesson.id}`}
+          className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
+          style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+          {uploadingFile ? 'Uploading...' : localFileUrl ? 'Replace File' : 'Upload File (PDF, TXT, MD, Images ≤5MB)'}
+        </label>
+      </div>
+
+      {/* Toggle with description */}
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-xs" style={{ color: '#a1a1aa' }}>
+          {required 
+            ? 'Students cannot proceed to next lesson before submitting assignment' 
+            : 'Students can proceed to next lesson without completing assignment'}
+        </span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs" style={{ color: '#a1a1aa' }}>
+            {required ? 'Required to proceed' : 'Optional'}
+          </span>
+          <button
+            onClick={() => setRequired(v => !v)}
+            className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+            style={{ background: required ? '#f59e0b' : 'rgba(255,255,255,0.1)' }}>
+            <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+              style={{ left: required ? '20px' : '2px' }} />
           </button>
-        )}
-        <button onClick={() => setEditing(false)}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium"
-          style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
-          Cancel
-        </button>
-        <button onClick={save} disabled={saving || !prompt.trim()}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={save} disabled={saving || (!prompt.trim() && !localFileUrl)}
           className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white violet-gradient disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Assignment'}
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ── DELETE LESSON MODAL ──
+function DeleteLessonModal({
+  lesson,
+  onConfirm,
+  onClose
+}: {
+  lesson: Lesson
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const [confirmText, setConfirmText] = useState('')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+      <div className="w-full max-w-md rounded-2xl p-6" style={{ background: '#111', border: '1px solid rgba(239,68,68,0.3)' }}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-white">Delete Lesson</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-zinc-400">
+            Are you sure you want to delete the lesson <strong className="text-white">{lesson.title}</strong>? This action cannot be undone.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-zinc-300">
+              To confirm, type the lesson name: <span className="text-white">{lesson.title}</span>
+            </label>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="Type lesson name here"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={confirmText.trim() !== lesson.title.trim()}
+              className="flex-1 py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+              style={{ background: '#ef4444' }}
+            >
+              Delete Lesson
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -596,6 +824,7 @@ function LessonWidget({
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [resourceSaving, setResourceSaving] = useState<'summary' | 'notes' | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   async function uploadResource(kind: 'summary' | 'notes', file: File | null) {
     if (!file) return
@@ -622,6 +851,19 @@ function LessonWidget({
     }
   }
 
+  async function deleteResource(kind: 'summary' | 'notes') {
+    try {
+      const payload = kind === 'summary'
+        ? { summary_url: null, summary_name: null }
+        : { notes_url: null, notes_name: null }
+      const { error } = await supabase.from('lessons').update(payload).eq('id', lesson.id)
+      if (error) throw error
+      onRefresh()
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete resource.')
+    }
+  }
+
   function copyLink() {
     // Don't expose the actual URL — just copy a reference
     navigator.clipboard.writeText(`Lesson ${lesson.order_num}: ${lesson.title}`)
@@ -630,166 +872,203 @@ function LessonWidget({
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden transition-all"
-      draggable
-      onDragStart={handleDragStart}
-      style={{
-        border: lesson.is_published
-          ? '1px solid rgba(74,222,128,0.2)'
-          : '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(255,255,255,0.02)',
-      }}>
+    <>
+      {showDeleteModal && (
+        <DeleteLessonModal
+          lesson={lesson}
+          onConfirm={() => onDelete(lesson.id)}
+          onClose={() => setShowDeleteModal(false)}
+        />
+      )}
+      <div className="rounded-2xl overflow-hidden transition-all"
+        draggable
+        onDragStart={handleDragStart}
+        style={{
+          border: lesson.is_published
+            ? '1px solid rgba(74,222,128,0.2)'
+            : '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(255,255,255,0.02)',
+        }}>
 
-      {/* Main row */}
-      <div className="flex items-center gap-4 p-4">
-        <GripVertical className="w-4 h-4 flex-shrink-0"
-          style={{ color: '#3f3f46' }} />
+        {/* Main row */}
+        <div className="flex items-center gap-4 p-4">
+          <GripVertical className="w-4 h-4 flex-shrink-0"
+            style={{ color: '#3f3f46' }} />
 
-        {/* Order badge */}
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
-          style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6' }}>
-          {String(lesson.order_num).padStart(2, '0')}
-        </div>
-
-        {/* Type icon */}
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: 'rgba(255,255,255,0.05)' }}>
-          {lesson.content_type === 'pdf'
-            ? <FileText className="w-4 h-4" style={{ color: '#f59e0b' }} />
-            : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
-          }
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate">{lesson.title}</p>
-          <div className="flex items-center gap-3 mt-0.5">
-            {lesson.duration && (
-              <span className="text-xs" style={{ color: '#52525b' }}>{lesson.duration}</span>
-            )}
-            <span className="text-xs" style={{
-              color: lesson.is_published ? '#4ade80' : '#52525b'
-            }}>
-              {lesson.is_published ? '● Published' : '○ Draft'}
-            </span>
+          {/* Order badge */}
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+            style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6' }}>
+            {String(lesson.order_num).padStart(2, '0')}
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={() => onTogglePublish(lesson.id, lesson.is_published)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{
-              background: lesson.is_published ? 'rgba(239,68,68,0.1)' : 'rgba(74,222,128,0.1)',
-              color: lesson.is_published ? '#ef4444' : '#4ade80',
-              border: lesson.is_published ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(74,222,128,0.2)',
-            }}>
-            {lesson.is_published
-              ? <><EyeOff className="w-3 h-3" />Unpublish</>
-              : <><Eye className="w-3 h-3" />Publish</>
+          {/* Type icon */}
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(255,255,255,0.05)' }}>
+            {lesson.content_type === 'pdf'
+              ? <FileText className="w-4 h-4" style={{ color: '#f59e0b' }} />
+              : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
             }
-          </button>
+          </div>
 
-          <button onClick={() => setExpanded(!expanded)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded section */}
-      {expanded && (
-        <div className="px-4 pb-4 border-t"
-          style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-          <div className="pt-4 flex flex-col gap-3">
-
-            {/* Visit lesson — URL hidden from display */}
-            <div className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-white mb-0.5">Lesson Content</p>
-                <p className="text-xs truncate" style={{ color: '#52525b' }}>
-                  {lesson.content_type === 'video' ? '🎬' : '📄'} {lesson.content_type.toUpperCase()} · URL stored securely
-                </p>
-              </div>
-              <a
-                href={lesson.content_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
-                style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
-                <ExternalLink className="w-3 h-3" />
-                Preview
-              </a>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(['summary', 'notes'] as const).map(kind => {
-                const hasFile = kind === 'summary' ? !!lesson.summary_url : !!lesson.notes_url
-                const name = kind === 'summary' ? lesson.summary_name : lesson.notes_name
-                return (
-                  <div key={kind} className="p-3 rounded-xl"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-white capitalize">{kind}</p>
-                        <p className="text-[10px] truncate" style={{ color: '#52525b' }}>
-                          {hasFile ? name || 'Uploaded' : 'PDF or text document'}
-                        </p>
-                      </div>
-                      {hasFile && (
-                        <Link href={`/resource/${lesson.id}?type=${kind}`} target="_blank"
-                          className="text-[10px] text-violet-400 hover:text-violet-300">
-                          View
-                        </Link>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      accept=".pdf,.txt,.md,.doc,.docx,application/pdf,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      className="hidden"
-                      id={`${kind}-${lesson.id}`}
-                      onChange={e => uploadResource(kind, e.target.files?.[0] || null)}
-                    />
-                    <label htmlFor={`${kind}-${lesson.id}`}
-                      className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
-                      style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
-                      {resourceSaving === kind ? 'Uploading...' : hasFile ? 'Replace File' : `Add ${kind}`}
-                    </label>
-                  </div>
-                )
-              })}
-            </div>
-
-            <Link
-              href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
-              className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
-              style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.18)', color: '#fff' }}>
-              <span>Quiz Builder</span>
-              <span className="text-xs text-violet-300">
-                {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
-                  ? `${lesson.quiz_questions.length} questions`
-                  : 'Add quiz'}
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">{lesson.title}</p>
+            <div className="flex items-center gap-3 mt-0.5">
+              {lesson.duration && (
+                <span className="text-xs" style={{ color: '#52525b' }}>{lesson.duration}</span>
+              )}
+              <span className="text-xs" style={{
+                color: lesson.is_published ? '#4ade80' : '#52525b'
+              }}>
+                {lesson.is_published ? '● Published' : '○ Draft'}
               </span>
-            </Link>
+            </div>
+          </div>
 
-            {/* Assignment prompt */}
-            <AssignmentEditor lesson={lesson} onRefresh={onRefresh} />
-
-            {/* Delete */}
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
-              onClick={() => onDelete(lesson.id)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all w-fit"
-              style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete Lesson
+              onClick={() => onTogglePublish(lesson.id, lesson.is_published)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: lesson.is_published ? 'rgba(239,68,68,0.1)' : 'rgba(74,222,128,0.1)',
+                color: lesson.is_published ? '#ef4444' : '#4ade80',
+                border: lesson.is_published ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(74,222,128,0.2)',
+              }}>
+              {lesson.is_published
+                ? <><EyeOff className="w-3 h-3" />Unpublish</>
+                : <><Eye className="w-3 h-3" />Publish</>
+              }
+            </button>
+
+            <button onClick={() => setExpanded(!expanded)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Expanded section */}
+        {expanded && (
+          <div className="px-4 pb-4 border-t"
+            style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+            <div className="pt-4 flex flex-col gap-3">
+
+              {/* Visit lesson — URL hidden from display */}
+              <div className="flex items-center gap-3 p-3 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-white mb-0.5">Lesson Content</p>
+                  <p className="text-xs truncate" style={{ color: '#52525b' }}>
+                    {lesson.content_type === 'video' ? '🎬' : '📄'} {lesson.content_type.toUpperCase()} · URL stored securely
+                  </p>
+                </div>
+                <a
+                  href={lesson.content_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
+                  style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
+                  <ExternalLink className="w-3 h-3" />
+                  Preview
+                </a>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(['summary', 'notes'] as const).map(kind => {
+                  const hasFile = kind === 'summary' ? !!lesson.summary_url : !!lesson.notes_url
+                  const name = kind === 'summary' ? lesson.summary_name : lesson.notes_name
+                  return (
+                    <div key={kind} className="p-3 rounded-xl"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="min-w-0 flex items-center gap-2">
+                          <p className="text-xs font-medium text-white capitalize">{kind}</p>
+                          {hasFile && (
+                            <button
+                              onClick={() => deleteResource(kind)}
+                              className="w-6 h-6 flex items-center justify-center rounded-lg"
+                              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        {hasFile && (
+                          <Link href={`/resource/${lesson.id}?type=${kind}`} target="_blank"
+                            className="text-[10px] text-violet-400 hover:text-violet-300">
+                            View
+                          </Link>
+                        )}
+                      </div>
+                      <p className="text-[10px] truncate mb-2" style={{ color: '#52525b' }}>
+                        {hasFile ? name || 'Uploaded' : 'PDF or text document'}
+                      </p>
+                      <input
+                        type="file"
+                        accept=".pdf,.txt,.md,.doc,.docx,application/pdf,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        className="hidden"
+                        id={`${kind}-${lesson.id}`}
+                        onChange={e => uploadResource(kind, e.target.files?.[0] || null)}
+                      />
+                      <label htmlFor={`${kind}-${lesson.id}`}
+                        className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
+                        style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+                        {resourceSaving === kind ? 'Uploading...' : hasFile ? 'Replace File' : `Add ${kind}`}
+                      </label>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
+                style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.18)', color: '#fff' }}>
+                <Link
+                  href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
+                  className="flex-1 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  <span>Quiz Builder</span>
+                </Link>
+                {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0 && (
+                <button
+                  onClick={async () => {
+                    if (confirm('Delete this quiz?')) {
+                      try {
+                        await supabase.from('lessons').update({ quiz_questions: [] }).eq('id', lesson.id)
+                        onRefresh()
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to delete quiz.')
+                      }
+                    }
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg"
+                  style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+                <span className="text-xs text-violet-300">
+                  {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
+                    ? `${lesson.quiz_questions.length} questions`
+                    : 'Add quiz'}
+                </span>
+              </div>
+
+              {/* Assignment prompt */}
+              <AssignmentEditor lesson={lesson} onRefresh={onRefresh} />
+
+              {/* Delete Lesson */}
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all w-fit"
+                style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Lesson
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -1144,6 +1423,186 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
   )
 }
 
+// ── CERTIFICATE PREVIEW MODAL ──
+function CertificatePreviewModal({
+  isOpen,
+  onClose,
+  template,
+  courseName,
+  creatorName,
+  skills,
+  courseDuration,
+  logoUrl,
+  signatureUrl,
+  customMessage,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  template: string
+  courseName: string
+  creatorName: string
+  skills?: string
+  courseDuration?: string
+  logoUrl?: string
+  signatureUrl?: string
+  customMessage?: string
+}) {
+  if (!isOpen) return null
+
+  const templateStyles: Record<string, any> = {
+    classic: {
+      background: 'linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%)',
+      borderColor: '#1a2744',
+      accentColor: '#c9a227',
+      textColor: '#1a2744',
+    },
+    modern: {
+      background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%)',
+      borderColor: '#7c3aed',
+      accentColor: '#7c3aed',
+      textColor: '#ffffff',
+    },
+    gold: {
+      background: 'linear-gradient(135deg, #fdf8ed 0%, #f5ecd8 100%)',
+      borderColor: '#c9a227',
+      accentColor: '#c9a227',
+      textColor: '#3d2b1f',
+    },
+    minimal: {
+      background: '#ffffff',
+      borderColor: '#7c3aed',
+      accentColor: '#7c3aed',
+      textColor: '#000000',
+    },
+    royal: {
+      background: 'linear-gradient(135deg, #060d2e 0%, #0a1440 100%)',
+      borderColor: '#d4af37',
+      accentColor: '#d4af37',
+      textColor: '#ffffff',
+    },
+  }
+
+  const style = templateStyles[template] || templateStyles.classic
+
+  const skillsArray = skills
+    ? skills.split(',').map(s => s.trim()).filter(Boolean)
+    : []
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+      <div className="w-full max-w-5xl rounded-2xl overflow-hidden flex flex-col max-h-[95vh]" style={{ background: '#111', border: '1px solid rgba(124,58,237,0.3)' }}>
+        {/* Modal Header */}
+        <div className="flex items-center justify-between p-4 border-b flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <h2 className="text-lg font-semibold text-white">Certificate Preview</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Preview Area */}
+        <div className="p-6 flex-1 overflow-auto" style={{ background: '#0a0a0a' }}>
+          <div 
+            className="w-full aspect-[1.414/1] rounded-xl overflow-hidden shadow-2xl p-6 md:p-8 flex flex-col items-center justify-center mx-auto"
+            style={{ background: style.background, border: `4px solid ${style.borderColor}` }}
+          >
+            {/* Logo */}
+            {logoUrl && (
+              <div className="mb-4 md:mb-6">
+                <img src={logoUrl} alt="Brand Logo" className="h-12 md:h-16 object-contain" />
+              </div>
+            )}
+
+            {/* Certificate Header */}
+            <p 
+              className="text-xs tracking-[0.2em] uppercase mb-3 md:mb-4"
+              style={{ color: style.accentColor }}
+            >
+              Certificate of Completion
+            </p>
+
+            {/* Student Name */}
+            <h1 
+              className="text-2xl md:text-4xl font-bold mb-2"
+              style={{ color: style.textColor }}
+            >
+              John Doe
+            </h1>
+            <div className="w-16 md:w-24 h-1 mb-3 md:mb-4" style={{ background: style.accentColor }} />
+
+            {/* Course Name */}
+            <p 
+              className="text-lg md:text-xl mb-4 md:mb-6 text-center"
+              style={{ color: style.textColor }}
+            >
+              has successfully completed <strong>{courseName}</strong>
+            </p>
+
+            {/* Skills */}
+            {skillsArray.length > 0 && (
+              <div className="mb-4 md:mb-6 flex flex-wrap gap-2 justify-center">
+                {skillsArray.slice(0, 4).map((skill, i) => (
+                  <span 
+                    key={i} 
+                    className="px-2 md:px-3 py-1 rounded-full text-xs"
+                    style={{ background: `${style.accentColor}20`, color: style.accentColor, border: `1px solid ${style.accentColor}40` }}
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Duration */}
+            {courseDuration && (
+              <p 
+                className="text-xs md:text-sm mb-4 md:mb-6"
+                style={{ color: style.textColor + 'cc' }}
+              >
+                Duration: {courseDuration}
+              </p>
+            )}
+
+            {/* Custom Message */}
+            {customMessage && (
+              <p 
+                className="text-xs md:text-sm mb-4 md:mb-6 italic text-center max-w-md"
+                style={{ color: style.textColor + 'aa' }}
+              >
+                "{customMessage}"
+              </p>
+            )}
+
+            {/* Signature */}
+            <div className="flex items-center justify-between w-full max-w-md mt-auto">
+              <div className="text-center">
+                {signatureUrl ? (
+                  <img src={signatureUrl} alt="Signature" className="h-10 md:h-16 object-contain mb-2" />
+                ) : (
+                  <div className="h-10 md:h-12 w-24 md:w-32 border-b mb-2" style={{ borderColor: style.textColor + '60' }} />
+                )}
+                <p className="text-xs md:text-sm font-semibold" style={{ color: style.textColor }}>
+                  {creatorName}
+                </p>
+                <p className="text-xs" style={{ color: style.textColor + '80' }}>
+                  Instructor
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs md:text-sm font-semibold" style={{ color: style.textColor }}>
+                  {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+                <p className="text-xs" style={{ color: style.textColor + '80' }}>
+                  Issue Date
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── MAIN PAGE ──
 export default function CourseManagePage({
   params,
@@ -1198,6 +1657,8 @@ export default function CourseManagePage({
   const [editSkills, setEditSkills] = useState('') // comma-separated in the UI
   const [editCertLogoUrl, setEditCertLogoUrl] = useState('')
   const [editCertSignatureUrl, setEditCertSignatureUrl] = useState('')
+  const [showCertPreview, setShowCertPreview] = useState(false)
+  const [previewTemplate, setPreviewTemplate] = useState<string>('classic')
 
   useEffect(() => {
     async function load() {
@@ -1858,6 +2319,7 @@ export default function CourseManagePage({
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 appearance-none cursor-pointer"
                         style={{ background: '#050505', color: '#fff' }}
                       >
+                        <option value="completely free" style={{ background: '#050505', color: '#fff' }}>Completely free (no payment required)</option>
                         <option value="nothing free" style={{ background: '#050505', color: '#fff' }}>Nothing free (Pay immediately)</option>
                         <option value="lesson 1 free" style={{ background: '#050505', color: '#fff' }}>Lesson 1 free</option>
                         <option value="2 lessons free" style={{ background: '#050505', color: '#fff' }}>2 lessons free</option>
@@ -2018,45 +2480,67 @@ export default function CourseManagePage({
                                 { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
                                 { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
                               ] as const).map(t => (
-                                <button
+                                <div
                                   key={t.id}
-                                  type="button"
-                                  onClick={() => setEditCertTemplate(t.id)}
-                                  className="flex items-start gap-3 p-3 rounded-xl text-left transition-all"
-                                  style={{
-                                    background: editCertTemplate === t.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
-                                    border: editCertTemplate === t.id
-                                      ? '1px solid rgba(124,58,237,0.45)'
-                                      : '1px solid rgba(255,255,255,0.08)',
-                                  }}
+                                  className="flex items-center gap-2"
                                 >
-                                  {/* Tiny colour swatch */}
-                                  <div
-                                    className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditCertTemplate(t.id)}
+                                    className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
                                     style={{
-                                      background:
-                                        t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
-                                          t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,#7c3aed)' :
-                                            t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
-                                              t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,#7c3aed)' :
-                                                'linear-gradient(135deg,#060d2e,#d4af37)',
+                                      background: editCertTemplate === t.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
+                                      border: editCertTemplate === t.id
+                                        ? '1px solid rgba(124,58,237,0.45)'
+                                        : '1px solid rgba(255,255,255,0.08)',
                                     }}
-                                  />
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-white">{t.label}</p>
-                                    <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
-                                  </div>
-                                  {editCertTemplate === t.id && (
+                                  >
+                                    {/* Tiny colour swatch */}
                                     <div
-                                      className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
-                                      style={{ background: '#7c3aed', marginTop: 2 }}
-                                    >
-                                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                        <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                      </svg>
+                                      className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
+                                      style={{
+                                        background:
+                                          t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
+                                            t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,#7c3aed)' :
+                                              t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
+                                                t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,#7c3aed)' :
+                                                  'linear-gradient(135deg,#060d2e,#d4af37)',
+                                      }}
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-white">{t.label}</p>
+                                      <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
                                     </div>
-                                  )}
-                                </button>
+                                    {editCertTemplate === t.id && (
+                                      <div
+                                        className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
+                                        style={{ background: '#7c3aed', marginTop: 2 }}
+                                      >
+                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                          <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </button>
+                                  {/* Preview icon button */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setPreviewTemplate(t.id)
+                                      setShowCertPreview(true)
+                                    }}
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10"
+                                    style={{
+                                      background: 'rgba(255,255,255,0.03)',
+                                      border: '1px solid rgba(255,255,255,0.08)',
+                                      color: '#a1a1aa',
+                                    }}
+                                    title={`Preview ${t.label} template`}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -2276,6 +2760,22 @@ export default function CourseManagePage({
           </div>
         </div>
       </main>
+
+      {/* Certificate Preview Modal */}
+      {course && (
+        <CertificatePreviewModal
+          isOpen={showCertPreview}
+          onClose={() => setShowCertPreview(false)}
+          template={previewTemplate}
+          courseName={course.name}
+          creatorName={course.host_name || 'Instructor'}
+          skills={editSkills}
+          courseDuration={editDuration}
+          logoUrl={editCertLogoUrl}
+          signatureUrl={editCertSignatureUrl}
+          customMessage={editCertCustomMessage}
+        />
+      )}
     </div>
   )
 }

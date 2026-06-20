@@ -323,6 +323,7 @@ export default function CreateCoursePage() {
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all appearance-none cursor-pointer"
                   style={{background:'#050505', color:'#fff', border:'1px solid rgba(255,255,255,0.1)'}}
                 >
+                  <option value="completely free" style={{background:'#050505', color:'#fff'}}>Completely free (no payment required)</option>
                   <option value="nothing free" style={{background:'#050505', color:'#fff'}}>Nothing free (Pay immediately)</option>
                   <option value="lesson 1 free" style={{background:'#050505', color:'#fff'}}>Lesson 1 free</option>
                   <option value="2 lessons free" style={{background:'#050505', color:'#fff'}}>2 lessons free</option>

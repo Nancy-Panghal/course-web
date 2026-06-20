@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, Clock, BookOpen, AlertCircle, Send } from 'lucide-react'
+import { CheckCircle2, Clock, BookOpen, AlertCircle, Send, Plus } from 'lucide-react'
 
 interface Assignment {
   id: string
@@ -19,10 +20,17 @@ interface Assignment {
   status: 'pending' | 'reviewed'
   lessons: { title: string; order_num: number } | null
   enrollments: { phone: string } | null
+  courses?: { id: string; slug: string } | null
+}
+
+interface Course {
+  id: string
+  name: string
 }
 
 export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState('')
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('pending')
@@ -37,10 +45,18 @@ export default function AssignmentsPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
       setToken(session.access_token)
-      await fetchAssignments(session.access_token, 'pending')
+      await Promise.all([
+        fetchAssignments(session.access_token, 'pending'),
+        fetchCourses()
+      ])
     }
     load()
   }, [])
+
+  async function fetchCourses() {
+    const { data } = await supabase.from('courses').select('id, name').order('created_at', { ascending: false })
+    setCourses(data || [])
+  }
 
   async function fetchAssignments(tok: string, status: string) {
     setLoading(true)
@@ -104,8 +120,25 @@ export default function AssignmentsPage() {
           </p>
         </div>
 
+        {/* Info message */}
+        <div className="rounded-2xl p-5 mb-6" style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <p className="text-sm" style={{ color: '#a1a1aa' }}>
+              Want to add assignments to your lessons? Click below to manage your course assignments.
+            </p>
+            {courses.length > 0 && (
+              <Link
+                href={`/dashboard/courses/${courses[0].id}`}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90">
+                <Plus className="w-4 h-4" />
+                Add Assignments
+              </Link>
+            )}
+          </div>
+        </div>
+
         {/* Filter tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap items-center">
           {(['pending', 'reviewed', 'all'] as const).map(f => (
             <button key={f} onClick={() => changeFilter(f)}
               className="px-4 py-2 rounded-xl text-sm font-medium capitalize transition-all"
@@ -159,6 +192,13 @@ export default function AssignmentsPage() {
                         hour: 'numeric', minute: '2-digit',
                       })}
                     </p>
+                    <Link
+                      href={`/dashboard/courses/${a.course_id}`}
+                      className="inline-flex items-center gap-1 mt-2 text-xs font-medium transition-colors"
+                      style={{ color: '#8b5cf6' }}>
+                      <Plus className="w-3 h-3" />
+                      Add/Edit Assignment
+                    </Link>
                   </div>
                   {a.status === 'pending' && reviewingId !== a.id && (
                     <button
