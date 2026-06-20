@@ -37,10 +37,14 @@ export async function GET(
 
     const { id } = await params
 
+    // ── Bug fix: must select student_id + enrollment_id — they were
+    //   missing before so every ownership check below was comparing
+    //   undefined values and silently failing.
     const { data, error } = await supabase
       .from('assignments')
       .select(`
-        id, lesson_id, course_id, submission_text, submission_url,
+        id, lesson_id, course_id, student_id, enrollment_id,
+        submission_text, submission_url,
         submitted_at, creator_feedback, score, reviewed_at, status,
         lessons:lesson_id(title, order_num)
       `)
@@ -50,7 +54,7 @@ export async function GET(
     if (error) throw error
     if (!data) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
 
-    // Allow access to: the student who submitted OR the course creator
+    // ── Check 1: caller is the course creator ─────────────────────
     const { data: course } = await supabase
       .from('courses')
       .select('creator_id')
@@ -58,20 +62,51 @@ export async function GET(
       .maybeSingle()
 
     const isCreator = course?.creator_id === user.id
-    const isStudent = data.student_id === user.id ||
-      // fallback: check by enrollment
-      !!(await supabase
-        .from('enrollments')
-        .select('id')
-        .eq('id', data.enrollment_id)
-        .maybeSingle()
-        .then(r => r.data))
+
+    // ── Check 2: caller is the student who submitted ──────────────
+    // assignments.student_id → students.id (NOT auth.users.id).
+    // We must resolve auth.users.id → students.id via students.auth_id.
+    let isStudent = false
+    if (!isCreator) {
+      if (data.student_id) {
+        // Primary path: look up the students row by auth_id and compare to
+        // the stored student_id so we never mix up the two UUID spaces.
+        const { data: studentRow } = await supabase
+          .from('students')
+          .select('id')
+          .eq('auth_id', user.id)
+          .maybeSingle()
+        isStudent = !!studentRow && studentRow.id === data.student_id
+      }
+
+      // Fallback: assignment may have been submitted without a student row
+      // (Telegram-only, phone-only users). Verify ownership via the
+      // enrollment row — the enrollment must belong to this auth user.
+      if (!isStudent && data.enrollment_id) {
+        const { data: enrollmentRow } = await supabase
+          .from('enrollments')
+          .select('student_id, students:student_id(auth_id)')
+          .eq('id', data.enrollment_id)
+          .maybeSingle()
+
+        // Check if the enrollment's student has a matching auth_id
+        const enrolledStudent = (enrollmentRow as any)?.students
+        if (enrolledStudent?.auth_id === user.id) {
+          isStudent = true
+        }
+      }
+    }
 
     if (!isCreator && !isStudent) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    return NextResponse.json({ assignment: data })
+    // Strip internal IDs before returning to students (creators see everything)
+    const payload = isCreator
+      ? data
+      : (({ student_id, enrollment_id, ...rest }) => rest)(data as any)
+
+    return NextResponse.json({ assignment: payload })
   } catch (err: any) {
     console.error('[assignments/[id] GET]', err.message)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

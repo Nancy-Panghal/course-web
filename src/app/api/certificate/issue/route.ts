@@ -41,30 +41,61 @@ export async function POST(req: NextRequest) {
 
     console.log('[certificate/issue] Using effectiveCourseId:', effectiveCourseId)
 
-    if (enrollment.payment_status !== 'paid') {
+    // Allow paid OR completely-free enrollments
+    if (enrollment.payment_status !== 'paid' && enrollment.payment_status !== 'completely free') {
       return NextResponse.json({ issued: false, reason: 'not_paid' })
     }
 
-    // ── Check completion ──────────────────────────────────────────────────
-    const { count: totalLessons } = await supabase
-      .from('lessons')
-      .select('*', { count: 'exact', head: true })
-      .eq('course_id', enrollment.course_uuid)
+    // ── Resolve the planned lesson total from courses.total_lessons ───────
+    const { data: courseForCount } = await supabase
+      .from('courses')
+      .select('total_lessons')
+      .eq('id', enrollment.course_uuid)
+      .maybeSingle()
 
-    console.log('[certificate/issue] Total lessons:', totalLessons)
+    // Also fetch all published lessons so we can check the last lesson is done
+    const { data: publishedLessons, count: publishedCount } = await supabase
+      .from('lessons')
+      .select('order_num', { count: 'exact' })
+      .eq('course_id', enrollment.course_uuid)
+      .eq('is_published', true)
+      .order('order_num', { ascending: true })
+
+    // Use creator's planned total as the hard gate; fall back to published count
+    const plannedTotal: number = (courseForCount?.total_lessons && courseForCount.total_lessons > 0)
+      ? courseForCount.total_lessons
+      : (publishedCount ?? 0)
+
+    console.log('[certificate/issue] Total lessons (planned):', plannedTotal)
 
     const completedLessons: number[] = Array.isArray(enrollment.completed_lessons)
       ? enrollment.completed_lessons
       : []
 
-    console.log('[certificate/issue] Completed:', completedLessons.length, '/', totalLessons)
+    console.log('[certificate/issue] Completed:', completedLessons.length, '/', plannedTotal)
 
-    if (!totalLessons || completedLessons.length < totalLessons) {
+    // Must have completed at least every planned lesson
+    if (plannedTotal === 0 || completedLessons.length < plannedTotal) {
       return NextResponse.json({
         issued: false,
         reason: 'incomplete',
         completed: completedLessons.length,
-        total: totalLessons ?? 0,
+        total: plannedTotal,
+      })
+    }
+
+    // Must have the last published lesson explicitly marked complete (anti-cheat)
+    const lastPublishedOrderNum = publishedLessons?.length
+      ? Math.max(...publishedLessons.map((l: any) => l.order_num))
+      : null
+
+    if (lastPublishedOrderNum !== null && !completedLessons.includes(lastPublishedOrderNum)) {
+      return NextResponse.json({
+        issued: false,
+        reason: 'last_lesson_not_completed',
+        message: 'Please complete the final lesson before claiming your certificate.',
+        lastLesson: lastPublishedOrderNum,
+        completedLessons,
       })
     }
 

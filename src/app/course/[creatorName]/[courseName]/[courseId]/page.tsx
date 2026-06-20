@@ -818,12 +818,17 @@ export default function CourseLearnPage() {
                     </p>
                   </div>
 
-                ) : (
+                ) : allDone ? (
                   <button
                     onClick={openCertificate}
                     style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(234,179,8,0.08)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                     <Award className="w-4 h-4 inline mr-1" />Get Certificate
                   </button>
+                ) : (
+                  // Last lesson is visible but not yet marked complete — prompt the student
+                  <p style={{ color: '#71717a', fontSize: 12, fontWeight: 600 }}>
+                    Mark this lesson complete to finish the course
+                  </p>
                 )}
               </div>
 

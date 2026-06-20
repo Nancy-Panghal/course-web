@@ -31,7 +31,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'lessonId and enrollmentId required' }, { status: 400 })
     }
 
-    // Verify the enrollment belongs to this user (by student_id or auth_id)
+    // ── Resolve this auth user to their students row ──────────────
+    // (students.auth_id is the bridge between auth.users and students)
+    const { data: studentRow } = await supabase
+      .from('students')
+      .select('id')
+      .eq('auth_id', user.id)
+      .maybeSingle()
+
+    // ── Verify the enrollment actually belongs to this student ────
     const { data: enrollment } = await supabase
       .from('enrollments')
       .select('id, student_id')
@@ -39,6 +47,13 @@ export async function GET(req: NextRequest) {
       .maybeSingle()
 
     if (!enrollment) return NextResponse.json({ assignment: null })
+
+    // If we have a resolved student row, the enrollment's student_id must match.
+    // If no student row exists yet (edge case: creator browsing their own enrollment)
+    // we fall through and return null safely.
+    if (studentRow && enrollment.student_id !== studentRow.id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
 
     const { data, error } = await supabase
       .from('assignments')

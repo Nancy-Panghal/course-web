@@ -117,16 +117,33 @@ export async function POST(req: NextRequest) {
 
     if (updateErr) throw updateErr
 
-    const { count: totalLessons } = await supabase
+    // ── Determine planned lesson total (use courses.total_lessons; fall back to published count) ─
+    const { data: courseRow } = await supabase
+      .from('courses')
+      .select('total_lessons, name, creator_id, host_name, cert_enabled, cert_template, cert_custom_message')
+      .eq('id', courseId)
+      .maybeSingle()
+
+    // Count only published lessons as the baseline; creator's planned total is the hard gate
+    const { count: publishedCount } = await supabase
       .from('lessons')
       .select('*', { count: 'exact', head: true })
       .eq('course_id', courseId)
       .eq('is_published', true)
 
-    const courseCompleted = Boolean(totalLessons && completed.length >= totalLessons)
+    // total_lessons is the gatekeeper — must complete ALL planned lessons before completion
+    // If the creator hasn't set a total_lessons, fall back to the published count
+    const plannedTotal: number = (courseRow?.total_lessons && courseRow.total_lessons > 0)
+      ? courseRow.total_lessons
+      : (publishedCount ?? 0)
+
+    // A student is done only when they've completed every planned lesson
+    const courseCompleted = plannedTotal > 0 && completed.length >= plannedTotal
+
     let certResult: { certificateId: string; pdfUrl: string } | null = null
 
     if (courseCompleted) {
+      // ── Send completion emails (idempotent via email_logs) ───────────────
       const { data: existingCompletionEmail } = await supabase
         .from('email_logs')
         .select('id')
@@ -136,20 +153,13 @@ export async function POST(req: NextRequest) {
         .limit(1)
 
       if (!existingCompletionEmail?.length) {
-        const [{ data: courseRows }, { data: studentRows }] = await Promise.all([
-          supabase
-            .from('courses')
-            .select('name, creator_id')
-            .eq('id', courseId)
-            .limit(1),
-          supabase
-            .from('students')
-            .select('email, name')
-            .eq('id', enrollment.student_id)
-            .limit(1),
-        ])
+        const { data: studentRows } = await supabase
+          .from('students')
+          .select('email, name')
+          .eq('id', enrollment.student_id)
+          .limit(1)
 
-        const course = courseRows?.[0]
+        const course = courseRow
         const student = studentRows?.[0]
         const creatorId = enrollment.creator_id || course?.creator_id || null
 
@@ -164,7 +174,7 @@ export async function POST(req: NextRequest) {
             courseId,
             metadata: {
               completed_lessons: completed.length,
-              total_lessons: totalLessons,
+              total_lessons: plannedTotal,
             },
             html: `
               <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
@@ -207,16 +217,10 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-    }
-    // ── Auto-issue certificate (idempotent, non-fatal) ─────────────────────
-      try {
-        const { data: certCourse } = await supabase
-          .from('courses')
-          .select('name, host_name, cert_enabled, cert_template, cert_custom_message')
-          .eq('id', courseId)
-          .maybeSingle()
 
-        if (certCourse?.cert_enabled !== false) {
+      // ── Auto-issue certificate (only on true completion, idempotent, non-fatal) ─
+      try {
+        if (courseRow?.cert_enabled !== false) {
           let certStudentName = 'Student'
           if (enrollment.student_id) {
             const { data: certStudent } = await supabase
@@ -235,16 +239,17 @@ export async function POST(req: NextRequest) {
             courseId,
             studentId:     enrollment.student_id ?? null,
             studentName:   certStudentName,
-            courseName:    certCourse!.name,
-            creatorName:   certCourse!.host_name || 'Creator',
-            template:      (certCourse!.cert_template ?? 'classic') as CertTemplate,
-            customMessage: certCourse!.cert_custom_message ?? undefined,
+            courseName:    courseRow!.name,
+            creatorName:   courseRow!.host_name || 'Creator',
+            template:      (courseRow!.cert_template ?? 'classic') as CertTemplate,
+            customMessage: courseRow!.cert_custom_message ?? undefined,
           })
         }
       } catch (certErr: any) {
         // Non-fatal — certificate failure must never block lesson progress
         console.error('[lesson/complete] certificate error:', certErr.message)
       }
+    }
     
 
 
