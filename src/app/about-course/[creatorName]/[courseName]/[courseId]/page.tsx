@@ -16,6 +16,7 @@ const supabase = createClient(
 function freePreviewLabel(config?: string) {
   const labels: Record<string, string> = {
     'nothing free': 'Paid only',
+    'completely free': 'Completely free',
     'lesson 1 free': '1 lesson free',
     '2 lessons free': '2 lessons free',
     '3 lessons free': '3 lessons free',
@@ -205,9 +206,11 @@ export default async function AboutCoursePage({
               }}
             >
               ✦{' '}
-              {freePreviewLabel(course.free_preview_config) !== 'Paid only'
-                ? `${freePreviewLabel(course.free_preview_config)} — Try before you buy`
-                : 'Professional Course'}
+              {course.free_preview_config === 'completely free'
+                ? 'Completely free — Enroll now'
+                : freePreviewLabel(course.free_preview_config) !== 'Paid only'
+                  ? `${freePreviewLabel(course.free_preview_config)} — Try before you buy`
+                  : 'Professional Course'}
             </span>
           </div>
 

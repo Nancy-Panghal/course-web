@@ -171,8 +171,8 @@ export default function CouponsPage() {
 
     if (form.discountType === 'fixed' && form.courseId) {
       const selectedCourse = courses.find(course => course.id === form.courseId)
-      if (selectedCourse && discountValue >= selectedCourse.price) {
-        setError('Fixed discount must be lower than the selected course price.')
+      if (selectedCourse && discountValue > selectedCourse.price) {
+        setError('Fixed discount cannot exceed the selected course price.')
         return
       }
     }

@@ -73,6 +73,7 @@ interface Enrollment {
 }
 
 function isLessonFree(lesson: Lesson, config: string): boolean {
+  if (config === 'completely free') return true
   if (config === 'lesson 1 free') return lesson.order_num === 1
   if (config === '2 lessons free') return lesson.order_num <= 2
   if (config === '3 lessons free') return lesson.order_num <= 3

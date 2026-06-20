@@ -348,6 +348,7 @@ export default function EnrollModal({ onClose, course }: Props) {
 
   const hasTelegram = Boolean(course.telegramBotUsername)
   const isNothingFree = !course.free_preview_config || course.free_preview_config === 'nothing free'
+  const isCompletelyFree = course.price === 0 || course.free_preview_config === 'completely free'
 
   const creatorSlug = slugify(course.creatorName)
   const courseSlug = slugify(course.creatorSlug)
@@ -452,7 +453,7 @@ export default function EnrollModal({ onClose, course }: Props) {
 
       if (!userData.phone) {
         setStep('phone')
-      } else if (isNothingFree) {
+      } else if (isNothingFree || isCompletelyFree) {
         setStep('payment')
       } else {
         setStep('demo')
@@ -515,7 +516,7 @@ export default function EnrollModal({ onClose, course }: Props) {
         if (signInError) throw signInError
         const sd = { id: data.user?.id, email, name, phone: phoneToStore }
         setStudentData(sd)
-        if (isNothingFree) {
+        if (isNothingFree || isCompletelyFree) {
           setStep('payment')
         } else {
           setStep('demo')
@@ -535,7 +536,7 @@ export default function EnrollModal({ onClose, course }: Props) {
         const enrollment = await findPaidEnrollment({ courseId: course.id, user, phone: userData.phone, select: 'id' })
         if (enrollment) { window.location.href = learnUrl; return }
         if (!userData.phone) { setLoading(false); setStep('phone'); return }
-        if (isNothingFree) {
+        if (isNothingFree || isCompletelyFree) {
           setStep('payment')
         } else {
           setStep('demo')
@@ -561,7 +562,7 @@ export default function EnrollModal({ onClose, course }: Props) {
       await supabase.auth.updateUser({ data: { phone: phoneToStore } })
       const sd = { ...studentData, phone: phoneToStore }
       setStudentData(sd)
-      if (isNothingFree) {
+      if (isNothingFree || isCompletelyFree) {
         setStep('payment')
       } else {
         setStep('demo')
@@ -599,7 +600,9 @@ export default function EnrollModal({ onClose, course }: Props) {
       }
 
       if (result.final_amount <= 0) {
-        setCouponMessage('This coupon makes the course free. Free coupon checkout is not enabled yet.')
+        setCouponResult(result)
+        setCouponCode(result.coupon_code || code.toUpperCase())
+        setCouponMessage(result.reason || 'Coupon applied! This course is now free.')
         return
       }
 
@@ -617,6 +620,42 @@ export default function EnrollModal({ onClose, course }: Props) {
     setCouponCode('')
     setCouponResult(null)
     setCouponMessage('')
+  }
+
+  async function handleFreeEnrollment() {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/free-enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId: course.id,
+          studentId: studentData?.id || null,
+          studentEmail: studentData?.email || null,
+          studentName: studentData?.name || null,
+          studentPhone: studentData?.phone || null,
+          couponCode: activeCoupon?.coupon_code || null,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Enrollment failed')
+      }
+
+      if (data.enrollmentId) {
+        await generatePaidTokens(studentData, 'FREE', data.enrollmentId)
+      } else {
+        await generatePaidTokens(studentData, 'FREE')
+      }
+
+      setStep('success')
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong during free enrollment.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // ── Payment ──────────────────────────────────────────────────────
@@ -1108,12 +1147,23 @@ export default function EnrollModal({ onClose, course }: Props) {
               </div>
             )}
 
-            <button onClick={handlePayment} disabled={loading}
-              className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong disabled:opacity-50 text-lg">
-              {loading ? 'Opening payment…' : `Pay ₹${payableAmount.toLocaleString()} Securely`}
-            </button>
-            <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Powered by Razorpay · 256-bit SSL</p>
-            <button onClick={() => setStep(isNothingFree ? 'auth' : 'demo')}
+            {payableAmount > 0 ? (
+              <button onClick={handlePayment} disabled={loading}
+                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong disabled:opacity-50 text-lg">
+                {loading ? 'Opening payment…' : `Pay ₹${payableAmount.toLocaleString()} Securely`}
+              </button>
+            ) : (
+              <button onClick={handleFreeEnrollment} disabled={loading}
+                className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong disabled:opacity-50 text-lg">
+                {loading ? 'Enrolling...' : 'Enroll for Free'}
+              </button>
+            )}
+            {payableAmount > 0 ? (
+              <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Powered by Razorpay · 256-bit SSL</p>
+            ) : (
+              <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Free enrollment · Instantly access your course</p>
+            )}
+            <button onClick={() => setStep(isCompletelyFree ? 'auth' : (isNothingFree ? 'auth' : 'demo'))}
               className="w-full text-center text-xs mt-2" style={{ color: '#52525b' }}>
               ← Back
             </button>

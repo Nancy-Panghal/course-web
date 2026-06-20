@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       'lesson 1 free': 1, '2 lessons free': 2, '3 lessons free': 3,
       'module 1 free': 3, '2 modules free': 6,
     }
-    const isFree = lesson.order_num <= (maxFree[config] ?? 0)
+    const isFree = config === 'completely free' || lesson.order_num <= (maxFree[config] ?? 0)
 
     if (!isFree && userId === 'web') {
       return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })

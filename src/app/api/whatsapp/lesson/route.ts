@@ -14,6 +14,7 @@ function safeCompare(a: string, b: string) {
 }
 
 function maxFreeLessons(config?: string) {
+  if (config === 'completely free') return 999999
   if (config === 'lesson 1 free') return 1
   if (config === '2 lessons free') return 2
   if (config === '3 lessons free') return 3

@@ -12,6 +12,7 @@ const supabase = createClient(
 function freePreviewLabel(config?: string) {
   const labels: Record<string, string> = {
     'nothing free': 'Paid only',
+    'completely free': 'Completely free',
     'lesson 1 free': '1 lesson free',
     '2 lessons free': '2 lessons free',
     '3 lessons free': '3 lessons free',

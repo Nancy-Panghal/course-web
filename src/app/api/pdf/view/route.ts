@@ -43,7 +43,7 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
     'lesson 1 free': 1, '2 lessons free': 2, '3 lessons free': 3,
     'module 1 free': 3, '2 modules free': 6,
   }
-  const isFree = lesson.order_num <= (maxFree[config] ?? 0)
+  const isFree = config === 'completely free' || lesson.order_num <= (maxFree[config] ?? 0)
   if (isFree) return true
 
   // 2. If it's guest 'web' access and not free, deny

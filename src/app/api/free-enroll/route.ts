@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendLoggedEmail } from '@/lib/email';
+import { sendLoggedEmail, escapeHtml } from '@/lib/email';
 import { slugify } from '@/lib/utils';
 
 const supabaseAdmin = createClient(
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingEnrollment && existingEnrollment.payment_status === 'paid') {
-      return NextResponse.json({ success: true, alreadyEnrolled: true });
+      return NextResponse.json({ success: true, alreadyEnrolled: true, enrollmentId: existingEnrollment.id });
     }
 
     const now = new Date().toISOString();
@@ -188,8 +188,10 @@ export async function POST(req: NextRequest) {
         .eq('enrollment_id', enrollmentId)
     );
 
-    if (!existingPayment?.id) {
-      const { error: paymentInsertError } = await supabaseAdmin
+    let paymentRecordId = existingPayment?.id || null;
+
+    if (!paymentRecordId) {
+      const { data: paymentRecord, error: paymentInsertError } = await supabaseAdmin
         .from('payments')
         .insert({
           creator_id: course.creator_id,
@@ -214,13 +216,16 @@ export async function POST(req: NextRequest) {
             coupon_code: appliedCoupon?.coupon_code || null,
           },
           paid_at: now,
-        });
+        })
+        .select('id')
+        .single();
 
       if (paymentInsertError) throw paymentInsertError;
+      paymentRecordId = paymentRecord?.id || null;
     }
 
     // Redeem coupon if applicable
-    if (appliedCoupon?.coupon_code) {
+    if (appliedCoupon?.coupon_code && paymentRecordId) {
       const { data: redemptionRows, error: redemptionError } = await supabaseAdmin.rpc(
         'redeem_coupon_for_payment',
         {
@@ -229,7 +234,7 @@ export async function POST(req: NextRequest) {
           input_creator_id: course.creator_id,
           input_student_id: student?.id || null,
           input_enrollment_id: enrollmentId,
-          input_payment_id: 'FREE',
+          input_payment_id: paymentRecordId,
         }
       );
 
@@ -242,20 +247,40 @@ export async function POST(req: NextRequest) {
     }
 
     // Send emails
-    await sendLoggedEmail({
-      supabase: supabaseAdmin,
-      emailType: 'creator_new_enrollment',
-      to: course.creator_id, // will use lookup for creator email
-      subject: `New enrollment: ${course.name}`,
-      creator_id: course.creator_id,
-      course_id: courseId,
-      payment_id: 'FREE',
-      metadata: {
-        student_name: studentName || null,
-        student_email: studentEmail || null,
-        student_phone: studentPhone || null,
-      },
-    });
+    const { data: creatorAuthData } = await supabaseAdmin.auth.admin.getUserById(course.creator_id);
+    const creatorUser = creatorAuthData?.user;
+    const creatorEmail = creatorUser?.email;
+    const creatorPrefs = creatorUser?.user_metadata?.email_notifications || {};
+
+    const safeCourse = escapeHtml(course.name || 'your course');
+    const safeStudent = escapeHtml(studentName || studentEmail || studentPhone || 'A student');
+
+    if (creatorEmail && creatorPrefs.newEnrollment !== false) {
+      await sendLoggedEmail({
+        supabase: supabaseAdmin,
+        emailType: 'creator_new_enrollment',
+        to: creatorEmail,
+        subject: `New enrollment: ${course.name}`,
+        creatorId: course.creator_id,
+        courseId: courseId,
+        paymentId: paymentRecordId,
+        metadata: {
+          student_name: studentName || null,
+          student_email: studentEmail || null,
+          student_phone: studentPhone || null,
+        },
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+            <h2 style="margin:0 0 12px">New student enrolled (Free)</h2>
+            <p style="margin:0 0 8px"><strong>${safeStudent}</strong> enrolled in <strong>${safeCourse}</strong>.</p>
+            <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
+              style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
+              Open dashboard
+            </a>
+          </div>
+        `,
+      });
+    }
 
     if (studentEmail) {
       const creatorProfile = await firstRow(
@@ -265,23 +290,46 @@ export async function POST(req: NextRequest) {
           .eq('id', course.creator_id)
       );
 
+      const safeName = escapeHtml(studentName || 'there');
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const creatorSlug = slugify(creatorProfile?.name || 'instructor');
+      const courseSlug = slugify(course.name || 'course');
+      const courseUrl = `${siteUrl}/course/${creatorSlug}/${courseSlug}/${courseId}`;
+      const cleanBot = creatorProfile?.telegram_bot_username?.replace('@', '').trim();
+
       await sendLoggedEmail({
         supabase: supabaseAdmin,
         emailType: 'student_welcome',
         to: studentEmail,
         subject: `Welcome to ${course.name}`,
-        creator_id: course.creator_id,
-        student_id: student?.id || null,
-        course_id: courseId,
-        payment_id: 'FREE',
+        creatorId: course.creator_id,
+        studentId: student?.id || null,
+        courseId: courseId,
+        paymentId: paymentRecordId,
         metadata: {
-          has_telegram: Boolean(creatorProfile?.telegram_bot_username),
-          telegram_bot_username: creatorProfile?.telegram_bot_username || null,
+          has_telegram: Boolean(cleanBot),
+          telegram_bot_username: cleanBot || null,
         },
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+            <h2 style="margin:0 0 12px">Welcome to ${safeCourse}</h2>
+            <p style="margin:0 0 12px">Hi ${safeName}, your course access is ready.</p>
+            <a href="${courseUrl}"
+              style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none;margin:0 0 16px">
+              Start learning
+            </a>
+            ${cleanBot ? `
+              <div style="background:#eef8ff;border:1px solid #bae6fd;border-radius:12px;padding:14px;margin-top:16px">
+                <p style="margin:0 0 6px"><strong>Telegram delivery is available.</strong></p>
+                <p style="margin:0">Use the Telegram button on the success screen to link your account with @${escapeHtml(cleanBot)}.</p>
+              </div>
+            ` : ''}
+          </div>
+        `,
       });
     }
 
-    return NextResponse.json({ success: true, alreadyEnrolled: false });
+    return NextResponse.json({ success: true, alreadyEnrolled: false, enrollmentId });
 
   } catch (err: any) {
     console.error('Free enroll error:', err);

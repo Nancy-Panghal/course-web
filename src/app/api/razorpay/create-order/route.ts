@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const amountInPaise = Math.round(Number(pricing.finalAmount) * 100)
     if (!Number.isFinite(amountInPaise) || amountInPaise <= 0) {
       return NextResponse.json(
-        { error: 'This coupon makes the course free. Free coupon checkout is not enabled yet.' },
+        { error: 'This coupon makes the course free. Please use the free enrollment option.' },
         { status: 400 }
       )
     }
