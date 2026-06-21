@@ -31,30 +31,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'lessonId and enrollmentId required' }, { status: 400 })
     }
 
-    // ── Resolve this auth user to their students row ──────────────
-    // (students.auth_id is the bridge between auth.users and students)
-    const { data: studentRow } = await supabase
-      .from('students')
-      .select('id')
-      .eq('auth_id', user.id)
-      .maybeSingle()
-
-    // ── Verify the enrollment actually belongs to this student ────
+    // ── Verify the enrollment belongs to this authenticated student ──
+    // Join enrollments.student_id -> students.auth_id directly so we never
+    // compare the wrong UUID spaces, and never silently allow access just
+    // because no students row exists yet for this auth user.
     const { data: enrollment } = await supabase
       .from('enrollments')
-      .select('id, student_id')
+      .select('id, student_id, students:student_id(auth_id)')
       .eq('id', enrollmentId)
       .maybeSingle()
 
     if (!enrollment) return NextResponse.json({ assignment: null })
 
-    // If we have a resolved student row, the enrollment's student_id must match.
-    // If no student row exists yet (edge case: creator browsing their own enrollment)
-    // we fall through and return null safely.
-    if (studentRow && enrollment.student_id !== studentRow.id) {
+    const enrolledAuthId = (enrollment as any)?.students?.auth_id
+    if (enrolledAuthId !== user.id) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
-
+    
     const { data, error } = await supabase
       .from('assignments')
       .select('id, submission_text, submission_url, submitted_at, creator_feedback, score, reviewed_at, status')
