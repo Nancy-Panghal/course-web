@@ -1,7 +1,7 @@
 "use client"
 import { useState } from 'react'
 import Link from 'next/link'
-import { Shield, Mail, Phone, MessageCircle, ArrowLeft, Send, CheckCircle } from 'lucide-react'
+import { GraduationCap, Mail, Phone, ArrowLeft, Send, CheckCircle, Sparkles } from 'lucide-react'
 
 export default function ContactPage() {
   const [name, setName] = useState('')
@@ -42,9 +42,9 @@ export default function ContactPage() {
         style={{borderColor:'rgba(255,255,255,0.06)', background:'rgba(0,0,0,0.8)', backdropFilter:'blur(20px)'}}>
         <Link href="/" className="flex items-center gap-2">
           <div className="w-7 h-7 violet-gradient rounded-lg flex items-center justify-center">
-            <Shield className="w-3.5 h-3.5 text-white" />
+            <GraduationCap className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="font-semibold text-white">AcademyKit</span>
+          <span className="font-semibold text-white">Kurso</span>
         </Link>
         <Link href="/" className="flex items-center gap-2 text-sm transition-colors"
           style={{color:'#a1a1aa'}}>
@@ -63,8 +63,8 @@ export default function ContactPage() {
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Contact Us</h1>
           <p className="text-lg max-w-xl mx-auto" style={{color:'#a1a1aa'}}>
-            Have a question, need help with your account, or want to discuss a custom plan?
-            We respond within 24 hours.
+            Question, account hiccup, or want to talk through a custom plan? Drop us a line —
+            a real person reads every message, usually within 24 hours.
           </p>
         </div>
 
@@ -98,23 +98,11 @@ export default function ContactPage() {
               <p className="text-sm mb-3" style={{color:'#a1a1aa'}}>
                 Mon–Sat, 10AM–7PM IST
               </p>
-              <a href="tel:+91XXXXXXXXXX"
+              <p 
                 className="text-sm font-medium transition-colors"
-                style={{color:'#8b5cf6'}}>
+                style={{color:'#e8e6ec',marginBottom:'10px'}}> 
                 +91 XXXXX XXXXX
-              </a>
-            </div>
-
-            <div className="rounded-2xl p-6 glass"
-              style={{border:'1px solid rgba(255,255,255,0.06)'}}>
-              <div className="w-10 h-10 violet-gradient rounded-xl flex items-center justify-center mb-4">
-                <MessageCircle className="w-5 h-5 text-white" />
-              </div>
-              <h3 className="font-semibold text-white mb-1">WhatsApp Support</h3>
-              <p className="text-sm mb-3" style={{color:'#a1a1aa'}}>
-                Fastest response — usually within 5 hours
               </p>
-              
               <a 
                 href="https://wa.me/91XXXXXXXXXX"
                 target="_blank"
@@ -124,6 +112,8 @@ export default function ContactPage() {
                 Chat on WhatsApp →
               </a>
             </div>
+
+            
 
             {/* Response time */}
             <div className="rounded-2xl p-5"
@@ -144,7 +134,7 @@ export default function ContactPage() {
           </div>
 
           {/* Contact form */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 flex flex-col gap-4">
             <div className="rounded-2xl p-8 glass"
               style={{border:'1px solid rgba(255,255,255,0.06)'}}>
 
@@ -238,9 +228,9 @@ export default function ContactPage() {
                     style={{background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.2)'}}>
                     <CheckCircle className="w-8 h-8" style={{color:'#4ade80'}} />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Message Sent!</h3>
+                  <h3 className="text-xl font-bold text-white mb-2">Got it, thank you!</h3>
                   <p className="mb-6" style={{color:'#a1a1aa'}}>
-                    Thanks for reaching out. We'll get back to you within 24 hours.
+                    We'll get back to you within 24 hours. Talk soon.
                   </p>
                   <button
                     onClick={() => { setSent(false); setName(''); setEmail(''); setSubject(''); setMessage('') }}
@@ -250,6 +240,17 @@ export default function ContactPage() {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Feature idea nudge — fills the space below the form, same width as the form */}
+            <div className="rounded-2xl p-5 flex items-start gap-3"
+              style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
+              <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" style={{color:'#8b5cf6'}} />
+              <p className="text-sm" style={{color:'#a1a1aa'}}>
+                Got a feature idea instead of a support question? Tell us on our{' '}
+                <Link href="/feedback" className="font-medium" style={{color:'#8b5cf6'}}>Feedback page</Link>
+                {' '}— we read every one.
+              </p>
             </div>
           </div>
         </div>
@@ -261,11 +262,12 @@ export default function ContactPage() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-6 h-6 violet-gradient rounded-md flex items-center justify-center">
-              <Shield className="w-3 h-3 text-white" />
+              <GraduationCap className="w-3 h-3 text-white" />
             </div>
-            <span className="text-sm font-medium text-white">AcademyKit</span>
+            <span className="text-sm font-medium text-white">Kurso</span>
           </Link>
           <div className="flex gap-6 text-xs" style={{color:'#52525b'}}>
+            <Link href="/feedback" className="hover:text-white transition-colors">Feedback</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
           </div>

@@ -49,7 +49,7 @@ export default function Navbar() {
           <div className="w-8 h-8 violet-gradient rounded-lg flex items-center justify-center">
             <Shield className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-white text-lg">AcademyKit</span>
+          <span className="font-semibold text-white text-lg">Kurso</span>
         </Link>
 
         {/* Desktop nav */}
