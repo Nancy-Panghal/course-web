@@ -59,6 +59,12 @@ interface Lesson {
   assignment_required?: boolean
   assignment_file_url?: string | null
   assignment_file_name?: string | null
+  // Engagement & live session fields
+  expected_delivery_text?: string | null
+  live_scheduled_at?: string | null
+  live_join_url?: string | null
+  live_recording_url?: string | null
+  live_duration_minutes?: number | null
 }
 
 interface QuizQuestion {
@@ -226,6 +232,7 @@ function AddLessonModal({
   nextOrder,
   modules,
   initialModuleId = '',
+  initialType = 'video',
 }: {
   onClose: () => void
   onAdd: () => void
@@ -234,16 +241,19 @@ function AddLessonModal({
   nextOrder: number
   modules: CourseModule[]
   initialModuleId?: string
+  initialType?: 'video' | 'pdf' | 'live' | 'quiz'
 }) {
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  const [type, setType] = useState<'video' | 'pdf'>('video')
+  const [type, setType] = useState<'video' | 'pdf' | 'live' | 'quiz'>(initialType)
   const [duration, setDuration] = useState('')
   const [moduleId, setModuleId] = useState(initialModuleId)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
+  const [liveScheduledAt, setLiveScheduledAt] = useState('')
+  const [liveDurationMins, setLiveDurationMins] = useState('60')
+  const [expectedDelivery, setExpectedDelivery] = useState('')
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault()
@@ -253,8 +263,7 @@ function AddLessonModal({
     let finalUrl = url
     let finalStoragePath = ''
 
-    // If file is selected, upload it to Supabase
-    if (file) {
+    if (file && type !== 'live' && type !== 'quiz') {
       try {
         const folder = type === 'video' ? 'videos' : 'pdfs'
         const { publicUrl, storagePath } = await uploadToSupabase(file, folder)
@@ -267,32 +276,34 @@ function AddLessonModal({
       }
     }
 
-    if (!finalUrl) {
+    if (type !== 'live' && type !== 'quiz' && !finalUrl) {
       setError('Please provide a URL or upload a file.')
       setLoading(false)
       return
     }
 
-    // Build lesson object with storage path if available
     const lessonData: any = {
       course_id: courseId,
       creator_id: creatorId,
       title,
-      content_url: finalUrl,
+      content_url: finalUrl || '',
       content_type: type,
       order_num: nextOrder,
       duration,
       module_id: moduleId || null,
       is_published: false,
+      expected_delivery_text: expectedDelivery.trim() || null,
     }
 
-    // Add storage path if file was uploaded to Supabase
+    if (type === 'live') {
+      lessonData.live_join_url = url
+      lessonData.live_scheduled_at = liveScheduledAt || null
+      lessonData.live_duration_minutes = parseInt(liveDurationMins) || 60
+    }
+
     if (finalStoragePath) {
-      if (type === 'video') {
-        lessonData.video_storage_path = finalStoragePath
-      } else {
-        lessonData.pdf_storage_path = finalStoragePath
-      }
+      if (type === 'video') lessonData.video_storage_path = finalStoragePath
+      else lessonData.pdf_storage_path = finalStoragePath
     }
 
     const { error: dbError } = await supabase.from('lessons').insert(lessonData)
@@ -308,18 +319,23 @@ function AddLessonModal({
     setLoading(false)
   }
 
+  const typeConfig = {
+    video: { icon: <Video className="w-4 h-4" />, label: 'Video' },
+    pdf: { icon: <FileText className="w-4 h-4" />, label: 'PDF' },
+    live: { icon: <span className="text-sm">📡</span>, label: 'Live' },
+    quiz: { icon: <span className="text-sm">🧠</span>, label: 'Quiz' },
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
-      <div className="w-full max-w-md rounded-2xl p-6"
+      <div className="w-full max-w-md rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
         style={{ background: '#111', border: '1px solid rgba(124,58,237,0.3)' }}>
 
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-white">Add Lesson {nextOrder}</h2>
+          <h2 className="text-lg font-semibold text-white">Add Content {nextOrder}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg"
-            style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
-            ✕
-          </button>
+            style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -327,20 +343,17 @@ function AddLessonModal({
           {/* Type selector */}
           <div>
             <label className="text-sm font-medium text-white mb-2 block">Content Type</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(['video', 'pdf'] as const).map(t => (
+            <div className="grid grid-cols-4 gap-2">
+              {(['video', 'pdf', 'live', 'quiz'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all"
+                  className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-all"
                   style={{
                     background: type === t ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)',
                     border: type === t ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(255,255,255,0.08)',
                     color: type === t ? '#8b5cf6' : '#a1a1aa',
                   }}>
-                  {t === 'video'
-                    ? <Video className="w-4 h-4" />
-                    : <FileText className="w-4 h-4" />
-                  }
-                  {t === 'video' ? 'Video' : 'PDF'}
+                  {typeConfig[t].icon}
+                  {typeConfig[t].label}
                 </button>
               ))}
             </div>
@@ -348,18 +361,13 @@ function AddLessonModal({
 
           {modules.length > 0 && (
             <div>
-              <label className="text-sm font-medium text-white mb-2 block">Module</label>
-              <select
-                value={moduleId}
-                onChange={e => setModuleId(e.target.value)}
+              <label className="text-sm font-medium text-white mb-2 block">Module (optional)</label>
+              <select value={moduleId} onChange={e => setModuleId(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-                style={{ background: '#050505', border: '1px solid rgba(255,255,255,0.1)' }}
-              >
-                <option value="" style={{ background: '#050505', color: '#fff' }}>No module</option>
-                {modules.map(module => (
-                  <option key={module.id} value={module.id} style={{ background: '#050505', color: '#fff' }}>
-                    {module.name}
-                  </option>
+                style={{ background: '#050505', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <option value="" style={{ background: '#050505' }}>No module</option>
+                {modules.map(m => (
+                  <option key={m.id} value={m.id} style={{ background: '#050505' }}>{m.name}</option>
                 ))}
               </select>
             </div>
@@ -367,11 +375,15 @@ function AddLessonModal({
 
           {/* Title */}
           <div>
-            <label className="text-sm font-medium text-white mb-2 block">Lesson Title *</label>
-            <input
-              type="text" value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. Introduction to Keyword Research"
-              required
+            <label className="text-sm font-medium text-white mb-2 block">
+              {type === 'live' ? 'Session Title *' : type === 'quiz' ? 'Quiz Title *' : 'Lesson Title *'}
+            </label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} required
+              placeholder={
+                type === 'live' ? 'e.g. Live Q&A — Week 3' :
+                type === 'quiz' ? 'e.g. Week 1 Knowledge Check' :
+                'e.g. Introduction to Keyword Research'
+              }
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
               onFocus={e => e.target.style.borderColor = '#7c3aed'}
@@ -379,87 +391,117 @@ function AddLessonModal({
             />
           </div>
 
-          {/* URL or File */}
-          <div>
-            <label className="text-sm font-medium text-white mb-2 block">
-              {type === 'video' ? 'Video Source' : 'PDF Source'} *
-            </label>
-
-            <div className="flex flex-col gap-3">
-              {/* File Upload */}
-              <div className="relative group">
-                <input
-                  type="file"
-                  accept={type === 'video' ? 'video/*' : 'application/pdf'}
-                  onChange={e => {
-                    const selected = e.target.files?.[0] || null
-                    setFile(selected)
-                    if (selected) setUrl('') // Clear URL if file is selected
-                  }}
-                  className="hidden"
-                  id="file-upload"
+          {/* Live-specific fields */}
+          {type === 'live' && (
+            <>
+              <div>
+                <label className="text-sm font-medium text-white mb-2 block">Join URL *</label>
+                <input type="url" value={url} onChange={e => setUrl(e.target.value)}
+                  placeholder="https://zoom.us/j/... or meet.google.com/..."
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
-                <label
-                  htmlFor="file-upload"
-                  className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border-2 border-dashed cursor-pointer transition-all"
-                  style={{
-                    background: file ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.03)',
-                    borderColor: file ? '#7c3aed' : 'rgba(255,255,255,0.1)',
-                    color: file ? '#fff' : '#a1a1aa'
-                  }}
-                >
-                  <Plus className="w-4 h-4" />
-                  {file ? file.name : `Upload ${type === 'video' ? 'Video' : 'PDF'}`}
-                </label>
-                {file && (
-                  <button
-                    type="button"
-                    onClick={() => setFile(null)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
-                  >
-                    ✕
-                  </button>
-                )}
               </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex-1 h-px bg-white/5" />
-                <span className="text-[10px] uppercase tracking-widest text-zinc-600">OR</span>
-                <div className="flex-1 h-px bg-white/5" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-white mb-2 block">Date & Time</label>
+                  <input type="datetime-local" value={liveScheduledAt}
+                    onChange={e => setLiveScheduledAt(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-white mb-2 block">Duration (min)</label>
+                  <input type="number" value={liveDurationMins}
+                    onChange={e => setLiveDurationMins(e.target.value)}
+                    min="15" max="480"
+                    className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                </div>
               </div>
+            </>
+          )}
 
-              {/* URL Input */}
-              <input
-                type="url" value={url} onChange={e => {
-                  setUrl(e.target.value)
-                  if (e.target.value) setFile(null) // Clear file if URL is typed
-                }}
-                placeholder={type === 'video' ? "Paste Telegram/YouTube/Direct link" : "Paste PDF link"}
-                disabled={!!file}
-                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none disabled:opacity-50"
+          {/* Video/PDF source */}
+          {(type === 'video' || type === 'pdf') && (
+            <div>
+              <label className="text-sm font-medium text-white mb-2 block">
+                {type === 'video' ? 'Video Source *' : 'PDF Source *'}
+              </label>
+              <div className="flex flex-col gap-3">
+                <div className="relative group">
+                  <input type="file" accept={type === 'video' ? 'video/*' : 'application/pdf'}
+                    onChange={e => { const f = e.target.files?.[0] || null; setFile(f); if (f) setUrl('') }}
+                    className="hidden" id="file-upload" />
+                  <label htmlFor="file-upload"
+                    className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border-2 border-dashed cursor-pointer"
+                    style={{ background: file ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.03)', borderColor: file ? '#7c3aed' : 'rgba(255,255,255,0.1)', color: file ? '#fff' : '#a1a1aa' }}>
+                    <Plus className="w-4 h-4" />
+                    {file ? file.name : `Upload ${type === 'video' ? 'Video' : 'PDF'}`}
+                  </label>
+                  {file && (
+                    <button type="button" onClick={() => setFile(null)}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs">✕</button>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 h-px bg-white/5" />
+                  <span className="text-[10px] uppercase tracking-widest text-zinc-600">OR</span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+                <input type="url" value={url} onChange={e => { setUrl(e.target.value); if (e.target.value) setFile(null) }}
+                  placeholder={type === 'video' ? 'Paste video link' : 'Paste PDF link'}
+                  disabled={!!file}
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none disabled:opacity-50"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Quiz note */}
+          {type === 'quiz' && (
+            <div className="p-3 rounded-xl"
+              style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
+              <p className="text-xs text-violet-300">
+                A quiz-only lesson will be created. After adding, click into the lesson and use <strong>Quiz Builder</strong> to add questions.
+              </p>
+            </div>
+          )}
+
+          {/* Duration (for video/pdf/quiz) */}
+          {type !== 'live' && (
+            <div>
+              <label className="text-sm font-medium text-white mb-2 block">Duration (optional)</label>
+              <input type="text" value={duration} onChange={e => setDuration(e.target.value)}
+                placeholder="e.g. 18 min"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                 onFocus={e => e.target.style.borderColor = '#7c3aed'}
                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
             </div>
-            <p className="text-xs mt-1.5" style={{ color: '#52525b' }}>
-              {type === 'video'
-                ? "Files will be stored securely in your academy storage."
-                : "PDFs will be stored securely in your academy storage."}
-            </p>
-          </div>
+          )}
 
-          {/* Duration */}
+          {/* Expected delivery (pre-fill for unpublished) */}
           <div>
-            <label className="text-sm font-medium text-white mb-2 block">Duration (optional)</label>
-            <input
-              type="text" value={duration} onChange={e => setDuration(e.target.value)}
-              placeholder="e.g. 18 min"
+            <label className="text-sm font-medium text-white mb-2 block">
+              📅 Expected Delivery <span className="text-zinc-600 font-normal">(shown to students)</span>
+            </label>
+            <input type="text" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)}
+              placeholder="e.g. Dropping this Friday at 6 PM IST"
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
               onFocus={e => e.target.style.borderColor = '#7c3aed'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
+            <p className="text-xs mt-1.5 text-zinc-600">Students see this on their course page before the lesson goes live.</p>
           </div>
 
           {error && (
@@ -477,11 +519,82 @@ function AddLessonModal({
             </button>
             <button type="submit" disabled={loading}
               className="flex-1 py-3 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-              {loading ? 'Adding...' : 'Add Lesson'}
+              {loading ? 'Adding...' : `Add ${typeConfig[type].label}`}
             </button>
           </div>
         </form>
       </div>
+    </div>
+  )
+}
+
+
+// ── EXPECTED DELIVERY EDITOR ──
+function ExpectedDeliveryEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: () => void }) {
+  const [text, setText] = useState(lesson.expected_delivery_text || '')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setText(lesson.expected_delivery_text || '')
+  }, [lesson.expected_delivery_text])
+
+  async function save() {
+    const trimmed = text.trim()
+    if (trimmed === (lesson.expected_delivery_text || '')) return
+    setSaving(true)
+    await supabase.from('lessons').update({ expected_delivery_text: trimmed || null }).eq('id', lesson.id)
+    setSaving(false)
+    onRefresh()
+  }
+
+  return (
+    <div className="p-3 rounded-xl"
+      style={{ background: 'rgba(234,179,8,0.05)', border: '1px solid rgba(234,179,8,0.2)' }}>
+      <p className="text-xs font-semibold mb-2" style={{ color: '#eab308' }}>📅 Expected Delivery Date</p>
+      <input
+        type="text"
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onBlur={save}
+        placeholder="e.g. Dropping this Friday at 6 PM IST"
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-yellow-500/50"
+      />
+      <p className="text-[10px] text-zinc-600 mt-1.5">
+        {saving ? 'Saving…' : 'Students see this on their course page. Saved automatically on blur.'}
+      </p>
+    </div>
+  )
+}
+
+// ── LIVE RECORDING EDITOR ──
+function LiveRecordingEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: () => void }) {
+  const [url, setUrl] = useState(lesson.live_recording_url || '')
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    const trimmed = url.trim()
+    if (trimmed === (lesson.live_recording_url || '')) return
+    setSaving(true)
+    await supabase.from('lessons').update({ live_recording_url: trimmed || null, content_url: trimmed || lesson.content_url }).eq('id', lesson.id)
+    setSaving(false)
+    onRefresh()
+  }
+
+  return (
+    <div className="p-3 rounded-xl"
+      style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.18)' }}>
+      <p className="text-xs font-semibold mb-2" style={{ color: '#22c55e' }}>🎬 Add Recording URL</p>
+      <input
+        type="url"
+        value={url}
+        onChange={e => setUrl(e.target.value)}
+        onBlur={save}
+        placeholder="Paste recording link after session ends"
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-green-500/50"
+      />
+      <p className="text-[10px] text-zinc-600 mt-1.5">
+        {saving ? 'Saving…' : 'Once added, students can watch the recording on-demand.'}
+      </p>
     </div>
   )
 }
@@ -906,7 +1019,11 @@ function LessonWidget({
             style={{ background: 'rgba(255,255,255,0.05)' }}>
             {lesson.content_type === 'pdf'
               ? <FileText className="w-4 h-4" style={{ color: '#f59e0b' }} />
-              : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+              : lesson.content_type === 'live'
+                ? <span style={{ fontSize: 14 }}>📡</span>
+                : lesson.content_type === 'quiz'
+                  ? <span style={{ fontSize: 14 }}>🧠</span>
+                  : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
             }
           </div>
 
@@ -1052,6 +1169,46 @@ function LessonWidget({
                     : 'Add quiz'}
                 </span>
               </div>
+
+
+              {/* Live session info */}
+              {lesson.content_type === 'live' && (
+                <div className="p-3 rounded-xl"
+                  style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-xs font-semibold text-green-400 mb-1">📡 Live Session</p>
+                      {lesson.live_scheduled_at && (
+                        <p className="text-xs text-zinc-400">
+                          {new Date(lesson.live_scheduled_at).toLocaleString('en-IN', {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                            hour: 'numeric', minute: '2-digit',
+                          })} · {lesson.live_duration_minutes || 60} min
+                        </p>
+                      )}
+                      {lesson.live_recording_url && (
+                        <p className="text-xs mt-1" style={{ color: '#4ade80' }}>✓ Recording available</p>
+                      )}
+                    </div>
+                    {lesson.live_join_url && (
+                      <a href={lesson.live_join_url} target="_blank" rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}>
+                        Join Link ↗
+                      </a>
+                    )}
+                  </div>
+                  {/* Recording URL editor for past sessions */}
+                  <div className="mt-3">
+                    <LiveRecordingEditor lesson={lesson} onRefresh={onRefresh} />
+                  </div>
+                </div>
+              )}
+
+              {/* Expected delivery — only for unpublished lessons */}
+              {!lesson.is_published && (
+                <ExpectedDeliveryEditor lesson={lesson} onRefresh={onRefresh} />
+              )}
 
               {/* Assignment prompt */}
               <AssignmentEditor lesson={lesson} onRefresh={onRefresh} />
@@ -1619,6 +1776,10 @@ export default function CourseManagePage({
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedModuleForLesson, setSelectedModuleForLesson] = useState('')
   const [showModuleModal, setShowModuleModal] = useState(false)
+  const [addContentType, setAddContentType] = useState<'video' | 'pdf' | 'live' | 'quiz'>('video')
+  const [delayMessage, setDelayMessage] = useState('')
+  const [broadcastSending, setBroadcastSending] = useState(false)
+  const [broadcastSent, setBroadcastSent] = useState(false)
   const [creatorId, setCreatorId] = useState('')
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -1848,6 +2009,24 @@ export default function CourseManagePage({
     setIsDeleting(false)
   }
 
+  async function sendDelayBroadcast() {
+    if (!delayMessage.trim() || broadcastSending) return
+    setBroadcastSending(true)
+    try {
+      const res = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ courseId: id, message: delayMessage.trim() }),
+      })
+      if (res.ok) {
+        setBroadcastSent(true)
+        setDelayMessage('')
+        setTimeout(() => setBroadcastSent(false), 4000)
+      }
+    } catch { /* non-fatal */ }
+    setBroadcastSending(false)
+  }
+
 
   async function fetchLessons() {
     const { data } = await supabase
@@ -1981,8 +2160,10 @@ export default function CourseManagePage({
           nextOrder={lessons.length + 1}
           modules={modules}
           initialModuleId={selectedModuleForLesson}
+          initialType={addContentType}
         />
       )}
+
 
       {showModuleModal && (
         <AddModuleModal
@@ -2081,28 +2262,33 @@ export default function CourseManagePage({
           <div className="lg:col-span-2">
             {activeTab === 'lessons' ? (
               <>
-                {/* Lessons header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="font-semibold text-white">Lessons</h2>
-                    <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
-                      {lessons.length} total · {publishedCount} published
-                    </p>
+                {/* Unified content bar */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h2 className="font-semibold text-white">Content</h2>
+                      <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
+                        {lessons.length} items · {publishedCount} published
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setShowModuleModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <Plus className="w-4 h-4" />
-                      Add Module
-                    </button>
-                    <button onClick={() => setShowAddModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 glow">
-                      <Plus className="w-4 h-4" />
-                      Add Lesson {lessons.length + 1}
-                    </button>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: '📁 Module', onClick: () => setShowModuleModal(true), color: 'rgba(255,255,255,0.08)' },
+                      { label: '🎬 Video', onClick: () => { setAddContentType('video'); setShowAddModal(true) }, color: 'rgba(124,58,237,0.12)' },
+                      { label: '📄 PDF', onClick: () => { setAddContentType('pdf'); setShowAddModal(true) }, color: 'rgba(245,158,11,0.12)' },
+                      { label: '📡 Live', onClick: () => { setAddContentType('live'); setShowAddModal(true) }, color: 'rgba(34,197,94,0.12)' },
+                      { label: '🧠 Quiz', onClick: () => { setAddContentType('quiz'); setShowAddModal(true) }, color: 'rgba(59,130,246,0.12)' },
+                    ].map((btn, i) => (
+                      <button key={i} onClick={btn.onClick}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
+                        style={{ background: btn.color, color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        {btn.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
+
 
                 <div className="rounded-2xl p-4 mb-4"
                   style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -2721,6 +2907,38 @@ export default function CourseManagePage({
                 <ExternalLink className="w-4 h-4" />
                 Preview Course Page
               </Link>
+            </div>
+
+            {/* Student Update / Delay Broadcast */}
+            <div className="rounded-2xl p-5"
+              style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.2)' }}>
+              <h3 className="font-semibold text-white mb-1">📢 Send Student Update</h3>
+              <p className="text-xs mb-3" style={{ color: '#71717a' }}>
+                Notify all enrolled students about schedule changes, delays, or upcoming lessons.
+              </p>
+              <textarea
+                value={delayMessage}
+                onChange={e => setDelayMessage(e.target.value.slice(0, 500))}
+                placeholder="e.g. Lesson 5 is delayed by 1 day due to production. Dropping tomorrow at 7 PM!"
+                rows={3}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none mb-2"
+                style={{ borderColor: delayMessage ? 'rgba(245,158,11,0.4)' : undefined }}
+              />
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs" style={{ color: '#52525b' }}>{delayMessage.length}/500</span>
+                <span className="text-xs" style={{ color: '#52525b' }}>Sends via Telegram to all enrolled students</span>
+              </div>
+              <button
+                onClick={sendDelayBroadcast}
+                disabled={!delayMessage.trim() || broadcastSending}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
+                style={{
+                  background: broadcastSent
+                    ? 'rgba(74,222,128,0.8)'
+                    : 'rgba(245,158,11,0.75)',
+                }}>
+                {broadcastSending ? 'Sending…' : broadcastSent ? '✓ Message Sent!' : 'Send to All Students'}
+              </button>
             </div>
 
             {/* Share section */}

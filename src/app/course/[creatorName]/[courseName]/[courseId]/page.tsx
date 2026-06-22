@@ -97,7 +97,7 @@ async function getSignedContentUrl(lessonId: string, type: 'video' | 'pdf'): Pro
   return url
 }
 
-function LockedScreen({ course, onEnroll }: { course: Course; onEnroll: () => void }) {
+function LockedScreen({ course, onEnroll, expectedDeliveryText }: { course: Course; onEnroll: () => void; expectedDeliveryText?: string | null }) {
   if (course.is_published === false) {
     return (
       <div className="flex-1 flex items-center justify-center p-8" style={{ background: '#0a0a0a' }}>
@@ -123,9 +123,15 @@ function LockedScreen({ course, onEnroll }: { course: Course; onEnroll: () => vo
           <Lock className="w-10 h-10" style={{ color: '#8b5cf6' }} />
         </div>
         <h2 className="text-2xl font-bold text-white mb-3">This lesson is locked</h2>
-        <p className="mb-6" style={{ color: '#a1a1aa' }}>
+        <p className="mb-4" style={{ color: '#a1a1aa' }}>
           Enroll in <strong className="text-white">{course.name}</strong> to unlock all lessons.
         </p>
+        {expectedDeliveryText && (
+          <div className="mb-6 px-4 py-3 rounded-xl text-sm"
+            style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: '#eab308' }}>
+            📅 {expectedDeliveryText}
+          </div>
+        )}
         <button onClick={onEnroll}
           className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-white"
           style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow: '0 8px 24px rgba(124,58,237,0.4)' }}>
@@ -655,6 +661,11 @@ export default function CourseLearnPage() {
                     </p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                       {lesson.duration && <span style={{ fontSize: 10, color: '#3f3f46' }}>{lesson.duration}</span>}
+                      {(lesson as any).expected_delivery_text && isLocked && (
+                        <span style={{ fontSize: 9, color: '#eab308', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          📅 {(lesson as any).expected_delivery_text}
+                        </span>
+                      )}
                       {hasQuiz && (
                         <span style={{
                           fontSize: 9, padding: '1px 5px', borderRadius: 4,
@@ -679,7 +690,11 @@ export default function CourseLearnPage() {
         {/* MAIN */}
         <main style={{ flex: 1, overflowY: 'auto' }}>
           {!canAccess ? (
-            <LockedScreen course={course} onEnroll={() => setShowEnroll(true)} />
+            <LockedScreen
+              course={course}
+              onEnroll={() => setShowEnroll(true)}
+              expectedDeliveryText={(currentLesson as any)?.expected_delivery_text}
+            />
           ) : (
             <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px 60px' }}>
 
@@ -1031,7 +1046,7 @@ export default function CourseLearnPage() {
                 onFocus={(e) => e.target.style.borderColor = 'rgba(234,179,8,0.5)'}
                 onBlur={(e) => {
                   e.target.style.borderColor = 'rgba(255,255,255,0.1)'
-                  
+
                 }}
               />
               <p style={{ fontSize: 11, color: '#52525b', marginTop: 6 }}>
