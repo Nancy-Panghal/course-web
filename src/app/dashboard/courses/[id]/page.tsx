@@ -10,7 +10,7 @@ import {
   Eye, EyeOff, ExternalLink, Copy, Check,
   GripVertical, Trash2, CheckCircle, AlertCircle,
   MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle,
-  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X,
+  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X, ChevronRight 
 } from 'lucide-react'
 
 interface Course {
@@ -241,17 +241,19 @@ function AddLessonModal({
   nextOrder: number
   modules: CourseModule[]
   initialModuleId?: string
-  initialType?: 'video' | 'pdf' | 'live' | 'quiz'
+  initialType?: 'video' | 'pdf' | 'live' | 'quiz' | 'assignment'
 }) {
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  const [type, setType] = useState<'video' | 'pdf' | 'live' | 'quiz'>(initialType)
+  const [type, setType] = useState<'video' | 'pdf' | 'live' | 'quiz' | 'assignment'>(initialType)
   const [duration, setDuration] = useState('')
   const [moduleId, setModuleId] = useState(initialModuleId)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [liveScheduledAt, setLiveScheduledAt] = useState('')
+  const [liveDate, setLiveDate] = useState('')
+  const [liveTime, setLiveTime] = useState('')
   const [liveDurationMins, setLiveDurationMins] = useState('60')
   const [expectedDelivery, setExpectedDelivery] = useState('')
 
@@ -276,7 +278,7 @@ function AddLessonModal({
       }
     }
 
-    if (type !== 'live' && type !== 'quiz' && !finalUrl) {
+    if (type !== 'live' && type !== 'quiz' && type !== 'assignment' && !finalUrl) {
       setError('Please provide a URL or upload a file.')
       setLoading(false)
       return
@@ -297,7 +299,9 @@ function AddLessonModal({
 
     if (type === 'live') {
       lessonData.live_join_url = url
-      lessonData.live_scheduled_at = liveScheduledAt || null
+      lessonData.live_scheduled_at = liveDate && liveTime
+        ? new Date(`${liveDate}T${liveTime}`).toISOString()
+        : null
       lessonData.live_duration_minutes = parseInt(liveDurationMins) || 60
     }
 
@@ -324,6 +328,7 @@ function AddLessonModal({
     pdf: { icon: <FileText className="w-4 h-4" />, label: 'PDF' },
     live: { icon: <span className="text-sm">📡</span>, label: 'Live' },
     quiz: { icon: <span className="text-sm">🧠</span>, label: 'Quiz' },
+    assignment: { icon: <span className="text-sm">📝</span>, label: 'Assignment' },
   }
 
   return (
@@ -344,7 +349,7 @@ function AddLessonModal({
           <div>
             <label className="text-sm font-medium text-white mb-2 block">Content Type</label>
             <div className="grid grid-cols-4 gap-2">
-              {(['video', 'pdf', 'live', 'quiz'] as const).map(t => (
+              {(['video', 'pdf', 'live', 'quiz', 'assignment'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
                   className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-all"
                   style={{
@@ -381,8 +386,8 @@ function AddLessonModal({
             <input type="text" value={title} onChange={e => setTitle(e.target.value)} required
               placeholder={
                 type === 'live' ? 'e.g. Live Q&A — Week 3' :
-                type === 'quiz' ? 'e.g. Week 1 Knowledge Check' :
-                'e.g. Introduction to Keyword Research'
+                  type === 'quiz' ? 'e.g. Week 1 Knowledge Check' :
+                    'e.g. Introduction to Keyword Research'
               }
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
@@ -406,22 +411,30 @@ function AddLessonModal({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-white mb-2 block">Date & Time</label>
-                  <input type="datetime-local" value={liveScheduledAt}
-                    onChange={e => setLiveScheduledAt(e.target.value)}
+                  <label className="text-sm font-medium text-white mb-2 block">Date</label>
+                  <input type="date" value={liveDate}
+                    onChange={e => setLiveDate(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-white mb-2 block">Duration (min)</label>
-                  <input type="number" value={liveDurationMins}
-                    onChange={e => setLiveDurationMins(e.target.value)}
-                    min="15" max="480"
+                  <label className="text-sm font-medium text-white mb-2 block">Time</label>
+                  <input type="time" value={liveTime}
+                    onChange={e => setLiveTime(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
                   />
                 </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-white mb-2 block">Duration (min)</label>
+                <input type="number" value={liveDurationMins}
+                  onChange={e => setLiveDurationMins(e.target.value)}
+                  min="15" max="480"
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
               </div>
             </>
           )}
@@ -465,12 +478,20 @@ function AddLessonModal({
             </div>
           )}
 
-          {/* Quiz note */}
           {type === 'quiz' && (
             <div className="p-3 rounded-xl"
               style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
               <p className="text-xs text-violet-300">
-                A quiz-only lesson will be created. After adding, click into the lesson and use <strong>Quiz Builder</strong> to add questions.
+                A quiz lesson will be created. After adding, click <strong>Edit Quiz</strong> directly on the lesson card to add questions.
+              </p>
+            </div>
+          )}
+
+          {type === 'assignment' && (
+            <div className="p-3 rounded-xl"
+              style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
+              <p className="text-xs" style={{ color: '#fbbf24' }}>
+                An assignment lesson will be created. After adding, expand the lesson card to write the prompt and attach files.
               </p>
             </div>
           )}
@@ -492,7 +513,7 @@ function AddLessonModal({
           {/* Expected delivery (pre-fill for unpublished) */}
           <div>
             <label className="text-sm font-medium text-white mb-2 block">
-              📅 Expected Delivery <span className="text-zinc-600 font-normal">(shown to students)</span>
+              📅 Expected Delivery <span className="text-zinc-600 font-normal">(optional · shown before lesson goes live)</span>
             </label>
             <input type="text" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)}
               placeholder="e.g. Dropping this Friday at 6 PM IST"
@@ -699,8 +720,8 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
     setSaving(true)
     await supabase
       .from('lessons')
-      .update({ 
-        assignment_prompt: null, 
+      .update({
+        assignment_prompt: null,
         assignment_required: false,
         assignment_file_url: null,
         assignment_file_name: null
@@ -728,8 +749,8 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
           {hasContent && (
             <div className="flex flex-col gap-1 mt-1">
               {lesson.assignment_prompt && (
-              <p className="text-xs opacity-80 line-clamp-2">{lesson.assignment_prompt}</p>
-            )}
+                <p className="text-xs opacity-80 line-clamp-2">{lesson.assignment_prompt}</p>
+              )}
               {lesson.assignment_file_url && (
                 <Link href={lesson.assignment_file_url} target="_blank" className="text-xs text-violet-400 hover:text-violet-300 truncate">
                   {lesson.assignment_file_name || 'View Assignment File'}
@@ -749,16 +770,17 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
             </button>
           )}
           <button
-            onClick={() => { 
-              setPrompt(lesson.assignment_prompt || ''); 
-              setRequired(lesson.assignment_required || false); 
+            onClick={() => {
+              setPrompt(lesson.assignment_prompt || '');
+              setRequired(lesson.assignment_required || false);
               setLocalFileUrl(lesson.assignment_file_url || null);
               setLocalFileName(lesson.assignment_file_name || null);
-              setEditing(true) 
+              setEditing(true)
             }}
             className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{ 
-              background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+            style={{
+              background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)'
+            }}>
             {hasContent ? 'Edit' : 'Add'}
           </button>
         </div>
@@ -827,8 +849,8 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
       {/* Toggle with description */}
       <div className="flex items-center justify-between gap-4">
         <span className="text-xs" style={{ color: '#a1a1aa' }}>
-          {required 
-            ? 'Students cannot proceed to next lesson before submitting assignment' 
+          {required
+            ? 'Students cannot proceed to next lesson before submitting assignment'
             : 'Students can proceed to next lesson without completing assignment'}
         </span>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -850,6 +872,67 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
           className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white violet-gradient disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Assignment'}
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ── DELETE MODULE MODAL ──
+function DeleteModuleModal({
+  module,
+  onConfirm,
+  onClose,
+}: {
+  module: CourseModule
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const [confirmText, setConfirmText] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+      <div className="w-full max-w-md rounded-2xl p-6"
+        style={{ background: '#111', border: '1px solid rgba(239,68,68,0.3)' }}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-white">Delete Module</h2>
+          <button onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-zinc-400">
+            Delete module <strong className="text-white">"{module.name}"</strong>? Lessons inside will
+            be unassigned (not deleted). This cannot be undone.
+          </p>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-zinc-300">
+              Type <span className="text-white font-semibold">{module.name}</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={e => setConfirmText(e.target.value)}
+              placeholder="Type module name here"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose}
+              className="flex-1 py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={confirmText.trim() !== module.name.trim()}
+              className="flex-1 py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+              style={{ background: '#ef4444' }}>
+              Delete Module
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -935,54 +1018,52 @@ function LessonWidget({
   }
 
   const [expanded, setExpanded] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [resourceSaving, setResourceSaving] = useState<'summary' | 'notes' | null>(null)
+  const [operationError, setOperationError] = useState('')
+  const [resourceSaving, setResourceSaving] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
-  async function uploadResource(kind: 'summary' | 'notes', file: File | null) {
+  async function uploadNotes(file: File | null) {
     if (!file) return
     const lower = file.name.toLowerCase()
     const valid = lower.endsWith('.pdf') || lower.endsWith('.txt') || lower.endsWith('.md') || lower.endsWith('.doc') || lower.endsWith('.docx')
     if (!valid) {
-      alert('Only PDF, text, markdown, or document files are allowed.')
+      setOperationError('Only PDF, text, markdown, or document files are allowed.')
       return
     }
-
-    setResourceSaving(kind)
+    setOperationError('')
+    setResourceSaving(true)
     try {
-      const { publicUrl } = await uploadToSupabase(file, `${kind}s`)
-      const payload = kind === 'summary'
-        ? { summary_url: publicUrl, summary_name: file.name }
-        : { notes_url: publicUrl, notes_name: file.name }
-      const { error } = await supabase.from('lessons').update(payload).eq('id', lesson.id)
+      const { publicUrl } = await uploadToSupabase(file, 'notes')
+      const { error } = await supabase.from('lessons').update({ notes_url: publicUrl, notes_name: file.name }).eq('id', lesson.id)
       if (error) throw error
       onRefresh()
     } catch (err: any) {
-      alert(err.message || 'Resource upload failed.')
+      setOperationError(err.message || 'Notes upload failed.')
     } finally {
-      setResourceSaving(null)
+      setResourceSaving(false)
     }
   }
 
-  async function deleteResource(kind: 'summary' | 'notes') {
+  async function deleteNotes() {
+    setOperationError('')
     try {
-      const payload = kind === 'summary'
-        ? { summary_url: null, summary_name: null }
-        : { notes_url: null, notes_name: null }
-      const { error } = await supabase.from('lessons').update(payload).eq('id', lesson.id)
+      const { error } = await supabase.from('lessons').update({ notes_url: null, notes_name: null }).eq('id', lesson.id)
       if (error) throw error
       onRefresh()
     } catch (err: any) {
-      alert(err.message || 'Failed to delete resource.')
+      setOperationError(err.message || 'Failed to delete notes.')
     }
   }
 
-  function copyLink() {
-    // Don't expose the actual URL — just copy a reference
-    navigator.clipboard.writeText(`Lesson ${lesson.order_num}: ${lesson.title}`)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const typeIcon = lesson.content_type === 'pdf'
+    ? <FileText className="w-4 h-4" style={{ color: '#f59e0b' }} />
+    : lesson.content_type === 'live'
+      ? <span style={{ fontSize: 14 }}>📡</span>
+      : lesson.content_type === 'quiz'
+        ? <span style={{ fontSize: 14 }}>🧠</span>
+        : lesson.content_type === 'assignment'
+          ? <span style={{ fontSize: 14 }}>📝</span>
+          : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
 
   return (
     <>
@@ -1004,46 +1085,53 @@ function LessonWidget({
         }}>
 
         {/* Main row */}
-        <div className="flex items-center gap-4 p-4">
-          <GripVertical className="w-4 h-4 flex-shrink-0"
-            style={{ color: '#3f3f46' }} />
+        <div className="flex items-center gap-3 p-4">
+          <GripVertical className="w-4 h-4 flex-shrink-0" style={{ color: '#3f3f46' }} />
 
-          {/* Order badge */}
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
             style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6' }}>
             {String(lesson.order_num).padStart(2, '0')}
           </div>
 
-          {/* Type icon */}
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(255,255,255,0.05)' }}>
-            {lesson.content_type === 'pdf'
-              ? <FileText className="w-4 h-4" style={{ color: '#f59e0b' }} />
-              : lesson.content_type === 'live'
-                ? <span style={{ fontSize: 14 }}>📡</span>
-                : lesson.content_type === 'quiz'
-                  ? <span style={{ fontSize: 14 }}>🧠</span>
-                  : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
-            }
+            {typeIcon}
           </div>
 
-          {/* Info */}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{lesson.title}</p>
             <div className="flex items-center gap-3 mt-0.5">
               {lesson.duration && (
                 <span className="text-xs" style={{ color: '#52525b' }}>{lesson.duration}</span>
               )}
-              <span className="text-xs" style={{
-                color: lesson.is_published ? '#4ade80' : '#52525b'
-              }}>
+              <span className="text-xs" style={{ color: lesson.is_published ? '#4ade80' : '#52525b' }}>
                 {lesson.is_published ? '● Published' : '○ Draft'}
               </span>
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Assignment: show Edit/Add button directly in the row */}
+            {lesson.content_type === 'assignment' && (
+              <button
+                onClick={() => setExpanded(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}>
+                📝 {lesson.assignment_prompt || lesson.assignment_file_url ? 'Edit' : 'Add'}
+              </button>
+            )}
+            {/* Quiz: show Edit Quiz directly in the row */}
+            {lesson.content_type === 'quiz' && (
+              <Link
+                href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}>
+                🧠 {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
+                  ? `${lesson.quiz_questions.length} Qs`
+                  : 'Add Qs'}
+              </Link>
+            )}
+
             <button
               onClick={() => onTogglePublish(lesson.id, lesson.is_published)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
@@ -1058,8 +1146,8 @@ function LessonWidget({
               }
             </button>
 
-            <button onClick={() => setExpanded(!expanded)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+            <button onClick={() => { setExpanded(!expanded); setOperationError('') }}
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
               style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
               {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
@@ -1068,159 +1156,213 @@ function LessonWidget({
 
         {/* Expanded section */}
         {expanded && (
-          <div className="px-4 pb-4 border-t"
-            style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+          <div className="px-4 pb-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
             <div className="pt-4 flex flex-col gap-3">
 
-              {/* Visit lesson — URL hidden from display */}
-              <div className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white mb-0.5">Lesson Content</p>
-                  <p className="text-xs truncate" style={{ color: '#52525b' }}>
-                    {lesson.content_type === 'video' ? '🎬' : '📄'} {lesson.content_type.toUpperCase()} · URL stored securely
-                  </p>
+              {/* Inline error */}
+              {operationError && (
+                <div className="p-3 rounded-xl text-xs flex items-start gap-2"
+                  style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  {operationError}
                 </div>
-                <a
-                  href={lesson.content_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
-                  style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
-                  <ExternalLink className="w-3 h-3" />
-                  Preview
-                </a>
-              </div>
+              )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(['summary', 'notes'] as const).map(kind => {
-                  const hasFile = kind === 'summary' ? !!lesson.summary_url : !!lesson.notes_url
-                  const name = kind === 'summary' ? lesson.summary_name : lesson.notes_name
-                  return (
-                    <div key={kind} className="p-3 rounded-xl"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <div className="min-w-0 flex items-center gap-2">
-                          <p className="text-xs font-medium text-white capitalize">{kind}</p>
-                          {hasFile && (
-                            <button
-                              onClick={() => deleteResource(kind)}
-                              className="w-6 h-6 flex items-center justify-center rounded-lg"
-                              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                        {hasFile && (
-                          <Link href={`/resource/${lesson.id}?type=${kind}`} target="_blank"
-                            className="text-[10px] text-violet-400 hover:text-violet-300">
-                            View
-                          </Link>
+              {/* ── QUIZ: only quiz builder + delete ── */}
+              {lesson.content_type === 'quiz' && (
+                <>
+                  <Link
+                    href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
+                    className="flex items-center justify-between gap-3 p-4 rounded-xl"
+                    style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)' }}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🧠</span>
+                      <div>
+                        <p className="text-sm font-semibold text-white">Open Quiz Builder</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#a78bfa' }}>
+                          {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
+                            ? `${lesson.quiz_questions.length} question${lesson.quiz_questions.length !== 1 ? 's' : ''} added`
+                            : 'No questions yet — click to add'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                  </Link>
+                  {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (window.confirm('Delete all quiz questions for this lesson?')) {
+                          const { error } = await supabase.from('lessons').update({ quiz_questions: [] }).eq('id', lesson.id)
+                          if (error) setOperationError(error.message)
+                          else onRefresh()
+                        }
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium w-fit"
+                      style={{ background: 'rgba(239,68,68,0.07)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
+                      <Trash2 className="w-3.5 h-3.5" /> Clear All Questions
+                    </button>
+                  )}
+                  <button onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium w-fit"
+                    style={{ background: 'rgba(239,68,68,0.07)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Lesson
+                  </button>
+                </>
+              )}
+
+              {/* ── ASSIGNMENT: only assignment editor + delete ── */}
+              {lesson.content_type === 'assignment' && (
+                <>
+                  <AssignmentEditor lesson={lesson} onRefresh={onRefresh} />
+                  <button onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium w-fit"
+                    style={{ background: 'rgba(239,68,68,0.07)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Lesson
+                  </button>
+                </>
+              )}
+
+              {/* ── PDF: only quiz builder + delete ── */}
+              {lesson.content_type === 'pdf' && (
+                <>
+                  <Link
+                    href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
+                    style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', color: '#fff' }}>
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      <span>Quiz Builder</span>
+                    </div>
+                    <span className="text-xs" style={{ color: '#a78bfa' }}>
+                      {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
+                        ? `${lesson.quiz_questions.length} questions`
+                        : 'Add quiz'}
+                    </span>
+                  </Link>
+                  <button onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium w-fit"
+                    style={{ background: 'rgba(239,68,68,0.07)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Lesson
+                  </button>
+                </>
+              )}
+
+              {/* ── VIDEO + LIVE: notes, quiz, assignment, delivery, live stuff, delete ── */}
+              {(lesson.content_type === 'video' || lesson.content_type === 'live') && (
+                <>
+                  {/* Notes */}
+                  <div className="p-3 rounded-xl"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-white">📝 Notes</p>
+                        {lesson.notes_url && (
+                          <button onClick={deleteNotes}
+                            className="w-5 h-5 flex items-center justify-center rounded"
+                            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         )}
                       </div>
-                      <p className="text-[10px] truncate mb-2" style={{ color: '#52525b' }}>
-                        {hasFile ? name || 'Uploaded' : 'PDF or text document'}
-                      </p>
-                      <input
-                        type="file"
-                        accept=".pdf,.txt,.md,.doc,.docx,application/pdf,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        className="hidden"
-                        id={`${kind}-${lesson.id}`}
-                        onChange={e => uploadResource(kind, e.target.files?.[0] || null)}
-                      />
-                      <label htmlFor={`${kind}-${lesson.id}`}
-                        className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
-                        style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
-                        {resourceSaving === kind ? 'Uploading...' : hasFile ? 'Replace File' : `Add ${kind}`}
-                      </label>
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
-                style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.18)', color: '#fff' }}>
-                <Link
-                  href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
-                  className="flex-1 flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  <span>Quiz Builder</span>
-                </Link>
-                {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0 && (
-                <button
-                  onClick={async () => {
-                    if (confirm('Delete this quiz?')) {
-                      try {
-                        await supabase.from('lessons').update({ quiz_questions: [] }).eq('id', lesson.id)
-                        onRefresh()
-                      } catch (err: any) {
-                        alert(err.message || 'Failed to delete quiz.')
-                      }
-                    }
-                  }}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg"
-                  style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-                <span className="text-xs text-violet-300">
-                  {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
-                    ? `${lesson.quiz_questions.length} questions`
-                    : 'Add quiz'}
-                </span>
-              </div>
-
-
-              {/* Live session info */}
-              {lesson.content_type === 'live' && (
-                <div className="p-3 rounded-xl"
-                  style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div>
-                      <p className="text-xs font-semibold text-green-400 mb-1">📡 Live Session</p>
-                      {lesson.live_scheduled_at && (
-                        <p className="text-xs text-zinc-400">
-                          {new Date(lesson.live_scheduled_at).toLocaleString('en-IN', {
-                            day: 'numeric', month: 'short', year: 'numeric',
-                            hour: 'numeric', minute: '2-digit',
-                          })} · {lesson.live_duration_minutes || 60} min
-                        </p>
-                      )}
-                      {lesson.live_recording_url && (
-                        <p className="text-xs mt-1" style={{ color: '#4ade80' }}>✓ Recording available</p>
+                      {lesson.notes_url && (
+                        <Link href={`/resource/${lesson.id}?type=notes`} target="_blank"
+                          className="text-[10px] text-violet-400 hover:text-violet-300">View</Link>
                       )}
                     </div>
-                    {lesson.live_join_url && (
-                      <a href={lesson.live_join_url} target="_blank" rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                        style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}>
-                        Join Link ↗
-                      </a>
+                    <p className="text-[10px] truncate mb-2" style={{ color: '#52525b' }}>
+                      {lesson.notes_url ? lesson.notes_name || 'Uploaded' : 'Upload a PDF, doc or text file for students'}
+                    </p>
+                    <input type="file"
+                      accept=".pdf,.txt,.md,.doc,.docx,application/pdf,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      className="hidden" id={`notes-${lesson.id}`}
+                      onChange={e => uploadNotes(e.target.files?.[0] || null)}
+                    />
+                    <label htmlFor={`notes-${lesson.id}`}
+                      className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
+                      style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+                      {resourceSaving ? 'Uploading...' : lesson.notes_url ? 'Replace Notes' : 'Upload Notes'}
+                    </label>
+                  </div>
+
+                  {/* Quiz Builder */}
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
+                    style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.18)', color: '#fff' }}>
+                    <Link href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
+                      className="flex-1 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      <span>Quiz Builder</span>
+                    </Link>
+                    {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0 && (
+                      <button
+                        onClick={async () => {
+                          if (window.confirm('Delete this quiz?')) {
+                            const { error } = await supabase.from('lessons').update({ quiz_questions: [] }).eq('id', lesson.id)
+                            if (error) setOperationError(error.message)
+                            else onRefresh()
+                          }
+                        }}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg"
+                        style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     )}
+                    <span className="text-xs text-violet-300">
+                      {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
+                        ? `${lesson.quiz_questions.length} questions`
+                        : 'Optional'}
+                    </span>
                   </div>
-                  {/* Recording URL editor for past sessions */}
-                  <div className="mt-3">
-                    <LiveRecordingEditor lesson={lesson} onRefresh={onRefresh} />
-                  </div>
-                </div>
+
+                  {/* Assignment */}
+                  <AssignmentEditor lesson={lesson} onRefresh={onRefresh} />
+
+                  {/* Expected delivery (unpublished only) */}
+                  {!lesson.is_published && (
+                    <ExpectedDeliveryEditor lesson={lesson} onRefresh={onRefresh} />
+                  )}
+
+                  {/* Live session info */}
+                  {lesson.content_type === 'live' && (
+                    <div className="p-3 rounded-xl"
+                      style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div>
+                          <p className="text-xs font-semibold text-green-400 mb-1">📡 Live Session</p>
+                          {lesson.live_scheduled_at && (
+                            <p className="text-xs text-zinc-400">
+                              {new Date(lesson.live_scheduled_at).toLocaleString('en-IN', {
+                                day: 'numeric', month: 'short', year: 'numeric',
+                                hour: 'numeric', minute: '2-digit',
+                              })} · {lesson.live_duration_minutes || 60} min
+                            </p>
+                          )}
+                          {lesson.live_recording_url && (
+                            <p className="text-xs mt-1" style={{ color: '#4ade80' }}>✓ Recording available</p>
+                          )}
+                        </div>
+                        {lesson.live_join_url && (
+                          <a href={lesson.live_join_url} target="_blank" rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                            style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}>
+                            Join Link ↗
+                          </a>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <LiveRecordingEditor lesson={lesson} onRefresh={onRefresh} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delete */}
+                  <button onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium w-fit"
+                    style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Lesson
+                  </button>
+                </>
               )}
 
-              {/* Expected delivery — only for unpublished lessons */}
-              {!lesson.is_published && (
-                <ExpectedDeliveryEditor lesson={lesson} onRefresh={onRefresh} />
-              )}
-
-              {/* Assignment prompt */}
-              <AssignmentEditor lesson={lesson} onRefresh={onRefresh} />
-
-              {/* Delete Lesson */}
-              <button
-                onClick={() => setShowDeleteModal(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all w-fit"
-                style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete Lesson
-              </button>
             </div>
           </div>
         )}
@@ -1658,7 +1800,7 @@ function CertificatePreviewModal({
 
         {/* Preview Area */}
         <div className="p-6 flex-1 overflow-auto" style={{ background: '#0a0a0a' }}>
-          <div 
+          <div
             className="w-full aspect-[1.414/1] rounded-xl overflow-hidden shadow-2xl p-6 md:p-8 flex flex-col items-center justify-center mx-auto"
             style={{ background: style.background, border: `4px solid ${style.borderColor}` }}
           >
@@ -1670,7 +1812,7 @@ function CertificatePreviewModal({
             )}
 
             {/* Certificate Header */}
-            <p 
+            <p
               className="text-xs tracking-[0.2em] uppercase mb-3 md:mb-4"
               style={{ color: style.accentColor }}
             >
@@ -1678,7 +1820,7 @@ function CertificatePreviewModal({
             </p>
 
             {/* Student Name */}
-            <h1 
+            <h1
               className="text-2xl md:text-4xl font-bold mb-2"
               style={{ color: style.textColor }}
             >
@@ -1687,7 +1829,7 @@ function CertificatePreviewModal({
             <div className="w-16 md:w-24 h-1 mb-3 md:mb-4" style={{ background: style.accentColor }} />
 
             {/* Course Name */}
-            <p 
+            <p
               className="text-lg md:text-xl mb-4 md:mb-6 text-center"
               style={{ color: style.textColor }}
             >
@@ -1698,8 +1840,8 @@ function CertificatePreviewModal({
             {skillsArray.length > 0 && (
               <div className="mb-4 md:mb-6 flex flex-wrap gap-2 justify-center">
                 {skillsArray.slice(0, 4).map((skill, i) => (
-                  <span 
-                    key={i} 
+                  <span
+                    key={i}
                     className="px-2 md:px-3 py-1 rounded-full text-xs"
                     style={{ background: `${style.accentColor}20`, color: style.accentColor, border: `1px solid ${style.accentColor}40` }}
                   >
@@ -1711,7 +1853,7 @@ function CertificatePreviewModal({
 
             {/* Duration */}
             {courseDuration && (
-              <p 
+              <p
                 className="text-xs md:text-sm mb-4 md:mb-6"
                 style={{ color: style.textColor + 'cc' }}
               >
@@ -1721,7 +1863,7 @@ function CertificatePreviewModal({
 
             {/* Custom Message */}
             {customMessage && (
-              <p 
+              <p
                 className="text-xs md:text-sm mb-4 md:mb-6 italic text-center max-w-md"
                 style={{ color: style.textColor + 'aa' }}
               >
@@ -1776,7 +1918,9 @@ export default function CourseManagePage({
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedModuleForLesson, setSelectedModuleForLesson] = useState('')
   const [showModuleModal, setShowModuleModal] = useState(false)
-  const [addContentType, setAddContentType] = useState<'video' | 'pdf' | 'live' | 'quiz'>('video')
+
+  const [addContentType, setAddContentType] = useState<'video' | 'pdf' | 'live' | 'quiz' | 'assignment'>('video')
+  const [deletingModule, setDeletingModule] = useState<CourseModule | null>(null)
   const [delayMessage, setDelayMessage] = useState('')
   const [broadcastSending, setBroadcastSending] = useState(false)
   const [broadcastSent, setBroadcastSent] = useState(false)
@@ -1784,7 +1928,7 @@ export default function CourseManagePage({
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<'lessons' | 'live' | 'settings'>('lessons')
+  const [activeTab, setActiveTab] = useState<'lessons' | 'settings'>('lessons')
   const [token, setToken] = useState('')
 
   // Settings state
@@ -1849,7 +1993,7 @@ export default function CourseManagePage({
       setEditStartDate(courseData.start_date || '')
       setEditStartTime(courseData.start_time || '')
       setEditDuration(courseData.duration || '')
-      
+
       setEditSkills(Array.isArray(courseData.skills) ? courseData.skills.join(', ') : '')
       setEditPlannedLessons(courseData.total_lessons?.toString() || '')
       setEditNextLessonDate(courseData.next_lesson_date || '')
@@ -2096,6 +2240,14 @@ export default function CourseManagePage({
     }
   }
 
+  async function deleteModule(moduleId: string) {
+  await supabase.from('lessons').update({ module_id: null }).eq('module_id', moduleId)
+  await supabase.from('course_modules').delete().eq('id', moduleId)
+  await fetchModules()
+  await fetchLessons()
+  setDeletingModule(null)
+}
+
   async function toggleCoursePublish() {
     if (!course) return
     const newState = !course.is_published
@@ -2173,6 +2325,13 @@ export default function CourseManagePage({
           nextOrder={modules.length + 1}
         />
       )}
+      {deletingModule && (
+        <DeleteModuleModal
+          module={deletingModule}
+          onConfirm={() => deleteModule(deletingModule.id)}
+          onClose={() => setDeletingModule(null)}
+        />
+      )}
 
       <main className="md:ml-56 p-6 md:p-8">
 
@@ -2239,20 +2398,20 @@ export default function CourseManagePage({
               </span>
             </div>
             <div className="flex items-center gap-4 mt-4 border-b border-white/5">
-              {(['lessons', 'live', 'settings'] as const).map(tab => (
+              {(['lessons', 'settings'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className="px-4 py-2 text-sm font-medium capitalize transition-all relative"
                   style={{ color: activeTab === tab ? '#8b5cf6' : '#52525b' }}
                 >
-                  {tab === 'live' ? 'Live Sessions' : tab}
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
                   {activeTab === tab && (
                     <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#8b5cf6]" />
                   )}
                 </button>
               ))}
-            </div>
+              </div>
           </div>
         </div>
 
@@ -2262,81 +2421,58 @@ export default function CourseManagePage({
           <div className="lg:col-span-2">
             {activeTab === 'lessons' ? (
               <>
-                {/* Unified content bar */}
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h2 className="font-semibold text-white">Content</h2>
-                      <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
-                        {lessons.length} items · {publishedCount} published
-                      </p>
-                    </div>
+                {/* Content header */}
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="font-semibold text-white">Course Content</h2>
+                    <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
+                      {lessons.length} lesson{lessons.length !== 1 ? 's' : ''} · {publishedCount} published
+                    </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { label: '📁 Module', onClick: () => setShowModuleModal(true), color: 'rgba(255,255,255,0.08)' },
-                      { label: '🎬 Video', onClick: () => { setAddContentType('video'); setShowAddModal(true) }, color: 'rgba(124,58,237,0.12)' },
-                      { label: '📄 PDF', onClick: () => { setAddContentType('pdf'); setShowAddModal(true) }, color: 'rgba(245,158,11,0.12)' },
-                      { label: '📡 Live', onClick: () => { setAddContentType('live'); setShowAddModal(true) }, color: 'rgba(34,197,94,0.12)' },
-                      { label: '🧠 Quiz', onClick: () => { setAddContentType('quiz'); setShowAddModal(true) }, color: 'rgba(59,130,246,0.12)' },
-                    ].map((btn, i) => (
-                      <button key={i} onClick={btn.onClick}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
-                        style={{ background: btn.color, color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        {btn.label}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+
+                  {/* Add Module */}
+                  <button
+                    onClick={() => setShowModuleModal(true)}
+                    className="flex flex-col items-start p-4 rounded-2xl text-left transition-all hover:opacity-90"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-base">📁</span>
+                      <span className="text-sm font-bold text-white">Add Module</span>
+                      <Plus className="w-3.5 h-3.5 ml-auto flex-shrink-0" style={{ color: '#8b5cf6' }} />
+                    </div>
+                    <p className="text-xs mb-3" style={{ color: '#71717a' }}>Group lessons into weeks or topics</p>
+                    <div className="flex flex-col gap-1 w-full text-[10px]">
+                      <div className="px-2 py-1 rounded font-semibold" style={{ background: 'rgba(124,58,237,0.18)', color: '#a78bfa' }}>📁 Module 1</div>
+                      <div className="ml-3 px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: '#52525b' }}>↳ Lesson · Lesson · ···</div>
+                      <div className="px-2 py-1 rounded font-semibold mt-0.5" style={{ background: 'rgba(124,58,237,0.08)', color: '#52525b' }}>📁 Module 2</div>
+                      <div className="ml-3 px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.03)', color: '#3f3f46' }}>↳ Lesson · ···</div>
+                    </div>
+                  </button>
+
+                  {/* Add Lesson */}
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider px-1" style={{ color: '#52525b' }}>Add Lesson</p>
+                    {([
+                      { label: 'Video', icon: '🎬', type: 'video' as const },
+                      { label: 'PDF', icon: '📄', type: 'pdf' as const },
+                      { label: 'Live Session', icon: '📡', type: 'live' as const },
+                      { label: 'Quiz', icon: '🧠', type: 'quiz' as const },
+                      { label: 'Assignment', icon: '📝', type: 'assignment' as const },
+                    ]).map((btn, i) => (
+                      <button key={i}
+                        onClick={() => { setAddContentType(btn.type); setShowAddModal(true) }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90 text-left w-full"
+                        style={{ background: 'rgba(255,255,255,0.04)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <span>{btn.icon}</span> {btn.label}
                       </button>
                     ))}
                   </div>
-                </div>
 
-
-                <div className="rounded-2xl p-4 mb-4"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                    <div>
-                      <p className="text-sm font-semibold text-white">Release Schedule</p>
-                      <p className="text-xs text-zinc-500">{lessons.length} uploaded / {publishedCount} published / {remainingLessons} remaining</p>
-                    </div>
-                    <button onClick={updateSettings} disabled={savingSettings}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-                      {savingSettings ? 'Saving...' : 'Save Schedule'}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 block">Planned Lessons</label>
-                      <input value={editPlannedLessons} onChange={e => setEditPlannedLessons(e.target.value)}
-                        type="number" min={lessons.length}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 block">Next Lesson Date</label>
-                      <input value={editNextLessonDate} onChange={e => setEditNextLessonDate(e.target.value)}
-                        type="date"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 block">Course End Date</label>
-                      <input value={editCourseEndDate} onChange={e => setEditCourseEndDate(e.target.value)}
-                        type="date"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none" />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Student Info Message</label>
-                      <span className="text-[10px] text-zinc-600">{editStudentMessage.length}/500</span>
-                    </div>
-                    <textarea
-                      value={editStudentMessage}
-                      onChange={e => setEditStudentMessage(e.target.value.slice(0, 500))}
-                      maxLength={500}
-                      rows={3}
-                      placeholder="Example: Lesson 3 is being recorded and will be available next Friday."
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none"
-                    />
-                  </div>
                 </div>
+              </div>
 
                 {/* Lesson list */}
                 {lessons.length === 0 && modules.length === 0 ? (
@@ -2365,22 +2501,32 @@ export default function CourseManagePage({
                             if (lessonId) handleLessonDrop(lessonId, module.id)
                           }}
                           style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <h3 className="text-sm font-semibold text-white">{module.name}</h3>
-                              <p className="text-xs" style={{ color: '#52525b' }}>
-                                {moduleLessons.length} / {module.planned_lessons || moduleLessons.length} lessons
+                          <div className="flex items-center justify-between mb-3 gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-white truncate">{module.name}</h3>
+                                <button
+                                  onClick={() => setDeletingModule(module)}
+                                  className="w-6 h-6 flex items-center justify-center rounded flex-shrink-0"
+                                  style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}
+                                  title="Delete module">
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
+                                {moduleLessons.length} lesson{moduleLessons.length !== 1 ? 's' : ''}
                               </p>
                             </div>
                             <button onClick={() => {
                               setSelectedModuleForLesson(module.id)
                               setShowAddModal(true)
                             }}
-                              className="text-xs px-3 py-1.5 rounded-lg"
+                              className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0"
                               style={{ background: 'rgba(124,58,237,0.12)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
-                              Add Lesson
+                              + Lesson
                             </button>
                           </div>
+
                           <div className="flex flex-col gap-3">
                             {moduleLessons.length === 0 ? (
                               <p className="text-xs py-3" style={{ color: '#52525b' }}>No lessons in this module yet.</p>
@@ -2393,6 +2539,27 @@ export default function CourseManagePage({
                                 onRefresh={fetchLessons}
                               />
                             ))}
+                            {module.planned_lessons > 0 && moduleLessons.length >= module.planned_lessons && (
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-xl"
+                                style={{ background: 'rgba(234,179,8,0.05)', border: '1px solid rgba(234,179,8,0.18)' }}>
+                                <p className="text-xs" style={{ color: '#eab308' }}>
+                                  📋 You planned {module.planned_lessons} lesson{module.planned_lessons !== 1 ? 's' : ''} for this module — all added. Start a new module or keep adding here.
+                                </p>
+                                <div className="flex gap-2 flex-shrink-0">
+                                  <button
+                                    onClick={() => { setSelectedModuleForLesson(module.id); setShowAddModal(true) }}
+                                    className="text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap"
+                                    style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>
+                                    Continue Here
+                                  </button>
+                                  <button onClick={() => setShowModuleModal(true)}
+                                    className="text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap"
+                                    style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
+                                    New Module
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
@@ -2464,8 +2631,7 @@ export default function CourseManagePage({
                   </div>
                 )}
               </>
-            ) : activeTab === 'live' ? (
-              <LiveSessionsTab courseId={id} token={token} />
+            
             ) : (
               <div className="flex flex-col gap-6">
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -2835,27 +3001,7 @@ export default function CourseManagePage({
           {/* ── RIGHT: Course Info + Share ── */}
           <div className="flex flex-col gap-4">
 
-            {/* Course stats */}
-            <div className="rounded-2xl p-5 glass"
-              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="font-semibold text-white mb-4">Course Details</h3>
-              <div className="flex flex-col gap-3">
-                {[
-                  { label: 'Price', value: `₹${course.price.toLocaleString()}` },
-                  { label: 'Lessons', value: `${lessons.length} uploaded / ${plannedTotal} planned` },
-                  { label: 'Published', value: `${publishedCount} of ${lessons.length}` },
-                  { label: 'Delivery', value: course.delivery === 'both' ? 'Web + WhatsApp' : course.delivery === 'web' ? 'Web Only' : 'WhatsApp Only' },
-                  { label: 'Language', value: course.language?.join(', ') || 'English' },
-                ].map((item, i) => (
-                  <div key={i} className="flex justify-between items-center py-2"
-                    style={{ borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                    <span className="text-xs" style={{ color: '#52525b' }}>{item.label}</span>
-                    <span className="text-xs font-medium text-white">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+            
             {/* Publish toggle */}
             <div className="rounded-2xl p-5"
               style={{
@@ -2924,9 +3070,10 @@ export default function CourseManagePage({
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none mb-2"
                 style={{ borderColor: delayMessage ? 'rgba(245,158,11,0.4)' : undefined }}
               />
+              <span className="text-xs" style={{ color: '#949499' }}>{delayMessage.length}/500</span>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs" style={{ color: '#52525b' }}>{delayMessage.length}/500</span>
-                <span className="text-xs" style={{ color: '#52525b' }}>Sends via Telegram to all enrolled students</span>
+                
+                <span className="text-xs" style={{ color: '#949499' }}>Sends via Telegram & WhatsApp to all enrolled students</span>
               </div>
               <button
                 onClick={sendDelayBroadcast}
@@ -2948,11 +3095,11 @@ export default function CourseManagePage({
                 <Share2 className="w-4 h-4" style={{ color: '#8b5cf6' }} />
                 Share Course
               </h3>
-              <p className="text-xs mb-4" style={{ color: '#52525b' }}>
-                Share this link with your students to enroll and pay.
+              <p className="text-xs mb-4" style={{ color: '#949499' }}>
+                Share this link with your students to enroll.
               </p>
 
-              
+
 
               {/* Copy link */}
               <button onClick={copyCourseLink}
