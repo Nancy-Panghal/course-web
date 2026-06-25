@@ -23,6 +23,8 @@ interface EnrolledCourse {
   totalLessons: number
   telegramToken: string | null
   telegramTokenExpiresAt: string | null
+  whatsappToken: string | null
+  whatsappTokenExpiresAt: string | null
   certificateId: string | null
   certificateUrl: string | null
   telegramBotUsername: string | null
@@ -113,7 +115,7 @@ const displayEmail = user?.email || ''
             }
           }
         }
-        const baseSelect = 'id, course_uuid, current_lesson, completed_lessons, enrolled_at, telegram_start_token, telegram_start_token_expires_at, payment_status, amount_paid, certificate_id, certificate_url'
+        const baseSelect = 'id, course_uuid, current_lesson, completed_lessons, enrolled_at, telegram_start_token, telegram_start_token_expires_at, whatsapp_start_token, whatsapp_start_token_expires_at, payment_status, amount_paid, certificate_id, certificate_url'
 
         function makeBase() {
           return supabase
@@ -191,6 +193,8 @@ const displayEmail = user?.email || ''
               totalLessons: total,
               telegramToken: e.telegram_start_token || null,
               telegramTokenExpiresAt: e.telegram_start_token_expires_at || null,
+              whatsappToken: e.whatsapp_start_token || null,
+              whatsappTokenExpiresAt: e.whatsapp_start_token_expires_at || null,
               certificateId: e.certificate_id || null,
               certificateUrl: e.certificate_url || null,
               telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || null,
@@ -485,8 +489,37 @@ const displayEmail = user?.email || ''
                         style={{ fontSize: 11, fontWeight: 700, color: '#229ED9', textDecoration: 'none' }}>
                         Open →
                       </a>
-                      </div>
+                    </div>
                   )}
+
+                  {/* WhatsApp strip */}
+                  {(() => {
+                    const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+                    const hasWaToken = c.whatsappToken && c.whatsappTokenExpiresAt && new Date(c.whatsappTokenExpiresAt) > new Date()
+                    if (!waNumber || !hasWaToken) return null
+                    const waHref = `https://wa.me/${waNumber}?text=${encodeURIComponent('/start ' + c.whatsappToken)}`
+                    return (
+                      <div style={{
+                        padding: '9px 20px',
+                        background: 'rgba(37,211,102,0.04)',
+                        borderTop: '1px solid rgba(37,211,102,0.1)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                      }}>
+                        <span style={{ fontSize: 11, color: '#52525b', display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <svg style={{ width: 14, height: 14, color: '#25D366', flexShrink: 0 }} viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                          </svg>
+                          Continue on WhatsApp
+                        </span>
+                        <a href={waHref} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: 11, fontWeight: 700, color: '#25D366', textDecoration: 'none' }}>
+                          Open →
+                        </a>
+                      </div>
+                    )
+                  })()}
+
+
 
                   {/* Certificate strip — shown only for completed courses */}
                   {isComplete && (

@@ -10,51 +10,96 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const {
-      studentPhone,
+      studentId,      // Supabase auth UUID
       studentEmail,
       studentName,
+      studentPhone,
       creatorId,
-      courseSlug,
+      courseId,       // Course UUID
       paymentId,
     } = await req.json()
 
-    if (!studentPhone || !courseSlug) {
+    if (!courseId || !creatorId || (!studentEmail && !studentPhone && !studentId)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Check if unused token already exists for this student+course
-    const { data: existingRows } = await supabase
-      .from('whatsapp_tokens')
-      .select('token')
-      .eq('student_phone', studentPhone)
-      .eq('course_slug', courseSlug)
-      .eq('used', false)
-      .gt('expires_at', new Date().toISOString())
-      .limit(1)
-    const existing = existingRows?.[0]
+    const now = new Date().toISOString()
 
-    // Reuse existing token if valid
-    if (existing) {
-      return NextResponse.json({ token: existing.token })
+    // ── Dedup: re-use valid unused token for this student+course ──────────────
+
+    // 1. By auth UUID (most reliable)
+    if (studentId) {
+      const { data: byId } = await supabase
+        .from('whatsapp_tokens')
+        .select('token, expires_at')
+        .eq('course_slug', courseId)           // We store UUID in course_slug column
+        .eq('student_auth_id', studentId)
+        .eq('used', false)
+        .gt('expires_at', now)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (byId?.[0]?.token) {
+        return NextResponse.json({ token: byId[0].token, expiresAt: byId[0].expires_at })
+      }
     }
 
-    // Generate new secure token
-    const token = crypto.randomBytes(32).toString('hex')
+    // 2. By email
+    const email = studentEmail?.trim() || null
+    if (email) {
+      const { data: byEmail } = await supabase
+        .from('whatsapp_tokens')
+        .select('token, expires_at')
+        .eq('course_slug', courseId)
+        .eq('student_email', email)
+        .eq('used', false)
+        .gt('expires_at', now)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (byEmail?.[0]?.token) {
+        return NextResponse.json({ token: byEmail[0].token, expiresAt: byEmail[0].expires_at })
+      }
+    }
+
+    // 3. By phone
+    const phone = studentPhone?.trim() || null
+    if (phone) {
+      const { data: byPhone } = await supabase
+        .from('whatsapp_tokens')
+        .select('token, expires_at')
+        .eq('course_slug', courseId)
+        .eq('student_phone', phone)
+        .eq('used', false)
+        .gt('expires_at', now)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (byPhone?.[0]?.token) {
+        return NextResponse.json({ token: byPhone[0].token, expiresAt: byPhone[0].expires_at })
+      }
+    }
+
+    // ── Create new token ──────────────────────────────────────────────────────
+    const token = crypto.randomBytes(24).toString('hex')
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
     const { error } = await supabase.from('whatsapp_tokens').insert({
       token,
-      student_phone: studentPhone,
-      student_email: studentEmail,
-      student_name: studentName,
+      student_auth_id: studentId || null,
+      student_phone: phone || null,
+      student_email: email || null,
+      student_name: studentName || null,
       creator_id: creatorId,
-      course_slug: courseSlug,
-      payment_id: paymentId,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      course_slug: courseId,    // Always store UUID here; bot handles UUID format
+      payment_id: paymentId || null,
+      expires_at: expiresAt,
+      used: false,
     })
 
     if (error) throw error
 
-    return NextResponse.json({ token })
+    return NextResponse.json({ token, expiresAt })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

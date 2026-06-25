@@ -174,6 +174,9 @@ export default function CourseLearnPage() {
   const [demoTelegramToken, setDemoTelegramToken] = useState('')
   const [generatingDemoToken, setGeneratingDemoToken] = useState(false)
   const [enrolledTelegramToken, setEnrolledTelegramToken] = useState('')
+  const [demoWhatsappToken, setDemoWhatsappToken] = useState('')
+  const [enrolledWhatsappToken, setEnrolledWhatsappToken] = useState('')
+  const [generatingDemoWaToken, setGeneratingDemoWaToken] = useState(false)
   const [showCertModal, setShowCertModal] = useState(false)
   const [certGenerating, setCertGenerating] = useState(false)
   const [certId, setCertId] = useState<string | null>(null)
@@ -317,6 +320,79 @@ export default function CourseLearnPage() {
     }
     getEnrolledToken()
   }, [isEnrolled, enrollment, creatorProfile, course, user, enrolledTelegramToken])
+
+  // Load WhatsApp enrolled token
+  useEffect(() => {
+    async function getEnrolledWaToken() {
+      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+      if (!isEnrolled || !enrollment || !waNumber || !course || enrolledWhatsappToken) return
+
+      const stored = (enrollment as any).whatsapp_start_token
+      const expiresAt = (enrollment as any).whatsapp_start_token_expires_at
+      if (stored && expiresAt && new Date(expiresAt) > new Date()) {
+        setEnrolledWhatsappToken(stored)
+        return
+      }
+
+      try {
+        const res = await fetch('/api/whatsapp/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: user?.id,
+            studentPhone: user?.user_metadata?.phone || '',
+            studentEmail: user?.email || '',
+            studentName: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+            creatorId: course.creator_id,
+            courseId: course.id,
+            paymentId: null,
+          }),
+        })
+        const { token, expiresAt: newExpiry } = await res.json()
+        if (token) {
+          setEnrolledWhatsappToken(token)
+          fetch('/api/whatsapp/save-enrollment-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enrollmentId: enrollment.id, token, expiresAt: newExpiry }),
+          }).catch(e => console.error('[enrolledWaToken save]', e))
+        }
+      } catch (e) {
+        console.error('[enrolledWaToken]', e)
+      }
+    }
+    getEnrolledWaToken()
+  }, [isEnrolled, enrollment, course, user, enrolledWhatsappToken])
+
+  // Load WhatsApp demo token (unenrolled preview users)
+  useEffect(() => {
+    async function getDemoWaToken() {
+      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+      if (!user || isEnrolled || !waNumber || !course || demoWhatsappToken || generatingDemoWaToken) return
+      setGeneratingDemoWaToken(true)
+      try {
+        const res = await fetch('/api/whatsapp/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: user.id,
+            studentPhone: user.phone || user.user_metadata?.phone || '',
+            studentEmail: user.email || '',
+            studentName: user.user_metadata?.full_name || user.user_metadata?.name || '',
+            creatorId: course.creator_id,
+            courseId: course.id,
+            paymentId: null,
+          }),
+        })
+        const data = await res.json()
+        if (data?.token) setDemoWhatsappToken(data.token)
+      } catch (e) {
+        console.error('[demoWaToken]', e)
+      }
+      setGeneratingDemoWaToken(false)
+    }
+    getDemoWaToken()
+  }, [user, isEnrolled, course, demoWhatsappToken, generatingDemoWaToken])
 
   useEffect(() => {
     async function getDemoToken() {
@@ -935,10 +1011,10 @@ export default function CourseLearnPage() {
                 </div>
               )}
 
-              {/* Telegram CTA for all users (enrolled or previewing) */}
+              {/* Telegram + WhatsApp CTAs for all users (enrolled or previewing) */}
               {creatorProfile?.telegram_bot_username && (
                 isEnrolled ? (
-                  <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                  <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
                     <div>
                       <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Continue on Telegram</p>
                       <p style={{ color: '#71717a', fontSize: 12 }}>Lessons delivered to your chat. Progress syncs automatically.</p>
@@ -957,6 +1033,9 @@ export default function CourseLearnPage() {
                       </button>
                     )}
                   </div>
+
+
+
                 ) : (
                   <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
                     <div>
@@ -984,6 +1063,37 @@ export default function CourseLearnPage() {
                     )}
                   </div>
                 )
+              )}
+              
+
+              {/* WhatsApp free preview strip */}
+              {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && !isEnrolled && (
+                <div style={{ padding: 16, borderRadius: 12, background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                  <div>
+                    <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Learn on WhatsApp</p>
+                    <p style={{ color: '#71717a', fontSize: 12 }}>Get free preview lessons delivered to your WhatsApp.</p>
+                  </div>
+                  {user ? (
+                    demoWhatsappToken ? (
+                      <a
+                        href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent('/start ' + demoWhatsappToken)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ padding: '8px 16px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        Start Free on WhatsApp
+                      </a>
+                    ) : (
+                      <button disabled
+                        style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(37,211,102,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
+                        Preparing Link...
+                      </button>
+                    )
+                  ) : (
+                    <button onClick={() => setShowEnroll(true)}
+                      style={{ padding: '8px 16px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      Start Free on WhatsApp
+                    </button>
+                  )}
+                </div>
               )}
 
             </div>
