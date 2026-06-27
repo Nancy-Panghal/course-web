@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -14,6 +14,7 @@ import { slugify } from '@/lib/utils'
 interface EnrolledCourse {
   enrollmentId: string
   courseId: string
+  creatorId: string
   courseName: string
   courseSlug: string
   creatorName: string
@@ -191,6 +192,7 @@ const displayEmail = user?.email || ''
               currentLesson: e.current_lesson || 1,
               completedLessons: Array.isArray(e.completed_lessons) ? e.completed_lessons : [],
               totalLessons: total,
+              creatorId: c.creator_id || '',
               telegramToken: e.telegram_start_token || null,
               telegramTokenExpiresAt: e.telegram_start_token_expires_at || null,
               whatsappToken: e.whatsapp_start_token || null,
@@ -211,6 +213,111 @@ const displayEmail = user?.email || ''
     }
     load()
   }, [])
+
+  // ── Auto-refresh expired / missing tokens on page load ──────────────────────
+  // Runs once after courses load. Silently regenerates any token that is missing
+  // or will expire within the next 30 minutes, then saves the fresh token back
+  // to the enrollment row so every page sees the same link.
+  const tokenRefreshRef = useRef(false)
+  useEffect(() => {
+    if (loading || tokenRefreshRef.current || courses.length === 0 || !user) return
+    tokenRefreshRef.current = true
+
+    const botUsername = (process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || '').replace('@', '')
+    const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
+    const THRESHOLD_MS = 30 * 60 * 1000  // refresh if < 30 min left
+
+    async function refreshOne(c: EnrolledCourse) {
+      const now = Date.now()
+      const tgExpiry = c.telegramTokenExpiresAt ? new Date(c.telegramTokenExpiresAt).getTime() : 0
+      const waExpiry = c.whatsappTokenExpiresAt ? new Date(c.whatsappTokenExpiresAt).getTime() : 0
+
+      const needsTg = botUsername && (!c.telegramToken || tgExpiry - now < THRESHOLD_MS)
+      const needsWa = waNumber && (!c.whatsappToken || waExpiry - now < THRESHOLD_MS)
+      if (!needsTg && !needsWa) return null
+
+      const phone = user.user_metadata?.phone || ''
+      const email = user.email || ''
+      const name = user.user_metadata?.full_name || user.user_metadata?.name || ''
+      const updates: Partial<EnrolledCourse> = {}
+
+      const jobs: Promise<void>[] = []
+
+      if (needsTg) {
+        jobs.push(
+          fetch('/api/telegram/create-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: user.id, studentPhone: phone, studentEmail: email,
+              studentName: name, creatorId: c.creatorId, courseId: c.courseId, paymentId: null,
+            }),
+          })
+            .then(r => r.json())
+            .then(({ token, expiresAt }) => {
+              if (!token) return
+              updates.telegramToken = token
+              updates.telegramTokenExpiresAt = expiresAt
+              fetch('/api/telegram/save-enrollment-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enrollmentId: c.enrollmentId, token, expiresAt }),
+              }).catch(() => {})
+            })
+            .catch(() => {})
+        )
+      }
+
+      if (needsWa) {
+        jobs.push(
+          fetch('/api/whatsapp/create-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: user.id, studentPhone: phone, studentEmail: email,
+              studentName: name, creatorId: c.creatorId, courseId: c.courseId, paymentId: null,
+            }),
+          })
+            .then(r => r.json())
+            .then(({ token, expiresAt }) => {
+              if (!token) return
+              updates.whatsappToken = token
+              updates.whatsappTokenExpiresAt = expiresAt
+              fetch('/api/whatsapp/save-enrollment-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enrollmentId: c.enrollmentId, token, expiresAt }),
+              }).catch(() => {})
+            })
+            .catch(() => {})
+        )
+      }
+
+      await Promise.all(jobs)
+      return Object.keys(updates).length > 0 ? { courseId: c.courseId, updates } : null
+    }
+
+    async function doRefresh() {
+      const results = await Promise.allSettled(courses.map(refreshOne))
+      const patches = results
+        .filter((r): r is PromiseFulfilledResult<{ courseId: string; updates: Partial<EnrolledCourse> } | null> =>
+          r.status === 'fulfilled' && r.value !== null
+        )
+        .map(r => r.value!)
+
+      if (patches.length === 0) return
+      setCourses(prev =>
+        prev.map(c => {
+          const patch = patches.find(p => p.courseId === c.courseId)
+          return patch ? { ...c, ...patch.updates } : c
+        })
+      )
+    }
+
+    doRefresh().catch(() => {})
+  }, [loading, user, courses.length])
+
+  
 
   function getProgress(c: EnrolledCourse) {
     if (!c.totalLessons) return 0

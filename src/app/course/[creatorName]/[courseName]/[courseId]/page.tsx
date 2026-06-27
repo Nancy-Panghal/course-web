@@ -424,6 +424,78 @@ export default function CourseLearnPage() {
     getDemoToken()
   }, [user, isEnrolled, creatorProfile, course, demoTelegramToken, generatingDemoToken])
 
+  // ── WhatsApp enrolled token ──────────────────────────────────────────────────
+  useEffect(() => {
+    async function getEnrolledWaToken() {
+      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+      if (!isEnrolled || !enrollment || !waNumber || !course || enrolledWhatsappToken) return
+
+      const stored = (enrollment as any).whatsapp_start_token as string | null
+      const expiresAt = (enrollment as any).whatsapp_start_token_expires_at as string | null
+      const THRESHOLD_MS = 30 * 60 * 1000
+      const hasValid = stored && expiresAt && (new Date(expiresAt).getTime() - Date.now() > THRESHOLD_MS)
+      if (hasValid) { setEnrolledWhatsappToken(stored!); return }
+
+      try {
+        const res = await fetch('/api/whatsapp/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: user?.id,
+            studentPhone: user?.user_metadata?.phone || '',
+            studentEmail: user?.email || '',
+            studentName: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+            creatorId: course.creator_id,
+            courseId: course.id,
+            paymentId: null,
+          }),
+        })
+        const { token, expiresAt: newExpiry } = await res.json()
+        if (token) {
+          setEnrolledWhatsappToken(token)
+          fetch('/api/whatsapp/save-enrollment-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enrollmentId: enrollment.id, token, expiresAt: newExpiry }),
+          }).catch(() => {})
+        }
+      } catch (e) {
+        console.error('[enrolledWaToken]', e)
+      }
+    }
+    getEnrolledWaToken()
+  }, [isEnrolled, enrollment?.id, course?.id, user?.id, enrolledWhatsappToken])
+
+  // ── WhatsApp demo token (free preview, not yet enrolled) ─────────────────────
+  useEffect(() => {
+    async function getDemoWaToken() {
+      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+      if (!user || isEnrolled || !waNumber || !course || demoWhatsappToken) return
+      try {
+        const res = await fetch('/api/whatsapp/create-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: user.id,
+            studentPhone: user.phone || user.user_metadata?.phone || '',
+            studentEmail: user.email || '',
+            studentName: user.user_metadata?.full_name || user.user_metadata?.name || '',
+            creatorId: course.creator_id,
+            courseId: course.id,
+            paymentId: null,
+          }),
+        })
+        const { token } = await res.json()
+        if (token) setDemoWhatsappToken(token)
+      } catch (e) {
+        console.error('[demoWaToken]', e)
+      }
+    }
+    getDemoWaToken()
+  }, [user?.id, isEnrolled, course?.id, demoWhatsappToken])
+
+  
+
   const currentLesson = lessons.find(l => l.id === currentId) || lessons[0]
   const currentIndex = lessons.findIndex(l => l.id === currentId)
   const prevLesson = currentIndex > 0 ? lessons[currentIndex - 1] : null
