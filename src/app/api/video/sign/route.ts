@@ -93,9 +93,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate signed URL
-    // Use 'web' as identity for website access
-    const signedUrl = signVideoUrl(lessonId, 'web')
+    // Generate signed URL using the user's auth UUID as identity.
+    // The stream route verifies enrollment by looking up students.auth_id = user.id.
+    const signedUrl = signVideoUrl(lessonId, user.id)
 
     return NextResponse.json({ signedUrl })
   } catch (error) {

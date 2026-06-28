@@ -10,7 +10,7 @@
  */
 
 "use client"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, linkStudentToEnrollment } from '@/lib/enrollments'
+import { ensureFreshEnrolledToken, fetchDemoToken } from '@/lib/messagingTokens'
 import { resolveAccountType } from '@/lib/account'
 import EnrollModal from '@/components/EnrollModal'
 import AssignmentSubmit from '@/components/AssignmentSubmit'
@@ -82,7 +83,7 @@ function isLessonFree(lesson: Lesson, config: string): boolean {
   return false
 }
 
-async function getSignedContentUrl(lessonId: string, type: 'video' | 'pdf'): Promise<string> {
+async function getSignedContentUrl(lessonId: string, type: 'video' | 'pdf'): Promise<{ url: string; expiresAt: string | null }> {
   const { data: { session } } = await supabase.auth.getSession()
   const res = await fetch('/api/content/sign', {
     method: 'POST',
@@ -93,8 +94,8 @@ async function getSignedContentUrl(lessonId: string, type: 'video' | 'pdf'): Pro
     body: JSON.stringify({ lessonId, type }),
   })
   if (!res.ok) throw new Error('Failed to get signed URL')
-  const { url } = await res.json()
-  return url
+  const { url, expiresAt } = await res.json()
+  return { url, expiresAt: expiresAt || null }
 }
 
 function LockedScreen({ course, onEnroll, expectedDeliveryText }: { course: Course; onEnroll: () => void; expectedDeliveryText?: string | null }) {
@@ -321,78 +322,8 @@ export default function CourseLearnPage() {
     getEnrolledToken()
   }, [isEnrolled, enrollment, creatorProfile, course, user, enrolledTelegramToken])
 
-  // Load WhatsApp enrolled token
-  useEffect(() => {
-    async function getEnrolledWaToken() {
-      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
-      if (!isEnrolled || !enrollment || !waNumber || !course || enrolledWhatsappToken) return
-
-      const stored = (enrollment as any).whatsapp_start_token
-      const expiresAt = (enrollment as any).whatsapp_start_token_expires_at
-      if (stored && expiresAt && new Date(expiresAt) > new Date()) {
-        setEnrolledWhatsappToken(stored)
-        return
-      }
-
-      try {
-        const res = await fetch('/api/whatsapp/create-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: user?.id,
-            studentPhone: user?.user_metadata?.phone || '',
-            studentEmail: user?.email || '',
-            studentName: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
-            creatorId: course.creator_id,
-            courseId: course.id,
-            paymentId: null,
-          }),
-        })
-        const { token, expiresAt: newExpiry } = await res.json()
-        if (token) {
-          setEnrolledWhatsappToken(token)
-          fetch('/api/whatsapp/save-enrollment-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enrollmentId: enrollment.id, token, expiresAt: newExpiry }),
-          }).catch(e => console.error('[enrolledWaToken save]', e))
-        }
-      } catch (e) {
-        console.error('[enrolledWaToken]', e)
-      }
-    }
-    getEnrolledWaToken()
-  }, [isEnrolled, enrollment, course, user, enrolledWhatsappToken])
-
-  // Load WhatsApp demo token (unenrolled preview users)
-  useEffect(() => {
-    async function getDemoWaToken() {
-      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
-      if (!user || isEnrolled || !waNumber || !course || demoWhatsappToken || generatingDemoWaToken) return
-      setGeneratingDemoWaToken(true)
-      try {
-        const res = await fetch('/api/whatsapp/create-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: user.id,
-            studentPhone: user.phone || user.user_metadata?.phone || '',
-            studentEmail: user.email || '',
-            studentName: user.user_metadata?.full_name || user.user_metadata?.name || '',
-            creatorId: course.creator_id,
-            courseId: course.id,
-            paymentId: null,
-          }),
-        })
-        const data = await res.json()
-        if (data?.token) setDemoWhatsappToken(data.token)
-      } catch (e) {
-        console.error('[demoWaToken]', e)
-      }
-      setGeneratingDemoWaToken(false)
-    }
-    getDemoWaToken()
-  }, [user, isEnrolled, course, demoWhatsappToken, generatingDemoWaToken])
+  // (old duplicate WhatsApp enrolled/demo token effects removed — consolidated
+  // into one auto-refreshing pair further below, using src/lib/messagingTokens.ts)
 
   useEffect(() => {
     async function getDemoToken() {
@@ -424,76 +355,63 @@ export default function CourseLearnPage() {
     getDemoToken()
   }, [user, isEnrolled, creatorProfile, course, demoTelegramToken, generatingDemoToken])
 
-  // ── WhatsApp enrolled token ──────────────────────────────────────────────────
+  // ── WhatsApp enrolled token — checks validity on load AND every 5 min,
+  //    so the "Continue on WhatsApp" link never goes stale while the
+  //    student is sitting on this page. Regenerates + overwrites the old
+  //    token in the enrollments table whenever it's missing or close to
+  //    expiry — no page reload required.
   useEffect(() => {
-    async function getEnrolledWaToken() {
-      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
-      if (!isEnrolled || !enrollment || !waNumber || !course || enrolledWhatsappToken) return
+    if (!isEnrolled || !enrollment || !course) return
+    const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+    if (!waNumber) return
 
-      const stored = (enrollment as any).whatsapp_start_token as string | null
-      const expiresAt = (enrollment as any).whatsapp_start_token_expires_at as string | null
-      const THRESHOLD_MS = 30 * 60 * 1000
-      const hasValid = stored && expiresAt && (new Date(expiresAt).getTime() - Date.now() > THRESHOLD_MS)
-      if (hasValid) { setEnrolledWhatsappToken(stored!); return }
+    let cancelled = false
+    const tokenState = {
+      token: (enrollment as any).whatsapp_start_token || null,
+      expiresAt: (enrollment as any).whatsapp_start_token_expires_at || null,
+    }
 
-      try {
-        const res = await fetch('/api/whatsapp/create-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: user?.id,
-            studentPhone: user?.user_metadata?.phone || '',
-            studentEmail: user?.email || '',
-            studentName: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
-            creatorId: course.creator_id,
-            courseId: course.id,
-            paymentId: null,
-          }),
-        })
-        const { token, expiresAt: newExpiry } = await res.json()
-        if (token) {
-          setEnrolledWhatsappToken(token)
-          fetch('/api/whatsapp/save-enrollment-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enrollmentId: enrollment.id, token, expiresAt: newExpiry }),
-          }).catch(() => {})
-        }
-      } catch (e) {
-        console.error('[enrolledWaToken]', e)
+    async function refresh() {
+      const fresh = await ensureFreshEnrolledToken('whatsapp', {
+        enrollmentId: enrollment!.id,
+        currentToken: tokenState.token,
+        currentExpiresAt: tokenState.expiresAt,
+        identity: {
+          studentId: user?.id,
+          studentPhone: user?.user_metadata?.phone || '',
+          studentEmail: user?.email || '',
+          studentName: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+          creatorId: course!.creator_id,
+          courseId: course!.id,
+        },
+      })
+      if (fresh.token) {
+        tokenState.token = fresh.token
+        tokenState.expiresAt = fresh.expiresAt
+        if (!cancelled) setEnrolledWhatsappToken(fresh.token)
       }
     }
-    getEnrolledWaToken()
-  }, [isEnrolled, enrollment?.id, course?.id, user?.id, enrolledWhatsappToken])
+
+    refresh()
+    const interval = setInterval(refresh, 5 * 60 * 1000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [isEnrolled, enrollment?.id, course?.id, user?.id])
 
   // ── WhatsApp demo token (free preview, not yet enrolled) ─────────────────────
   useEffect(() => {
-    async function getDemoWaToken() {
-      const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
-      if (!user || isEnrolled || !waNumber || !course || demoWhatsappToken) return
-      try {
-        const res = await fetch('/api/whatsapp/create-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: user.id,
-            studentPhone: user.phone || user.user_metadata?.phone || '',
-            studentEmail: user.email || '',
-            studentName: user.user_metadata?.full_name || user.user_metadata?.name || '',
-            creatorId: course.creator_id,
-            courseId: course.id,
-            paymentId: null,
-          }),
-        })
-        const { token } = await res.json()
-        if (token) setDemoWhatsappToken(token)
-      } catch (e) {
-        console.error('[demoWaToken]', e)
-      }
-    }
-    getDemoWaToken()
-  }, [user?.id, isEnrolled, course?.id, demoWhatsappToken])
+    if (!user || isEnrolled || !course || demoWhatsappToken) return
+    const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+    if (!waNumber) return
 
+    fetchDemoToken('whatsapp', {
+      studentId: user.id,
+      studentPhone: user.phone || user.user_metadata?.phone || '',
+      studentEmail: user.email || '',
+      studentName: user.user_metadata?.full_name || user.user_metadata?.name || '',
+      creatorId: course.creator_id,
+      courseId: course.id,
+    }).then(({ token }) => { if (token) setDemoWhatsappToken(token) })
+  }, [user?.id, isEnrolled, course?.id, demoWhatsappToken])
   
 
   const currentLesson = lessons.find(l => l.id === currentId) || lessons[0]
@@ -511,16 +429,49 @@ export default function CourseLearnPage() {
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)
 
 
-  // Load signed content URL
+  const contentRetryRef = useRef(false)
+
+  // Load signed content URL — and silently re-issue it a couple of minutes
+  // before it expires, so a long-running lesson never goes dead on its own.
   useEffect(() => {
     if (!currentLesson || !canAccess) { setContentUrl(null); return }
+    contentRetryRef.current = false
     setLoadingContent(true)
     setContentUrl(null)
     const type = currentLesson.content_type === 'pdf' ? 'pdf' : 'video'
-    getSignedContentUrl(currentLesson.id, type)
-      .then(url => { setContentUrl(url); setLoadingContent(false) })
-      .catch(() => setLoadingContent(false))
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
+
+    function load() {
+      getSignedContentUrl(currentLesson!.id, type)
+        .then(({ url, expiresAt }) => {
+          if (cancelled) return
+          setContentUrl(url)
+          setLoadingContent(false)
+          contentRetryRef.current = false
+          if (expiresAt) {
+            const msLeft = new Date(expiresAt).getTime() - Date.now() - 2 * 60 * 1000
+            if (msLeft > 0) refreshTimer = setTimeout(load, msLeft)
+          }
+        })
+        .catch(() => { if (!cancelled) setLoadingContent(false) })
+    }
+    load()
+
+    return () => { cancelled = true; if (refreshTimer) clearTimeout(refreshTimer) }
   }, [currentLesson?.id, canAccess])
+
+  // Last-resort fallback: if playback still fails (network blip, the signed
+  // URL died early, etc.) fetch one fresh URL before showing a dead end.
+  // Passed to WatermarkedPlayer as onExpired.
+  const refreshContentUrl = useCallback(() => {
+    if (!currentLesson || contentRetryRef.current) return
+    contentRetryRef.current = true
+    const type = currentLesson.content_type === 'pdf' ? 'pdf' : 'video'
+    getSignedContentUrl(currentLesson.id, type)
+      .then(({ url }) => setContentUrl(url))
+      .catch(() => {})
+  }, [currentLesson])
 
   // Load assignment submission when lesson changes
   useEffect(() => {
@@ -879,6 +830,7 @@ export default function CourseLearnPage() {
                       studentId={enrollment?.phone || user?.phone || user?.user_metadata?.phone || ''}
                       lessonTitle={currentLesson?.title}
                       onEnded={() => currentLesson && markComplete(currentLesson.order_num)}
+                      onExpired={refreshContentUrl}
                     />
                   )}
                 </div>
@@ -1138,34 +1090,56 @@ export default function CourseLearnPage() {
               )}
               
 
-              {/* WhatsApp free preview strip */}
-              {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && !isEnrolled && (
-                <div style={{ padding: 16, borderRadius: 12, background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
-                  <div>
-                    <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Learn on WhatsApp</p>
-                    <p style={{ color: '#71717a', fontSize: 12 }}>Get free preview lessons delivered to your WhatsApp.</p>
-                  </div>
-                  {user ? (
-                    demoWhatsappToken ? (
+              {/* WhatsApp CTA — enrolled students get "Continue", preview visitors get "Start Free" */}
+              {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && (
+                isEnrolled ? (
+                  <div style={{ padding: 16, borderRadius: 12, background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                    <div>
+                      <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Continue on WhatsApp</p>
+                      <p style={{ color: '#71717a', fontSize: 12 }}>Lessons delivered to your chat. Progress syncs automatically.</p>
+                    </div>
+                    {enrolledWhatsappToken ? (
                       <a
-                        href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent('/start ' + demoWhatsappToken)}`}
+                        href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent('/start ' + enrolledWhatsappToken)}`}
                         target="_blank" rel="noopener noreferrer"
                         style={{ padding: '8px 16px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                        Start Free on WhatsApp
+                        Open WhatsApp
                       </a>
                     ) : (
                       <button disabled
                         style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(37,211,102,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
                         Preparing Link...
                       </button>
-                    )
-                  ) : (
-                    <button onClick={() => setShowEnroll(true)}
-                      style={{ padding: '8px 16px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      Start Free on WhatsApp
-                    </button>
-                  )}
-                </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: 16, borderRadius: 12, background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                    <div>
+                      <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Learn on WhatsApp</p>
+                      <p style={{ color: '#71717a', fontSize: 12 }}>Get free preview lessons delivered to your WhatsApp.</p>
+                    </div>
+                    {user ? (
+                      demoWhatsappToken ? (
+                        <a
+                          href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent('/start ' + demoWhatsappToken)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          style={{ padding: '8px 16px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                          Start Free on WhatsApp
+                        </a>
+                      ) : (
+                        <button disabled
+                          style={{ padding: '8px 16px', borderRadius: 10, background: 'rgba(37,211,102,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
+                          Preparing Link...
+                        </button>
+                      )
+                    ) : (
+                      <button onClick={() => setShowEnroll(true)}
+                        style={{ padding: '8px 16px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        Start Free on WhatsApp
+                      </button>
+                    )}
+                  </div>
+                )
               )}
 
             </div>

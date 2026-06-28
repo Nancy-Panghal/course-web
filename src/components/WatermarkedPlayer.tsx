@@ -28,12 +28,14 @@ export default function WatermarkedPlayer({
   studentId = '',
   lessonTitle = '',
   onEnded,
+  onExpired,
 }: {
   src: string
   studentName?: string
   studentId?: string
   lessonTitle?: string
   onEnded?: () => void
+  onExpired?: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -50,6 +52,7 @@ export default function WatermarkedPlayer({
   const [volume, setVolume] = useState(1)
   const [fullscreen, setFS] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const hasRetriedRef = useRef(false)
   const seekBarRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -253,14 +256,32 @@ export default function WatermarkedPlayer({
 
   const onError = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const code = (e.target as HTMLVideoElement).error?.code
+
+    // Code 4 (and anything unrecognized) usually means the signed URL
+    // stopped working — try once to get a fresh one before showing
+    // the student a dead end. Works the same regardless of whether
+    // this page was opened from Telegram, WhatsApp, or the website.
+    if ((code === 4 || !code) && !hasRetriedRef.current && onExpired) {
+      hasRetriedRef.current = true
+      setError(null)
+      onExpired()
+      return
+    }
+
     const msgs: Record<number, string> = {
       1: 'Playback aborted.',
-      2: 'Network error.',
+      2: 'Network error. Check your connection and try again.',
       3: 'Video decoding failed.',
-      4: 'Link expired. Go back to Telegram for a fresh link.',
+      4: 'This video link is no longer valid. Please refresh the page.',
     }
-    setError(msgs[code ?? 4] || 'Playback failed. Link may have expired.')
+    setError(msgs[code ?? 4] || 'Playback failed. Please refresh the page.')
   }
+
+  // Reset retry/error state whenever we get a new src (e.g. after a refresh)
+  useEffect(() => {
+    hasRetriedRef.current = false
+    setError(null)
+  }, [src])
 
   
 

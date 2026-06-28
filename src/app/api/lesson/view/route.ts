@@ -49,12 +49,35 @@ async function logAccess(lessonId: string, courseId: string, identity: string) {
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams
 
+  // ── Pre-checks so we never show "expired" for a problem that isn't
+  //    actually about time running out (missing params / bad signature) ──
+  const expParam = params.get('exp')
+  const hasAllParams = !!(
+    params.get('courseId') && params.get('lessonId') &&
+    params.get('lesson') && params.get('identity') &&
+    expParam && params.get('sig')
+  )
+
+  if (!hasAllParams) {
+    return new NextResponse(invalidLinkHtml(), {
+      status: 400,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
+  }
+
+  if (Date.now() > parseInt(expParam, 10)) {
+    return new NextResponse(expiredHtml(), {
+      status: 410,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
+  }
+
   // 1. Verify signed URL
   const { valid, courseId, lessonId, lessonNum, identity } = verifyLessonPageUrl(params)
 
   if (!valid) {
-    return new NextResponse(expiredHtml(), {
-      status: 410,
+    return new NextResponse(invalidLinkHtml(), {
+      status: 403,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     })
   }
@@ -692,13 +715,21 @@ function lessonHtml({
     vid.addEventListener('pause', () => { playBtn.textContent = '▶' })
     vid.addEventListener('ended', () => { playBtn.textContent = '▶' })
     vid.addEventListener('error', () => {
+      // The outer page link (exp/sig in the URL) is valid for up to 2 hours —
+      // only the inner video stream URL died. Reload once to get a freshly
+      // signed video URL from the server instead of dead-ending the student.
+      const retryKey = 'ak_video_retry_' + ${JSON.stringify(lesson.id)}
+      if (!sessionStorage.getItem(retryKey)) {
+        sessionStorage.setItem(retryKey, '1')
+        window.location.reload()
+        return
+      }
       document.getElementById('playerWrap').innerHTML =
         '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#71717a;font-size:14px;flex-direction:column;gap:12px;">' +
         '<span style="font-size:32px">⚠️</span>' +
-        '<span>Video link expired. Go back to Telegram and request a new lesson link.</span>' +
+        '<span>This video could not be loaded. Please reopen the lesson link from Telegram.</span>' +
         '</div>'
     })
-
     playBtn.onclick = () => { vid.paused ? vid.play() : vid.pause() }
     muteBtn.onclick = () => { vid.muted = !vid.muted; muteBtn.textContent = vid.muted ? '🔇' : '🔊' }
 
@@ -774,6 +805,19 @@ function expiredHtml() {
   <style>body{background:#080808;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:24px}</style></head>
   <body><div><div style="font-size:48px;margin-bottom:16px">⏱</div><h2 style="margin-bottom:12px">Link Expired</h2>
   <p style="color:#71717a;margin-bottom:24px">This lesson link has expired. Go back to Telegram and tap the lesson button to get a fresh link.</p>
+  </div></body></html>`
+}
+
+// Distinct from expiredHtml(): this is for links that are missing params or
+// fail signature verification — i.e. NOT a simple "time ran out" case.
+// Re-opening from Telegram usually fixes it, but if a student keeps landing
+// here it's worth checking WHATSAPP_LINK_SECRET / LESSON_LINK_SECRET /
+// TELEGRAM_LINK_SECRET are set consistently — that's a config bug, not expiry.
+function invalidLinkHtml() {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Link Not Valid</title>
+  <style>body{background:#080808;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:24px}</style></head>
+  <body><div><div style="font-size:48px;margin-bottom:16px">⚠️</div><h2 style="margin-bottom:12px">Link Not Valid</h2>
+  <p style="color:#71717a;margin-bottom:24px">This lesson link could not be verified. Go back to Telegram and tap the lesson button to get a fresh link. If this keeps happening, please let your instructor know — there may be a configuration issue.</p>
   </div></body></html>`
 }
 

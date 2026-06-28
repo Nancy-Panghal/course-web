@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { signVideoUrl, signPdfUrl } from '@/lib/signer'
+import { signVideoUrl, signPdfUrl, TTL } from '@/lib/signer'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -110,7 +110,10 @@ export async function POST(req: NextRequest) {
             source: 'web',
             accessed_at: new Date().toISOString(),
           }).then(() => {}, () => {})
-          return NextResponse.json({ url: signed.signedUrl })
+          return NextResponse.json({
+            url: signed.signedUrl,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          })
         }
       }
     }
@@ -127,11 +130,12 @@ export async function POST(req: NextRequest) {
     }).then(() => {}, () => {})
 
     // Generate signed URL
+    const ttlMs = type === 'pdf' ? TTL.PDF : TTL.VIDEO
     const url = type === 'pdf'
       ? signPdfUrl(lessonId, userId)
       : signVideoUrl(lessonId, userId)
 
-    return NextResponse.json({ url })
+    return NextResponse.json({ url, expiresAt: new Date(Date.now() + ttlMs).toISOString() })
   } catch (err: any) {
     console.error('[content/sign]', err.message)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

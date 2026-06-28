@@ -831,7 +831,7 @@ export default function EnrollModal({ onClose, course }: Props) {
             setStep('success')
             // Generate paid tokens in background — non-blocking; persist to enrollment row
             generatePaidTokens(studentData, response.razorpay_payment_id, confirmedEnrollment.id)
-            setTimeout(() => { window.location.href = learnUrl }, 3000)
+            
           } else {
             setError('Payment verification failed. Please contact support.')
           }
