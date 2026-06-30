@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    const { error, data, count } = await supabase
       .from('enrollments')
       .update({
         whatsapp_start_token: token,
@@ -22,8 +22,16 @@ export async function POST(req: NextRequest) {
           expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       })
       .eq('id', enrollmentId)
+      .select('id')
 
-    if (error) throw error
+    if (error) {
+      console.error('[save-enrollment-token:whatsapp] update failed for enrollmentId', enrollmentId, error.message)
+      throw error
+    }
+    if (!data || data.length === 0) {
+      // The update ran but matched zero rows — wrong/stale enrollmentId.
+      console.error('[save-enrollment-token:whatsapp] no enrollment row matched id', enrollmentId, '— token was NOT saved')
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {

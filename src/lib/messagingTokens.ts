@@ -16,16 +16,9 @@ interface StoredToken {
   expiresAt: string | null
 }
 
-const REFRESH_THRESHOLD_MS = 30 * 60 * 1000 // refresh if < 30 min of validity left
-
 const ROUTES: Record<MessagingPlatform, { create: string; save: string }> = {
   telegram: { create: '/api/telegram/create-token', save: '/api/telegram/save-enrollment-token' },
   whatsapp: { create: '/api/whatsapp/create-token', save: '/api/whatsapp/save-enrollment-token' },
-}
-
-function isStillValid(stored: StoredToken): boolean {
-  if (!stored.token || !stored.expiresAt) return false
-  return new Date(stored.expiresAt).getTime() - Date.now() > REFRESH_THRESHOLD_MS
 }
 
 /**
@@ -69,25 +62,40 @@ export async function saveMessagingToken(
   platform: MessagingPlatform,
   enrollmentId: string,
   stored: StoredToken
-): Promise<void> {
-  if (!stored.token) return
+): Promise<boolean> {
+  if (!stored.token) return false
   try {
-    await fetch(ROUTES[platform].save, {
+    const res = await fetch(ROUTES[platform].save, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enrollmentId, token: stored.token, expiresAt: stored.expiresAt }),
     })
+    if (!res.ok) {
+      console.error(`[messagingTokens] save ${platform} token rejected:`, res.status, await res.text().catch(() => ''))
+      return false
+    }
+    return true
   } catch (e) {
     console.error(`[messagingTokens] save ${platform} token failed:`, e)
+    return false
   }
 }
-
 /**
  * Main entry point for ENROLLED students.
- * Re-uses the persisted token if it still has more than 30 minutes of life
- * left. Otherwise generates a new one and overwrites the stale one in the
- * enrollments table. Cheap to call repeatedly — it skips the API entirely
- * when the existing token is still fresh.
+ *
+ * IMPORTANT: this does NOT trust the cached token/expiry on the enrollment
+ * row to decide whether the existing token is "still good" — expiry is
+ * only half the story. A token also goes dead the moment it's actually
+ * used (whatsapp_tokens.used flips to true), and that flag is never
+ * mirrored back onto the enrollment row. Trusting time-based expiry alone
+ * meant the "Continue on WhatsApp" button kept re-sending an
+ * already-consumed token for up to 7 days, since it still looked
+ * time-valid even though the bot would reject it as already used.
+ *
+ * create-token's own dedup query is the only place that checks used=false
+ * against the live whatsapp_tokens table, so we always ask it — it's a
+ * cheap lookup, and it correctly returns the existing token unchanged
+ * when one is still genuinely unused and unexpired.
  */
 export async function ensureFreshEnrolledToken(
   platform: MessagingPlatform,
@@ -98,11 +106,8 @@ export async function ensureFreshEnrolledToken(
     identity: TokenIdentity
   }
 ): Promise<StoredToken> {
-  const stored: StoredToken = { token: params.currentToken, expiresAt: params.currentExpiresAt }
-  if (isStillValid(stored)) return stored
-
   const fresh = await createMessagingToken(platform, params.identity)
-  if (fresh.token) {
+  if (fresh.token && fresh.token !== params.currentToken) {
     await saveMessagingToken(platform, params.enrollmentId, fresh)
   }
   return fresh

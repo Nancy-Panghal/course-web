@@ -171,23 +171,46 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
 }
 
 async function getStorageUrl(lessonId: string): Promise<string | null> {
-  const { data: lesson } = await supabase
+  const { data: lesson, error: lessonErr } = await supabase
     .from('lessons')
     .select('content_url, video_storage_path, is_published, content_type')
     .eq('id', lessonId)
     .single()
 
-  if (!lesson || !lesson.is_published || lesson.content_type !== 'video') return null
+  if (lessonErr) {
+    console.error('[video/stream] lesson lookup failed', lessonId, lessonErr.message)
+    return null
+  }
+  if (!lesson) {
+    console.error('[video/stream] no lesson row for id', lessonId)
+    return null
+  }
+  if (!lesson.is_published) {
+    console.error('[video/stream] lesson not published', lessonId)
+    return null
+  }
+  if (lesson.content_type !== 'video') {
+    console.error('[video/stream] content_type is not "video", got:', JSON.stringify(lesson.content_type), lessonId)
+    return null
+  }
 
   const path = lesson.video_storage_path
+  console.error('[video/stream] resolving', lessonId, '| video_storage_path:', path, '| content_url:', lesson.content_url)
+
   if (path && !path.startsWith('http')) {
     const { data, error } = await supabase.storage
       .from('lessons')
       .createSignedUrl(path, 60) // 60s — server only, never sent to client
-    if (error || !data?.signedUrl) return null
+    if (error || !data?.signedUrl) {
+      console.error('[video/stream] createSignedUrl failed for path', JSON.stringify(path), '| bucket: lessons | error:', error?.message)
+      return null
+    }
     return data.signedUrl
   }
 
+  if (!lesson.content_url) {
+    console.error('[video/stream] no video_storage_path AND no content_url set', lessonId)
+  }
   return lesson.content_url || null
 }
 

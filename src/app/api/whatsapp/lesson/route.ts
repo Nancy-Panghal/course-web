@@ -23,8 +23,12 @@ async function signStoragePath(path: string, ttlSeconds = 7200): Promise<string 
   if (path.startsWith('http')) return path
   // Supabase storage path → create signed URL
   const bucket = 'lessons'
-  const { data } = await supabase.storage.from(bucket).createSignedUrl(path, ttlSeconds)
-  return data?.signedUrl ?? null
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, ttlSeconds)
+  if (error || !data?.signedUrl) {
+    console.error('[whatsapp/lesson] createSignedUrl failed | bucket:', bucket, '| path:', JSON.stringify(path), '| error:', error?.message)
+    return null
+  }
+  return data.signedUrl
 }
 
 /** Detect if a URL is a YouTube or Vimeo embed (can't use <video src>). */

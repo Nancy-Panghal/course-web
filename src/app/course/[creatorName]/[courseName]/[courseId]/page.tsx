@@ -355,27 +355,23 @@ export default function CourseLearnPage() {
     getDemoToken()
   }, [user, isEnrolled, creatorProfile, course, demoTelegramToken, generatingDemoToken])
 
-  // ── WhatsApp enrolled token — checks validity on load AND every 5 min,
-  //    so the "Continue on WhatsApp" link never goes stale while the
-  //    student is sitting on this page. Regenerates + overwrites the old
-  //    token in the enrollments table whenever it's missing or close to
-  //    expiry — no page reload required.
+  // ── WhatsApp enrolled token — confirms a usable token on load. Always
+  //    asks create-token (which checks the live used=false flag), so it
+  //    never re-sends an already-consumed token the way a local cache
+  //    check used to. The button's own onClick re-confirms once more
+  //    right before opening WhatsApp, so this no longer needs polling.
   useEffect(() => {
     if (!isEnrolled || !enrollment || !course) return
     const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
     if (!waNumber) return
 
     let cancelled = false
-    const tokenState = {
-      token: (enrollment as any).whatsapp_start_token || null,
-      expiresAt: (enrollment as any).whatsapp_start_token_expires_at || null,
-    }
 
     async function refresh() {
       const fresh = await ensureFreshEnrolledToken('whatsapp', {
         enrollmentId: enrollment!.id,
-        currentToken: tokenState.token,
-        currentExpiresAt: tokenState.expiresAt,
+        currentToken: (enrollment as any).whatsapp_start_token || null,
+        currentExpiresAt: (enrollment as any).whatsapp_start_token_expires_at || null,
         identity: {
           studentId: user?.id,
           studentPhone: user?.user_metadata?.phone || '',
@@ -385,17 +381,13 @@ export default function CourseLearnPage() {
           courseId: course!.id,
         },
       })
-      if (fresh.token) {
-        tokenState.token = fresh.token
-        tokenState.expiresAt = fresh.expiresAt
-        if (!cancelled) setEnrolledWhatsappToken(fresh.token)
-      }
+      if (fresh.token && !cancelled) setEnrolledWhatsappToken(fresh.token)
     }
 
     refresh()
-    const interval = setInterval(refresh, 5 * 60 * 1000)
-    return () => { cancelled = true; clearInterval(interval) }
+    return () => { cancelled = true }
   }, [isEnrolled, enrollment?.id, course?.id, user?.id])
+
 
   // ── WhatsApp demo token (free preview, not yet enrolled) ─────────────────────
   useEffect(() => {
@@ -433,8 +425,15 @@ export default function CourseLearnPage() {
 
   // Load signed content URL — and silently re-issue it a couple of minutes
   // before it expires, so a long-running lesson never goes dead on its own.
+  // Only video/pdf lessons have signable content — assignment/quiz/live
+  // lessons render their own dedicated UI further down instead.
   useEffect(() => {
     if (!currentLesson || !canAccess) { setContentUrl(null); return }
+    if (currentLesson.content_type !== 'video' && currentLesson.content_type !== 'pdf') {
+      setContentUrl(null)
+      setLoadingContent(false)
+      return
+    }
     contentRetryRef.current = false
     setLoadingContent(true)
     setContentUrl(null)
@@ -466,6 +465,7 @@ export default function CourseLearnPage() {
   // Passed to WatermarkedPlayer as onExpired.
   const refreshContentUrl = useCallback(() => {
     if (!currentLesson || contentRetryRef.current) return
+    if (currentLesson.content_type !== 'video' && currentLesson.content_type !== 'pdf') return
     contentRetryRef.current = true
     const type = currentLesson.content_type === 'pdf' ? 'pdf' : 'video'
     getSignedContentUrl(currentLesson.id, type)
@@ -815,7 +815,36 @@ export default function CourseLearnPage() {
               )}
 
               {/* Content */}
-              {loadingContent ? (
+              {currentLesson?.content_type === 'quiz' ? (
+                <div style={{ aspectRatio: '16/9', background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24, padding: 24, textAlign: 'center' }}>
+                  {quizQuestions ? (
+                    <>
+                      <p style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>🧠 This lesson is a quiz</p>
+                      <Link href={`/resource/${currentLesson.id}?type=quiz`} target="_blank"
+                        style={{ padding: '10px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                        {currentQuizResult ? `Retake Quiz (Last score: ${currentQuizResult.score}/${currentQuizResult.total})` : 'Take the Quiz'}
+                      </Link>
+                    </>
+                  ) : (
+                    <p style={{ color: '#71717a', fontSize: 14 }}>This quiz hasn't been added yet. Check back soon.</p>
+                  )}
+                </div>
+              ) : currentLesson?.content_type === 'assignment' ? null
+                : currentLesson?.content_type === 'live' ? (
+                <div style={{ aspectRatio: '16/9', background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24, padding: 24, textAlign: 'center' }}>
+                  {currentLesson.content_url ? (
+                    <>
+                      <p style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>🔴 This is a live class</p>
+                      <a href={currentLesson.content_url} target="_blank" rel="noopener noreferrer"
+                        style={{ padding: '10px 20px', borderRadius: 10, background: '#eab308', color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                        Join Live Class
+                      </a>
+                    </>
+                  ) : (
+                    <p style={{ color: '#71717a', fontSize: 14 }}>Live class details haven't been added yet. Check back soon.</p>
+                  )}
+                </div>
+              ) : loadingContent ? (
                 <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', animation: 'pulse 1s infinite' }} />
                 </div>
@@ -948,7 +977,7 @@ export default function CourseLearnPage() {
               </div>
 
               {/* Assignment section */}
-              {currentLesson?.assignment_prompt && isEnrolled && (
+              {(currentLesson?.content_type === 'assignment' || currentLesson?.assignment_prompt || currentLesson?.assignment_file_url) && isEnrolled && (
                 <div style={{
                   marginBottom: 18, padding: 16, borderRadius: 12,
                   background: 'rgba(245,158,11,0.06)',
@@ -957,31 +986,53 @@ export default function CourseLearnPage() {
                   <p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', marginBottom: 6 }}>
                     📝 Assignment{currentLesson.assignment_required ? ' (Required)' : ' (Optional)'}
                   </p>
-                  <p style={{ fontSize: 13, color: '#e4e4e7', marginBottom: 12, lineHeight: 1.6 }}>
-                    {currentLesson.assignment_prompt}
-                  </p>
-                  {currentLesson.assignment_file_url && (
-                    <a
-                      href={currentLesson.assignment_file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        fontSize: 12,
-                        color: '#c4b5fd',
-                        marginBottom: 12,
-                        padding: '6px 12px',
-                        borderRadius: 8,
-                        background: 'rgba(124,58,237,0.12)',
-                        border: '1px solid rgba(124,58,237,0.22)',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      {currentLesson.assignment_file_name || 'Download Assignment File'}
-                    </a>
+
+                  {!currentLesson.assignment_prompt && !currentLesson.assignment_file_url ? (
+                    <p style={{ fontSize: 13, color: '#71717a', marginBottom: 12 }}>
+                      This assignment hasn't been added yet. Check back soon.
+                    </p>
+                  ) : (
+                    <>
+                      {currentLesson.assignment_prompt && (
+                        <p style={{ fontSize: 13, color: '#e4e4e7', marginBottom: 12, lineHeight: 1.6 }}>
+                          {currentLesson.assignment_prompt}
+                        </p>
+                      )}
+
+                      {currentLesson.assignment_file_url && (
+                        /\.(jpe?g|png|gif|webp)$/i.test(currentLesson.assignment_file_name || currentLesson.assignment_file_url) ? (
+                          <a href={currentLesson.assignment_file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginBottom: 12 }}>
+                            <img
+                              src={currentLesson.assignment_file_url}
+                              alt={currentLesson.assignment_file_name || 'Assignment attachment'}
+                              style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}
+                            />
+                          </a>
+                        ) : (
+                          <a
+                            href={currentLesson.assignment_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontSize: 12,
+                              color: '#c4b5fd',
+                              marginBottom: 12,
+                              padding: '6px 12px',
+                              borderRadius: 8,
+                              background: 'rgba(124,58,237,0.12)',
+                              border: '1px solid rgba(124,58,237,0.22)',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            {currentLesson.assignment_file_name || 'Download Assignment File'}
+                          </a>
+                        )
+                      )}
+                    </>
                   )}
 
                   {assignmentSubmission ? (
@@ -1102,6 +1153,31 @@ export default function CourseLearnPage() {
                       <a
                         href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent('/start ' + enrolledWhatsappToken)}`}
                         target="_blank" rel="noopener noreferrer"
+                        onClick={(e) => {
+                          if (!enrollment || !course) return
+                          e.preventDefault()
+                          const fallbackHref = e.currentTarget.href
+                          ensureFreshEnrolledToken('whatsapp', {
+                            enrollmentId: enrollment.id,
+                            currentToken: enrolledWhatsappToken,
+                            currentExpiresAt: (enrollment as any).whatsapp_start_token_expires_at || null,
+                            identity: {
+                              studentId: user?.id,
+                              studentPhone: user?.user_metadata?.phone || '',
+                              studentEmail: user?.email || '',
+                              studentName: user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+                              creatorId: course.creator_id,
+                              courseId: course.id,
+                            },
+                          }).then(fresh => {
+                            const liveToken = fresh.token || enrolledWhatsappToken
+                            if (fresh.token && fresh.token !== enrolledWhatsappToken) setEnrolledWhatsappToken(fresh.token)
+                            window.open(
+                              `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent('/start ' + liveToken)}`,
+                              '_blank', 'noopener,noreferrer'
+                            )
+                          }).catch(() => window.open(fallbackHref, '_blank', 'noopener,noreferrer'))
+                        }}
                         style={{ padding: '8px 16px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
                         Open WhatsApp
                       </a>
