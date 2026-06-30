@@ -154,8 +154,22 @@ export async function POST(req: NextRequest) {
         })
         .select('*')
         .single()
-      if (insertErr) throw insertErr
-      student = insertedStudent
+
+      if (insertErr?.code === '23505') {
+        // Race with razorpay/verify or the bot inserting the same phone/email
+        // first. Use whichever row won instead of failing the webhook.
+        student = cleanedPhone
+          ? await firstRow(supabaseAdmin.from('students').select('*').eq('phone', cleanedPhone))
+          : null
+        if (!student && email) {
+          student = await firstRow(supabaseAdmin.from('students').select('*').eq('email', email))
+        }
+        if (!student) throw insertErr
+      } else if (insertErr) {
+        throw insertErr
+      } else {
+        student = insertedStudent
+      }
     }
 
     // 4. Find existing enrollment

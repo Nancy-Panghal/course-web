@@ -23,6 +23,7 @@ import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { signVideoUrl, signPdfUrl, encodeFingerprint, signLessonResourceUrl } from '@/lib/signer'
 import { renderLessonPage } from '@/lib/lessonPageHtml'
+import { normalizePhone } from '@/lib/phone'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -123,11 +124,22 @@ export async function GET(req: NextRequest) {
 
   // Enrollment lookup by phone — `identity` here is the student's WhatsApp
   // phone number (see Whatsapp-bot/lessonSender.js), not a chat ID.
+  //
+  // Normalized separately from `identity` itself: the bot signs the link
+  // using whatever raw format it has on hand (e.g. "+919306385029"), and
+  // that exact string must stay untouched for everything tied to the
+  // signature (already verified above) and the signed video/pdf/resource
+  // URLs below. The `enrollments.phone` column, however, is stored
+  // normalized (digits only, no "+") — see src/lib/phone.ts — so the
+  // lookup itself needs the normalized form or it silently misses an
+  // existing enrollment row whenever the formats don't match exactly.
+  const lookupPhone = normalizePhone(identity) || identity
+
   let studentName = `User ${identity.slice(-4)}`
   const { data: enrollment } = await supabase
     .from('enrollments')
     .select('phone, payment_status, completed_lessons, quiz_results')
-    .eq('phone', identity)
+    .eq('phone', lookupPhone)
     .eq('course_uuid', courseId)
     .limit(1)
     .single()

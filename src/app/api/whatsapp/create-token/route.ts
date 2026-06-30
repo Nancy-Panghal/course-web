@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { normalizePhone } from '@/lib/phone'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. By phone
-    const phone = studentPhone?.trim() || null
+    const phone = normalizePhone(studentPhone)
     if (phone) {
       const { data: byPhone } = await supabase
         .from('whatsapp_tokens')

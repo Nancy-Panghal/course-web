@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 import { issueCertificate, type CertTemplate } from '@/lib/certificate'
+import { normalizePhone } from '@/lib/phone'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,11 +55,10 @@ export async function POST(req: NextRequest) {
     if (enrollmentId) {
       query = query.eq('id', enrollmentId)
     } else if (source === 'whatsapp') {
-      query = query.eq('phone', String(identity))
+      query = query.eq('phone', normalizePhone(identity) || String(identity))
     } else {
       query = query.eq('telegram_chat_id', String(identity))
     }
-
 
     const { data: rows, error } = await query.limit(1)
     const enrollment = rows?.[0]

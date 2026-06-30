@@ -14,6 +14,7 @@ import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 import { slugify } from '@/lib/utils'
+import { normalizePhone } from '@/lib/phone'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -387,8 +388,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 4. Upsert student row ─────────────────────────────────────
-    // Find existing student by auth_id, then email, then create
+    // Find existing student by auth_id, then email, then phone — in that
+    // order of trust. Phone was missing here entirely before, which is
+    // exactly how two `students` rows for the same real person could
+    // exist under two different emails: this path never checked whether
+    // a student with that phone already existed and just inserted a
+    // fresh one every time.
     let student: any = null
+    const normalizedPhone = normalizePhone(studentPhone)
 
     if (studentId) {
       student = await firstRow(
@@ -400,6 +407,11 @@ export async function POST(req: NextRequest) {
         supabase.from('students').select('id').eq('email', studentEmail)
       )
     }
+    if (!student && normalizedPhone) {
+      student = await firstRow(
+        supabase.from('students').select('id').eq('phone', normalizedPhone)
+      )
+    }
 
     if (student) {
       // Update with latest info
@@ -408,7 +420,7 @@ export async function POST(req: NextRequest) {
         .update({
           email: studentEmail || undefined,
           name: studentName || undefined,
-          phone: studentPhone || undefined,
+          phone: normalizePhone(studentPhone) || undefined,
           auth_id: studentId || undefined,
         })
         .eq('id', student.id)
@@ -418,18 +430,42 @@ export async function POST(req: NextRequest) {
         .insert({
           email: studentEmail || null,
           name: studentName || null,
-          phone: studentPhone || null,
+          phone: normalizedPhone || null,
           auth_id: studentId || null,
         })
         .select('id')
         .single()
-      if (insertErr) throw insertErr
-      student = inserted
+
+      if (insertErr?.code === '23505') {
+        // Race: another request (webhook, bot) inserted a student with this
+        // phone/email between our lookup and this insert. Don't fail the
+        // payment confirmation over it — just use the row that won the race.
+        student = normalizedPhone
+          ? await firstRow(supabase.from('students').select('id').eq('phone', normalizedPhone))
+          : null
+        if (!student && studentEmail) {
+          student = await firstRow(supabase.from('students').select('id').eq('email', studentEmail))
+        }
+        if (!student) throw insertErr
+      } else if (insertErr) {
+        throw insertErr
+      } else {
+        student = inserted
+      }
     }
 
     // ── 5. Find any existing enrollment (paid or bot-created) ─────
     // Check by student_id first (web signup), then by phone (bot signup)
-    const phoneOrEmail = studentPhone || studentEmail!
+    //
+    // IMPORTANT: normalize before using as a lookup/storage key. This used
+    // to use the raw studentPhone (which can come in as "+919306385029",
+    // "919306385029", or with spaces depending on the checkout form and
+    // what the WhatsApp/Telegram bots sent), while the Razorpay webhook
+    // route normalized to digits-only. That mismatch is what caused two
+    // separate enrollment rows for the same student+course — this route
+    // and the webhook route running independently, each creating/matching
+    // against a differently-formatted phone string.
+    const phoneOrEmail = normalizePhone(studentPhone) || studentEmail!
     const normalizedCreatorId = creatorId || course.creator_id
 
     let existingEnrollment: any = null
