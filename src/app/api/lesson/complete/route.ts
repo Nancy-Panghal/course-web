@@ -25,12 +25,12 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      identity,         // telegram_chat_id (string) — Telegram path
+      identity,         // telegram_chat_id (Telegram) or phone (WhatsApp)
       enrollmentId,     // enrollment UUID — web path (preferred)
       lessonId,         // lesson UUID (for quiz tracking)
       lessonNum,        // order_num of the completed lesson
       courseId,
-      source = 'web',   // 'web' | 'telegram'
+      source = 'web',   // 'web' | 'telegram' | 'whatsapp'
       // Optional quiz result
       quizScore,        // number of correct answers
       quizTotal,        // total questions
@@ -53,9 +53,12 @@ export async function POST(req: NextRequest) {
 
     if (enrollmentId) {
       query = query.eq('id', enrollmentId)
+    } else if (source === 'whatsapp') {
+      query = query.eq('phone', String(identity))
     } else {
       query = query.eq('telegram_chat_id', String(identity))
     }
+
 
     const { data: rows, error } = await query.limit(1)
     const enrollment = rows?.[0]
