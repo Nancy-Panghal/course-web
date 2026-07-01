@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { normalizePhone } from '@/lib/phone'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,7 +70,7 @@ const { error } = await supabase.from('telegram_tokens').insert({
   student_auth_id: studentId || null,
   student_email: email || null,          // 
   student_name: studentName || null,
-  student_phone: studentPhone?.trim() || null,
+  student_phone: normalizePhone(studentPhone) || null,
   creator_id: creatorId,
   course_id: courseId,
   payment_id: paymentId || null,
