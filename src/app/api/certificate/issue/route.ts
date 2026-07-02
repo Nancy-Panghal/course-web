@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     // Use the enrollment's own course_uuid as the authoritative course ID
     const { data: course, error: courseErr } = await supabase
       .from('courses')
-      .select('id, name, host_name, cert_enabled, cert_template, cert_custom_message, duration, total_hours, skills, instructor_name, instructor_title, cert_logo_url, cert_signature_url')
+      .select('id, name, host_name, cert_enabled, cert_template, cert_custom_message, duration, total_hours, skills, instructor_name, instructor_title, cert_logo_url, cert_signature_url, brand_logo_url, use_logo_on_certificate')
       .eq('id', enrollment.course_uuid)
       .maybeSingle()
 
@@ -151,11 +151,16 @@ export async function POST(req: NextRequest) {
       template: (course.cert_template ?? 'classic') as CertTemplate,
       customMessage: course.cert_custom_message ?? undefined,
       courseDuration: course.duration,
-      totalHours: course.total_hours,
       instructorName: course.instructor_name,
       instructorTitle: course.instructor_title,
       skills: course.skills,
-      logoUrl: course.cert_logo_url || undefined,
+      // Shared brand logo wins when the creator has switched the toggle on
+      // (Settings → Certificate → "Use Brand Logo on Certificate"); otherwise
+      // fall back to the legacy cert-specific logo for courses set up before
+      // the brand logo / Design Landing Page feature existed.
+      logoUrl: course.use_logo_on_certificate
+        ? (course.brand_logo_url || undefined)
+        : (course.cert_logo_url || undefined),
       signatureUrl: course.cert_signature_url || undefined
     })
     

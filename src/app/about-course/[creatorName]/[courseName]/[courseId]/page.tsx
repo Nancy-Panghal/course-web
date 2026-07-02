@@ -6,6 +6,7 @@ import CoursePageClient from '@/components/CoursePageClient'
 
 import CurriculumAccordion from './Curriculumaccordion'
 import DraftGate from '@/components/DraftGate'
+import { getLandingTheme } from '@/lib/landing-themes'
 
 
 const supabase = createClient(
@@ -28,10 +29,13 @@ function freePreviewLabel(config?: string) {
 
 export default async function AboutCoursePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ creatorName: string; courseName: string; courseId: string }>
+  searchParams: Promise<{ theme?: string }>
 }) {
   const { courseId } = await params
+  const { theme: previewThemeId } = await searchParams
 
   const { data: course, error: courseError } = await supabase
     .from('courses')
@@ -40,6 +44,12 @@ export default async function AboutCoursePage({
     .single()
 
   if (!course || courseError) notFound()
+
+  // `?theme=` lets a creator preview any theme from the dashboard picker
+  // without saving it first. It never changes what's stored in the DB —
+  // students who land on the plain URL always see course.landing_theme.
+  const theme = getLandingTheme(previewThemeId || course.landing_theme)
+  const c = theme.colors
 
   const { data: creatorProfile } = await supabase
     .from('creators')
@@ -115,45 +125,45 @@ export default async function AboutCoursePage({
   return (
     <DraftGate isPublished={course.is_published} courseData={courseData}>
     <div
-      className="min-h-screen text-white"
-      style={{ background: '#080808', fontFamily: "'DM Sans', sans-serif" }}
+      className="min-h-screen"
+      style={{ background: c.bg, color: c.textPrimary, fontFamily: theme.fonts.body }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800;900&display=swap');
+        @import url('${theme.fonts.googleFontsImportUrl}');
 
         *, *::before, *::after { box-sizing: border-box; }
 
-        /* ── hero purple glow ── */
+        /* ── hero glow ── */
         .ak-hero {
           background:
-            radial-gradient(ellipse 100% 60% at 50% -5%, rgba(124,58,237,0.2) 0%, transparent 65%),
-            #080808;
+            radial-gradient(ellipse 100% 60% at 50% -5%, ${c.heroGlowRgba} 0%, transparent 65%),
+            ${c.bg};
         }
 
         /* ── nav ── */
         .ak-nav {
-          background: rgba(8,8,8,0.9);
+          background: ${c.navBg};
           backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(255,255,255,0.06);
+          border-bottom: 1px solid ${c.navBorder};
         }
 
         /* ── subtle section divider ── */
         .ak-section {
-          border-top: 1px solid rgba(255,255,255,0.05);
+          border-top: 1px solid ${c.border};
         }
 
         /* ── stat card ── */
         .ak-card {
-          background: rgba(255,255,255,0.025);
-          border: 1px solid rgba(255,255,255,0.07);
+          background: ${c.cardBg};
+          border: 1px solid ${c.borderSoft};
           border-radius: 16px;
           transition: border-color 0.2s;
         }
-        .ak-card:hover { border-color: rgba(124,58,237,0.3); }
+        .ak-card:hover { border-color: ${c.accentBorderStrong}; }
 
         /* ── glow ring for instructor card ── */
         .ak-glow {
-          box-shadow: 0 0 0 1px rgba(124,58,237,0.2), 0 8px 48px rgba(124,58,237,0.06);
+          box-shadow: 0 0 0 1px ${c.accentBorder}, 0 8px 48px ${c.accentSoft};
         }
 
         /* ── FAQ accordion ── */
@@ -177,13 +187,21 @@ export default async function AboutCoursePage({
       {/* ── NAV ── */}
       <nav className="ak-nav sticky top-0 z-50 px-6 py-4 flex items-center">
         <Link href="/" className="flex items-center gap-2.5">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}
-          >
-            <Shield className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="text-sm font-bold text-white tracking-tight">AcademyKit</span>
+          {course.brand_logo_url ? (
+            // Creator's own brand logo — replaces the generic Kurso lockup
+            // wherever a creator has uploaded one (Landing Page tab).
+            <img src={course.brand_logo_url} alt={courseData.creatorName || 'Brand logo'} className="h-7 max-w-[160px] object-contain" />
+          ) : (
+            <>
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ background: c.accentGradient }}
+              >
+                <Shield className="w-3.5 h-3.5 text-white" />
+              </div>
+              <span className="text-sm font-bold tracking-tight" style={{ color: c.textPrimary }}>Kurso</span>
+            </>
+          )}
         </Link>
       </nav>
 
@@ -199,9 +217,9 @@ export default async function AboutCoursePage({
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 fontSize: 11, letterSpacing: '0.13em', textTransform: 'uppercase',
-                fontWeight: 700, color: '#a78bfa',
-                background: 'rgba(124,58,237,0.1)',
-                border: '1px solid rgba(124,58,237,0.25)',
+                fontWeight: 700, color: c.accentText,
+                background: c.accentSoft,
+                border: `1px solid ${c.accentBorder}`,
                 padding: '5px 14px', borderRadius: 999,
               }}
             >
@@ -218,10 +236,10 @@ export default async function AboutCoursePage({
           <h1
             className="fu fu2 mb-5"
             style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: theme.fonts.heading,
               fontSize: 'clamp(2rem, 5.5vw, 3.4rem)',
               fontWeight: 900, lineHeight: 1.1,
-              letterSpacing: '-0.02em', color: '#fff',
+              letterSpacing: '-0.02em', color: c.textPrimary,
             }}
           >
             {course.name}
@@ -230,13 +248,14 @@ export default async function AboutCoursePage({
           {/* Description */}
           <p
             className="fu fu3 mx-auto mb-7"
-            style={{ color: '#a1a1aa', fontSize: '1rem', lineHeight: 1.7, maxWidth: 520 }}
+            style={{ color: c.textSecondary, fontSize: '1rem', lineHeight: 1.7, maxWidth: 520 }}
           >
             {course.description}
           </p>
 
-          {/* Delivery tags */}
-       {/* Delivery tags */}
+          {/* Delivery tags — Telegram blue / WhatsApp green are the
+              platforms' own brand colors and intentionally stay fixed
+              across every theme. */}
           <div className="fu fu3 flex flex-wrap justify-center gap-2 mb-7">
             {[
               { icon: <Send className="w-3.5 h-3.5" />, label: 'Delivered on Telegram', color: '#38bdf8' },
@@ -253,8 +272,8 @@ export default async function AboutCoursePage({
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '5px 13px', borderRadius: 999,
                   fontSize: 12, fontWeight: 600,
-                  border: '1px solid rgba(255,255,255,0.09)',
-                  background: 'rgba(255,255,255,0.03)', color: t.color,
+                  border: `1px solid ${c.borderSoft}`,
+                  background: c.pillBg, color: t.color,
                 }}
               >
                 {t.icon}{t.label}
@@ -277,12 +296,12 @@ export default async function AboutCoursePage({
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '5px 12px', borderRadius: 999,
                   fontSize: 12, fontWeight: 500,
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  color: '#a1a1aa',
+                  background: c.pillBg,
+                  border: `1px solid ${c.borderSoft}`,
+                  color: c.textSecondary,
                 }}
               >
-                <span style={{ color: '#7c3aed' }}>{p.icon}</span>
+                <span style={{ color: c.accent }}>{p.icon}</span>
                 {p.text}
               </span>
             ))}
@@ -292,15 +311,15 @@ export default async function AboutCoursePage({
           <div className="fu fu4 flex items-baseline justify-center gap-3 mb-5">
             <span
               style={{
-                fontFamily: "'Playfair Display', serif",
-                fontSize: '2.6rem', fontWeight: 900, color: '#fff',
+                fontFamily: theme.fonts.heading,
+                fontSize: '2.6rem', fontWeight: 900, color: c.textPrimary,
               }}
             >
               ₹{course.price.toLocaleString()}
             </span>
             {discount > 0 && (
               <>
-                <span style={{ fontSize: '1.1rem', color: '#3f3f46', textDecoration: 'line-through' }}>
+                <span style={{ fontSize: '1.1rem', color: c.textFaint, textDecoration: 'line-through' }}>
                   ₹{course.original_price.toLocaleString()}
                 </span>
                 <span
@@ -323,7 +342,7 @@ export default async function AboutCoursePage({
             <div style={{ width: '100%', maxWidth: 360 }}>
               <CoursePageClient course={courseData} variant="cta" />
             </div>
-            <p style={{ fontSize: 12, color: '#3f3f46' }}>
+            <p style={{ fontSize: 12, color: c.textFaint }}>
               🔒 Secure payment · Instant Telegram access · Anti-piracy protected
             </p>
           </div>
@@ -333,10 +352,13 @@ export default async function AboutCoursePage({
       </section>
 
       {/* ══════════════════════════════════════════
-          CURRICULUM — client component (one open at a time)
+          CURRICULUM — client component (one open at a time).
+          Background intentionally stays a fixed dark panel on every
+          theme (including light ones) so it reads like a syllabus /
+          app screenshot — CurriculumAccordion.tsx never needs theming.
       ══════════════════════════════════════════ */}
       {groupedModules.length > 0 && (
-        <section className="ak-section" style={{ background: '#080808' }}>
+        <section className="ak-section" style={{ background: c.curriculumPanelBg }}>
           <CurriculumAccordion
             modules={groupedModules}
             totalLessons={publishedLessons.length}
@@ -349,14 +371,14 @@ export default async function AboutCoursePage({
           WHAT YOU'LL LEARN
       ══════════════════════════════════════════ */}
       {course.what_you_will_learn && course.what_you_will_learn.length > 0 && (
-        <section className="ak-section py-20 px-6" style={{ background: 'rgba(255,255,255,0.01)' }}>
+        <section className="ak-section py-20 px-6" style={{ background: c.sectionAltBg }}>
           <div className="max-w-4xl mx-auto">
             <h2
               className="text-center mb-10"
               style={{
-                fontFamily: "'Playfair Display', serif",
+                fontFamily: theme.fonts.heading,
                 fontSize: 'clamp(1.5rem, 3vw, 2rem)',
-                fontWeight: 800, color: '#fff',
+                fontWeight: 800, color: c.textPrimary,
               }}
             >
               What you'll walk away with
@@ -366,11 +388,11 @@ export default async function AboutCoursePage({
                 <div key={i} className="ak-card flex items-start gap-4 p-5">
                   <div
                     className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)' }}
+                    style={{ background: c.accentSoft, border: `1px solid ${c.accentBorder}` }}
                   >
-                    <CheckCircle className="w-3.5 h-3.5" style={{ color: '#a78bfa' }} />
+                    <CheckCircle className="w-3.5 h-3.5" style={{ color: c.accentText }} />
                   </div>
-                  <p style={{ color: '#d4d4d8', fontSize: '0.9rem', lineHeight: 1.65 }}>{item}</p>
+                  <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.65 }}>{item}</p>
                 </div>
               ))}
             </div>
@@ -381,19 +403,19 @@ export default async function AboutCoursePage({
       {/* ══════════════════════════════════════════
           HOW IT WORKS
       ══════════════════════════════════════════ */}
-      <section className="ak-section py-20 px-6" style={{ background: 'rgba(255,255,255,0.01)' }}>
+      <section className="ak-section py-20 px-6" style={{ background: c.sectionAltBg }}>
         <div className="max-w-3xl mx-auto">
           <h2
             className="text-center mb-3"
             style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: theme.fonts.heading,
               fontSize: 'clamp(1.5rem, 3vw, 2rem)',
-              fontWeight: 800, color: '#fff',
+              fontWeight: 800, color: c.textPrimary,
             }}
           >
             How course delivery works
           </h2>
-          <p className="text-center mb-12" style={{ color: '#71717a', fontSize: '0.95rem' }}>
+          <p className="text-center mb-12" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
             Lessons arrive directly on Telegram or WhatsApp — no extra app needed
           </p>
 
@@ -410,7 +432,7 @@ export default async function AboutCoursePage({
                 desc: 'Tap the Telegram button. Our bot sends lesson 1 straight to your chat.',
               },
               {
-                icon: <Play className="w-5 h-5" style={{ color: '#a78bfa' }} />,
+                icon: <Play className="w-5 h-5" style={{ color: c.accentText }} />,
                 title: 'Learn at Your Pace',
                 desc: 'Mark done, unlock next. Track progress on Telegram or the web.',
               },
@@ -419,23 +441,23 @@ export default async function AboutCoursePage({
                 <div className="flex items-center justify-between">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                    style={{ background: c.pillBg, border: `1px solid ${c.borderSoft}` }}
                   >
                     {step.icon}
                   </div>
                   <span
                     style={{
                       fontSize: '2rem', fontWeight: 900, lineHeight: 1,
-                      color: 'rgba(255,255,255,0.04)',
-                      fontFamily: "'Playfair Display', serif",
+                      color: c.numberGhost,
+                      fontFamily: theme.fonts.heading,
                     }}
                   >
                     {String(i + 1).padStart(2, '0')}
                   </span>
                 </div>
                 <div>
-                  <p style={{ fontSize: '0.95rem', fontWeight: 700, color: '#e4e4e7', marginBottom: 6 }}>{step.title}</p>
-                  <p style={{ fontSize: '0.85rem', color: '#71717a', lineHeight: 1.6 }}>{step.desc}</p>
+                  <p style={{ fontSize: '0.95rem', fontWeight: 700, color: c.textPrimary, marginBottom: 6 }}>{step.title}</p>
+                  <p style={{ fontSize: '0.85rem', color: c.textMuted, lineHeight: 1.6 }}>{step.desc}</p>
                 </div>
               </div>
             ))}
@@ -446,14 +468,14 @@ export default async function AboutCoursePage({
       {/* ══════════════════════════════════════════
           INSTRUCTOR
       ══════════════════════════════════════════ */}
-      <section className="ak-section py-20 px-6" style={{ background: '#080808' }}>
+      <section className="ak-section py-20 px-6" style={{ background: c.bg }}>
         <div className="max-w-3xl mx-auto">
           <h2
             className="text-center mb-10"
             style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: theme.fonts.heading,
               fontSize: 'clamp(1.5rem, 3vw, 2rem)',
-              fontWeight: 800, color: '#fff',
+              fontWeight: 800, color: c.textPrimary,
             }}
           >
             Meet your instructor
@@ -461,20 +483,20 @@ export default async function AboutCoursePage({
 
           <div
             className="ak-glow flex flex-col md:flex-row gap-7 items-start p-7 rounded-2xl"
-            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(124,58,237,0.15)' }}
+            style={{ background: c.cardBg, border: `1px solid ${c.accentBorder}` }}
           >
             {/* Photo */}
             <div className="flex-shrink-0 mx-auto md:mx-0">
               <div
                 className="w-24 h-24 rounded-2xl overflow-hidden"
-                style={{ border: '2px solid rgba(124,58,237,0.3)' }}
+                style={{ border: `2px solid ${c.accentBorderStrong}` }}
               >
                 {course.host_image ? (
                   <img src={course.host_image} alt={course.host_name} className="w-full h-full object-cover" />
                 ) : (
                   <div
                     className="w-full h-full flex items-center justify-center text-white font-bold text-2xl"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}
+                    style={{ background: c.accentGradient }}
                   >
                     {(course.host_name || creatorProfile?.name || 'C').charAt(0).toUpperCase()}
                   </div>
@@ -486,16 +508,16 @@ export default async function AboutCoursePage({
             <div className="flex-1 text-center md:text-left">
               <h3
                 style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: '1.3rem', fontWeight: 800, color: '#fff', marginBottom: 4,
+                  fontFamily: theme.fonts.heading,
+                  fontSize: '1.3rem', fontWeight: 800, color: c.textPrimary, marginBottom: 4,
                 }}
               >
                 {course.host_name || creatorProfile?.name || 'Course Creator'}
               </h3>
-              <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#a78bfa', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 14 }}>
+              <p style={{ fontSize: '0.8rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 14 }}>
                 Course Instructor
               </p>
-              <p style={{ color: '#a1a1aa', fontSize: '0.9rem', lineHeight: 1.7 }}>
+              <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7 }}>
                 {course.about_creator || 'Expert instructor dedicated to helping you master this subject.'}
               </p>
             </div>
@@ -507,14 +529,14 @@ export default async function AboutCoursePage({
           FAQ
       ══════════════════════════════════════════ */}
       {course.faq && course.faq.length > 0 && (
-        <section className="ak-section py-20 px-6" style={{ background: 'rgba(255,255,255,0.01)' }}>
+        <section className="ak-section py-20 px-6" style={{ background: c.sectionAltBg }}>
           <div className="max-w-2xl mx-auto">
             <h2
               className="text-center mb-10"
               style={{
-                fontFamily: "'Playfair Display', serif",
+                fontFamily: theme.fonts.heading,
                 fontSize: 'clamp(1.5rem, 3vw, 2rem)',
-                fontWeight: 800, color: '#fff',
+                fontWeight: 800, color: c.textPrimary,
               }}
             >
               Frequently asked questions
@@ -525,22 +547,22 @@ export default async function AboutCoursePage({
                 <details
                   key={i}
                   className="group rounded-2xl overflow-hidden"
-                  style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+                  style={{ background: c.cardBg, border: `1px solid ${c.borderSoft}` }}
                 >
                   <summary className="flex items-center justify-between p-5 cursor-pointer list-none select-none gap-4">
-                    <span style={{ fontWeight: 600, color: '#e4e4e7', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                    <span style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.9rem', lineHeight: 1.5 }}>
                       {item.question}
                     </span>
                     <span
-                      className="faq-icon flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-lg font-light"
-                      style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', lineHeight: 1 }}
+                      className="faq-icon flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-lg font-light"
+                      style={{ background: c.accentSoft, color: c.accentText, lineHeight: 1 }}
                     >
                       +
                     </span>
                   </summary>
                   <div className="px-5 pb-5">
-                    <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: 14 }} />
-                    <p style={{ color: '#a1a1aa', fontSize: '0.875rem', lineHeight: 1.7 }}>
+                    <div style={{ height: 1, background: c.border, marginBottom: 14 }} />
+                    <p style={{ color: c.textSecondary, fontSize: '0.875rem', lineHeight: 1.7 }}>
                       {item.answer}
                     </p>
                   </div>
@@ -557,15 +579,15 @@ export default async function AboutCoursePage({
       <section
         className="ak-section py-24 px-6"
         style={{
-          background: 'radial-gradient(ellipse 70% 80% at 50% 50%, rgba(124,58,237,0.11) 0%, transparent 70%)',
+          background: `radial-gradient(ellipse 70% 80% at 50% 50%, ${c.ctaGlowRgba} 0%, transparent 70%)`,
         }}
       >
         <div className="max-w-md mx-auto text-center">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6"
             style={{
-              background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
-              boxShadow: '0 8px 36px rgba(124,58,237,0.4)',
+              background: c.accentGradient,
+              boxShadow: `0 8px 36px ${c.accentGradientShadow}`,
             }}
           >
             <Zap className="w-7 h-7 text-white" />
@@ -574,15 +596,15 @@ export default async function AboutCoursePage({
           <h2
             className="mb-3"
             style={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: theme.fonts.heading,
               fontSize: 'clamp(1.7rem, 4vw, 2.4rem)',
-              fontWeight: 900, color: '#fff', lineHeight: 1.1,
+              fontWeight: 900, color: c.textPrimary, lineHeight: 1.1,
             }}
           >
             Ready to start learning?
           </h2>
 
-          <p className="mb-8" style={{ color: '#71717a', fontSize: '0.95rem', lineHeight: 1.6 }}>
+          <p className="mb-8" style={{ color: c.textMuted, fontSize: '0.95rem', lineHeight: 1.6 }}>
             Enroll now — get instant access on Telegram and the web.
           </p>
 
@@ -590,15 +612,15 @@ export default async function AboutCoursePage({
           <div className="flex items-baseline justify-center gap-3 mb-6">
             <span
               style={{
-                fontFamily: "'Playfair Display', serif",
-                fontSize: '2.2rem', fontWeight: 900, color: '#fff',
+                fontFamily: theme.fonts.heading,
+                fontSize: '2.2rem', fontWeight: 900, color: c.textPrimary,
               }}
             >
               ₹{course.price.toLocaleString()}
             </span>
             {discount > 0 && (
               <>
-                <span style={{ fontSize: '1rem', color: '#3f3f46', textDecoration: 'line-through' }}>
+                <span style={{ fontSize: '1rem', color: c.textFaint, textDecoration: 'line-through' }}>
                   ₹{course.original_price.toLocaleString()}
                 </span>
                 <span
@@ -629,9 +651,9 @@ export default async function AboutCoursePage({
               <div
                 key={i}
                 className="flex items-center gap-1.5"
-                style={{ fontSize: '0.8rem', color: '#3f3f46' }}
+                style={{ fontSize: '0.8rem', color: c.textFaint }}
               >
-                <span style={{ color: '#52525b' }}>{b.icon}</span>
+                <span style={{ color: c.textMuted }}>{b.icon}</span>
                 {b.label}
               </div>
             ))}
@@ -642,7 +664,7 @@ export default async function AboutCoursePage({
       {/* ── FOOTER ── */}
       <footer
         style={{
-          borderTop: '1px solid rgba(255,255,255,0.05)',
+          borderTop: `1px solid ${c.border}`,
           padding: '36px 24px',
           textAlign: 'center',
         }}
@@ -650,14 +672,14 @@ export default async function AboutCoursePage({
         <Link href="/" className="inline-flex items-center gap-2 mb-3">
           <div
             className="w-6 h-6 rounded-md flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}
+            style={{ background: c.accentGradient }}
           >
             <Shield className="w-3 h-3 text-white" />
           </div>
-          <span className="text-sm font-bold text-white">AcademyKit</span>
+          <span className="text-sm font-bold" style={{ color: c.textPrimary }}>Kurso</span>
         </Link>
-        <p style={{ fontSize: 11, color: '#27272a' }}>
-          Powered by AcademyKit · Anti-piracy protected · Telegram delivery
+        <p style={{ fontSize: 11, color: c.textFaint }}>
+          Powered by Kurso · Anti-piracy protected · Telegram delivery
         </p>
       </footer>
     </div>

@@ -38,6 +38,9 @@ interface Course {
   next_lesson_date?: string
   course_end_date?: string
   student_update_message?: string
+  landing_theme?: string
+  brand_logo_url?: string
+  use_logo_on_certificate?: boolean
 }
 
 interface Lesson {
@@ -1964,6 +1967,9 @@ export default function CourseManagePage({
   const [editCertSignatureUrl, setEditCertSignatureUrl] = useState('')
   const [showCertPreview, setShowCertPreview] = useState(false)
   const [previewTemplate, setPreviewTemplate] = useState<string>('classic')
+  // Shared brand logo — uploaded from the "Design Landing Page" tab, read-only here.
+  const [brandLogoUrl, setBrandLogoUrl] = useState('')
+  const [editUseLogoOnCertificate, setEditUseLogoOnCertificate] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -2008,6 +2014,8 @@ export default function CourseManagePage({
       setEditCertCustomMessage(courseData.cert_custom_message || '')
       setEditCertLogoUrl(courseData.cert_logo_url || '')
       setEditCertSignatureUrl(courseData.cert_signature_url || '')
+      setBrandLogoUrl(courseData.brand_logo_url || '')
+      setEditUseLogoOnCertificate(courseData.use_logo_on_certificate || false)
 
       await Promise.all([fetchLessons(), fetchModules()])
       setLoading(false)
@@ -2062,6 +2070,7 @@ export default function CourseManagePage({
         cert_logo_url: editCertLogoUrl || null,
         cert_signature_url: editCertSignatureUrl || null,
         cert_custom_message: editCertCustomMessage.trim() || null,
+        use_logo_on_certificate: editUseLogoOnCertificate,
         skills: editSkills.trim()
           ? editSkills.split(',').map(s => s.trim()).filter(Boolean)
           : null,
@@ -2898,19 +2907,46 @@ export default function CourseManagePage({
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Brand Logo (optional)</label>
-                              <input type="file" accept="image/png,image/jpeg" id="cert-logo"
-                                className="hidden"
-                                onChange={async e => {
-                                  const file = e.target.files?.[0]
-                                  if (!file) return
-                                  const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
-                                  setEditCertLogoUrl(publicUrl)
-                                }} />
-                              <label htmlFor="cert-logo" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
-                                {editCertLogoUrl ? 'Replace Logo' : 'Upload Logo'}
-                              </label>
-                              {editCertLogoUrl && <span className="text-xs text-zinc-500 ml-2">Uploaded</span>}
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-xs font-medium text-zinc-500">Use Brand Logo on Certificate</label>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditUseLogoOnCertificate(v => !v)}
+                                  className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                                  style={{ background: editUseLogoOnCertificate ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}
+                                >
+                                  <div
+                                    className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                                    style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
+                                  />
+                                </button>
+                              </div>
+
+                              {editUseLogoOnCertificate && brandLogoUrl && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
+                                  <span className="text-xs text-zinc-500">Will print on the certificate</span>
+                                </div>
+                              )}
+
+                              {editUseLogoOnCertificate && !brandLogoUrl && (
+                                <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
+                                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
+                                  <p className="text-xs" style={{ color: '#f59e0b' }}>
+                                    Please provide the brand logo above —{' '}
+                                    <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
+                                      upload it in Design Landing Page
+                                    </Link>.
+                                  </p>
+                                </div>
+                              )}
+
+                              {!editUseLogoOnCertificate && (
+                                <p className="text-xs mt-1" style={{ color: '#52525b' }}>
+                                  Uses the same logo set in Design Landing Page.
+                                </p>
+                              )}
                             </div>
 
                             <div>
@@ -3053,6 +3089,12 @@ export default function CourseManagePage({
                 <ExternalLink className="w-4 h-4" />
                 Preview Course Page
               </Link>
+              <Link href={`/dashboard/courses/${course.id}/landing-page`}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <Pencil className="w-4 h-4" />
+                Design Landing Page
+              </Link>
             </div>
 
             {/* Student Update / Delay Broadcast */}
@@ -3136,7 +3178,7 @@ export default function CourseManagePage({
           creatorName={course.host_name || 'Instructor'}
           skills={editSkills}
           courseDuration={editDuration}
-          logoUrl={editCertLogoUrl}
+          logoUrl={editUseLogoOnCertificate ? brandLogoUrl : editCertLogoUrl}
           signatureUrl={editCertSignatureUrl}
           customMessage={editCertCustomMessage}
         />
