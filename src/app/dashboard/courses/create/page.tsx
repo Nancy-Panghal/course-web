@@ -140,6 +140,13 @@ export default function CreateCoursePage() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English'])
   const [langDropdown, setLangDropdown] = useState(false)
   const [freePreview, setFreePreview] = useState('nothing free')
+  // Step 3 — new fields
+  const [level, setLevel] = useState('')
+  const [category, setCategory] = useState('')
+  const [brandName, setBrandName] = useState('')
+  const [instructorTitle, setInstructorTitle] = useState('')
+  const [requirements, setRequirements] = useState([''])
+  const [targetAudience, setTargetAudience] = useState([''])
 
   const slug = slugify(name)
 
@@ -246,6 +253,13 @@ export default function CreateCoursePage() {
         what_you_will_learn: whatYouWillLearn.filter(item => item.trim() !== ''),
         faq: faqs.filter(f => f.question.trim() !== '' && f.answer.trim() !== ''),
         free_preview_config: freePreview,
+        // Step 3 fields
+        level: level || null,
+        category: category || null,
+        brand_name: brandName.trim() || null,
+        instructor_title: instructorTitle.trim() || null,
+        requirements: requirements.filter(r => r.trim()),
+        target_audience: targetAudience.filter(t => t.trim()),
       })
       .select()
       .single()
@@ -308,6 +322,29 @@ export default function CreateCoursePage() {
               </Field>
 
               <div className="grid grid-cols-2 gap-4">
+                <Field label="Category" hint="e.g. Digital Marketing, Coding, Finance">
+                  <Input value={category} onChange={setCategory} placeholder="e.g. Digital Marketing" />
+                </Field>
+                <Field label="Difficulty Level">
+                  <select
+                    value={level}
+                    onChange={e => setLevel(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none appearance-none cursor-pointer"
+                    style={{background:'#050505', color: level ? '#fff' : '#52525b', border:'1px solid rgba(255,255,255,0.1)'}}
+                  >
+                    <option value="" style={{background:'#050505',color:'#52525b'}}>Select level…</option>
+                    {['Beginner','Intermediate','Advanced','All Levels'].map(l => (
+                      <option key={l} value={l} style={{background:'#050505',color:'#fff'}}>{l}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              <Field label="Brand / Business Name" hint="Shown in landing page nav. Leave blank to use instructor name.">
+                <Input value={brandName} onChange={setBrandName} placeholder="Your brand name (optional)" />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
                 <Field label="Price (₹) *">
                   <Input value={price} onChange={setPrice} placeholder="4999" type="number" />
                 </Field>
@@ -341,6 +378,10 @@ export default function CreateCoursePage() {
                   <Input value={totalLessons} onChange={setTotalLessons} placeholder="24" type="number" />
                 </Field>
               </div>
+
+              <Field label="Instructor Title / Credentials" hint="e.g. Certified SEO Expert · 8+ Years">
+                <Input value={instructorTitle} onChange={setInstructorTitle} placeholder="e.g. Certified Digital Marketer, 8+ Years Experience" />
+              </Field>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Field label="Start Date" hint="e.g. 15th May 2026">
@@ -424,6 +465,44 @@ export default function CreateCoursePage() {
                   onFocus={e => e.target.style.borderColor = '#7c3aed'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
+              </Field>
+
+              <Field label="Requirements / Prerequisites" hint="What students need before starting (leave blank if none)">
+                <div className="flex flex-col gap-2">
+                  {requirements.map((item, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input value={item} onChange={v => { const n=[...requirements]; n[i]=v; setRequirements(n) }} placeholder={`e.g. Basic computer skills`} />
+                      {requirements.length > 1 && (
+                        <button onClick={() => setRequirements(requirements.filter((_,idx)=>idx!==i))}
+                          className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"><X className="w-4 h-4" /></button>
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={() => setRequirements([...requirements, ''])}
+                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
+                    style={{background:'rgba(255,255,255,0.05)',color:'#a1a1aa',border:'1px solid rgba(255,255,255,0.1)'}}>
+                    <Plus className="w-3.5 h-3.5" />Add Requirement
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="Who Is This Course For?" hint="Describe your ideal student (shown on landing page)">
+                <div className="flex flex-col gap-2">
+                  {targetAudience.map((item, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input value={item} onChange={v => { const n=[...targetAudience]; n[i]=v; setTargetAudience(n) }} placeholder={`e.g. Beginners who want to start with digital marketing`} />
+                      {targetAudience.length > 1 && (
+                        <button onClick={() => setTargetAudience(targetAudience.filter((_,idx)=>idx!==i))}
+                          className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"><X className="w-4 h-4" /></button>
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={() => setTargetAudience([...targetAudience, ''])}
+                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
+                    style={{background:'rgba(255,255,255,0.05)',color:'#a1a1aa',border:'1px solid rgba(255,255,255,0.1)'}}>
+                    <Plus className="w-3.5 h-3.5" />Add Audience
+                  </button>
+                </div>
               </Field>
 
               <Field label="Frequently Asked Questions" hint="Address common student doubts">

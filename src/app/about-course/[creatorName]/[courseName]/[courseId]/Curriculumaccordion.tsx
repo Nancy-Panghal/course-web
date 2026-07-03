@@ -26,8 +26,32 @@ interface Module {
   lessons: Lesson[]
 }
 
-function contentIcon(type: string) {
-  if (type === 'video') return <Play className="w-3.5 h-3.5" style={{ color: '#a78bfa' }} />
+/** Minimal subset of LandingThemeColors used by this component. */
+export interface CurriculumThemeColors {
+  bg: string
+  border: string
+  borderSoft: string
+  textPrimary: string
+  textSecondary: string
+  textMuted: string
+  textFaint: string
+  accent: string
+  accentSoft: string
+  accentBorder: string
+  accentBorderStrong: string
+  accentText: string
+  cardBg: string
+  pillBg: string
+  curriculumPanelBg: string
+}
+
+export interface CurriculumThemeFonts {
+  heading: string
+  body: string
+}
+
+function contentIcon(type: string, accentText: string) {
+  if (type === 'video') return <Play className="w-3.5 h-3.5" style={{ color: accentText }} />
   if (type === 'pdf') return <FileText className="w-3.5 h-3.5" style={{ color: '#f59e0b' }} />
   if (type === 'audio') return <Mic className="w-3.5 h-3.5" style={{ color: '#34d399' }} />
   return <BookOpen className="w-3.5 h-3.5" style={{ color: '#60a5fa' }} />
@@ -40,14 +64,29 @@ function formatSessionDate(iso: string) {
   })
 }
 
+/** Decide whether text on top of the curriculumPanelBg needs to be
+ *  white (dark bg) or dark (light bg). Simple luminance check. */
+function isDarkBg(hex: string): boolean {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  // perceived luminance (BT.601)
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128
+}
+
 export default function CurriculumAccordion({
   modules,
   totalLessons,
   liveSessions = [],
+  themeColors,
+  themeFonts,
 }: {
   modules: Module[]
   totalLessons: number
   liveSessions?: LiveSession[]
+  themeColors?: CurriculumThemeColors
+  themeFonts?: CurriculumThemeFonts
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const [closingIndex, setClosingIndex] = useState<number | null>(null)
@@ -60,11 +99,37 @@ export default function CurriculumAccordion({
     }
   }, [])
 
+  // ── Theme defaults (backwards-compatible: if no theme passed, use original dark style) ──
+  // Use the main page bg for the curriculum panel — this is the key change that makes
+  // light themes (Cherry Blossom, Ocean Breeze, Sunrise Editorial) look correct.
+  // For dark themes (Midnight Violet, Emerald Noir, Carbon Black) the bg is already dark.
+  const panelBg = themeColors?.bg ?? '#080808'
+  const dark = isDarkBg(panelBg)
+  const textPrimary = dark ? '#ffffff' : (themeColors?.textPrimary ?? '#ffffff')
+  const textSecondary = dark ? '#a1a1aa' : (themeColors?.textSecondary ?? '#a1a1aa')
+  const textMuted = dark ? '#71717a' : (themeColors?.textMuted ?? '#71717a')
+  const textFaint = dark ? '#3f3f46' : (themeColors?.textFaint ?? '#3f3f46')
+  const accentText = themeColors?.accentText ?? '#a78bfa'
+  const accentSoft = themeColors?.accentSoft ?? 'rgba(124,58,237,0.1)'
+  const accentBorder = themeColors?.accentBorder ?? 'rgba(124,58,237,0.25)'
+  const accentBorderStrong = themeColors?.accentBorderStrong ?? 'rgba(124,58,237,0.35)'
+
+  // Borders on the dark panel
+  const panelBorder = dark
+    ? 'rgba(255,255,255,0.07)'
+    : themeColors?.borderSoft ?? 'rgba(0,0,0,0.1)'
+  const panelBorderOpen = accentBorderStrong
+  const modBg = dark ? 'rgba(255,255,255,0.02)' : (themeColors?.cardBg ?? 'rgba(255,255,255,0.5)')
+  const modBgOpen = accentSoft
+  const lessonSep = dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)'
+  const lessonTopBorder = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'
+
+  const headingFont = themeFonts?.heading ?? "'Playfair Display', serif"
+  const bodyFont = themeFonts?.body ?? 'inherit'
+
   function toggle(i: number) {
     setOpenIndex(prev => {
       if (prev === i) {
-        // Closing the currently open section: start close animation,
-        // then clear openIndex after transition completes (250ms matches CSS)
         setClosingIndex(i)
         if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
         closeTimerRef.current = setTimeout(() => {
@@ -73,8 +138,6 @@ export default function CurriculumAccordion({
         return null
       }
 
-      // Opening a new section while another is open:
-      // mark the previous one as closing so its CSS transition runs
       if (prev !== null) {
         setClosingIndex(prev)
         if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
@@ -88,20 +151,21 @@ export default function CurriculumAccordion({
   }
 
   return (
-    <section className="py-20 px-6">
+    <section className="py-20 px-6" style={{ fontFamily: bodyFont }}>
       <div className="max-w-3xl mx-auto">
         <h2
           className="text-center mb-2"
           style={{
-            fontFamily: "'Playfair Display', serif",
+            fontFamily: headingFont,
             fontSize: 'clamp(1.6rem, 3.5vw, 2.2rem)',
             fontWeight: 800,
-            color: '#ffffff',
+            color: textPrimary,
+            letterSpacing: '-0.01em',
           }}
         >
           Course Curriculum
         </h2>
-        <p className="text-center mb-10" style={{ color: '#71717a', fontSize: '0.95rem' }}>
+        <p className="text-center mb-10" style={{ color: textMuted, fontSize: '0.95rem' }}>
           {totalLessons} lessons · {modules.length}{' '}
           {modules.length === 1 ? 'section' : 'sections'} · Telegram + Web
           {liveSessions.length > 0 && ` · ${liveSessions.length} live session${liveSessions.length !== 1 ? 's' : ''}`}
@@ -117,13 +181,13 @@ export default function CurriculumAccordion({
                 className="rounded-2xl overflow-hidden"
                 style={{
                   border: isOpen
-                    ? '1px solid rgba(124,58,237,0.35)'
-                    : '1px solid rgba(255,255,255,0.07)',
-                  background: isOpen ? 'rgba(124,58,237,0.04)' : 'rgba(255,255,255,0.02)',
+                    ? `1px solid ${panelBorderOpen}`
+                    : `1px solid ${panelBorder}`,
+                  background: isOpen ? modBgOpen : modBg,
                   transition: 'border-color 0.2s, background 0.2s',
                 }}
               >
-                {/* Module header — click to toggle */}
+                {/* Module header */}
                 <button
                   onClick={() => toggle(i)}
                   className="w-full flex items-center gap-4 px-5 py-4 text-left"
@@ -133,8 +197,8 @@ export default function CurriculumAccordion({
                   <div
                     className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-bold"
                     style={{
-                      background: isOpen ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)',
-                      color: isOpen ? '#a78bfa' : '#52525b',
+                      background: isOpen ? accentSoft : (dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'),
+                      color: isOpen ? accentText : textFaint,
                       transition: 'all 0.2s',
                     }}
                   >
@@ -145,11 +209,11 @@ export default function CurriculumAccordion({
                   <div className="flex-1 min-w-0">
                     <p
                       className="text-sm font-semibold truncate"
-                      style={{ color: isOpen ? '#ffffff' : '#d4d4d8' }}
+                      style={{ color: isOpen ? textPrimary : textSecondary }}
                     >
                       {mod.name}
                     </p>
-                    <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
+                    <p className="text-xs mt-0.5" style={{ color: textMuted }}>
                       {mod.lessons.length} lesson{mod.lessons.length !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -159,7 +223,7 @@ export default function CurriculumAccordion({
                     style={{
                       transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                       transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
-                      color: isOpen ? '#a78bfa' : '#3f3f46',
+                      color: isOpen ? accentText : textFaint,
                       flexShrink: 0,
                     }}
                   >
@@ -167,70 +231,67 @@ export default function CurriculumAccordion({
                   </div>
                 </button>
 
-                {/* Lessons list — animated open/close */}
-                {/* isClosing keeps the DOM node mounted during the exit transition.
-                    Without this, React removes the node instantly on close and the
-                    grid-template-rows transition never runs. */}
+                {/* Lessons list */}
                 {(isOpen || closingIndex === i) && (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateRows: isOpen ? '1fr' : '0fr',
-                    overflow: 'hidden',
-                    transition: 'grid-template-rows 0.25s cubic-bezier(0.4,0,0.2,1)',
-                  }}
-                >
                   <div
                     style={{
-                      minHeight: 0,
+                      display: 'grid',
+                      gridTemplateRows: isOpen ? '1fr' : '0fr',
                       overflow: 'hidden',
-                      borderTop: '1px solid rgba(255,255,255,0.05)',
-                      padding: '4px 0',
+                      transition: 'grid-template-rows 0.25s cubic-bezier(0.4,0,0.2,1)',
                     }}
                   >
-                    {mod.lessons.map((lesson, j) => (
-                      <div
-                        key={j}
-                        className="flex items-center gap-3 px-5 py-3"
-                        style={{
-                          borderBottom:
-                            j < mod.lessons.length - 1
-                              ? '1px solid rgba(255,255,255,0.03)'
-                              : 'none',
-                        }}
-                      >
-                        {/* Lesson number */}
-                        <span
-                          className="text-xs font-bold w-5 flex-shrink-0 text-right"
-                          style={{ color: '#3f3f46' }}
+                    <div
+                      style={{
+                        minHeight: 0,
+                        overflow: 'hidden',
+                        borderTop: `1px solid ${lessonTopBorder}`,
+                        padding: '4px 0',
+                      }}
+                    >
+                      {mod.lessons.map((lesson, j) => (
+                        <div
+                          key={j}
+                          className="flex items-center gap-3 px-5 py-3"
+                          style={{
+                            borderBottom:
+                              j < mod.lessons.length - 1
+                                ? `1px solid ${lessonSep}`
+                                : 'none',
+                          }}
                         >
-                          {j + 1}
-                        </span>
-
-                        {/* Content type icon */}
-                        <div className="flex-shrink-0">{contentIcon(lesson.content_type)}</div>
-
-                        {/* Title */}
-                        <span
-                          className="text-sm flex-1 min-w-0 truncate"
-                          style={{ color: '#a1a1aa' }}
-                        >
-                          {lesson.title}
-                        </span>
-
-                        {/* Duration */}
-                        {lesson.duration && (
+                          {/* Lesson number */}
                           <span
-                            className="text-xs flex-shrink-0"
-                            style={{ color: '#3f3f46' }}
+                            className="text-xs font-bold w-5 flex-shrink-0 text-right"
+                            style={{ color: textFaint }}
                           >
-                            {lesson.duration}
+                            {j + 1}
                           </span>
-                        )}
-                      </div>
-                    ))}
+
+                          {/* Content type icon */}
+                          <div className="flex-shrink-0">{contentIcon(lesson.content_type, accentText)}</div>
+
+                          {/* Title */}
+                          <span
+                            className="text-sm flex-1 min-w-0 truncate"
+                            style={{ color: textSecondary }}
+                          >
+                            {lesson.title}
+                          </span>
+
+                          {/* Duration */}
+                          {lesson.duration && (
+                            <span
+                              className="text-xs flex-shrink-0"
+                              style={{ color: textFaint }}
+                            >
+                              {lesson.duration}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
                 )}
               </div>
             )
@@ -242,7 +303,7 @@ export default function CurriculumAccordion({
           <div className="mt-6">
             <div className="flex items-center gap-3 mb-3 px-1">
               <Calendar className="w-4 h-4" style={{ color: '#38bdf8' }} />
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold" style={{ color: textPrimary }}>
                 Live Sessions ({liveSessions.length})
               </span>
             </div>
@@ -254,9 +315,9 @@ export default function CurriculumAccordion({
                     key={s.id}
                     className="flex items-start gap-3 px-4 py-3 rounded-2xl"
                     style={{
-                      background: isPast ? 'rgba(255,255,255,0.02)' : 'rgba(56,189,248,0.05)',
+                      background: isPast ? modBg : (dark ? 'rgba(56,189,248,0.05)' : 'rgba(2,132,199,0.04)'),
                       border: isPast
-                        ? '1px solid rgba(255,255,255,0.06)'
+                        ? `1px solid ${panelBorder}`
                         : '1px solid rgba(56,189,248,0.18)',
                     }}
                   >
@@ -264,30 +325,30 @@ export default function CurriculumAccordion({
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
                       style={{
-                        background: isPast ? 'rgba(255,255,255,0.04)' : 'rgba(56,189,248,0.1)',
+                        background: isPast ? (dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)') : 'rgba(56,189,248,0.1)',
                       }}
                     >
                       {s.recording_url ? (
                         <Video className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />
                       ) : (
-                        <Calendar className="w-3.5 h-3.5" style={{ color: isPast ? '#52525b' : '#38bdf8' }} />
+                        <Calendar className="w-3.5 h-3.5" style={{ color: isPast ? textFaint : '#38bdf8' }} />
                       )}
                     </div>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{s.title}</p>
+                      <p className="text-sm font-medium truncate" style={{ color: textPrimary }}>{s.title}</p>
                       {s.description && (
-                        <p className="text-xs mt-0.5 truncate" style={{ color: '#71717a' }}>
+                        <p className="text-xs mt-0.5 truncate" style={{ color: textMuted }}>
                           {s.description}
                         </p>
                       )}
                       <div className="flex flex-wrap items-center gap-3 mt-1.5">
-                        <span className="flex items-center gap-1 text-xs" style={{ color: '#71717a' }}>
+                        <span className="flex items-center gap-1 text-xs" style={{ color: textMuted }}>
                           <Calendar className="w-3 h-3" />
                           {formatSessionDate(s.scheduled_at)}
                         </span>
-                        <span className="flex items-center gap-1 text-xs" style={{ color: '#71717a' }}>
+                        <span className="flex items-center gap-1 text-xs" style={{ color: textMuted }}>
                           <Clock className="w-3 h-3" />
                           {s.duration_minutes} min
                         </span>
@@ -303,7 +364,7 @@ export default function CurriculumAccordion({
                         </span>
                       ) : isPast ? (
                         <span className="text-xs px-2 py-0.5 rounded-full"
-                          style={{ background: 'rgba(255,255,255,0.05)', color: '#52525b' }}>
+                          style={{ background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', color: textFaint }}>
                           Past
                         </span>
                       ) : (

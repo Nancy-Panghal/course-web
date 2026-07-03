@@ -41,6 +41,14 @@ interface Course {
   landing_theme?: string
   brand_logo_url?: string
   use_logo_on_certificate?: boolean
+  brand_name?: string
+  instructor_title?: string
+  promo_video_url?: string
+  target_audience?: string[]
+  testimonials?: { name: string; text: string; rating?: number }[]
+  level?: string
+  category?: string
+  requirements?: string[]
 }
 
 interface Lesson {
@@ -1970,6 +1978,14 @@ export default function CourseManagePage({
   // Shared brand logo — uploaded from the "Design Landing Page" tab, read-only here.
   const [brandLogoUrl, setBrandLogoUrl] = useState('')
   const [editUseLogoOnCertificate, setEditUseLogoOnCertificate] = useState(false)
+  const [editBrandName, setEditBrandName] = useState('')
+  const [editInstructorTitle, setEditInstructorTitle] = useState('')
+  const [editPromoVideoUrl, setEditPromoVideoUrl] = useState('')
+  const [editTargetAudience, setEditTargetAudience] = useState<string[]>([])
+  const [editTestimonials, setEditTestimonials] = useState<{ name: string; text: string; rating: number }[]>([])
+  const [editLevel, setEditLevel] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editRequirements, setEditRequirements] = useState<string[]>([])
 
   useEffect(() => {
     async function load() {
@@ -2016,6 +2032,14 @@ export default function CourseManagePage({
       setEditCertSignatureUrl(courseData.cert_signature_url || '')
       setBrandLogoUrl(courseData.brand_logo_url || '')
       setEditUseLogoOnCertificate(courseData.use_logo_on_certificate || false)
+      setEditBrandName(courseData.brand_name || '')
+      setEditInstructorTitle(courseData.instructor_title || '')
+      setEditPromoVideoUrl(courseData.promo_video_url || '')
+      setEditTargetAudience(courseData.target_audience || [''])
+      setEditTestimonials(courseData.testimonials || [])
+      setEditLevel(courseData.level || '')
+      setEditCategory(courseData.category || '')
+      setEditRequirements(courseData.requirements || [''])
 
       await Promise.all([fetchLessons(), fetchModules()])
       setLoading(false)
@@ -2074,6 +2098,14 @@ export default function CourseManagePage({
         skills: editSkills.trim()
           ? editSkills.split(',').map(s => s.trim()).filter(Boolean)
           : null,
+        brand_name: editBrandName.trim() || null,
+        instructor_title: editInstructorTitle.trim() || null,
+        promo_video_url: editPromoVideoUrl.trim() || null,
+        target_audience: editTargetAudience.filter(t => t.trim()),
+        testimonials: editTestimonials.filter(t => t.name.trim() && t.text.trim()),
+        level: editLevel || null,
+        category: editCategory.trim() || null,
+        requirements: editRequirements.filter(r => r.trim()),
       })
       .eq('id', id)
 
@@ -2659,6 +2691,48 @@ export default function CourseManagePage({
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
                     </div>
 
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                        Brand / Business Name
+                        <span className="text-zinc-600 font-normal ml-1">— shown in your landing page nav instead of "Kurso"</span>
+                      </label>
+                      <input
+                        value={editBrandName}
+                        onChange={e => setEditBrandName(e.target.value)}
+                        placeholder="Your brand name (leave blank to use instructor name)"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                      />
+                      <p className="text-[10px] text-zinc-600 mt-1">
+                        If you have a registered business name, add it here. Otherwise it falls back to your instructor name.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Category</label>
+                        <input
+                          value={editCategory}
+                          onChange={e => setEditCategory(e.target.value)}
+                          placeholder="e.g. Digital Marketing, Coding, Finance"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Difficulty Level</label>
+                        <select
+                          value={editLevel}
+                          onChange={e => setEditLevel(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none appearance-none cursor-pointer"
+                          style={{ background: '#050505', color: editLevel ? '#fff' : '#52525b' }}
+                        >
+                          <option value="" style={{ background: '#050505', color: '#52525b' }}>Select level…</option>
+                          {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(l => (
+                            <option key={l} value={l} style={{ background: '#050505', color: '#fff' }}>{l}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Price (₹)</label>
@@ -2735,6 +2809,29 @@ export default function CourseManagePage({
                     </div>
 
                     <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                        Requirements / Prerequisites
+                        <span className="text-zinc-600 font-normal ml-1">— shown on landing page</span>
+                      </label>
+                      <div className="flex flex-col gap-2">
+                        {editRequirements.map((item, i) => (
+                          <div key={i} className="flex gap-2">
+                            <input
+                              value={item}
+                              onChange={e => { const n = [...editRequirements]; n[i] = e.target.value; setEditRequirements(n) }}
+                              placeholder="e.g. Basic computer skills"
+                              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none"
+                            />
+                            <button onClick={() => setEditRequirements(editRequirements.filter((_, idx) => idx !== i))}
+                              className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        ))}
+                        <button onClick={() => setEditRequirements([...editRequirements, ''])}
+                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Requirement</button>
+                      </div>
+                    </div>
+
+                    <div>
                       <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Instructor Photo</label>
                       <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
@@ -2770,8 +2867,89 @@ export default function CourseManagePage({
                       <label className="text-xs font-medium text-zinc-500 mb-1.5 block">About Instructor</label>
                       <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2" />
+                      <input
+                        value={editInstructorTitle}
+                        onChange={e => setEditInstructorTitle(e.target.value)}
+                        placeholder="Title / Credentials (e.g. Certified Digital Marketer, 8+ Years)"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2"
+                      />
                       <textarea value={editAbout} onChange={e => setEditAbout(e.target.value)} rows={2} placeholder="Bio"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none" />
+                    </div>
+
+                    {/* Promo video */}
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                        Promo / Preview Video URL
+                        <span className="text-zinc-600 font-normal ml-1">— YouTube link, shown next to hero text</span>
+                      </label>
+                      <input
+                        value={editPromoVideoUrl}
+                        onChange={e => setEditPromoVideoUrl(e.target.value)}
+                        placeholder="https://youtube.com/watch?v=... or youtu.be/..."
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                      />
+                      <p className="text-[10px] text-zinc-600 mt-1">Embed a YouTube promo video to appear beside the hero text on your landing page.</p>
+                    </div>
+
+                    {/* Target audience */}
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                        Who Is This Course For?
+                        <span className="text-zinc-600 font-normal ml-1">— shown as a "Who this is for" section</span>
+                      </label>
+                      <div className="flex flex-col gap-2">
+                        {editTargetAudience.map((item, i) => (
+                          <div key={i} className="flex gap-2">
+                            <input value={item}
+                              onChange={e => { const n = [...editTargetAudience]; n[i] = e.target.value; setEditTargetAudience(n) }}
+                              placeholder="e.g. Beginners who want to start with digital marketing"
+                              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none" />
+                            <button onClick={() => setEditTargetAudience(editTargetAudience.filter((_, idx) => idx !== i))}
+                              className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        ))}
+                        <button onClick={() => setEditTargetAudience([...editTargetAudience, ''])}
+                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Audience</button>
+                      </div>
+                    </div>
+
+                    {/* Testimonials */}
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                        Student Testimonials
+                        <span className="text-zinc-600 font-normal ml-1">— shown on the landing page</span>
+                      </label>
+                      <div className="flex flex-col gap-3">
+                        {editTestimonials.map((t, i) => (
+                          <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
+                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <button onClick={() => setEditTestimonials(editTestimonials.filter((_, idx) => idx !== i))}
+                              className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                            <input value={t.name}
+                              onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], name: e.target.value }; setEditTestimonials(n) }}
+                              placeholder="Student name"
+                              className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8" />
+                            <textarea value={t.text}
+                              onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], text: e.target.value }; setEditTestimonials(n) }}
+                              placeholder="What they said about the course..."
+                              rows={2}
+                              className="w-full bg-transparent text-sm text-zinc-400 outline-none resize-none" />
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-zinc-500">Rating:</span>
+                              {[1,2,3,4,5].map(star => (
+                                <button key={star} type="button"
+                                  onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star }; setEditTestimonials(n) }}
+                                  style={{ color: star <= (t.rating || 5) ? '#f59e0b' : '#3f3f46', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <button onClick={() => setEditTestimonials([...editTestimonials, { name: '', text: '', rating: 5 }])}
+                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Testimonial</button>
+                      </div>
                     </div>
 
                     <div>

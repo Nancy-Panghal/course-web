@@ -1,7 +1,13 @@
 // Shared type definitions for the landing page (about-course) theme system.
 // Every theme file in this folder exports one object matching this shape.
 
-export type LandingThemeId = 'midnight-violet' | 'emerald-noir' | 'sunrise-editorial'
+export type LandingThemeId =
+  | 'midnight-violet'
+  | 'emerald-noir'
+  | 'sunrise-editorial'
+  | 'carbon-black'
+  | 'cherry-blossom'
+  | 'ocean-breeze'
 
 export interface LandingThemeColors {
   /** Page background (solid hex) */
