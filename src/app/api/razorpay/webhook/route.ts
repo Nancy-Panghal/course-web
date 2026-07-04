@@ -27,23 +27,25 @@ export async function POST(req: NextRequest) {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET || ''
     let body: any
 
-    if (secret && signature) {
-      const rawBody = await req.text()
-      const expectedSig = crypto
-        .createHmac('sha256', secret)
-        .update(rawBody)
-        .digest('hex')
-
-      if (!safeCompare(expectedSig, signature)) {
-        return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 })
-      }
-      body = JSON.parse(rawBody)
-    } else {
-      if (!secret) {
-        console.warn('RAZORPAY_WEBHOOK_SECRET is not configured. Webhook signature verification skipped.')
-      }
-      body = await req.json()
+    if (!secret) {
+      console.error('RAZORPAY_WEBHOOK_SECRET is not configured. Rejecting webhook — refusing to process unverified payment events.')
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
     }
+
+    if (!signature) {
+      return NextResponse.json({ error: 'Missing webhook signature' }, { status: 400 })
+    }
+
+    const rawBody = await req.text()
+    const expectedSig = crypto
+      .createHmac('sha256', secret)
+      .update(rawBody)
+      .digest('hex')
+
+    if (!safeCompare(expectedSig, signature)) {
+      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 })
+    }
+    body = JSON.parse(rawBody)
 
     // Only process payment.captured event
     if (body.event !== 'payment.captured') {
