@@ -24,6 +24,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { friendlyErrorResponse } from '@/lib/payment-errors'
+import { encryptSecret } from '@/lib/payout-crypto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -107,8 +109,7 @@ export async function GET(req: NextRequest) {
       setupAt: data.payout_setup_at || null,
     })
   } catch (err: any) {
-    console.error('[payout-settings GET]', err.message)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    return friendlyErrorResponse(err, 'payout-settings/GET')
   }
 }
 
@@ -178,8 +179,12 @@ export async function POST(req: NextRequest) {
 
     if (accountHolder?.trim()) updates.payout_account_holder = accountHolder.trim()
     if (bankAccountNumber?.trim()) {
-      // Store ONLY the last 4 digits
+      // Creator-facing reads (GET below) only ever see the last 4 digits.
       updates.payout_bank_account_last4 = bankAccountNumber.trim().slice(-4)
+      // The full number is also kept, encrypted at rest — admin needs it to
+      // actually send a manual payout until Razorpay Route is live.
+      // Never returned by GET, never sent to any client.
+      updates.payout_bank_account_encrypted = encryptSecret(bankAccountNumber.trim())
     }
     if (ifsc?.trim()) updates.payout_ifsc = ifsc.trim().toUpperCase()
     if (upiId?.trim()) updates.payout_upi_id = upiId.trim().toLowerCase()
@@ -199,7 +204,6 @@ export async function POST(req: NextRequest) {
       panMasked: panMasked || '',
     })
   } catch (err: any) {
-    console.error('[payout-settings POST]', err.message)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    return friendlyErrorResponse(err, 'payout-settings/POST')
   }
 }

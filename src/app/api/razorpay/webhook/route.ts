@@ -47,7 +47,15 @@ export async function POST(req: NextRequest) {
     }
     body = JSON.parse(rawBody)
 
-    // Only process payment.captured event
+    // Route refund and dispute events to their own handlers.
+    // Everything else falls through to the existing payment.captured logic below,
+    // and anything not recognized at all is safely ignored.
+    if (body.event === 'refund.processed') {
+      return await handleRefundProcessed(body)
+    }
+    if (body.event === 'payment.dispute.created') {
+      return await handleDisputeCreated(body)
+    }
     if (body.event !== 'payment.captured') {
       return NextResponse.json({ success: true, message: `Ignored event: ${body.event}` })
     }
@@ -623,5 +631,254 @@ async function maybeSendStudentWelcomeEmail({
     })
   } catch (err) {
     console.error('[webhook-email/student-welcome]', err)
+  }
+}
+
+// ── Refund handling ───────────────────────────────────────────────────
+// Fired when Razorpay processes a refund. Access is only revoked on a
+// FULL refund — a partial refund doesn't lock the student out.
+async function handleRefundProcessed(body: any) {
+  try {
+    const refundEntity = body.payload?.refund?.entity
+    const paymentEntityFromPayload = body.payload?.payment?.entity
+    const razorpay_payment_id = paymentEntityFromPayload?.id || refundEntity?.payment_id
+
+    if (!refundEntity || !razorpay_payment_id) {
+      console.error('Refund webhook missing refund or payment entity:', JSON.stringify(body))
+      return NextResponse.json({ error: 'Invalid refund payload' }, { status: 400 })
+    }
+
+    const razorpay_refund_id = refundEntity.id
+    const refundAmount = Number(refundEntity.amount || 0) / 100 // paise -> rupees
+
+    const existingRefund = await firstRow(
+      supabaseAdmin.from('refunds').select('id').eq('provider_refund_id', razorpay_refund_id)
+    )
+    if (existingRefund) {
+      return NextResponse.json({ success: true, message: 'Refund already processed' })
+    }
+
+    const payment = await firstRow(
+      supabaseAdmin
+        .from('payments')
+        .select('id, enrollment_id, creator_id, course_id, student_id, net_amount, status')
+        .eq('provider', 'razorpay')
+        .eq('provider_payment_id', razorpay_payment_id)
+    )
+
+    if (!payment) {
+      await supabaseAdmin.from('refunds').insert({
+        payment_id: null,
+        provider_refund_id: razorpay_refund_id,
+        provider_payment_id: razorpay_payment_id,
+        amount: refundAmount,
+        status: refundEntity.status || 'processed',
+        is_full_refund: null,
+        raw_event: body,
+      })
+      console.warn('Refund webhook: no matching payment found for', razorpay_payment_id)
+      return NextResponse.json({ success: true, message: 'Refund logged, no matching payment' })
+    }
+
+    const isFullRefund = refundAmount >= Number(payment.net_amount || 0)
+    const newPaymentStatus = isFullRefund ? 'refunded' : 'partially_refunded'
+
+    await supabaseAdmin.from('refunds').insert({
+      payment_id: payment.id,
+      provider_refund_id: razorpay_refund_id,
+      provider_payment_id: razorpay_payment_id,
+      amount: refundAmount,
+      status: refundEntity.status || 'processed',
+      is_full_refund: isFullRefund,
+      raw_event: body,
+    })
+
+    await supabaseAdmin.from('payments').update({ status: newPaymentStatus }).eq('id', payment.id)
+
+    if (isFullRefund && payment.enrollment_id) {
+      await supabaseAdmin
+        .from('enrollments')
+        .update({ payment_status: 'refunded' })
+        .eq('id', payment.enrollment_id)
+    }
+
+    await maybeSendCreatorRefundEmail({
+      creatorId: payment.creator_id,
+      courseId: payment.course_id,
+      amount: refundAmount,
+      isFullRefund,
+    })
+    await maybeSendStudentRefundEmail({
+      studentId: payment.student_id,
+      amount: refundAmount,
+      isFullRefund,
+    })
+
+    return NextResponse.json({ success: true, message: 'Refund processed' })
+  } catch (err: any) {
+    console.error('Refund webhook error:', err)
+    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+  }
+}
+
+// ── Dispute handling ──────────────────────────────────────────────────
+// A dispute is a student contesting the charge with their bank — NOT a
+// confirmed refund yet, so access is deliberately not revoked here.
+async function handleDisputeCreated(body: any) {
+  try {
+    const disputeEntity = body.payload?.dispute?.entity
+    const razorpay_payment_id = disputeEntity?.payment_id
+
+    if (!disputeEntity || !razorpay_payment_id) {
+      console.error('Dispute webhook missing dispute entity:', JSON.stringify(body))
+      return NextResponse.json({ error: 'Invalid dispute payload' }, { status: 400 })
+    }
+
+    const payment = await firstRow(
+      supabaseAdmin
+        .from('payments')
+        .select('id, creator_id, course_id')
+        .eq('provider', 'razorpay')
+        .eq('provider_payment_id', razorpay_payment_id)
+    )
+
+    if (!payment) {
+      console.warn('Dispute webhook: no matching payment found for', razorpay_payment_id)
+      return NextResponse.json({ success: true, message: 'Dispute logged, no matching payment' })
+    }
+
+    await supabaseAdmin.from('payments').update({ status: 'disputed' }).eq('id', payment.id)
+
+    await supabaseAdmin.from('refunds').insert({
+      payment_id: payment.id,
+      provider_refund_id: disputeEntity.id,
+      provider_payment_id: razorpay_payment_id,
+      amount: Number(disputeEntity.amount || 0) / 100,
+      status: 'disputed',
+      is_full_refund: null,
+      raw_event: body,
+    })
+
+    await maybeSendCreatorDisputeEmail({ creatorId: payment.creator_id, courseId: payment.course_id })
+
+    return NextResponse.json({ success: true, message: 'Dispute logged' })
+  } catch (err: any) {
+    console.error('Dispute webhook error:', err)
+    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 })
+  }
+}
+
+// ── Refund / dispute email notifications ────────────────────────────────
+
+async function maybeSendCreatorRefundEmail({
+  creatorId,
+  courseId,
+  amount,
+  isFullRefund,
+}: {
+  creatorId: string
+  courseId: string
+  amount: number
+  isFullRefund: boolean
+}) {
+  try {
+    const { data } = await supabaseAdmin.auth.admin.getUserById(creatorId)
+    const creator = data?.user
+    if (!creator?.email) return
+
+    const course = await firstRow(supabaseAdmin.from('courses').select('name').eq('id', courseId))
+    const safeCourse = escapeHtml(course?.name || 'your course')
+    const label = isFullRefund ? 'Full refund' : 'Partial refund'
+
+    await sendLoggedEmail({
+      supabase: supabaseAdmin,
+      emailType: 'creator_refund_notice',
+      to: creator.email,
+      subject: `${label} issued: ₹${amount.toLocaleString('en-IN')}`,
+      creatorId,
+      courseId,
+      metadata: { amount, is_full_refund: isFullRefund },
+      html: `
+        <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+          <h2 style="margin:0 0 12px">${label}</h2>
+          <p style="margin:0 0 8px"><strong>₹${amount.toLocaleString('en-IN')}</strong> was refunded for <strong>${safeCourse}</strong>.</p>
+          <p style="margin:0 0 16px">${isFullRefund ? "The student's access to this course has been automatically revoked." : "This was a partial refund — the student's access is unchanged."}</p>
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
+            style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
+            Open dashboard
+          </a>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.error('[webhook-email/creator-refund]', err)
+  }
+}
+
+async function maybeSendStudentRefundEmail({
+  studentId,
+  amount,
+  isFullRefund,
+}: {
+  studentId: string | null
+  amount: number
+  isFullRefund: boolean
+}) {
+  if (!studentId) return
+  try {
+    const student = await firstRow(
+      supabaseAdmin.from('students').select('email, name').eq('id', studentId)
+    )
+    if (!student?.email) return
+
+    const safeName = escapeHtml(student.name || 'there')
+    const label = isFullRefund ? 'refund' : 'partial refund'
+
+    await sendLoggedEmail({
+      supabase: supabaseAdmin,
+      emailType: 'student_refund_notice',
+      to: student.email,
+      subject: `Your ${label} has been processed`,
+      studentId,
+      metadata: { amount, is_full_refund: isFullRefund },
+      html: `
+        <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+          <h2 style="margin:0 0 12px">Refund processed</h2>
+          <p style="margin:0 0 8px">Hi ${safeName}, a ${label} of <strong>₹${amount.toLocaleString('en-IN')}</strong> has been processed to your original payment method.</p>
+          <p style="margin:0">It can take a few business days to show up in your bank or card statement, depending on your bank.</p>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.error('[webhook-email/student-refund]', err)
+  }
+}
+
+async function maybeSendCreatorDisputeEmail({ creatorId, courseId }: { creatorId: string; courseId: string }) {
+  try {
+    const { data } = await supabaseAdmin.auth.admin.getUserById(creatorId)
+    const creator = data?.user
+    if (!creator?.email) return
+
+    const course = await firstRow(supabaseAdmin.from('courses').select('name').eq('id', courseId))
+    const safeCourse = escapeHtml(course?.name || 'a course')
+
+    await sendLoggedEmail({
+      supabase: supabaseAdmin,
+      emailType: 'creator_dispute_notice',
+      to: creator.email,
+      subject: `A payment dispute was opened on ${course?.name || 'your course'}`,
+      creatorId,
+      courseId,
+      html: `
+        <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+          <h2 style="margin:0 0 12px">Payment dispute opened</h2>
+          <p style="margin:0 0 8px">A student has disputed a payment for <strong>${safeCourse}</strong> with their bank.</p>
+          <p style="margin:0">This is not an automatic refund — you may be able to respond with evidence through Razorpay before a deadline. Check your Razorpay dashboard for details.</p>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.error('[webhook-email/creator-dispute]', err)
   }
 }

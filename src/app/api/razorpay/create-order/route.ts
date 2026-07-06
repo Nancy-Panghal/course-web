@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Razorpay from 'razorpay'
 import { createClient } from '@supabase/supabase-js'
+import { friendlyErrorResponse } from '@/lib/payment-errors'
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -100,7 +101,6 @@ export async function POST(req: NextRequest) {
       pricing,
     })
   } catch (err: any) {
-    console.error('Razorpay order error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return friendlyErrorResponse(err, 'razorpay/create-order')
   }
 }

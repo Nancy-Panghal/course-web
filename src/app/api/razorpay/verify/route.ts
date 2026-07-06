@@ -15,6 +15,7 @@ import { createClient } from '@supabase/supabase-js'
 import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 import { slugify } from '@/lib/utils'
 import { normalizePhone } from '@/lib/phone'
+import { friendlyErrorResponse } from '@/lib/payment-errors'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -663,10 +664,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, alreadyEnrolled: false })
   } catch (err: any) {
-    console.error('[razorpay/verify]', err)
-    return NextResponse.json(
-      { error: err.message || 'Payment verification failed' },
-      { status: 500 }
-    )
+    return friendlyErrorResponse(err, 'razorpay/verify')
   }
 }

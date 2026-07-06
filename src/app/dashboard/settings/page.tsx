@@ -660,7 +660,7 @@ export default function SettingsPage() {
               </div>
             ) : payouts.length === 0 ? (
               <p className="text-xs py-4 text-center" style={{ color: '#52525b' }}>
-                No payouts yet. Once Razorpay Route is active, your earnings will appear here.
+                No payouts yet. Payouts are sent manually for now — they'll appear here as soon as one is recorded.
               </p>
             ) : (
               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
