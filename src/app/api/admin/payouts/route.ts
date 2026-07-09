@@ -1,14 +1,12 @@
 /**
- * Admin-only. GET returns one creator's decrypted payout destination
- * (needed to actually send the money) plus their payout history.
- * POST logs a payout — this is the audit-trail row the creator will
- * see in their own dashboard immediately, since it reads the same table.
+ * Admin-only. Lets you log a manual payout and see payout history for a creator.
+ * Kurso doesn't store bank/UPI details, so this does NOT tell you where to send
+ * money — confirm that with the creator directly before logging the payout.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/admin-auth'
-import { decryptSecret } from '@/lib/payout-crypto'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
 
 const supabase = createClient(
@@ -26,23 +24,12 @@ export async function GET(req: NextRequest) {
 
     const { data: creator, error: creatorError } = await supabase
       .from('creators')
-      .select(
-        'id, name, payout_account_holder, payout_bank_account_encrypted, payout_ifsc, payout_upi_id, payout_account_status'
-      )
+      .select('id, name, payout_account_status')
       .eq('id', creatorId)
       .maybeSingle()
 
     if (creatorError) throw creatorError
     if (!creator) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
-
-    let bankAccountNumber = ''
-    if (creator.payout_bank_account_encrypted) {
-      try {
-        bankAccountNumber = decryptSecret(creator.payout_bank_account_encrypted)
-      } catch (e) {
-        console.error('[admin/payouts] could not decrypt bank account for', creatorId, e)
-      }
-    }
 
     const { data: history, error: historyError } = await supabase
       .from('payouts')
@@ -54,15 +41,7 @@ export async function GET(req: NextRequest) {
     if (historyError) throw historyError
 
     return NextResponse.json({
-      creator: {
-        id: creator.id,
-        name: creator.name,
-        accountHolder: creator.payout_account_holder || '',
-        bankAccountNumber, // full, decrypted — admin-only, never exposed to the creator's own view
-        ifsc: creator.payout_ifsc || '',
-        upiId: creator.payout_upi_id || '',
-        status: creator.payout_account_status || 'not_set',
-      },
+      creator: { id: creator.id, name: creator.name, status: creator.payout_account_status || 'not_connected' },
       history: history || [],
     })
   } catch (err: any) {

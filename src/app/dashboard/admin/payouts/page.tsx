@@ -4,15 +4,13 @@ import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 
 type Creator = { id: string; name: string; payout_account_status: string; payout_account_holder: string }
+
 type CreatorDetail = {
   id: string
   name: string
-  accountHolder: string
-  bankAccountNumber: string
-  ifsc: string
-  upiId: string
   status: string
 }
+
 type PayoutRow = {
   id: string
   amount: number
@@ -31,7 +29,7 @@ export default function AdminPayoutsPage() {
   const [history, setHistory] = useState<PayoutRow[]>([])
   const [loadingList, setLoadingList] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
-  const [showAccountNumber, setShowAccountNumber] = useState(false)
+  
 
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<'manual_bank_transfer' | 'manual_upi'>('manual_bank_transfer')
@@ -68,7 +66,7 @@ export default function AdminPayoutsPage() {
     setSelectedId(id)
     setDetail(null)
     setHistory([])
-    setShowAccountNumber(false)
+    
     setMessage('')
     setError('')
     if (!id || !token) return
@@ -151,30 +149,11 @@ export default function AdminPayoutsPage() {
 
             {detail && (
               <>
-                <div className="p-4 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p className="text-sm font-semibold text-white mb-3">Where to send the money</p>
-                  {detail.upiId && (
-                    <p className="text-sm mb-2" style={{ color: '#a1a1aa' }}>
-                      UPI: <span className="text-white font-mono">{detail.upiId}</span>
-                    </p>
-                  )}
-                  {detail.bankAccountNumber ? (
-                    <>
-                      <p className="text-sm mb-1" style={{ color: '#a1a1aa' }}>Account holder: <span className="text-white">{detail.accountHolder}</span></p>
-                      <p className="text-sm mb-1" style={{ color: '#a1a1aa' }}>
-                        Account number:{' '}
-                        <span className="text-white font-mono">
-                          {showAccountNumber ? detail.bankAccountNumber : '•'.repeat(Math.max(detail.bankAccountNumber.length, 6))}
-                        </span>{' '}
-                        <button onClick={() => setShowAccountNumber((s) => !s)} className="text-xs underline" style={{ color: '#8b5cf6' }}>
-                          {showAccountNumber ? 'hide' : 'show'}
-                        </button>
-                      </p>
-                      <p className="text-sm" style={{ color: '#a1a1aa' }}>IFSC: <span className="text-white font-mono">{detail.ifsc}</span></p>
-                    </>
-                  ) : !detail.upiId ? (
-                    <p className="text-sm" style={{ color: '#f59e0b' }}>No payout details saved for this creator yet.</p>
-                  ) : null}
+                <div className="p-4 rounded-xl mb-6" style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
+                  <p className="text-sm font-semibold text-white mb-1">Kurso doesn't store this creator's payout details</p>
+                  <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                    Confirm their bank account or UPI ID directly with them (WhatsApp/email) before sending, then log the payout below.
+                  </p>
                 </div>
 
                 <div className="p-4 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>

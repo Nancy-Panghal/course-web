@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle } from 'lucide-react'
 
 // ── OUTSIDE the page component — fixes input focus loss ──
 function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false, rightElement }: {
@@ -107,28 +107,15 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false)
   const [deleteApiError, setDeleteApiError] = useState('')
 
-  // ── Payout settings state ──────────────────────────────────────
+  // ── Payout connection state ──────────────────────────────────────
+  // Kurso does not collect or store raw bank/UPI/PAN details. Connecting a
+  // payout account happens entirely on Razorpay's side via Route — this page
+  // only shows connection status and starts that flow.
   const [payoutToken, setPayoutToken] = useState('')
   const [payoutLoading, setPayoutLoading] = useState(true)
-  const [payoutSaving, setPayoutSaving] = useState(false)
+  const [payoutConnecting, setPayoutConnecting] = useState(false)
   const [payoutError, setPayoutError] = useState('')
-  const [payoutSuccess, setPayoutSuccess] = useState('')
-  // Existing saved details (display only — masked)
-  const [savedAccountHolder, setSavedAccountHolder] = useState('')
-  const [savedBankLast4, setSavedBankLast4] = useState('')
-  const [savedIfsc, setSavedIfsc] = useState('')
-  const [savedUpiMasked, setSavedUpiMasked] = useState('')
-  const [savedPanMasked, setSavedPanMasked] = useState('')
-  const [savedPayoutStatus, setSavedPayoutStatus] = useState('not_set')
-  // Form inputs
-  const [payoutMode, setPayoutMode] = useState<'bank' | 'upi'>('bank')
-  const [fAccountHolder, setFAccountHolder] = useState('')
-  const [fAccountNumber, setFAccountNumber] = useState('')
-  const [fIfsc, setFIfsc] = useState('')
-  const [fUpiId, setFUpiId] = useState('')
-  const [fPan, setFPan] = useState('')
-  const [showAccountNumber, setShowAccountNumber] = useState(false)
-  const [showPan, setShowPan] = useState(false)
+  const [payoutStatus, setPayoutStatus] = useState('not_connected') // 'not_connected' | 'pending' | 'connected'
   // Payout history
   const [payouts, setPayouts] = useState<any[]>([])
   const [payoutsLoading, setPayoutsLoading] = useState(true)
@@ -190,12 +177,7 @@ export default function SettingsPage() {
 
       if (settingsRes.ok) {
         const d = await settingsRes.json()
-        setSavedAccountHolder(d.accountHolder || '')
-        setSavedBankLast4(d.bankLast4 || '')
-        setSavedIfsc(d.ifsc || '')
-        setSavedUpiMasked(d.upiMasked || '')
-        setSavedPanMasked(d.panMasked || '')
-        setSavedPayoutStatus(d.status || 'not_set')
+        setPayoutStatus(d.status || 'not_connected')
       }
       setPayoutLoading(false)
 
@@ -253,55 +235,34 @@ export default function SettingsPage() {
     })
   }
 
-  async function handlePayoutSave() {
+  async function handleConnectPayout() {
     setPayoutError('')
-    setPayoutSuccess('')
-    setPayoutSaving(true)
+    setPayoutConnecting(true)
     try {
-      const body: any = { pan: fPan.trim() || undefined }
-      if (payoutMode === 'bank') {
-        body.accountHolder = fAccountHolder.trim()
-        body.bankAccountNumber = fAccountNumber.trim()
-        body.ifsc = fIfsc.trim()
-      } else {
-        body.upiId = fUpiId.trim()
-      }
-
-      const res = await fetch('/api/creator/payout-settings', {
+      const res = await fetch('/api/creator/payout-connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${payoutToken}`,
         },
-        body: JSON.stringify(body),
       })
 
       const json = await res.json()
       if (!res.ok) {
-        setPayoutError(json.error || 'Failed to save payout details.')
+        setPayoutError(json.error || 'Could not start payout setup.')
         return
       }
 
-      // Refresh display — clear sensitive form fields
-      setSavedPayoutStatus('pending_verification')
-      if (json.bankLast4) setSavedBankLast4(json.bankLast4)
-      if (json.panMasked) setSavedPanMasked(json.panMasked)
-      if (payoutMode === 'bank') {
-        setSavedAccountHolder(fAccountHolder.trim())
-        setSavedIfsc(fIfsc.trim().toUpperCase())
+      if (json.available && json.url) {
+        window.location.href = json.url
+        return
       }
-      if (payoutMode === 'upi') setSavedUpiMasked(fUpiId.trim())
 
-      // Clear sensitive fields from state immediately
-      setFAccountNumber('')
-      setFPan('')
-      setShowAccountNumber(false)
-      setShowPan(false)
-      setPayoutSuccess('Payout details saved. We will verify and activate within 2 business days.')
+      setPayoutError(json.message || 'Payout setup is opening soon — check back shortly.')
     } catch {
       setPayoutError('Network error. Please try again.')
     } finally {
-      setPayoutSaving(false)
+      setPayoutConnecting(false)
     }
   }
 
@@ -446,177 +407,40 @@ export default function SettingsPage() {
             </div>
           ) : (
             <>
-              {/* Current status banner */}
-              {savedPayoutStatus !== 'not_set' && (
-                <div className="mb-5 flex items-center gap-3 p-3 rounded-xl"
-                  style={{
-                    background: savedPayoutStatus === 'active'
-                      ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)',
-                    border: savedPayoutStatus === 'active'
-                      ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(245,158,11,0.2)',
-                  }}>
-                  {savedPayoutStatus === 'active'
-                    ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
-                    : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#f59e0b' }} />
-                  }
-                  <div>
-                    <p className="text-sm font-medium text-white">
-                      {savedPayoutStatus === 'active' ? 'Payout account active' : 'Pending verification'}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
-                      {savedPayoutStatus === 'active'
-                        ? `Account ••••${savedBankLast4 || savedUpiMasked} · ${savedIfsc || 'UPI'}`
-                        : 'We will verify your details within 2 business days.'}
-                    </p>
-                  </div>
+              {/* Status banner */}
+              <div className="mb-5 flex items-center gap-3 p-3 rounded-xl"
+                style={{
+                  background: payoutStatus === 'connected'
+                    ? 'rgba(74,222,128,0.08)'
+                    : payoutStatus === 'pending'
+                    ? 'rgba(245,158,11,0.08)'
+                    : 'rgba(255,255,255,0.03)',
+                  border: payoutStatus === 'connected'
+                    ? '1px solid rgba(74,222,128,0.2)'
+                    : payoutStatus === 'pending'
+                    ? '1px solid rgba(245,158,11,0.2)'
+                    : '1px solid rgba(255,255,255,0.08)',
+                }}>
+                {payoutStatus === 'connected'
+                  ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
+                  : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: payoutStatus === 'pending' ? '#f59e0b' : '#71717a' }} />
+                }
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {payoutStatus === 'connected'
+                      ? 'Payout account connected'
+                      : payoutStatus === 'pending'
+                      ? 'Payout setup pending'
+                      : 'No payout account connected yet'}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
+                    {payoutStatus === 'connected'
+                      ? 'Your earnings will be sent directly to the account you connected via Razorpay.'
+                      : payoutStatus === 'pending'
+                      ? 'Finish verification with Razorpay to activate payouts.'
+                      : 'Connect a payout account so we know where to send your earnings.'}
+                  </p>
                 </div>
-              )}
-
-              {/* Saved summary */}
-              {savedPayoutStatus !== 'not_set' && (
-                <div className="mb-5 p-4 rounded-xl flex flex-col gap-2"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xs font-semibold text-white mb-1">Saved details</p>
-                  {savedAccountHolder && (
-                    <div className="flex justify-between text-xs">
-                      <span style={{ color: '#71717a' }}>Account holder</span>
-                      <span className="text-white">{savedAccountHolder}</span>
-                    </div>
-                  )}
-                  {savedBankLast4 && (
-                    <div className="flex justify-between text-xs">
-                      <span style={{ color: '#71717a' }}>Account number</span>
-                      <span className="text-white font-mono">••••{savedBankLast4}</span>
-                    </div>
-                  )}
-                  {savedIfsc && (
-                    <div className="flex justify-between text-xs">
-                      <span style={{ color: '#71717a' }}>IFSC</span>
-                      <span className="text-white font-mono">{savedIfsc}</span>
-                    </div>
-                  )}
-                  {savedUpiMasked && (
-                    <div className="flex justify-between text-xs">
-                      <span style={{ color: '#71717a' }}>UPI ID</span>
-                      <span className="text-white font-mono">{savedUpiMasked}</span>
-                    </div>
-                  )}
-                  {savedPanMasked && (
-                    <div className="flex justify-between text-xs">
-                      <span style={{ color: '#71717a' }}>PAN</span>
-                      <span className="text-white font-mono">{savedPanMasked}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Mode toggle */}
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {(['bank', 'upi'] as const).map(mode => (
-                  <button key={mode} type="button"
-                    onClick={() => { setPayoutMode(mode); setPayoutError(''); setPayoutSuccess('') }}
-                    className="py-2.5 rounded-xl text-sm font-medium transition-all capitalize"
-                    style={{
-                      background: payoutMode === mode ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.04)',
-                      border: payoutMode === mode ? '1px solid rgba(124,58,237,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                      color: payoutMode === mode ? '#8b5cf6' : '#a1a1aa',
-                    }}>
-                    {mode === 'bank' ? '🏦 Bank Account' : '📱 UPI ID'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Bank form */}
-              {payoutMode === 'bank' && (
-                <div className="flex flex-col gap-3 mb-4">
-                  <div>
-                    <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
-                      Account Holder Name (as on bank account) *
-                    </label>
-                    <input value={fAccountHolder} onChange={e => setFAccountHolder(e.target.value)}
-                      placeholder="Full name exactly as on bank account"
-                      autoComplete="off"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
-                      Bank Account Number *
-                    </label>
-                    <div className="relative">
-                      <input
-                        value={fAccountNumber}
-                        onChange={e => setFAccountNumber(e.target.value.replace(/\D/g, ''))}
-                        type={showAccountNumber ? 'text' : 'password'}
-                        placeholder="Enter account number"
-                        autoComplete="new-password"
-                        maxLength={18}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pr-10 text-sm text-white outline-none focus:border-violet-500/50 font-mono"
-                      />
-                      <button type="button"
-                        onClick={() => setShowAccountNumber(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2"
-                        style={{ color: '#52525b' }}>
-                        {showAccountNumber
-                          ? <EyeOff className="w-4 h-4" />
-                          : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <p className="text-[10px] mt-1" style={{ color: '#52525b' }}>
-                      Only the last 4 digits are stored. The full number is never saved.
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-zinc-500 mb-1.5 block">IFSC Code *</label>
-                    <input value={fIfsc} onChange={e => setFIfsc(e.target.value.toUpperCase())}
-                      placeholder="e.g. HDFC0001234"
-                      maxLength={11}
-                      autoComplete="off"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 font-mono uppercase" />
-                  </div>
-                </div>
-              )}
-
-              {/* UPI form */}
-              {payoutMode === 'upi' && (
-                <div className="mb-4">
-                  <label className="text-xs font-medium text-zinc-500 mb-1.5 block">UPI ID *</label>
-                  <input value={fUpiId} onChange={e => setFUpiId(e.target.value)}
-                    placeholder="yourname@upi or yourname@okicici"
-                    autoComplete="off"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 font-mono" />
-                </div>
-              )}
-
-              {/* PAN (required for KYC — both modes) */}
-              <div className="mb-4">
-                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
-                  PAN Number (required for KYC)
-                  {savedPanMasked && (
-                    <span className="ml-2 text-violet-400">— saved as {savedPanMasked}</span>
-                  )}
-                </label>
-                <div className="relative">
-                  <input
-                    value={fPan}
-                    onChange={e => setFPan(e.target.value.toUpperCase().replace(/\s/g, ''))}
-                    type={showPan ? 'text' : 'password'}
-                    placeholder={savedPanMasked ? 'Enter to update PAN' : 'ABCDE1234F'}
-                    maxLength={10}
-                    autoComplete="new-password"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pr-10 text-sm text-white outline-none focus:border-violet-500/50 font-mono uppercase"
-                  />
-                  <button type="button"
-                    onClick={() => setShowPan(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                    style={{ color: '#52525b' }}>
-                    {showPan
-                      ? <EyeOff className="w-4 h-4" />
-                      : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-[10px] mt-1" style={{ color: '#52525b' }}>
-                  Required by Razorpay for payout KYC. Stored masked — the raw PAN is never saved.
-                </p>
               </div>
 
               {/* Security note */}
@@ -624,7 +448,7 @@ export default function SettingsPage() {
                 style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
                 <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#38bdf8' }} />
                 <p className="text-xs" style={{ color: '#a1a1aa' }}>
-                  Your financial details are encrypted in transit (HTTPS). Full account numbers and raw PAN are never stored — only masked references used for display.
+                  Kurso never sees or stores your bank details, UPI ID, or PAN. Payout setup happens directly with Razorpay — we only receive a connection status back.
                 </p>
               </div>
 
@@ -636,17 +460,15 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {payoutSuccess && (
-                <div className="mb-3 p-3 rounded-xl flex items-start gap-2"
-                  style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#4ade80' }} />
-                  <p className="text-xs" style={{ color: '#86efac' }}>{payoutSuccess}</p>
-                </div>
-              )}
-
-              <button onClick={handlePayoutSave} disabled={payoutSaving}
+              <button onClick={handleConnectPayout} disabled={payoutConnecting || payoutStatus === 'connected'}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-                {payoutSaving ? 'Saving...' : savedPayoutStatus !== 'not_set' ? 'Update Payout Details' : 'Save Payout Details'}
+                {payoutConnecting
+                  ? 'Opening...'
+                  : payoutStatus === 'connected'
+                  ? 'Connected'
+                  : payoutStatus === 'pending'
+                  ? 'Continue Setup with Razorpay'
+                  : 'Connect via Razorpay'}
               </button>
             </>
           )}
