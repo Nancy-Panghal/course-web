@@ -3,34 +3,32 @@ import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 
-type Creator = { id: string; name: string; payout_account_status: string; payout_account_holder: string }
-
-type CreatorDetail = {
-  id: string
-  name: string
-  status: string
-}
-
+type Creator = { id: string; name: string; payout_account_status: string }
+type CreatorDetail = { id: string; name: string; status: string }
+type UnpaidSale = { id: string; net_amount: number; paid_at: string; course_id: string; courses?: { name: string } }
 type PayoutRow = {
   id: string
   amount: number
-  net_amount: number
   payout_date: string
   status: string
   method: string
   reference_note: string | null
+  payment_id: string | null
 }
+type Clawback = { id: string; clawback_amount: number; created_at: string; payment_id: string }
 
 export default function AdminPayoutsPage() {
   const [token, setToken] = useState('')
   const [creators, setCreators] = useState<Creator[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [detail, setDetail] = useState<CreatorDetail | null>(null)
+  const [unpaidSales, setUnpaidSales] = useState<UnpaidSale[]>([])
   const [history, setHistory] = useState<PayoutRow[]>([])
+  const [clawbacks, setClawbacks] = useState<Clawback[]>([])
   const [loadingList, setLoadingList] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
-  
 
+  const [selectedPaymentId, setSelectedPaymentId] = useState('')
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<'manual_bank_transfer' | 'manual_upi'>('manual_bank_transfer')
   const [referenceNote, setReferenceNote] = useState('')
@@ -65,8 +63,11 @@ export default function AdminPayoutsPage() {
   async function loadCreator(id: string) {
     setSelectedId(id)
     setDetail(null)
+    setUnpaidSales([])
     setHistory([])
-    
+    setClawbacks([])
+    setSelectedPaymentId('')
+    setAmount('')
     setMessage('')
     setError('')
     if (!id || !token) return
@@ -78,12 +79,19 @@ export default function AdminPayoutsPage() {
     if (res.ok) {
       const d = await res.json()
       setDetail(d.creator)
+      setUnpaidSales(d.unpaidSales || [])
       setHistory(d.history || [])
+      setClawbacks(d.outstandingClawbacks || [])
     } else {
       const d = await res.json().catch(() => ({}))
       setError(d.error || 'Could not load creator payout details.')
     }
     setLoadingDetail(false)
+  }
+
+  function pickSale(sale: UnpaidSale) {
+    setSelectedPaymentId(sale.id)
+    setAmount(String(sale.net_amount))
   }
 
   async function handleLogPayout() {
@@ -95,7 +103,13 @@ export default function AdminPayoutsPage() {
     const res = await fetch('/api/admin/payouts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ creatorId: selectedId, amount: Number(amount), method, referenceNote }),
+      body: JSON.stringify({
+        creatorId: selectedId,
+        amount: Number(amount),
+        method,
+        referenceNote,
+        paymentId: selectedPaymentId || null,
+      }),
     })
     const d = await res.json().catch(() => ({}))
     setSaving(false)
@@ -108,7 +122,8 @@ export default function AdminPayoutsPage() {
     setMessage('Payout logged. The creator will see this in their dashboard now.')
     setAmount('')
     setReferenceNote('')
-    loadCreator(selectedId) // refresh history
+    setSelectedPaymentId('')
+    loadCreator(selectedId)
   }
 
   return (
@@ -117,7 +132,7 @@ export default function AdminPayoutsPage() {
       <main className="flex-1 p-8 max-w-3xl">
         <h1 className="text-xl font-semibold text-white mb-1">Log a Creator Payout</h1>
         <p className="text-xs mb-6" style={{ color: '#71717a' }}>
-          Admin only. This writes directly to the same table creators see in their own Payout History.
+          Admin only. Pay creators the same day as each sale — no monthly batching, no buffer held back.
         </p>
 
         {error && !detail && (
@@ -140,7 +155,7 @@ export default function AdminPayoutsPage() {
               <option value="">— Choose a creator —</option>
               {creators.map((c) => (
                 <option key={c.id} value={c.id} style={{ background: '#18181b' }}>
-                  {c.name || c.id} ({c.payout_account_status || 'not_set'})
+                  {c.name || c.id} ({c.payout_account_status || 'not_connected'})
                 </option>
               ))}
             </select>
@@ -149,6 +164,17 @@ export default function AdminPayoutsPage() {
 
             {detail && (
               <>
+                {clawbacks.length > 0 && (
+                  <div className="p-4 rounded-xl mb-6" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)' }}>
+                    <p className="text-sm font-semibold mb-2" style={{ color: '#fca5a5' }}>
+                      This creator owes Kurso ₹{clawbacks.reduce((s, c) => s + Number(c.clawback_amount || 0), 0).toLocaleString('en-IN')} back
+                    </p>
+                    <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                      A refund happened after this creator was already paid out for that sale. Settle this directly with the creator (deduct from a future payout, or ask them to return it).
+                    </p>
+                  </div>
+                )}
+
                 <div className="p-4 rounded-xl mb-6" style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
                   <p className="text-sm font-semibold text-white mb-1">Kurso doesn't store this creator's payout details</p>
                   <p className="text-xs" style={{ color: '#a1a1aa' }}>
@@ -156,8 +182,34 @@ export default function AdminPayoutsPage() {
                   </p>
                 </div>
 
+                {unpaidSales.length > 0 && (
+                  <div className="p-4 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-sm font-semibold text-white mb-3">Sales awaiting payout ({unpaidSales.length})</p>
+                    <div className="flex flex-col gap-1.5">
+                      {unpaidSales.map((sale) => (
+                        <button
+                          key={sale.id}
+                          onClick={() => pickSale(sale)}
+                          className="flex justify-between items-center px-3 py-2 rounded-lg text-xs text-left transition-all"
+                          style={{
+                            background: selectedPaymentId === sale.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
+                            border: selectedPaymentId === sale.id ? '1px solid rgba(124,58,237,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                          }}
+                        >
+                          <span style={{ color: '#a1a1aa' }}>
+                            {sale.courses?.name || 'Course'} · {new Date(sale.paid_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                          <span className="text-white font-medium">₹{Number(sale.net_amount).toLocaleString('en-IN')}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="p-4 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p className="text-sm font-semibold text-white mb-3">Log a payout you've already sent</p>
+                  <p className="text-sm font-semibold text-white mb-3">
+                    {selectedPaymentId ? 'Log payout for selected sale' : 'Log a payout you\'ve already sent'}
+                  </p>
 
                   <label className="text-xs mb-1 block" style={{ color: '#71717a' }}>Amount (₹)</label>
                   <input

@@ -519,6 +519,7 @@ export default function HomePage() {
             <Link href="/feedback" className="text-text-3 text-sm hover:text-text-2 transition-colors">Feedback</Link>
             <Link href="/privacy" className="text-text-3 text-sm hover:text-text-2 transition-colors">Privacy</Link>
             <Link href="/terms" className="text-text-3 text-sm hover:text-text-2 transition-colors">Terms</Link>
+            <Link href="/refund-policy" className="text-text-3 text-sm hover:text-text-2 transition-colors">Refund Policy</Link>
             <Link href="/contact" className="text-text-3 text-sm hover:text-text-2 transition-colors">Contact</Link>
           </div>
         </div>

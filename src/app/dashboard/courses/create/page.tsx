@@ -126,6 +126,8 @@ export default function CreateCoursePage() {
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [originalPrice, setOriginalPrice] = useState('')
+  const [refundWindowDays, setRefundWindowDays] = useState('7')
+  const [refundPolicyText, setRefundPolicyText] = useState('')
   const [hostName, setHostName] = useState('')
   const [aboutCreator, setAboutCreator] = useState('')
   const [delivery, setDelivery] = useState('both')
@@ -260,6 +262,8 @@ export default function CreateCoursePage() {
         instructor_title: instructorTitle.trim() || null,
         requirements: requirements.filter(r => r.trim()),
         target_audience: targetAudience.filter(t => t.trim()),
+        refund_window_days: refundWindowDays === '' ? 0 : parseInt(refundWindowDays),
+        refund_policy_text: refundPolicyText.trim() || null,
       })
       .select()
       .single()
@@ -352,6 +356,23 @@ export default function CreateCoursePage() {
                   <Input value={originalPrice} onChange={setOriginalPrice} placeholder="9999" type="number" />
                 </Field>
               </div>
+
+              <Field label="Refund Window (days)" hint="How many days after purchase a student can request a refund. Set to 0 for no refunds.">
+                <Input value={refundWindowDays} onChange={setRefundWindowDays} placeholder="7" type="number" />
+              </Field>
+
+              <Field label="Refund Policy (shown to students before purchase)" hint="Optional — e.g. 'Full refund within 7 days, no questions asked.' Leave blank to just show the refund window.">
+                <textarea
+                  value={refundPolicyText}
+                  onChange={e => setRefundPolicyText(e.target.value)}
+                  placeholder="Describe your refund terms in your own words..."
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
+                  style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </Field>
 
               <Field label="Free Preview Configuration" hint="Select how much content is free for students">
                 <select

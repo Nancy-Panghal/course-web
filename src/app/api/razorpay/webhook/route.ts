@@ -683,6 +683,17 @@ async function handleRefundProcessed(body: any) {
     const isFullRefund = refundAmount >= Number(payment.net_amount || 0)
     const newPaymentStatus = isFullRefund ? 'refunded' : 'partially_refunded'
 
+    // Clawback check: has this specific sale already been paid out to the
+    // creator (payouts.payment_id = this payment)? If so, the creator now
+    // owes that amount back to Kurso — flag it, don't silently lose it.
+    // No automatic deduction happens here — this is a visibility flag only,
+    // since Kurso holds no buffer/reserve against creator payouts.
+    const existingPayout = await firstRow(
+      supabaseAdmin.from('payouts').select('id, amount').eq('payment_id', payment.id)
+    )
+    const clawbackOwed = isFullRefund && !!existingPayout
+    const clawbackAmount = clawbackOwed ? Number(existingPayout.amount) : null
+
     await supabaseAdmin.from('refunds').insert({
       payment_id: payment.id,
       provider_refund_id: razorpay_refund_id,
@@ -691,6 +702,8 @@ async function handleRefundProcessed(body: any) {
       status: refundEntity.status || 'processed',
       is_full_refund: isFullRefund,
       raw_event: body,
+      clawback_owed: clawbackOwed,
+      clawback_amount: clawbackAmount,
     })
 
     await supabaseAdmin.from('payments').update({ status: newPaymentStatus }).eq('id', payment.id)
@@ -707,6 +720,8 @@ async function handleRefundProcessed(body: any) {
       courseId: payment.course_id,
       amount: refundAmount,
       isFullRefund,
+      clawbackOwed,
+      clawbackAmount,
     })
     await maybeSendStudentRefundEmail({
       studentId: payment.student_id,
@@ -775,11 +790,15 @@ async function maybeSendCreatorRefundEmail({
   courseId,
   amount,
   isFullRefund,
+  clawbackOwed,
+  clawbackAmount,
 }: {
   creatorId: string
   courseId: string
   amount: number
   isFullRefund: boolean
+  clawbackOwed?: boolean
+  clawbackAmount?: number | null
 }) {
   try {
     const { data } = await supabaseAdmin.auth.admin.getUserById(creatorId)
@@ -790,6 +809,14 @@ async function maybeSendCreatorRefundEmail({
     const safeCourse = escapeHtml(course?.name || 'your course')
     const label = isFullRefund ? 'Full refund' : 'Partial refund'
 
+    const clawbackBlock = clawbackOwed
+      ? `
+        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px;margin:0 0 16px">
+          <p style="margin:0"><strong>Note:</strong> this sale was already paid out to you (₹${Number(clawbackAmount || 0).toLocaleString('en-IN')}). Since the payment has now been refunded, this amount is owed back to Kurso — we'll follow up separately to settle it.</p>
+        </div>
+      `
+      : ''
+
     await sendLoggedEmail({
       supabase: supabaseAdmin,
       emailType: 'creator_refund_notice',
@@ -797,12 +824,13 @@ async function maybeSendCreatorRefundEmail({
       subject: `${label} issued: ₹${amount.toLocaleString('en-IN')}`,
       creatorId,
       courseId,
-      metadata: { amount, is_full_refund: isFullRefund },
+      metadata: { amount, is_full_refund: isFullRefund, clawback_owed: !!clawbackOwed },
       html: `
         <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
           <h2 style="margin:0 0 12px">${label}</h2>
           <p style="margin:0 0 8px"><strong>₹${amount.toLocaleString('en-IN')}</strong> was refunded for <strong>${safeCourse}</strong>.</p>
           <p style="margin:0 0 16px">${isFullRefund ? "The student's access to this course has been automatically revoked." : "This was a partial refund — the student's access is unchanged."}</p>
+          ${clawbackBlock}
           <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
             style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
             Open dashboard

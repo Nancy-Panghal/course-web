@@ -1,7 +1,8 @@
 /**
- * Admin-only. Lets you log a manual payout and see payout history for a creator.
- * Kurso doesn't store bank/UPI details, so this does NOT tell you where to send
- * money — confirm that with the creator directly before logging the payout.
+ * Admin-only. Lets you log a manual payout (linked to the specific sale it
+ * pays out) and see payout history + any refund clawbacks for a creator.
+ * Kurso doesn't store bank/UPI details, so this does NOT tell you where to
+ * send money — confirm that with the creator directly before logging.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -31,18 +32,50 @@ export async function GET(req: NextRequest) {
     if (creatorError) throw creatorError
     if (!creator) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
 
+    // Sales not yet paid out — "log a payout" defaults against these
+    const { data: unpaidSales, error: unpaidError } = await supabase
+      .from('payments')
+      .select('id, net_amount, paid_at, course_id, courses(name)')
+      .eq('creator_id', creatorId)
+      .eq('status', 'paid')
+      .order('paid_at', { ascending: false })
+      .limit(100)
+
+    if (unpaidError) throw unpaidError
+
+    const { data: existingPayouts } = await supabase
+      .from('payouts')
+      .select('payment_id')
+      .eq('creator_id', creatorId)
+      .not('payment_id', 'is', null)
+
+    const paidPaymentIds = new Set((existingPayouts || []).map((p: any) => p.payment_id))
+    const unpaid = (unpaidSales || []).filter((p: any) => !paidPaymentIds.has(p.id))
+
     const { data: history, error: historyError } = await supabase
       .from('payouts')
-      .select('id, amount, platform_fee, net_amount, payout_date, status, method, reference_note, recorded_by')
+      .select('id, amount, payout_date, status, method, reference_note, recorded_by, payment_id')
       .eq('creator_id', creatorId)
       .order('payout_date', { ascending: false })
       .limit(50)
 
     if (historyError) throw historyError
 
+    // Outstanding clawbacks — refunds on sales already paid out, not yet resolved
+    const { data: clawbacks, error: clawbackError } = await supabase
+      .from('refunds')
+      .select('id, clawback_amount, created_at, payment_id, payments!inner(creator_id)')
+      .eq('clawback_owed', true)
+      .eq('clawback_resolved', false)
+      .eq('payments.creator_id', creatorId)
+
+    if (clawbackError) throw clawbackError
+
     return NextResponse.json({
       creator: { id: creator.id, name: creator.name, status: creator.payout_account_status || 'not_connected' },
+      unpaidSales: unpaid,
       history: history || [],
+      outstandingClawbacks: clawbacks || [],
     })
   } catch (err: any) {
     return friendlyErrorResponse(err, 'admin/payouts GET')
@@ -55,12 +88,13 @@ export async function POST(req: NextRequest) {
     if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { creatorId, amount, method, referenceNote, payoutDate } = body as {
+    const { creatorId, amount, method, referenceNote, payoutDate, paymentId } = body as {
       creatorId?: string
       amount?: number
       method?: string
       referenceNote?: string
       payoutDate?: string
+      paymentId?: string | null
     }
 
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
@@ -75,6 +109,7 @@ export async function POST(req: NextRequest) {
       .from('payouts')
       .insert({
         creator_id: creatorId,
+        payment_id: paymentId || null,
         amount: Number(amount),
         platform_fee: 0,
         net_amount: Number(amount),

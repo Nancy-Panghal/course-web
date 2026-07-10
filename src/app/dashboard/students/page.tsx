@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { Users, Search, Phone, BookOpen, Calendar, TrendingUp } from 'lucide-react'
+import { Users, Search, Phone, BookOpen, Calendar, TrendingUp, RotateCcw } from 'lucide-react'
 
 interface Student {
   id: string
@@ -10,6 +10,7 @@ interface Student {
   current_lesson: number
   enrolled_at: string
   course_id: string | null
+  payment_status?: string
 }
 
 interface Lesson {
@@ -22,6 +23,37 @@ export default function StudentsPage() {
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [refundingId, setRefundingId] = useState('')
+  const [refundMessage, setRefundMessage] = useState<{ id: string; text: string; ok: boolean } | null>(null)
+
+  async function handleRefund(studentId: string) {
+    if (!confirm('Refund this student? This will send the money back to their original payment method and revoke their course access.')) return
+
+    setRefundingId(studentId)
+    setRefundMessage(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setRefundMessage({ id: studentId, text: 'Not signed in.', ok: false })
+        return
+      }
+      const res = await fetch('/api/creator/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ enrollmentId: studentId }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRefundMessage({ id: studentId, text: d.error || 'Could not process refund.', ok: false })
+        return
+      }
+      setRefundMessage({ id: studentId, text: 'Refund initiated.', ok: true })
+    } catch {
+      setRefundMessage({ id: studentId, text: 'Network error. Please try again.', ok: false })
+    } finally {
+      setRefundingId('')
+    }
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -139,10 +171,11 @@ export default function StudentsPage() {
             <div className="grid grid-cols-12 gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wider"
               style={{background:'rgba(255,255,255,0.03)', color:'#52525b', borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
               <div className="col-span-3">Phone</div>
-              <div className="col-span-3">Current Lesson</div>
+              <div className="col-span-2">Current Lesson</div>
               <div className="col-span-2">Progress</div>
               <div className="col-span-2">Status</div>
-              <div className="col-span-2">Enrolled</div>
+              <div className="col-span-1">Enrolled</div>
+              <div className="col-span-2">Refund</div>
             </div>
 
             {/* Table rows */}
@@ -169,7 +202,7 @@ export default function StudentsPage() {
                   </div>
 
                   {/* Current lesson */}
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <p className="text-sm text-white truncate">{getCurrentLessonTitle(student.current_lesson)}</p>
                     <p className="text-xs mt-0.5" style={{color:'#52525b'}}>Lesson {student.current_lesson} of {totalLessons}</p>
                   </div>
@@ -194,12 +227,41 @@ export default function StudentsPage() {
                   </div>
 
                   {/* Enrolled date */}
-                  <div className="col-span-2">
+                  <div className="col-span-1">
                     <span className="text-xs" style={{color:'#52525b'}}>
                       {new Date(student.enrolled_at).toLocaleDateString('en-IN', {
                         day: 'numeric', month: 'short', year: '2-digit'
                       })}
                     </span>
+                  </div>
+
+                  {/* Refund */}
+                  <div className="col-span-2">
+                    {student.payment_status === 'refunded' ? (
+                      <span className="text-xs" style={{ color: '#52525b' }}>Refunded</span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleRefund(student.id)}
+                          disabled={refundingId === student.id}
+                          className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all"
+                          style={{
+                            background: 'rgba(248,113,113,0.08)',
+                            color: '#f87171',
+                            border: '1px solid rgba(248,113,113,0.2)',
+                            opacity: refundingId === student.id ? 0.6 : 1,
+                          }}
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          {refundingId === student.id ? 'Processing…' : 'Refund'}
+                        </button>
+                        {refundMessage?.id === student.id && (
+                          <p className="text-[10px] mt-1" style={{ color: refundMessage.ok ? '#4ade80' : '#fca5a5' }}>
+                            {refundMessage.text}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               )

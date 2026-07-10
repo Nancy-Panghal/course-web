@@ -181,6 +181,7 @@ export default function TermsPage() {
         <div className="flex items-center justify-center gap-6 text-sm" style={{color:'#52525b'}}>
           <Link href="/terms" style={{color:'#a1a1aa'}}>Terms</Link>
           <Link href="/privacy" style={{color:'#52525b'}} className="hover:text-white transition-colors">Privacy</Link>
+          <Link href="/refund-policy" style={{color:'#52525b'}} className="hover:text-white transition-colors">Refund Policy</Link>
           <Link href="/" style={{color:'#52525b'}} className="hover:text-white transition-colors">Home</Link>
         </div>
         <p className="text-xs mt-4" style={{color:'#3f3f46'}}>© 2026 AcademyKit. All rights reserved.</p>

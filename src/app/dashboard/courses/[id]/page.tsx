@@ -34,6 +34,8 @@ interface Course {
   faq?: { question: string; answer: string }[]
   host_image?: string
   free_preview_config?: string
+  refund_window_days?: number
+  refund_policy_text?: string
   scheduled_deletion_at?: string
   next_lesson_date?: string
   course_end_date?: string
@@ -1947,6 +1949,8 @@ export default function CourseManagePage({
   const [editDesc, setEditDesc] = useState('')
   const [editPrice, setEditPrice] = useState('')
   const [editOriginalPrice, setEditOriginalPrice] = useState('')
+  const [editRefundWindowDays, setEditRefundWindowDays] = useState('7')
+  const [editRefundPolicyText, setEditRefundPolicyText] = useState('')
   const [editHostName, setEditHostName] = useState('')
   const [editAbout, setEditAbout] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
@@ -2010,6 +2014,8 @@ export default function CourseManagePage({
       setEditDesc(courseData.description)
       setEditPrice(courseData.price.toString())
       setEditOriginalPrice(courseData.original_price?.toString() || '')
+      setEditRefundWindowDays(courseData.refund_window_days?.toString() ?? '7')
+      setEditRefundPolicyText(courseData.refund_policy_text || '')
       setEditHostName(courseData.host_name || '')
       setEditAbout(courseData.about_creator || '')
       setEditStartDate(courseData.start_date || '')
@@ -2098,6 +2104,8 @@ export default function CourseManagePage({
         skills: editSkills.trim()
           ? editSkills.split(',').map(s => s.trim()).filter(Boolean)
           : null,
+        refund_window_days: editRefundWindowDays === '' ? 0 : parseInt(editRefundWindowDays),
+        refund_policy_text: editRefundPolicyText.trim() || null,
         brand_name: editBrandName.trim() || null,
         instructor_title: editInstructorTitle.trim() || null,
         promo_video_url: editPromoVideoUrl.trim() || null,
@@ -2129,6 +2137,8 @@ export default function CourseManagePage({
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
         free_preview_config: editFreePreview,
+        refund_window_days: editRefundWindowDays === '' ? 0 : parseInt(editRefundWindowDays),
+        refund_policy_text: editRefundPolicyText.trim() || undefined,
       })
     }
     setSavingSettings(false)
@@ -2744,6 +2754,24 @@ export default function CourseManagePage({
                         <input value={editOriginalPrice} onChange={e => setEditOriginalPrice(e.target.value)} type="number"
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Refund Window (days)</label>
+                        <input value={editRefundWindowDays} onChange={e => setEditRefundWindowDays(e.target.value)} type="number"
+                          placeholder="7"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                        <p className="text-[10px] mt-1" style={{ color: '#52525b' }}>0 = no refunds accepted</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Refund Policy (shown to students)</label>
+                      <textarea value={editRefundPolicyText} onChange={e => setEditRefundPolicyText(e.target.value)}
+                        placeholder="Describe your refund terms in your own words..."
+                        rows={3}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
                     </div>
 
                     <div>

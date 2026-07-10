@@ -701,6 +701,25 @@ export default async function AboutCoursePage({
       )}
 
       {/* ══════════════════════════════════════════
+          REFUND POLICY
+      ══════════════════════════════════════════ */}
+      {(course.refund_window_days > 0 || course.refund_policy_text) && (
+        <section className="ak-section py-12 px-6">
+          <div className="max-w-2xl mx-auto rounded-2xl p-6"
+            style={{ background: c.cardBg, border: `1px solid ${c.borderSoft}` }}>
+            <h3 style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.95rem', marginBottom: 8 }}>
+              Refund Policy
+            </h3>
+            <p style={{ color: c.textSecondary, fontSize: '0.85rem', lineHeight: 1.7 }}>
+              {course.refund_policy_text
+                ? course.refund_policy_text
+                : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════════
           FINAL CTA
       ══════════════════════════════════════════ */}
       <section className="ak-section py-24 px-6" style={{
