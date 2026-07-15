@@ -5,7 +5,8 @@ import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 import { slugify } from '@/lib/utils'
 import { LANDING_THEMES, DEFAULT_LANDING_THEME_ID, type LandingThemeId } from '@/lib/landing-themes'
-import { ArrowLeft, Check, ExternalLink, Image as ImageIcon, X, Eye, EyeOff, Layout, Palette, Type } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ExternalLink, Image as ImageIcon, X, Eye, EyeOff, Layout, Palette, Plus, Trash2, Type } from 'lucide-react'
+import { DEFAULT_LANDING_CONFIG, normalizeLandingConfig, type LandingConfig, type LandingSectionType } from '@/lib/landing-config'
 
 async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl: string }> {
   const ext = file.name.split('.').pop()
@@ -47,6 +48,16 @@ const DEFAULT_SECTIONS: SectionsConfig = {
   faq: true,
 }
 
+const CONFIG_SECTION_LABELS: Record<LandingSectionType, { label: string; desc: string }> = {
+  hero: { label: 'Hero', desc: 'Course promise and main CTA' }, stats: { label: 'Quick Stats', desc: 'Lessons, duration, language and level' },
+  target: { label: 'Who is this for?', desc: 'Target audience bullets' }, learn: { label: "What you'll learn", desc: 'Learning outcomes' },
+  requirements: { label: 'Requirements', desc: 'Prerequisites list' }, bonuses: { label: 'Bonuses', desc: 'Extra resources and benefits' },
+  curriculum: { label: 'Curriculum', desc: 'Module and lesson accordion' }, instructor: { label: 'Instructor', desc: 'Photo, credentials and bio' },
+  testimonials: { label: 'Testimonials', desc: 'Student reviews and ratings' }, howItWorks: { label: 'How it works', desc: 'Enrollment and delivery steps' },
+  faq: { label: 'FAQ', desc: 'Frequently asked questions' }, refund: { label: 'Refund policy', desc: 'Course refund terms' },
+  disclaimer: { label: 'Disclaimer', desc: 'Optional compliance or safety notice' }, finalCta: { label: 'Final CTA', desc: 'Closing enrollment CTA' },
+}
+
 // Font pairing options (separate from theme — lets creator override heading/body fonts)
 const FONT_PAIRS = [
   { id: 'theme-default',  label: 'Theme Default',     desc: 'Uses the font included with your theme' },
@@ -74,6 +85,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
   const [brandLogoUrl, setBrandLogoUrl] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [sections, setSections] = useState<SectionsConfig>(DEFAULT_SECTIONS)
+  const [landingConfig, setLandingConfig] = useState<LandingConfig>(DEFAULT_LANDING_CONFIG)
   const [fontPair, setFontPair] = useState<FontPairId>('theme-default')
   const [activeTab, setActiveTab] = useState<'theme' | 'sections' | 'fonts'>('theme')
 
@@ -84,7 +96,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
 
       const { data: course } = await supabase
         .from('courses')
-        .select('id, name, host_name, landing_theme, brand_logo_url, landing_sections, landing_font_pair')
+        .select('id, name, host_name, landing_theme, brand_logo_url, landing_sections, landing_config, landing_font_pair')
         .eq('id', courseId)
         .eq('creator_id', user.id)
         .single()
@@ -96,6 +108,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
       setSelectedTheme((course.landing_theme as LandingThemeId) || DEFAULT_LANDING_THEME_ID)
       setBrandLogoUrl(course.brand_logo_url || '')
       setSections({ ...DEFAULT_SECTIONS, ...(course.landing_sections || {}) })
+      setLandingConfig(normalizeLandingConfig(course.landing_config, course.landing_sections || {}))
       setFontPair((course.landing_font_pair as FontPairId) || 'theme-default')
       setLoading(false)
     }
@@ -107,6 +120,20 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
 
   function toggleSection(key: SectionKey) {
     setSections(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  function updateConfigSection(type: LandingSectionType, enabled: boolean) {
+    setLandingConfig(prev => ({ ...prev, sections: prev.sections.map(section => section.type === type ? { ...section, enabled } : section) }))
+  }
+
+  function moveConfigSection(index: number, direction: -1 | 1) {
+    setLandingConfig(prev => {
+      const sections = [...prev.sections]
+      const nextIndex = index + direction
+      if (nextIndex < 0 || nextIndex >= sections.length) return prev
+      ;[sections[index], sections[nextIndex]] = [sections[nextIndex], sections[index]]
+      return { ...prev, sections }
+    })
   }
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -134,6 +161,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
         landing_theme: selectedTheme,
         brand_logo_url: brandLogoUrl || null,
         landing_sections: sections,
+        landing_config: landingConfig,
         landing_font_pair: fontPair === 'theme-default' ? null : fontPair,
       })
       .eq('id', courseId)
