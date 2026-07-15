@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle } from 'lucide-react'
+import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Link2 } from 'lucide-react'
 
 // ── OUTSIDE the page component — fixes input focus loss ──
 function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false, rightElement }: {
@@ -61,6 +61,108 @@ function Toggle({ label, desc, value, onChange }: {
           style={{ left: value ? '24px' : '4px' }} />
       </button>
     </div>
+  )
+}
+
+function PublicProfileSection() {
+  const [token, setToken] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [slug, setSlug] = useState('')
+  const [savedSlug, setSavedSlug] = useState('')
+  const [bio, setBio] = useState('')
+  const [businessAddress, setBusinessAddress] = useState('')
+  const [gstin, setGstin] = useState('')
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { setLoading(false); return }
+      setToken(session.access_token)
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase.from('creators').select('creator_slug, creator_bio, creator_business_address, creator_gstin').eq('id', user.id).maybeSingle()
+        if (data?.creator_slug) { setSlug(data.creator_slug); setSavedSlug(data.creator_slug) }
+        if (data?.creator_bio) setBio(data.creator_bio)
+        if (data?.creator_business_address) setBusinessAddress(data.creator_business_address)
+        if (data?.creator_gstin) setGstin(data.creator_gstin)
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  async function handleSave() {
+    setError('')
+    setMessage('')
+    setSaving(true)
+    try {
+      const res = await fetch('/api/creator/public-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ slug, bio, businessAddress, gstin }),
+      })
+      const d = await res.json()
+      if (!res.ok) { setError(d.error || 'Could not save.'); return }
+      setSavedSlug(d.slug)
+      setSlug(d.slug)
+      setMessage('Saved.')
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) return null
+
+  return (
+    <SectionCard title="Public Profile" icon={Link2}>
+      <p className="text-xs mb-4" style={{ color: '#71717a' }}>
+        A shareable page listing all your published courses. Set your handle once — students who buy one course can find your others here.
+      </p>
+      <div className="mb-3">
+        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Handle</label>
+        <div className="flex items-center gap-2">
+          <span className="text-sm" style={{ color: '#52525b' }}>kurso.in/creator/</span>
+          <input value={slug} onChange={e => setSlug(e.target.value)} placeholder="your-name"
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+        </div>
+      </div>
+      <div className="mb-4">
+        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Bio</label>
+        <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3}
+          placeholder="Tell students a bit about yourself..."
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
+      </div>
+      <div className="mb-4">
+        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Business Address (shown on invoices)</label>
+        <input value={businessAddress} onChange={e => setBusinessAddress(e.target.value)} placeholder="Optional"
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+      </div>
+      <div className="mb-4">
+        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">GSTIN (only if you're GST-registered)</label>
+        <input value={gstin} onChange={e => setGstin(e.target.value.toUpperCase())} placeholder="Leave blank if not registered"
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 font-mono" />
+        <p className="text-[10px] mt-1" style={{ color: '#52525b' }}>
+          If filled in, your invoices will show this GSTIN. Kurso does not calculate or add GST tax breakdowns — for full GST compliance, check with your CA.
+        </p>
+      </div>
+      {error && <p className="text-xs mb-3" style={{ color: '#fca5a5' }}>{error}</p>}
+      {message && <p className="text-xs mb-3" style={{ color: '#4ade80' }}>{message}</p>}
+      <button onClick={handleSave} disabled={saving || !slug.trim()}
+        className="px-5 py-2.5 rounded-lg text-sm font-medium text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+        {saving ? 'Saving...' : 'Save profile'}
+      </button>
+      {savedSlug && (
+        <p className="text-xs mt-3" style={{ color: '#52525b' }}>
+          Live at: <a href={`/creator/${savedSlug}`} target="_blank" style={{ color: '#8b5cf6' }}>kurso.in/creator/{savedSlug}</a>
+        </p>
+      )}
+    </SectionCard>
   )
 }
 
@@ -357,7 +459,7 @@ export default function SettingsPage() {
           />
         </SectionCard>
 
-        
+        <PublicProfileSection />
 
         <SectionCard title="Telegram Delivery" icon={MessageCircle}>
           <div className="p-4 rounded-xl"

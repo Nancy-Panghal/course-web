@@ -31,6 +31,9 @@ export interface LessonPageLesson {
   assignment_file_url?: string | null
   assignment_file_name?: string | null
   content_url?: string | null // used for the live-class join link
+  live_scheduled_at?: string | null
+  live_recording_url?: string | null
+  live_duration_minutes?: number | null
 }
 
 export interface RenderLessonPageParams {
@@ -49,6 +52,7 @@ export interface RenderLessonPageParams {
   ctaUrl: string | null
   ctaLabel: string
   ctaColor: string
+  reminderChannel?: string | null // 'whatsapp' | 'telegram' | 'none' | null (student's saved preference)
 }
 
 function resolveContentKind(contentType: string): ContentKind {
@@ -61,6 +65,22 @@ function resolveContentKind(contentType: string): ContentKind {
 
 function isImageFile(nameOrUrl: string): boolean {
   return /\.(jpe?g|png|gif|webp)$/i.test(nameOrUrl)
+}
+
+// How a live lesson should render right now, purely based on time.
+type LiveState = 'upcoming' | 'joinable' | 'recording' | 'ended_no_recording' | 'not_scheduled'
+const JOIN_WINDOW_BEFORE_MS = 15 * 60 * 1000 // can join 15 min early
+const GRACE_AFTER_MS = 30 * 60 * 1000 // still "joinable" for 30 min after scheduled end, in case it runs long
+
+function resolveLiveState(lesson: LessonPageLesson): LiveState {
+  if (!lesson.live_scheduled_at) return lesson.content_url ? 'joinable' : 'not_scheduled'
+  const scheduledMs = new Date(lesson.live_scheduled_at).getTime()
+  const durationMs = (lesson.live_duration_minutes || 60) * 60 * 1000
+  const now = Date.now()
+
+  if (now < scheduledMs - JOIN_WINDOW_BEFORE_MS) return 'upcoming'
+  if (now <= scheduledMs + durationMs + GRACE_AFTER_MS) return 'joinable'
+  return lesson.live_recording_url ? 'recording' : 'ended_no_recording'
 }
 
 export function renderLessonPage({
@@ -79,6 +99,7 @@ export function renderLessonPage({
   ctaUrl,
   ctaLabel,
   ctaColor,
+  reminderChannel,
 }: RenderLessonPageParams): string {
   const title = lesson.title || 'Lesson'
   const courseName = course?.name || 'Course'
@@ -353,7 +374,12 @@ export function renderLessonPage({
     }
     .content-card-btn.quiz { background: linear-gradient(135deg,#7c3aed,#4f46e5); color: #fff; }
     .content-card-btn.live { background: #eab308; color: #000; }
-
+    .reminder-prompt { font-size: 0.85rem; color: #a1a1aa; margin-bottom: 10px; }
+    .reminder-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .reminder-btn { padding: 8px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #e9efe9; cursor: pointer; }
+    .reminder-btn.wa { border-color: rgba(74,222,128,0.3); color: #4ade80; }
+    .reminder-btn.tg { border-color: rgba(56,189,248,0.3); color: #38bdf8; }
+    .reminder-status { font-size: 0.8rem; color: #4ade80; margin-top: 8px; }
     .assignment-section {
       margin: 18px 16px; padding: 16px; border-radius: 12px;
       background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2);
@@ -410,10 +436,57 @@ export function renderLessonPage({
     ` : contentKind === 'live' ? `
     <!-- Live class lesson -->
     <div class="content-card live">
-      ${lesson.content_url ? `
-        <p class="content-card-title">🔴 This is a live class</p>
-        <a href="${lesson.content_url}" target="_blank" class="content-card-btn live">Join Live Class</a>
-      ` : `<p class="content-card-empty">Live class details haven't been added yet. Check back soon.</p>`}
+      ${(() => {
+        const liveState = resolveLiveState(lesson)
+        const scheduledLabel = lesson.live_scheduled_at
+          ? new Date(lesson.live_scheduled_at).toLocaleString('en-IN', {
+              day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+            })
+          : null
+
+        if (liveState === 'not_scheduled') {
+          return `<p class="content-card-empty">Live class details haven't been added yet. Check back soon.</p>`
+        }
+
+        if (liveState === 'joinable') {
+          return `
+            <p class="content-card-title">🔴 This is a live class${scheduledLabel ? ` — ${scheduledLabel}` : ''}</p>
+            <a href="${lesson.content_url}" target="_blank" class="content-card-btn live">Join Live Class</a>
+          `
+        }
+
+        if (liveState === 'recording') {
+          return `
+            <p class="content-card-title">📼 This live class has ended</p>
+            <a href="${lesson.live_recording_url}" target="_blank" class="content-card-btn live">Watch Recording</a>
+          `
+        }
+
+        if (liveState === 'ended_no_recording') {
+          return `<p class="content-card-empty">This live class has ended. The recording will be added soon — check back later.</p>`
+        }
+
+        // 'upcoming'
+        const reminderBlock = reminderChannel
+          ? reminderChannel === 'none'
+            ? `<p class="reminder-status">You've opted out of reminders for live classes.</p>`
+            : `<p class="reminder-status">✅ We'll remind you on ${reminderChannel === 'whatsapp' ? 'WhatsApp' : 'Telegram'} 1 hour before.</p>`
+          : `
+            <p class="reminder-prompt">Want a reminder 1 hour before?</p>
+            <div class="reminder-btn-row">
+              <button class="reminder-btn wa" onclick="setReminder('whatsapp')">WhatsApp</button>
+              <button class="reminder-btn tg" onclick="setReminder('telegram')">Telegram</button>
+              <button class="reminder-btn no" onclick="setReminder('none')">No thanks</button>
+            </div>
+            <p id="reminderConfirm" class="reminder-status" style="display:none"></p>
+          `
+
+        return `
+          <p class="content-card-title">🔴 Scheduled: ${scheduledLabel}</p>
+          <p class="content-card-empty" style="margin-bottom:12px">The join link will appear here 15 minutes before class starts.</p>
+          ${reminderBlock}
+        `
+      })()}
     </div>
     ` : contentKind === 'assignment' ? `
     <!-- Assignment lesson — rendered entirely in the assignment section below -->
@@ -695,6 +768,27 @@ export function renderLessonPage({
         btn.disabled = false
         btn.textContent = '✅ Mark Lesson Complete'
       }
+    }
+  async function setReminder(channel) {
+      try {
+        const res = await fetch('/api/student/reminder-preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identity: '${identity}', platform: '${platform}', channel }),
+        })
+        const confirmEl = document.getElementById('reminderConfirm')
+        if (res.ok) {
+          const label = channel === 'whatsapp' ? 'WhatsApp' : channel === 'telegram' ? 'Telegram' : null
+          if (confirmEl) {
+            confirmEl.style.display = 'block'
+            confirmEl.textContent = label ? ('✅ We will remind you on ' + label + ' 1 hour before.') : "Okay, you won't get reminders."
+          }
+          const row = document.querySelector('.reminder-btn-row')
+          if (row) row.style.display = 'none'
+          const prompt = document.querySelector('.reminder-prompt')
+          if (prompt) prompt.style.display = 'none'
+        }
+      } catch (e) {}
     }
   </script>
 </body>

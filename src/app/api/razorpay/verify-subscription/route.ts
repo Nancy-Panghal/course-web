@@ -117,6 +117,26 @@ export async function POST(req: NextRequest) {
 
     if (updateError) throw updateError
 
+    // Record the actual charge — previously nothing persisted this at all
+    // beyond what Razorpay itself has. Idempotent on razorpay_payment_id in
+    // case this route is ever called twice for the same payment.
+    const { error: paymentInsertError } = await supabaseAdmin
+      .from('kurso_subscription_payments')
+      .insert({
+        creator_id: creator.id,
+        razorpay_payment_id,
+        razorpay_order_id,
+        plan_id: plan.id,
+        plan_name: plan.name,
+        amount: plan.amount,
+        status: 'paid',
+      })
+
+    if (paymentInsertError && paymentInsertError.code !== '23505') {
+      // 23505 = unique violation on razorpay_payment_id — already recorded, fine.
+      console.error('[verify-subscription] failed to record payment:', paymentInsertError)
+    }
+
     return NextResponse.json({
       success: true,
       creator: updatedCreator,

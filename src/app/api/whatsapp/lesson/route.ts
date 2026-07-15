@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
       id, title, content_type, order_num, duration, is_published, course_id,
       summary_url, notes_url, quiz_questions,
       assignment_prompt, assignment_required, assignment_file_url, assignment_file_name,
-      content_url
+      content_url, live_scheduled_at, live_recording_url, live_duration_minutes
     `)
     .eq('id', lessonId)
     .eq('course_id', courseId)
@@ -168,7 +168,14 @@ export async function GET(req: NextRequest) {
 
   const isCompleted = Array.isArray(enrollment?.completed_lessons) && enrollment.completed_lessons.includes(lesson.order_num)
 
+  const { data: reminderRow } = await supabase
+    .from('students')
+    .select('reminder_channel')
+    .eq('phone', lookupPhone)
+    .maybeSingle()
+
   const html = renderLessonPage({
+    reminderChannel: reminderRow?.reminder_channel ?? null,
     platform: 'whatsapp',
     lesson,
     course: course ? { id: course.id, name: course.name } : null,

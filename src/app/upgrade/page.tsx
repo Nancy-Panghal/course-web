@@ -74,6 +74,9 @@ function loadRazorpay(): Promise<boolean> {
 
 export default function UpgradePage() {
   const [creator, setCreator] = useState<any>(null)
+  const [payments, setPayments] = useState<any[]>([])
+  const [invoicesMap, setInvoicesMap] = useState<{ [key: string]: any }>({})
+  const [generatingInvoices, setGeneratingInvoices] = useState(false)
   const [trialStatus, setTrialStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [payingPlan, setPayingPlan] = useState<string | null>(null)
@@ -89,6 +92,25 @@ export default function UpgradePage() {
       }
       const profile = await getCreatorProfile()
       setCreator(profile)
+      if (profile?.id) {
+        const { data: payments } = await supabase
+          .from('kurso_subscription_payments')
+          .select('id, plan_name, amount, paid_at')
+          .eq('creator_id', profile.id)
+          .order('paid_at', { ascending: false })
+          .limit(10)
+        if (payments && payments.length > 0) {
+          setPayments(payments)
+          const ids = payments.map((p: any) => p.id)
+          const { data: invoices } = await supabase
+            .from('kurso_invoices')
+            .select('subscription_payment_id, invoice_number')
+            .in('subscription_payment_id', ids)
+          const map: { [key: string]: any } = {}
+          (invoices || []).forEach((inv: any) => { map[inv.subscription_payment_id] = inv })
+          setInvoicesMap(map)
+        }
+      }
       setTrialStatus(getTrialStatus(profile))
       setLoading(false)
     }
@@ -180,6 +202,50 @@ export default function UpgradePage() {
     }
   }
 
+  async function handleDownloadInvoice(paymentId: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Not authenticated')
+
+      const res = await fetch(`/api/creator/kurso-invoice?paymentId=${encodeURIComponent(paymentId)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) throw new Error('Could not fetch invoice')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `invoice-${paymentId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      setError(err.message || 'Failed to download invoice')
+    }
+  }
+
+  async function handleGenerateInvoice(paymentId: string, autoDownload = false) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Not authenticated')
+
+      const res = await fetch('/api/creator/kurso-invoice/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ paymentId }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error || 'Failed to create invoice')
+      // Update map
+      setInvoicesMap(prev => ({ ...prev, [paymentId]: json.invoice }))
+      if (autoDownload) await handleDownloadInvoice(paymentId)
+      else setSuccess('Invoice generated successfully')
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate invoice')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -261,6 +327,37 @@ export default function UpgradePage() {
           <p style={{color:'#a1a1aa'}}>
             Cancel anytime. No hidden fees. Switch plans whenever you need.
           </p>
+        </div>
+
+        {/* Bulk generate invoices button (always visible under plans) */}
+        <div className="mb-8">
+          <button
+            onClick={async () => {
+              if (generatingInvoices) return
+              const missing = payments.filter(p => !invoicesMap[p.id])
+              if (missing.length === 0) {
+                setSuccess('All invoices already generated')
+                return
+              }
+              setGeneratingInvoices(true)
+              setError('')
+              try {
+                for (const p of missing) {
+                  // eslint-disable-next-line no-await-in-loop
+                  await handleGenerateInvoice(p.id, false)
+                }
+                setSuccess(`Generated ${missing.length} invoice${missing.length>1?'s':''}`)
+              } catch (err: any) {
+                setError(err.message || 'Failed to generate some invoices')
+              } finally {
+                setGeneratingInvoices(false)
+              }
+            }}
+            disabled={generatingInvoices}
+            className="px-4 py-2 rounded-lg text-sm font-medium"
+            style={{background: generatingInvoices ? 'rgba(255,255,255,0.04)' : 'linear-gradient(135deg, #7c3aed, #8b5cf6)', color:'#fff'}}>
+            {generatingInvoices ? 'Generating...' : 'Generate invoice'}
+          </button>
         </div>
 
         {/* Success/Error messages */}
@@ -356,6 +453,85 @@ export default function UpgradePage() {
             )
           })}
         </div>
+
+        {/* Subscription invoices (creators) */}
+        {payments.length > 0 && (
+          <div className="rounded-2xl p-6 glass mb-6" style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-white">Subscription payments & invoices</div>
+                <div className="text-sm" style={{color:'#a1a1aa'}}>Download invoices for any subscription payment.</div>
+              </div>
+              <div>
+                <button
+                  onClick={async () => {
+                    if (generatingInvoices) return
+                    const missing = payments.filter(p => !invoicesMap[p.id])
+                    if (missing.length === 0) {
+                      setSuccess('All invoices already generated')
+                      return
+                    }
+                    setGeneratingInvoices(true)
+                    setError('')
+                    try {
+                      for (const p of missing) {
+                        // generate without auto-download
+                        // handleGenerateInvoice updates invoicesMap
+                        // sequential to avoid DB race conditions
+                        // eslint-disable-next-line no-await-in-loop
+                        await handleGenerateInvoice(p.id, false)
+                      }
+                      setSuccess(`Generated ${missing.length} invoice${missing.length>1?'s':''}`)
+                    } catch (err: any) {
+                      setError(err.message || 'Failed to generate some invoices')
+                    } finally {
+                      setGeneratingInvoices(false)
+                    }
+                  }}
+                  disabled={generatingInvoices}
+                  className="px-3 py-2 rounded-lg text-sm font-medium"
+                  style={{background: generatingInvoices ? 'rgba(255,255,255,0.04)' : 'linear-gradient(135deg, #7c3aed, #8b5cf6)', color:'#fff'}}>
+                  {generatingInvoices ? 'Generating...' : 'Generate invoice'}
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              {payments.map(p => (
+                <div key={p.id} className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm" style={{color:'#fff'}}>{p.plan_name} · ₹{Number(p.amount).toLocaleString()}</div>
+                    <div className="text-xs" style={{color:'#a1a1aa'}}>{new Date(p.paid_at).toLocaleDateString()}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {invoicesMap[p.id] ? (
+                      <>
+                        <div className="text-xs" style={{color:'#a1a1aa'}}>{invoicesMap[p.id].invoice_number}</div>
+                        <button onClick={() => handleDownloadInvoice(p.id)}
+                          className="px-3 py-2 rounded-lg text-sm font-medium"
+                          style={{background:'linear-gradient(135deg, #7c3aed, #8b5cf6)', color:'#fff'}}>
+                          Download
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => handleGenerateInvoice(p.id, false)}
+                          className="px-3 py-2 rounded-lg text-sm font-medium"
+                          style={{background:'rgba(255,255,255,0.06)', color:'#fff', border:'1px solid rgba(255,255,255,0.04)'}}>
+                          Generate
+                        </button>
+                        <button onClick={() => handleGenerateInvoice(p.id, true)}
+                          className="px-3 py-2 rounded-lg text-sm font-medium"
+                          style={{background:'linear-gradient(135deg, #7c3aed, #8b5cf6)', color:'#fff'}}>
+                          Generate & Download
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* FAQ */}
         <div className="rounded-2xl p-8 glass"

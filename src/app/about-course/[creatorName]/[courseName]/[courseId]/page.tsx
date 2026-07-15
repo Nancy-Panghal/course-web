@@ -70,7 +70,7 @@ export default async function AboutCoursePage({
 
   const { data: creatorProfile } = await supabase
     .from('creators')
-    .select('id, name, email, whatsapp_number, telegram_bot_username')
+    .select('id, name, email, whatsapp_number, telegram_bot_username, creator_slug')
     .eq('id', course.creator_id)
     .single()
 
@@ -697,6 +697,18 @@ export default async function AboutCoursePage({
               ))}
             </div>
           </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════════
+          MORE FROM THIS CREATOR
+      ══════════════════════════════════════════ */}
+      {creatorProfile?.creator_slug && (
+        <section className="ak-section py-8 px-6 text-center">
+          <a href={`/creator/${creatorProfile.creator_slug}`}
+            style={{ color: c.accentText, fontSize: '0.9rem', fontWeight: 600 }}>
+            See more courses from {course.host_name || 'this creator'} →
+          </a>
         </section>
       )}
 

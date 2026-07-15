@@ -32,6 +32,24 @@ interface EnrolledCourse {
   payment_status: string
 }
 
+async function downloadInvoice(enrollmentId: string) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) return
+  const res = await fetch(`/api/student/invoice?enrollmentId=${enrollmentId}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  if (!res.ok) {
+    alert('Could not download invoice. Please try again.')
+    return
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'invoice.pdf'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 function ProgressRing({ pct, size = 48 }: { pct: number; size?: number }) {
   const r = (size - 6) / 2
   const circ = 2 * Math.PI * r
@@ -627,6 +645,26 @@ const displayEmail = user?.email || ''
                   })()}
 
 
+
+                  {/* Invoice — available any time a payment exists, not just on completion */}
+                  {c.payment_status !== 'free' && (
+                    <div style={{
+                      padding: '8px 22px',
+                      borderTop: '1px solid rgba(255,255,255,0.05)',
+                      display: 'flex', justifyContent: 'flex-end',
+                    }}>
+                      <button
+                        onClick={() => downloadInvoice(c.enrollmentId)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          fontSize: 11, fontWeight: 700, color: '#a1a1aa',
+                          background: 'none', border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 8, padding: '4px 12px', cursor: 'pointer',
+                        }}>
+                        <Download className="w-3 h-3" /> Download Invoice
+                      </button>
+                    </div>
+                  )}
 
                   {/* Certificate strip — shown only for completed courses */}
                   {isComplete && (
