@@ -85,25 +85,25 @@ function CourseSelector({
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all"
         style={{
-          background: 'rgba(124,58,237,0.2)',
-          border: '2px solid rgba(124,58,237,0.5)',
+          background: 'rgba(var(--kurso-primary-rgb), 0.2)',
+          border: '2px solid rgba(var(--kurso-primary-rgb), 0.5)',
           color: '#e4e4e7',
           width: '100%',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.background = 'rgba(124,58,237,0.25)'
-          e.currentTarget.style.borderColor = 'rgba(124,58,237,0.7)'
+          e.currentTarget.style.background = 'rgba(var(--kurso-primary-rgb), 0.25)'
+          e.currentTarget.style.borderColor = 'rgba(var(--kurso-primary-rgb), 0.7)'
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.background = 'rgba(124,58,237,0.2)'
-          e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)'
+          e.currentTarget.style.background = 'rgba(var(--kurso-primary-rgb), 0.2)'
+          e.currentTarget.style.borderColor = 'rgba(var(--kurso-primary-rgb), 0.5)'
         }}
       >
-        <BookOpen className="w-5 h-5 flex-shrink-0" style={{ color: '#a78bfa' }} />
+        <BookOpen className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--kurso-primary-lighter)' }} />
         <span className="flex-1 text-left truncate font-bold">{label}</span>
         <ChevronDown
           className="w-5 h-5 flex-shrink-0 transition-transform"
-          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', color: '#a78bfa' }}
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', color: 'var(--kurso-primary-lighter)' }}
         />
       </button>
 
@@ -112,7 +112,7 @@ function CourseSelector({
           className="absolute left-0 right-0 mt-1.5 rounded-xl overflow-hidden z-50"
           style={{
             background: '#111',
-            border: '2px solid rgba(124,58,237,0.5)',
+            border: '2px solid rgba(var(--kurso-primary-rgb), 0.5)',
             boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
             top: '100%',
           }}
@@ -127,7 +127,7 @@ function CourseSelector({
                   onClick={() => { onSelect(course.id); setOpen(false) }}
                   className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-all text-left group"
                   style={{
-                    background: isActive ? 'rgba(124,58,237,0.15)' : 'transparent',
+                    background: isActive ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'transparent',
                     color: isActive ? '#e4e4e7' : '#a1a1aa',
                     borderBottom: '1px solid rgba(255,255,255,0.05)',
                   }}
@@ -135,7 +135,7 @@ function CourseSelector({
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                 >
                   <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                    {isActive && <Check className="w-4 h-4" style={{ color: '#a78bfa' }} />}
+                    {isActive && <Check className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p
@@ -172,7 +172,7 @@ function Pill({ label, value, color }: { label: string; value: string | number; 
 }
 
 // ── Progress Bar ──────────────────────────────────────────────────────────────
-function ProgressBar({ value, max, color = '#7c3aed' }: { value: number; max: number; color?: string }) {
+function ProgressBar({ value, max, color = 'var(--kurso-primary)' }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
   return (
     <div className="w-full rounded-full overflow-hidden" style={{ height: 4, background: 'rgba(255,255,255,0.07)' }}>
@@ -461,7 +461,7 @@ export default function DashboardPage() {
             <Link
               href="/contact"
               className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
-              style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', color: '#a78bfa' }}
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)', color: 'var(--kurso-primary-lighter)' }}
             >
               <ArrowUpRight className="w-3.5 h-3.5" /> Support
             </Link>
@@ -472,12 +472,12 @@ export default function DashboardPage() {
         {selectedCourse && (
           <div
             className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl mb-6 flex-wrap"
-            style={{ background: 'rgba(124,58,237,0.07)', border: '1px solid rgba(124,58,237,0.2)' }}
+            style={{ background: 'rgba(var(--kurso-primary-rgb), 0.07)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}
           >
             <div className="flex items-center gap-3 min-w-0">
               <div
                 className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ background: selectedCourse.is_published ? '#4ade80' : '#f59e0b' }}
+                style={{ background: selectedCourse.is_published ? '#4ade80' : 'var(--kurso-accent)' }}
               />
               <span className="text-sm font-semibold text-white truncate">{selectedCourse.name}</span>
               <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)', color: '#71717a' }}>
@@ -509,7 +509,7 @@ export default function DashboardPage() {
                 title="Lessons"
                 subtitle="Content library"
                 value={stats.uploadedLessons}
-                accent="#a78bfa"
+                accent="var(--kurso-primary-lighter)"
                 href={`/dashboard/courses/${selectedCourseId}`}
                 badge={
                   <span
@@ -518,7 +518,7 @@ export default function DashboardPage() {
                       background: stats.publishedLessons === stats.uploadedLessons && stats.uploadedLessons > 0
                         ? 'rgba(74,222,128,0.12)' : 'rgba(245,158,11,0.12)',
                       color: stats.publishedLessons === stats.uploadedLessons && stats.uploadedLessons > 0
-                        ? '#4ade80' : '#f59e0b',
+                        ? '#4ade80' : 'var(--kurso-accent)',
                     }}
                   >
                     {stats.publishedLessons === stats.uploadedLessons && stats.uploadedLessons > 0 ? 'All live' : `${stats.publishedLessons} live`}
@@ -526,7 +526,7 @@ export default function DashboardPage() {
                 }
               >
                 <div className="flex flex-col gap-1.5">
-                  <ProgressBar value={stats.publishedLessons} max={stats.uploadedLessons || 1} color="#a78bfa" />
+                  <ProgressBar value={stats.publishedLessons} max={stats.uploadedLessons || 1} color="var(--kurso-primary-lighter)" />
                   <div className="flex justify-between text-xs" style={{ color: '#52525b' }}>
                     <span>{stats.publishedLessons} published</span>
                     <span>{stats.plannedLessons} planned</span>
@@ -616,12 +616,12 @@ export default function DashboardPage() {
                 title="Assignments"
                 subtitle="Student submissions"
                 value={stats.totalAssignments}
-                accent="#f59e0b"
+                accent="var(--kurso-accent)"
                 href="/dashboard/assignments"
                 badge={
                   stats.pendingAssignments > 0 ? (
                     <span className="text-xs px-2 py-0.5 rounded-full font-bold animate-pulse flex-shrink-0"
-                      style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                      style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--kurso-accent)' }}>
                       {stats.pendingAssignments} pending
                     </span>
                   ) : stats.totalAssignments > 0 ? (
@@ -634,8 +634,8 @@ export default function DashboardPage() {
               >
                 {stats.pendingAssignments > 0 ? (
                   <div className="flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5" style={{ color: '#f59e0b' }} />
-                    <span className="text-xs" style={{ color: '#f59e0b' }}>
+                    <AlertCircle className="w-3.5 h-3.5" style={{ color: 'var(--kurso-accent)' }} />
+                    <span className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
                       {stats.pendingAssignments} need your review
                     </span>
                   </div>
@@ -667,7 +667,7 @@ export default function DashboardPage() {
               >
                 <div className="flex gap-3">
                   <Pill label="active" value={stats.activeCoupons} color="#c084fc" />
-                  <Pill label="redeemed" value={stats.couponUses} color="#a78bfa" />
+                  <Pill label="redeemed" value={stats.couponUses} color="var(--kurso-primary-lighter)" />
                 </div>
               </BigCard>
 
@@ -702,7 +702,7 @@ export default function DashboardPage() {
               className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2"
             >
               {[
-                { label: 'Add lesson', href: `/dashboard/courses/${selectedCourseId}`, icon: BookOpen, color: '#a78bfa' },
+                { label: 'Add lesson', href: `/dashboard/courses/${selectedCourseId}`, icon: BookOpen, color: 'var(--kurso-primary-lighter)' },
                 { label: 'View students', href: '/dashboard/students', icon: Users, color: '#38bdf8' },
                 { label: 'Send broadcast', href: '/dashboard/broadcast', icon: Megaphone, color: '#fbbf24' },
                 { label: 'Revenue report', href: '/dashboard/revenue', icon: TrendingUp, color: '#4ade80' },

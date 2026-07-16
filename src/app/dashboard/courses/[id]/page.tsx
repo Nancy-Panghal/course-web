@@ -190,7 +190,7 @@ function AddModuleModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
       <div className="w-full max-w-md rounded-2xl p-6"
-        style={{ background: '#111', border: '1px solid rgba(124,58,237,0.3)' }}>
+        style={{ background: '#111', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-white">Add Module</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg"
@@ -348,7 +348,7 @@ function AddLessonModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
       <div className="w-full max-w-md rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
-        style={{ background: '#111', border: '1px solid rgba(124,58,237,0.3)' }}>
+        style={{ background: '#111', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-white">Add Content {nextOrder}</h2>
@@ -366,9 +366,9 @@ function AddLessonModal({
                 <button key={t} type="button" onClick={() => setType(t)}
                   className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-all"
                   style={{
-                    background: type === t ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)',
-                    border: type === t ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(255,255,255,0.08)',
-                    color: type === t ? '#8b5cf6' : '#a1a1aa',
+                    background: type === t ? 'rgba(var(--kurso-primary-rgb), 0.2)' : 'rgba(255,255,255,0.05)',
+                    border: type === t ? '1px solid rgba(var(--kurso-primary-rgb), 0.5)' : '1px solid rgba(255,255,255,0.08)',
+                    color: type === t ? 'var(--kurso-primary-light)' : '#a1a1aa',
                   }}>
                   {typeConfig[t].icon}
                   {typeConfig[t].label}
@@ -404,7 +404,7 @@ function AddLessonModal({
               }
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-              onFocus={e => e.target.style.borderColor = '#7c3aed'}
+              onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
           </div>
@@ -418,7 +418,7 @@ function AddLessonModal({
                   placeholder="https://zoom.us/j/... or meet.google.com/..."
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
@@ -465,7 +465,7 @@ function AddLessonModal({
                     className="hidden" id="file-upload" />
                   <label htmlFor="file-upload"
                     className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border-2 border-dashed cursor-pointer"
-                    style={{ background: file ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.03)', borderColor: file ? '#7c3aed' : 'rgba(255,255,255,0.1)', color: file ? '#fff' : '#a1a1aa' }}>
+                    style={{ background: file ? 'rgba(var(--kurso-primary-rgb), 0.1)' : 'rgba(255,255,255,0.03)', borderColor: file ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)', color: file ? '#fff' : '#a1a1aa' }}>
                     <Plus className="w-4 h-4" />
                     {file ? file.name : `Upload ${type === 'video' ? 'Video' : 'PDF'}`}
                   </label>
@@ -484,7 +484,7 @@ function AddLessonModal({
                   disabled={!!file}
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none disabled:opacity-50"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
@@ -493,7 +493,7 @@ function AddLessonModal({
 
           {type === 'quiz' && (
             <div className="p-3 rounded-xl"
-              style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
               <p className="text-xs text-violet-300">
                 A quiz lesson will be created. After adding, click <strong>Edit Quiz</strong> directly on the lesson card to add questions.
               </p>
@@ -517,7 +517,7 @@ function AddLessonModal({
                 placeholder="e.g. 18 min"
                 className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
             </div>
@@ -532,7 +532,7 @@ function AddLessonModal({
               placeholder="e.g. Dropping this Friday at 6 PM IST"
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-              onFocus={e => e.target.style.borderColor = '#7c3aed'}
+              onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
             <p className="text-xs mt-1.5 text-zinc-600">Students see this on their course page before the lesson goes live.</p>
@@ -792,7 +792,7 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
             }}
             className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)'
+              background: 'rgba(var(--kurso-primary-rgb), 0.12)', color: 'var(--kurso-primary-lighter)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)'
             }}>
             {hasContent ? 'Edit' : 'Add'}
           </button>
@@ -854,7 +854,7 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
         />
         <label htmlFor={`assignment-file-${lesson.id}`}
           className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
-          style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+          style={{ background: 'rgba(var(--kurso-primary-rgb), 0.12)', color: 'var(--kurso-primary-lighter)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
           {uploadingFile ? 'Uploading...' : localFileUrl ? 'Replace File' : 'Upload File (PDF, TXT, MD, Images ≤5MB)'}
         </label>
       </div>
@@ -873,7 +873,7 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
           <button
             onClick={() => setRequired(v => !v)}
             className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-            style={{ background: required ? '#f59e0b' : 'rgba(255,255,255,0.1)' }}>
+            style={{ background: required ? 'var(--kurso-accent)' : 'rgba(255,255,255,0.1)' }}>
             <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
               style={{ left: required ? '20px' : '2px' }} />
           </button>
@@ -1069,14 +1069,14 @@ function LessonWidget({
   }
 
   const typeIcon = lesson.content_type === 'pdf'
-    ? <FileText className="w-4 h-4" style={{ color: '#f59e0b' }} />
+    ? <FileText className="w-4 h-4" style={{ color: 'var(--kurso-accent)' }} />
     : lesson.content_type === 'live'
       ? <span style={{ fontSize: 14 }}>📡</span>
       : lesson.content_type === 'quiz'
         ? <span style={{ fontSize: 14 }}>🧠</span>
         : lesson.content_type === 'assignment'
           ? <span style={{ fontSize: 14 }}>📝</span>
-          : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+          : <Video className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
 
   return (
     <>
@@ -1102,7 +1102,7 @@ function LessonWidget({
           <GripVertical className="w-4 h-4 flex-shrink-0" style={{ color: '#3f3f46' }} />
 
           <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
-            style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6' }}>
+            style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)' }}>
             {String(lesson.order_num).padStart(2, '0')}
           </div>
 
@@ -1129,7 +1129,7 @@ function LessonWidget({
               <button
                 onClick={() => setExpanded(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}>
+                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-lighter)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.25)' }}>
                 📝 {lesson.assignment_prompt || lesson.assignment_file_url ? 'Edit' : 'Add'}
               </button>
             )}
@@ -1138,7 +1138,7 @@ function LessonWidget({
               <Link
                 href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}>
+                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-lighter)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.25)' }}>
                 🧠 {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
                   ? `${lesson.quiz_questions.length} Qs`
                   : 'Add Qs'}
@@ -1187,19 +1187,19 @@ function LessonWidget({
                   <Link
                     href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
                     className="flex items-center justify-between gap-3 p-4 rounded-xl"
-                    style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)' }}>
+                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🧠</span>
                       <div>
                         <p className="text-sm font-semibold text-white">Open Quiz Builder</p>
-                        <p className="text-xs mt-0.5" style={{ color: '#a78bfa' }}>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--kurso-primary-lighter)' }}>
                           {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
                             ? `${lesson.quiz_questions.length} question${lesson.quiz_questions.length !== 1 ? 's' : ''} added`
                             : 'No questions yet — click to add'}
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                    <ChevronRight className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                   </Link>
                   {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0 && (
                     <button
@@ -1241,12 +1241,12 @@ function LessonWidget({
                   <Link
                     href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
                     className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
-                    style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', color: '#fff' }}>
+                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)', color: '#fff' }}>
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4" />
                       <span>Quiz Builder</span>
                     </div>
-                    <span className="text-xs" style={{ color: '#a78bfa' }}>
+                    <span className="text-xs" style={{ color: 'var(--kurso-primary-lighter)' }}>
                       {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
                         ? `${lesson.quiz_questions.length} questions`
                         : 'Add quiz'}
@@ -1292,14 +1292,14 @@ function LessonWidget({
                     />
                     <label htmlFor={`notes-${lesson.id}`}
                       className="block w-full text-center px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
-                      style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+                      style={{ background: 'rgba(var(--kurso-primary-rgb), 0.12)', color: 'var(--kurso-primary-lighter)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
                       {resourceSaving ? 'Uploading...' : lesson.notes_url ? 'Replace Notes' : 'Upload Notes'}
                     </label>
                   </div>
 
                   {/* Quiz Builder */}
                   <div className="flex items-center justify-between gap-3 p-3 rounded-xl text-sm"
-                    style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.18)', color: '#fff' }}>
+                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.18)', color: '#fff' }}>
                     <Link href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
                       className="flex-1 flex items-center gap-2">
                       <FileText className="w-4 h-4" />
@@ -1551,7 +1551,7 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
 
       {/* Add / Edit form */}
       {showForm && (
-        <div className="rounded-2xl p-5 glass" style={{ border: '1px solid rgba(124,58,237,0.3)' }}>
+        <div className="rounded-2xl p-5 glass" style={{ border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white">
               {editingSession ? 'Edit Session' : 'New Live Session'}
@@ -1630,8 +1630,8 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
       ) : sessions.length === 0 ? (
         <div className="rounded-2xl p-12 text-center glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
-            style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
-            <Calendar className="w-6 h-6" style={{ color: '#8b5cf6' }} />
+            style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+            <Calendar className="w-6 h-6" style={{ color: 'var(--kurso-primary-light)' }} />
           </div>
           <p className="text-sm font-medium text-white mb-1">No live sessions yet</p>
           <p className="text-xs" style={{ color: '#52525b' }}>
@@ -1644,14 +1644,14 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
             const upcoming = isUpcoming(s.scheduled_at)
             return (
               <div key={s.id} className="rounded-2xl p-5 glass"
-                style={{ border: upcoming ? '1px solid rgba(124,58,237,0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ border: upcoming ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <p className="text-sm font-semibold text-white">{s.title}</p>
                       <span className="text-xs px-2 py-0.5 rounded-full"
                         style={upcoming
-                          ? { background: 'rgba(124,58,237,0.15)', color: '#8b5cf6' }
+                          ? { background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)' }
                           : { background: 'rgba(255,255,255,0.05)', color: '#52525b' }}>
                         {upcoming ? 'Upcoming' : 'Past'}
                       </span>
@@ -1676,7 +1676,7 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
                       </span>
                       <a href={s.join_url} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-xs hover:underline"
-                        style={{ color: '#8b5cf6' }}>
+                        style={{ color: 'var(--kurso-primary-light)' }}>
                         <LinkIcon className="w-3.5 h-3.5" />
                         Join link
                       </a>
@@ -1770,8 +1770,8 @@ function CertificatePreviewModal({
     },
     modern: {
       background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%)',
-      borderColor: '#7c3aed',
-      accentColor: '#7c3aed',
+      borderColor: 'var(--kurso-primary)',
+      accentColor: 'var(--kurso-primary)',
       textColor: '#ffffff',
     },
     gold: {
@@ -1782,8 +1782,8 @@ function CertificatePreviewModal({
     },
     minimal: {
       background: '#ffffff',
-      borderColor: '#7c3aed',
-      accentColor: '#7c3aed',
+      borderColor: 'var(--kurso-primary)',
+      accentColor: 'var(--kurso-primary)',
       textColor: '#000000',
     },
     royal: {
@@ -1802,7 +1802,7 @@ function CertificatePreviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
-      <div className="w-full max-w-5xl rounded-2xl overflow-hidden flex flex-col max-h-[95vh]" style={{ background: '#111', border: '1px solid rgba(124,58,237,0.3)' }}>
+      <div className="w-full max-w-5xl rounded-2xl overflow-hidden flex flex-col max-h-[95vh]" style={{ background: '#111', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 border-b flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <h2 className="text-lg font-semibold text-white">Certificate Preview</h2>
@@ -2454,11 +2454,11 @@ export default function CourseManagePage({
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className="px-4 py-2 text-sm font-medium capitalize transition-all relative"
-                  style={{ color: activeTab === tab ? '#8b5cf6' : '#52525b' }}
+                  style={{ color: activeTab === tab ? 'var(--kurso-primary-light)' : '#52525b' }}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                   {activeTab === tab && (
-                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#8b5cf6]" />
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[var(--kurso-primary-light)]" />
                   )}
                 </button>
               ))}
@@ -2492,13 +2492,13 @@ export default function CourseManagePage({
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-base">📁</span>
                       <span className="text-sm font-bold text-white">Add Module</span>
-                      <Plus className="w-3.5 h-3.5 ml-auto flex-shrink-0" style={{ color: '#8b5cf6' }} />
+                      <Plus className="w-3.5 h-3.5 ml-auto flex-shrink-0" style={{ color: 'var(--kurso-primary-light)' }} />
                     </div>
                     <p className="text-xs mb-3" style={{ color: '#71717a' }}>Group lessons into weeks or topics</p>
                     <div className="flex flex-col gap-1 w-full text-[10px]">
-                      <div className="px-2 py-1 rounded font-semibold" style={{ background: 'rgba(124,58,237,0.18)', color: '#a78bfa' }}>📁 Module 1</div>
+                      <div className="px-2 py-1 rounded font-semibold" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lighter)' }}>📁 Module 1</div>
                       <div className="ml-3 px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: '#52525b' }}>↳ Lesson · Lesson · ···</div>
-                      <div className="px-2 py-1 rounded font-semibold mt-0.5" style={{ background: 'rgba(124,58,237,0.08)', color: '#52525b' }}>📁 Module 2</div>
+                      <div className="px-2 py-1 rounded font-semibold mt-0.5" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', color: '#52525b' }}>📁 Module 2</div>
                       <div className="ml-3 px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.03)', color: '#3f3f46' }}>↳ Lesson · ···</div>
                     </div>
                   </button>
@@ -2573,7 +2573,7 @@ export default function CourseManagePage({
                               setShowAddModal(true)
                             }}
                               className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0"
-                              style={{ background: 'rgba(124,58,237,0.12)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
+                              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.12)', color: 'var(--kurso-primary-light)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
                               + Lesson
                             </button>
                           </div>
@@ -2605,7 +2605,7 @@ export default function CourseManagePage({
                                   </button>
                                   <button onClick={() => setShowModuleModal(true)}
                                     className="text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap"
-                                    style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
+                                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', color: 'var(--kurso-primary-light)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
                                     New Module
                                   </button>
                                 </div>
@@ -2645,8 +2645,8 @@ export default function CourseManagePage({
                         color: '#52525b',
                       }}
                       onMouseEnter={e => {
-                        e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)'
-                        e.currentTarget.style.color = '#8b5cf6'
+                        e.currentTarget.style.borderColor = 'rgba(var(--kurso-primary-rgb), 0.4)'
+                        e.currentTarget.style.color = 'var(--kurso-primary-light)'
                       }}
                       onMouseLeave={e => {
                         e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
@@ -2970,7 +2970,7 @@ export default function CourseManagePage({
                               {[1,2,3,4,5].map(star => (
                                 <button key={star} type="button"
                                   onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star }; setEditTestimonials(n) }}
-                                  style={{ color: star <= (t.rating || 5) ? '#f59e0b' : '#3f3f46', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
+                                  style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
                               ))}
                             </div>
                           </div>
@@ -3025,7 +3025,7 @@ export default function CourseManagePage({
                         <button
                           onClick={() => setEditCertEnabled(v => !v)}
                           className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
-                          style={{ background: editCertEnabled ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}
+                          style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
                         >
                           <div
                             className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
@@ -3056,9 +3056,9 @@ export default function CourseManagePage({
                                     onClick={() => setEditCertTemplate(t.id)}
                                     className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
                                     style={{
-                                      background: editCertTemplate === t.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
+                                      background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
                                       border: editCertTemplate === t.id
-                                        ? '1px solid rgba(124,58,237,0.45)'
+                                        ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
                                         : '1px solid rgba(255,255,255,0.08)',
                                     }}
                                   >
@@ -3068,9 +3068,9 @@ export default function CourseManagePage({
                                       style={{
                                         background:
                                           t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
-                                            t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,#7c3aed)' :
+                                            t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
                                               t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
-                                                t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,#7c3aed)' :
+                                                t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
                                                   'linear-gradient(135deg,#060d2e,#d4af37)',
                                       }}
                                     />
@@ -3081,7 +3081,7 @@ export default function CourseManagePage({
                                     {editCertTemplate === t.id && (
                                       <div
                                         className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
-                                        style={{ background: '#7c3aed', marginTop: 2 }}
+                                        style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
                                       >
                                         <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                                           <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -3119,7 +3119,7 @@ export default function CourseManagePage({
                                   type="button"
                                   onClick={() => setEditUseLogoOnCertificate(v => !v)}
                                   className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                                  style={{ background: editUseLogoOnCertificate ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}
+                                  style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
                                 >
                                   <div
                                     className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
@@ -3138,8 +3138,8 @@ export default function CourseManagePage({
                               {editUseLogoOnCertificate && !brandLogoUrl && (
                                 <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
                                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
-                                  <p className="text-xs" style={{ color: '#f59e0b' }}>
+                                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                                  <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
                                     Please provide the brand logo above —{' '}
                                     <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
                                       upload it in Design Landing Page
@@ -3201,7 +3201,7 @@ export default function CourseManagePage({
                             <p className="text-xs" style={{ color: '#a1a1aa' }}>
                               Students get a PDF certificate at{' '}
                               <span style={{ color: '#d4af37' }}>
-                                academykit.in/certificate/[ID]
+                                kurso.in/certificate/[ID]
                               </span>{' '}
                               — shareable verification link included.
                             </p>
@@ -3263,7 +3263,7 @@ export default function CourseManagePage({
                 </div>
                 <button onClick={toggleCoursePublish}
                   className="relative w-12 h-6 rounded-full transition-all"
-                  style={{ background: course.is_published ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}>
+                  style={{ background: course.is_published ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
                   <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
                     style={{ left: course.is_published ? '28px' : '4px' }} />
                 </button>
@@ -3271,8 +3271,8 @@ export default function CourseManagePage({
               {!course.is_published && lessons.length === 0 && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg"
                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
-                  <p className="text-xs" style={{ color: '#f59e0b' }}>
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                  <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
                     Add at least one lesson before publishing
                   </p>
                 </div>
@@ -3283,7 +3283,7 @@ export default function CourseManagePage({
             <div className="rounded-2xl p-5 glass"
               style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
               <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                <Eye className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                <Eye className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                 Course Page
               </h3>
               <p className="text-xs mb-3" style={{ color: '#52525b' }}>
@@ -3291,7 +3291,7 @@ export default function CourseManagePage({
               </p>
               <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all mb-2"
-                style={{ background: 'rgba(124,58,237,0.1)', color: '#8b5cf6', border: '1px solid rgba(124,58,237,0.2)' }}>
+                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', color: 'var(--kurso-primary-light)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
                 <ExternalLink className="w-4 h-4" />
                 Preview Course Page
               </Link>
@@ -3338,9 +3338,9 @@ export default function CourseManagePage({
 
             {/* Share section */}
             <div className="rounded-2xl p-5"
-              style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
               <h3 className="font-semibold text-white mb-1 flex items-center gap-2">
-                <Share2 className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                <Share2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                 Share Course
               </h3>
               <p className="text-xs mb-4" style={{ color: '#949499' }}>

@@ -178,13 +178,13 @@ export default function AdminCustomPagePage() {
                 <button key={c.id} type="button" onClick={() => selectCourse(c.id)}
                   className="text-left px-3 py-2.5 rounded-lg text-sm transition-all"
                   style={{
-                    background: selectedId === c.id ? 'rgba(124,58,237,0.12)' : 'transparent',
+                    background: selectedId === c.id ? 'rgba(var(--kurso-primary-rgb), 0.12)' : 'transparent',
                     color: selectedId === c.id ? '#fff' : '#a1a1aa',
                   }}>
                   <div className="flex items-center gap-2">
                     <span className="truncate">{c.name}</span>
                     {c.use_custom_override && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(124,58,237,0.2)', color: '#a78bfa' }}>custom</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.2)', color: 'var(--kurso-primary-lighter)' }}>custom</span>
                     )}
                   </div>
                   <div className="text-xs truncate" style={{ color: '#52525b' }}>{c.host_name || 'No host name'}</div>
@@ -216,9 +216,9 @@ export default function AdminCustomPagePage() {
                   </div>
                   <p className="text-xs" style={{ color: '#52525b' }}>{detail.host_name || 'No host name'} · {detail.is_published ? 'Published' : 'Draft'}</p>
 
-                  <div className="flex items-center gap-3 mt-5 p-4 rounded-xl" style={{ background: enabled ? 'rgba(124,58,237,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex items-center gap-3 mt-5 p-4 rounded-xl" style={{ background: enabled ? 'rgba(var(--kurso-primary-rgb), 0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <button type="button" onClick={() => setEnabled(v => !v)}
-                      className="relative flex-shrink-0" style={{ width: 40, height: 22, borderRadius: 999, background: enabled ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}>
+                      className="relative flex-shrink-0" style={{ width: 40, height: 22, borderRadius: 999, background: enabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
                       <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: enabled ? '20px' : '2px' }} />
                     </button>
                     <div className="flex-1">
@@ -277,14 +277,14 @@ export default function AdminCustomPagePage() {
 
                   {wouldOverwriteExisting && (
                     <div className="flex items-start gap-2 mb-3 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
                       <div className="flex-1">
-                        <p className="text-xs" style={{ color: '#f59e0b' }}>
+                        <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
                           Saving will replace the current custom version — it can't be recovered afterward. Copy it
                           first if you might want it back.
                         </p>
                         <button type="button" onClick={() => copyToClipboard(initialContent, 'Current custom version copied')}
-                          className="text-xs font-semibold mt-1.5 underline" style={{ color: '#f59e0b' }}>
+                          className="text-xs font-semibold mt-1.5 underline" style={{ color: 'var(--kurso-accent)' }}>
                           Copy the version that will be replaced
                         </button>
                       </div>
@@ -311,8 +311,8 @@ export default function AdminCustomPagePage() {
 
                 {enabled && content.trim().length === 0 && (
                   <div className="flex items-start gap-2 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
-                    <p className="text-xs" style={{ color: '#f59e0b' }}>
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                    <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
                       This is on but there's no HTML yet — the live page falls back to the normal auto-generated
                       page until you add content and save.
                     </p>

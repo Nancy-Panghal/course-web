@@ -591,7 +591,7 @@ const sectionNodes: Partial<Record<LandingSectionType, ReactNode>> = {
           border: none;
         }
         /* Star rating */
-        .ak-stars { color: #f59e0b; letter-spacing: 1px; font-size: 13px; }
+        .ak-stars { color: var(--kurso-accent); letter-spacing: 1px; font-size: 13px; }
       `}</style>
 
       {/* ── NAV ── */}

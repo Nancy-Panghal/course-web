@@ -147,7 +147,7 @@ export default function LoginPage() {
   }
 
   const headings: Record<Mode, { title: string; sub: string }> = {
-  login:  { title: 'Welcome back',        sub: 'Sign in to your AcademyKit account' },
+  login:  { title: 'Welcome back',        sub: 'Sign in to your Kurso account' },
   signup: { title: 'Create your account', sub: 'Start protecting and delivering your courses' },
   forgot: { title: 'Reset your password', sub: 'We\'ll send a reset link to your email' },
 }
@@ -175,7 +175,7 @@ export default function LoginPage() {
         </div>
 
         <div className="glass rounded-2xl p-8 glow"
-          style={{border:'1px solid rgba(124,58,237,0.2)'}}>
+          style={{border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
 
           {mode === 'forgot' && (
             <>
@@ -208,7 +208,7 @@ export default function LoginPage() {
                         placeholder="you@example.com" required autoFocus
                         className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                         style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                        onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                        onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                         onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
                     </div>
                   </div>
@@ -242,7 +242,7 @@ export default function LoginPage() {
                 onClick={() => { switchMode(m); setError('') }}
                 className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
                 style={{
-                  background: mode === m ? 'rgba(124,58,237,0.3)' : 'transparent',
+                  background: mode === m ? 'rgba(var(--kurso-primary-rgb), 0.3)' : 'transparent',
                   color: mode === m ? '#fff' : '#a1a1aa',
                 }}>
                 {m === 'login' ? 'Sign In' : 'Sign Up'}
@@ -288,7 +288,7 @@ export default function LoginPage() {
                     required
                     className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                     style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                    onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                    onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                     onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                   />
                 </div>
@@ -307,7 +307,7 @@ export default function LoginPage() {
                   placeholder="you@example.com" required
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
@@ -321,7 +321,7 @@ export default function LoginPage() {
                   <button type="button"
                     onClick={() => switchMode('forgot')}
                     className="text-xs transition-colors hover:opacity-80"
-                    style={{color:'#7c3aed'}}>
+                    style={{color:'var(--kurso-primary)'}}>
                     Forgot password?
                   </button>
                 )}
@@ -336,7 +336,7 @@ export default function LoginPage() {
                   minLength={mode === 'signup' ? 8 : undefined}
                   className="w-full px-4 pr-10 py-3 rounded-xl text-sm text-white outline-none transition-all"
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)}

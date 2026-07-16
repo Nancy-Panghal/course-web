@@ -52,7 +52,7 @@ export interface CurriculumThemeFonts {
 
 function contentIcon(type: string, accentText: string) {
   if (type === 'video') return <Play className="w-3.5 h-3.5" style={{ color: accentText }} />
-  if (type === 'pdf') return <FileText className="w-3.5 h-3.5" style={{ color: '#f59e0b' }} />
+  if (type === 'pdf') return <FileText className="w-3.5 h-3.5" style={{ color: 'var(--kurso-accent)' }} />
   if (type === 'audio') return <Mic className="w-3.5 h-3.5" style={{ color: '#34d399' }} />
   return <BookOpen className="w-3.5 h-3.5" style={{ color: '#60a5fa' }} />
 }
@@ -109,10 +109,10 @@ export default function CurriculumAccordion({
   const textSecondary = dark ? '#a1a1aa' : (themeColors?.textSecondary ?? '#a1a1aa')
   const textMuted = dark ? '#71717a' : (themeColors?.textMuted ?? '#71717a')
   const textFaint = dark ? '#3f3f46' : (themeColors?.textFaint ?? '#3f3f46')
-  const accentText = themeColors?.accentText ?? '#a78bfa'
-  const accentSoft = themeColors?.accentSoft ?? 'rgba(124,58,237,0.1)'
-  const accentBorder = themeColors?.accentBorder ?? 'rgba(124,58,237,0.25)'
-  const accentBorderStrong = themeColors?.accentBorderStrong ?? 'rgba(124,58,237,0.35)'
+  const accentText = themeColors?.accentText ?? 'var(--kurso-primary-lighter)'
+  const accentSoft = themeColors?.accentSoft ?? 'rgba(var(--kurso-primary-rgb), 0.1)'
+  const accentBorder = themeColors?.accentBorder ?? 'rgba(var(--kurso-primary-rgb), 0.25)'
+  const accentBorderStrong = themeColors?.accentBorderStrong ?? 'rgba(var(--kurso-primary-rgb), 0.35)'
 
   // Borders on the dark panel
   const panelBorder = dark

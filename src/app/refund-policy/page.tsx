@@ -22,7 +22,7 @@ export default function RefundPolicyPage() {
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-medium"
-            style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+            style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
             Legal
           </div>
           <h1 className="text-4xl font-bold text-white mb-3">Refund Policy</h1>
@@ -66,7 +66,7 @@ export default function RefundPolicyPage() {
           <Section title="Contact">
             <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
               Questions about this policy can be sent to the support contact listed on our{' '}
-              <Link href="/contact" style={{color:'#8b5cf6'}}>Contact page</Link>.
+              <Link href="/contact" style={{color:'var(--kurso-primary-light)'}}>Contact page</Link>.
             </p>
           </Section>
         </div>

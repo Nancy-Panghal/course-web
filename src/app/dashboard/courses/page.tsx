@@ -86,8 +86,8 @@ export default function CoursesPage() {
           <div className="rounded-2xl p-16 text-center glass"
             style={{border:'1px solid rgba(255,255,255,0.06)'}}>
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{background:'rgba(124,58,237,0.1)', border:'1px solid rgba(124,58,237,0.2)'}}>
-              <BookOpen className="w-8 h-8" style={{color:'#8b5cf6'}} />
+              style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
+              <BookOpen className="w-8 h-8" style={{color:'var(--kurso-primary-light)'}} />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">No courses yet</h3>
             <p className="text-sm mb-6" style={{color:'#a1a1aa'}}>
@@ -150,7 +150,7 @@ export default function CoursesPage() {
                     </div>
                     <div className="rounded-xl p-3 text-center"
                       style={{background:'rgba(255,255,255,0.03)'}}>
-                      <DeliveryIcon className="w-5 h-5 mx-auto mb-0.5" style={{color:'#8b5cf6'}} />
+                      <DeliveryIcon className="w-5 h-5 mx-auto mb-0.5" style={{color:'var(--kurso-primary-light)'}} />
                       <p className="text-xs" style={{color:'#52525b'}}>{deliveryLabel[course.delivery]}</p>
                     </div>
                   </div>
@@ -159,7 +159,7 @@ export default function CoursesPage() {
                   <div className="flex gap-2">
                     <Link href={`/dashboard/courses/${course.id}`}
                       className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all"
-                      style={{background:'rgba(124,58,237,0.15)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+                      style={{background:'rgba(var(--kurso-primary-rgb), 0.15)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
                       <BookOpen className="w-4 h-4" />
                       Manage
                     </Link>

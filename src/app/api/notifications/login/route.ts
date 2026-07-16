@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       supabase,
       emailType: 'creator_new_login',
       to: user.email || '',
-      subject: 'New login to AcademyKit',
+      subject: 'New login to Kurso',
       creatorId: user.id,
       metadata: {
         login_at: new Date().toISOString(),
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       html: `
         <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
           <h2 style="margin:0 0 12px">New login</h2>
-          <p style="margin:0 0 16px">Your AcademyKit creator account ${user.email ? `(${escapeHtml(user.email)})` : ''} just signed in.</p>
+          <p style="margin:0 0 16px">Your Kurso creator account ${user.email ? `(${escapeHtml(user.email)})` : ''} just signed in.</p>
           <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
             style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
             Open dashboard

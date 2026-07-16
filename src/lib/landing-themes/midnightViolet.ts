@@ -1,6 +1,6 @@
 import type { LandingTheme } from './types'
 
-// MIDNIGHT VIOLET — the original AcademyKit/Kurso design.
+// MIDNIGHT VIOLET — the original Kurso/Kurso design.
 // This is the default theme. Every color value here is copied 1:1 from the
 // previous hardcoded about-course page, so existing published courses look
 // pixel-identical after the theme system ships.

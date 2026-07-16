@@ -217,7 +217,7 @@ async function maybeSendStudentReceiptEmail({
         </div>
         <a href="${siteUrl}/dashboard"
           style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
-          Open AcademyKit
+          Open Kurso
         </a>
       </div>
     `,

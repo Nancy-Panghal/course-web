@@ -131,7 +131,7 @@ function formatDateTime(value: string | null | undefined) {
 
 function statusStyle(status: string) {
   if (status === 'paid') return { icon: CheckCircle2, label: 'Paid', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' }
-  if (status === 'pending') return { icon: Clock3, label: 'Pending', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' }
+  if (status === 'pending') return { icon: Clock3, label: 'Pending', color: 'var(--kurso-accent)', bg: 'rgba(245,158,11,0.1)' }
   if (status === 'failed') return { icon: XCircle, label: 'Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' }
   return { icon: AlertCircle, label: 'Refunded', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' }
 }
@@ -215,14 +215,14 @@ export default function RevenuePage() {
       value: formatMoney(summary.revenue_this_month),
       helper: monthChange >= 0 ? `${monthChange}% vs last month` : `${Math.abs(monthChange)}% below last month`,
       icon: TrendingUp,
-      color: monthChange >= 0 ? '#22c55e' : '#f59e0b',
+      color: monthChange >= 0 ? '#22c55e' : 'var(--kurso-accent)',
     },
     {
       label: 'Total revenue',
       value: formatMoney(summary.total_revenue),
       helper: `${summary.successful_payments} successful sale${summary.successful_payments === 1 ? '' : 's'}`,
       icon: IndianRupee,
-      color: '#8b5cf6',
+      color: 'var(--kurso-primary-light)',
     },
     {
       label: 'Average order',
@@ -236,7 +236,7 @@ export default function RevenuePage() {
       value: String(summary.pending_payments + summary.failed_payments),
       helper: `${summary.pending_payments} pending, ${summary.failed_payments} failed`,
       icon: AlertCircle,
-      color: '#f59e0b',
+      color: 'var(--kurso-accent)',
     },
   ]
 
@@ -304,7 +304,7 @@ export default function RevenuePage() {
             {sectionErrors.summary && (
               <div className="mb-8 rounded-2xl p-4 flex items-start gap-3"
                 style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.16)' }}>
-                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
                 <div>
                   <p className="text-sm font-semibold text-white">Revenue totals are waiting for setup</p>
                   <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>Course, chart, and payment sections will still load when their data is available.</p>
@@ -317,7 +317,7 @@ export default function RevenuePage() {
                 style={{ border: '1px solid rgba(139,92,246,0.18)', background: 'rgba(139,92,246,0.05)' }}>
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(139,92,246,0.12)' }}>
-                    <BarChart3 className="w-6 h-6" style={{ color: '#8b5cf6' }} />
+                    <BarChart3 className="w-6 h-6" style={{ color: 'var(--kurso-primary-light)' }} />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-white mb-1">No revenue recorded yet</h2>
@@ -329,7 +329,7 @@ export default function RevenuePage() {
                 <Link
                   href="/dashboard/courses"
                   className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold flex-shrink-0"
-                  style={{ background: '#7c3aed', color: '#fff' }}
+                  style={{ background: 'var(--kurso-primary)', color: '#fff' }}
                 >
                   View courses
                   <ArrowUpRight className="w-4 h-4" />
@@ -344,7 +344,7 @@ export default function RevenuePage() {
                     <h2 className="font-semibold text-white">Monthly revenue</h2>
                     <p className="text-xs mt-1" style={{ color: '#71717a' }}>Last 6 months of successful payments</p>
                   </div>
-                  <BarChart3 className="w-5 h-5" style={{ color: '#8b5cf6' }} />
+                  <BarChart3 className="w-5 h-5" style={{ color: 'var(--kurso-primary-light)' }} />
                 </div>
 
                 {monthly.length === 0 ? (
@@ -367,7 +367,7 @@ export default function RevenuePage() {
                               className="w-full rounded-t-lg transition-all"
                               style={{
                                 height: `${height}%`,
-                                background: 'linear-gradient(180deg, #8b5cf6 0%, rgba(139,92,246,0.18) 100%)',
+                                background: 'linear-gradient(180deg, var(--kurso-primary-light) 0%, rgba(139,92,246,0.18) 100%)',
                                 border: '1px solid rgba(139,92,246,0.3)',
                               }}
                               title={`${formatMoney(item.revenue)} in ${formatDate(item.month)}`}
@@ -388,7 +388,7 @@ export default function RevenuePage() {
                 <div className="flex flex-col gap-3">
                   {[
                     { label: 'Successful', value: summary.successful_payments, color: '#22c55e' },
-                    { label: 'Pending', value: summary.pending_payments, color: '#f59e0b' },
+                    { label: 'Pending', value: summary.pending_payments, color: 'var(--kurso-accent)' },
                     { label: 'Failed', value: summary.failed_payments, color: '#ef4444' },
                     { label: 'Refunded', value: summary.refunded_payments, color: '#60a5fa' },
                   ].map((item) => (
@@ -411,7 +411,7 @@ export default function RevenuePage() {
                     <h2 className="font-semibold text-white">Revenue by course</h2>
                     <p className="text-xs mt-1" style={{ color: '#71717a' }}>{courses.length} course{courses.length === 1 ? '' : 's'}</p>
                   </div>
-                  <BookOpen className="w-5 h-5" style={{ color: '#8b5cf6' }} />
+                  <BookOpen className="w-5 h-5" style={{ color: 'var(--kurso-primary-light)' }} />
                 </div>
 
                 {courses.length === 0 ? (
@@ -460,7 +460,7 @@ export default function RevenuePage() {
                     <h2 className="font-semibold text-white">Recent payments</h2>
                     <p className="text-xs mt-1" style={{ color: '#71717a' }}>Latest payment records across courses</p>
                   </div>
-                  <ReceiptText className="w-5 h-5" style={{ color: '#8b5cf6' }} />
+                  <ReceiptText className="w-5 h-5" style={{ color: 'var(--kurso-primary-light)' }} />
                 </div>
 
                 {payments.length === 0 ? (
@@ -492,7 +492,7 @@ export default function RevenuePage() {
                               <td className="px-5 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(139,92,246,0.1)' }}>
-                                    <Users className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                                    <Users className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                                   </div>
                                   <div className="min-w-0">
                                     <p className="text-sm text-white truncate">{payment.buyer_name || payment.buyer_phone || 'Student'}</p>

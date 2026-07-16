@@ -61,12 +61,12 @@ export default function AnalyticsIndexPage() {
               <Link key={course.id} href={`/dashboard/analytics/${course.id}`}
                 className="rounded-2xl p-5 glass flex items-center gap-4 group transition-all"
                 style={{ border: '1px solid rgba(255,255,255,0.06)' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)')}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(var(--kurso-primary-rgb), 0.3)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}
               >
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
-                  <BarChart3 className="w-6 h-6" style={{ color: '#8b5cf6' }} />
+                  style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                  <BarChart3 className="w-6 h-6" style={{ color: 'var(--kurso-primary-light)' }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">

@@ -356,9 +356,9 @@ export default function WatermarkedPlayer({
           >
             <div style={{
               width: 60, height: 60, borderRadius: '50%',
-              background: 'rgba(124,58,237,0.85)',
+              background: 'rgba(var(--kurso-primary-rgb), 0.85)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(124,58,237,0.5)',
+              boxShadow: '0 8px 24px rgba(var(--kurso-primary-rgb), 0.5)',
             }}>
               <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
                 <path d="M8 5v14l11-7z" />
@@ -396,7 +396,7 @@ export default function WatermarkedPlayer({
         >
           <div style={{
             height: '100%', width: `${progress}%`,
-            background: 'linear-gradient(90deg,#7c3aed,#4f46e5)',
+            background: 'linear-gradient(90deg,var(--kurso-primary),var(--kurso-secondary))',
             borderRadius: 3, transition: dragging ? 'none' : 'width 0.1s linear',
             position: 'relative',
           }}>
@@ -435,7 +435,7 @@ export default function WatermarkedPlayer({
         background: 'rgba(0,0,0,0.4)', letterSpacing: '0.03em',
         userSelect: 'none',
       }}>
-        Licensed to {wmText} · AcademyKit · Unauthorized sharing is tracked
+        Licensed to {wmText} · Kurso · Unauthorized sharing is tracked
       </div>
     </div>
   )

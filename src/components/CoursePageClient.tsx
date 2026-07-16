@@ -90,9 +90,9 @@ export default function CoursePageClient({ course, variant }: Props) {
         <div
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
           style={{
-            background: 'rgba(124,58,237,0.08)',
-            border: '1px solid rgba(124,58,237,0.2)',
-            color: '#a78bfa',
+            background: 'rgba(var(--kurso-primary-rgb), 0.08)',
+            border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)',
+            color: 'var(--kurso-primary-lighter)',
             cursor: 'default',
           }}
         >

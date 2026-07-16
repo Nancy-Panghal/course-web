@@ -180,8 +180,8 @@ async function watermarkPdf(
   const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
   const font = await pdf.embedFont(StandardFonts.Helvetica)
   const pages = pdf.getPages()
-  const watermarkText = `Licensed to: ${studentName} · ID: ${identity.slice(-8)} · AcademyKit`
-  const diagonalText = `${studentName} · AcademyKit`
+  const watermarkText = `Licensed to: ${studentName} · ID: ${identity.slice(-8)} · Kurso`
+  const diagonalText = `${studentName} · Kurso`
 
   pages.forEach(page => {
     const { width, height } = page.getSize()
@@ -197,7 +197,7 @@ async function watermarkPdf(
     })
 
     // Top strip
-    page.drawText(`AcademyKit — Protected Content — ${new Date().toLocaleDateString('en-IN')}`, {
+    page.drawText(`Kurso — Protected Content — ${new Date().toLocaleDateString('en-IN')}`, {
       x: 20,
       y: height - 16,
       size: 8,

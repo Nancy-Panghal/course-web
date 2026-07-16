@@ -8,7 +8,7 @@ export default function Loading() {
           <Shield className="w-6 h-6 text-white" />
         </div>
         <p className="text-[10px] font-black text-zinc-800 uppercase tracking-[0.4em] animate-pulse">
-          Loading AcademyKit...
+          Loading Kurso...
         </p>
       </div>
     </div>

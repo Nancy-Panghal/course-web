@@ -76,7 +76,7 @@ export async function sendLoggedEmail({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'AcademyKit <onboarding@resend.dev>',
+        from: process.env.RESEND_FROM_EMAIL || 'Kurso <onboarding@resend.dev>',
         to,
         subject,
         html,

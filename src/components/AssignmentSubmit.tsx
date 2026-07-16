@@ -144,7 +144,7 @@ export default function AssignmentSubmit({
           TXT, Markdown, PDF, Word, or images — max {ASSIGNMENT_MAX_BYTES / (1024 * 1024)} MB
         </p>
         {file && (
-          <p style={{ fontSize: 11, color: '#a78bfa', marginTop: 4 }}>
+          <p style={{ fontSize: 11, color: 'var(--kurso-primary-lighter)', marginTop: 4 }}>
             Selected: {file.name}
           </p>
         )}
@@ -160,7 +160,7 @@ export default function AssignmentSubmit({
           disabled={!canSubmit}
           style={{
             padding: '8px 18px', borderRadius: 10,
-            background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+            background: 'linear-gradient(135deg,var(--kurso-accent),#d97706)',
             border: 'none', color: '#fff',
             fontSize: 13, fontWeight: 700,
             cursor: !canSubmit ? 'not-allowed' : 'pointer',

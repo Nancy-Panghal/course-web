@@ -372,7 +372,7 @@ export default function HomePage() {
 
             {/* Visual */}
             <div className="relative">
-              <div className="glass rounded-2xl p-8 glow animate-float" style={{ border: '1px solid rgba(124,58,237,0.2)' }}>
+              <div className="glass rounded-2xl p-8 glow animate-float" style={{ border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
@@ -409,7 +409,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex items-center justify-between py-1">
                     <span className="text-sm" style={{ color: '#e4e4e7' }}>Doubt Clearing Session</span>
-                    <span className="text-sm font-medium" style={{ color: '#8b5cf6' }}>Today, 7:00 PM</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--kurso-primary-light)' }}>Today, 7:00 PM</span>
                   </div>
                   <div className="text-xs mt-2" style={{ color: '#52525b' }}>
                     Link shared with 86 students on WhatsApp & Telegram
@@ -427,7 +427,7 @@ export default function HomePage() {
                     'Certificate sent to Priya',
                   ].map((a, i) => (
                     <div key={i} className="flex items-center gap-3 py-2" style={{ borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#8b5cf6' }} />
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--kurso-primary-light)' }} />
                       <span className="text-sm" style={{ color: '#e4e4e7' }}>{a}</span>
                     </div>
                   ))}
@@ -435,7 +435,7 @@ export default function HomePage() {
               </div>
 
               {/* Floating badge */}
-              <div className="absolute -bottom-5 -right-5 rounded-xl px-5 py-3 glow" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(124,58,237,0.3)', backdropFilter: 'blur(12px)' }}>
+              <div className="absolute -bottom-5 -right-5 rounded-xl px-5 py-3 glow" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)', backdropFilter: 'blur(12px)' }}>
                 <div className="text-xs mb-1" style={{ color: '#a1a1aa' }}>This month</div>
                 <div className="text-xl font-bold gradient-text">7 certificates issued</div>
               </div>

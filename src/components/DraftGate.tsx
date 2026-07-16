@@ -67,7 +67,7 @@ export default function DraftGate({
   if (status === 'checking') {
     return (
       <div style={{ minHeight: '100vh', background: '#080808', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', animation: 'pulse 1s infinite' }} />
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', animation: 'pulse 1s infinite' }} />
       </div>
     )
   }

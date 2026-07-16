@@ -12,7 +12,7 @@ export default function TermsPage() {
           <div className="w-7 h-7 violet-gradient rounded-lg flex items-center justify-center">
             <Shield className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="font-semibold text-white">AcademyKit</span>
+          <span className="font-semibold text-white">Kurso</span>
         </Link>
         <Link href="/"
           className="flex items-center gap-2 text-sm transition-colors"
@@ -26,7 +26,7 @@ export default function TermsPage() {
         {/* Header */}
         <div className="mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-medium"
-            style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+            style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
             Legal
           </div>
           <h1 className="text-4xl font-bold text-white mb-3">Terms of Service</h1>
@@ -39,38 +39,38 @@ export default function TermsPage() {
         <div className="prose-custom">
 
           <Section title="1. Acceptance of Terms">
-            By accessing or using AcademyKit ("the Service"), you agree to be bound by these Terms
+            By accessing or using Kurso ("the Service"), you agree to be bound by these Terms
             of Service. If you do not agree to these terms, please do not use the Service. These
             terms apply to all users including content creators ("Creators") and students ("Students").
           </Section>
 
           <Section title="2. Description of Service">
-            AcademyKit is a Software-as-a-Service (SaaS) platform that enables Creators to:
+            Kurso is a Software-as-a-Service (SaaS) platform that enables Creators to:
             <ul>
               <li>Upload and deliver digital course content to enrolled students</li>
               <li>Automate course delivery via WhatsApp and web portal</li>
               <li>Monitor and file takedown notices for unauthorized distribution of their content</li>
               <li>Manage student enrollments, progress tracking, and certifications</li>
             </ul>
-            AcademyKit acts as a technology provider and is not responsible for the content
+            Kurso acts as a technology provider and is not responsible for the content
             created or distributed by Creators.
           </Section>
 
           <Section title="3. Account Registration">
-            To use AcademyKit, you must create an account with a valid email address. You are
+            To use Kurso, you must create an account with a valid email address. You are
             responsible for maintaining the confidentiality of your account credentials and for
             all activities that occur under your account. You must notify us immediately at
-            support@academykit.in of any unauthorized use of your account.
+            support@kurso.in of any unauthorized use of your account.
             <br /><br />
             You must be at least 18 years of age to create an account. By registering, you
             represent that all information you provide is accurate and current.
           </Section>
 
           <Section title="4. Subscription Plans and Billing">
-            AcademyKit offers three subscription tiers: Starter (₹1,999/month), Growth
+            Kurso offers three subscription tiers: Starter (₹1,999/month), Growth
             (₹4,999/month), and Agency (₹12,999/month). All plans are billed monthly in advance.
             <br /><br />
-            Payments are processed securely via Razorpay. By subscribing, you authorize AcademyKit
+            Payments are processed securely via Razorpay. By subscribing, you authorize Kurso
             to charge your payment method on a recurring monthly basis until you cancel. Prices
             are exclusive of applicable taxes including GST where applicable.
             <br /><br />
@@ -87,12 +87,12 @@ export default function TermsPage() {
               <li>Duplicate charges due to billing errors</li>
               <li>Cancellation within 7 days of initial subscription if no course has been created</li>
             </ul>
-            Refund requests must be submitted to support@academykit.in within 14 days of the charge.
+            Refund requests must be submitted to support@kurso.in within 14 days of the charge.
           </Section>
 
           <Section title="6. Content and Intellectual Property">
-            Creators retain full ownership of all course content they upload to AcademyKit.
-            By uploading content, you grant AcademyKit a limited, non-exclusive license to
+            Creators retain full ownership of all course content they upload to Kurso.
+            By uploading content, you grant Kurso a limited, non-exclusive license to
             store, process, and deliver that content solely for the purpose of providing the Service.
             <br /><br />
             You represent and warrant that:
@@ -102,11 +102,11 @@ export default function TermsPage() {
               <li>Your content does not violate any applicable laws or regulations</li>
               <li>Your content is not harmful, defamatory, obscene, or otherwise objectionable</li>
             </ul>
-            AcademyKit reserves the right to remove content that violates these terms without notice.
+            Kurso reserves the right to remove content that violates these terms without notice.
           </Section>
 
           <Section title="7. Prohibited Uses">
-            You agree not to use AcademyKit to:
+            You agree not to use Kurso to:
             <ul>
               <li>Upload, distribute, or sell content that infringes third-party copyrights</li>
               <li>Distribute malware, viruses, or harmful code</li>
@@ -120,14 +120,14 @@ export default function TermsPage() {
           </Section>
 
           <Section title="8. Anti-Piracy Services">
-            AcademyKit provides automated tools to detect and report unauthorized distribution
+            Kurso provides automated tools to detect and report unauthorized distribution
             of Creator content. While we make reasonable efforts to identify and file takedown
             notices for infringing content, we do not guarantee that all infringing copies will
             be identified or removed.
             <br /><br />
             Takedown notices are filed in good faith under applicable copyright laws including
             the Information Technology (Amendment) Rules 2026 for content on Indian platforms.
-            AcademyKit is not a law firm and does not provide legal advice. For formal legal
+            Kurso is not a law firm and does not provide legal advice. For formal legal
             action, Creators should consult a qualified attorney.
           </Section>
 
@@ -141,10 +141,10 @@ export default function TermsPage() {
           </Section>
 
           <Section title="10. Limitation of Liability">
-            To the maximum extent permitted by law, AcademyKit shall not be liable for any
+            To the maximum extent permitted by law, Kurso shall not be liable for any
             indirect, incidental, special, consequential, or punitive damages arising from your
             use of the Service. Our total liability shall not exceed the amount you paid to
-            AcademyKit in the 3 months preceding the claim.
+            Kurso in the 3 months preceding the claim.
           </Section>
 
           <Section title="11. Governing Law">
@@ -161,9 +161,9 @@ export default function TermsPage() {
           <Section title="13. Contact">
             For questions about these Terms, contact us at:
             <br /><br />
-            <strong style={{color:'#fff'}}>AcademyKit</strong><br />
-            Email: legal@academykit.in<br />
-            Support: support@academykit.in
+            <strong style={{color:'#fff'}}>Kurso</strong><br />
+            Email: legal@kurso.in<br />
+            Support: support@kurso.in
           </Section>
         </div>
       </div>
@@ -184,7 +184,7 @@ export default function TermsPage() {
           <Link href="/refund-policy" style={{color:'#52525b'}} className="hover:text-white transition-colors">Refund Policy</Link>
           <Link href="/" style={{color:'#52525b'}} className="hover:text-white transition-colors">Home</Link>
         </div>
-        <p className="text-xs mt-4" style={{color:'#3f3f46'}}>© 2026 AcademyKit. All rights reserved.</p>
+        <p className="text-xs mt-4" style={{color:'#3f3f46'}}>© 2026 Kurso. All rights reserved.</p>
       </div>
     </div>
   )

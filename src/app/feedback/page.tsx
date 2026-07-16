@@ -57,7 +57,7 @@ export default function FeedbackPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-medium"
-            style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+            style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
             Help us build something great
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Feedback</h1>
@@ -70,7 +70,7 @@ export default function FeedbackPage() {
         {/* Friendly note */}
         <div className="rounded-2xl p-5 flex items-start gap-3 mb-8"
           style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
-          <Heart className="w-4 h-4 flex-shrink-0 mt-0.5" style={{color:'#8b5cf6'}} />
+          <Heart className="w-4 h-4 flex-shrink-0 mt-0.5" style={{color:'var(--kurso-primary-light)'}} />
           <p className="text-sm" style={{color:'#a1a1aa'}}>
             
              If there's a feature that would make your life easier, just write it down —
@@ -95,7 +95,7 @@ export default function FeedbackPage() {
                     border:'1px solid rgba(255,255,255,0.1)',
                     color: type ? '#fff' : '#52525b',
                   }}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 >
                   <option value="" style={{background:'#111'}}>Select one</option>
@@ -112,7 +112,7 @@ export default function FeedbackPage() {
                   placeholder="your@email.com" required
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
@@ -125,7 +125,7 @@ export default function FeedbackPage() {
                   required rows={6}
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
@@ -161,7 +161,7 @@ export default function FeedbackPage() {
               <button
                 onClick={() => { setSent(false); setType(''); setEmail(''); setMessage('') }}
                 className="text-sm transition-colors"
-                style={{color:'#8b5cf6'}}>
+                style={{color:'var(--kurso-primary-light)'}}>
                 Send more feedback
               </button>
             </div>
@@ -170,7 +170,7 @@ export default function FeedbackPage() {
 
         <p className="text-center text-sm mt-6" style={{color:'#52525b'}}>
           Got a support issue instead? Head to{' '}
-          <Link href="/contact" className="font-medium" style={{color:'#8b5cf6'}}>Contact</Link>.
+          <Link href="/contact" className="font-medium" style={{color:'var(--kurso-primary-light)'}}>Contact</Link>.
         </p>
       </div>
 

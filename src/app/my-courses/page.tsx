@@ -54,7 +54,7 @@ function ProgressRing({ pct, size = 48 }: { pct: number; size?: number }) {
   const r = (size - 6) / 2
   const circ = 2 * Math.PI * r
   const offset = circ - (pct / 100) * circ
-  const color = pct >= 100 ? '#4ade80' : '#8b5cf6'
+  const color = pct >= 100 ? '#4ade80' : 'var(--kurso-primary-light)'
   return (
     <svg width={size} height={size} style={{ flexShrink: 0 }}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5} />
@@ -345,7 +345,7 @@ const displayEmail = user?.email || ''
   function getStatus(c: EnrolledCourse) {
     const p = getProgress(c)
     if (p >= 100) return { label: 'Completed', bg: 'rgba(74,222,128,0.1)', color: '#4ade80' }
-    if (c.completedLessons.length > 0 || c.currentLesson > 1) return { label: 'In Progress', bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }
+    if (c.completedLessons.length > 0 || c.currentLesson > 1) return { label: 'In Progress', bg: 'rgba(139,92,246,0.1)', color: 'var(--kurso-primary-light)' }
     return { label: 'Just Started', bg: 'rgba(250,204,21,0.08)', color: '#facc15' }
   }
 
@@ -420,10 +420,10 @@ const displayEmail = user?.email || ''
         position: 'sticky', top: 0, zIndex: 50,
       }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Shield className="w-3.5 h-3.5 text-white" />
           </div>
-          <span style={{ fontWeight: 700, color: '#fff', fontSize: 14 }}>AcademyKit</span>
+          <span style={{ fontWeight: 700, color: '#fff', fontSize: 14 }}>Kurso</span>
         </Link>
         <button
           onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
@@ -439,7 +439,7 @@ const displayEmail = user?.email || ''
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
             <div style={{
               width: 44, height: 44, borderRadius: 12,
-              background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+              background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 18, fontWeight: 700, color: '#fff', flexShrink: 0,
             }}>
@@ -486,7 +486,7 @@ const displayEmail = user?.email || ''
           <div style={{ textAlign: 'center', padding: '64px 20px' }}>
             <div style={{
               width: 56, height: 56, borderRadius: 16,
-              background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)',
+              background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
             }}>
               <BookOpen className="w-6 h-6" style={{ color: '#6d28d9' }} />
@@ -518,7 +518,7 @@ const displayEmail = user?.email || ''
                   overflow: 'hidden',
                   transition: 'border-color 0.2s',
                 }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = isComplete ? 'rgba(74,222,128,0.35)' : 'rgba(124,58,237,0.3)')}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = isComplete ? 'rgba(74,222,128,0.35)' : 'rgba(var(--kurso-primary-rgb), 0.3)')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = isComplete ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.07)')}
                 >
                   <div style={{ padding: '18px 20px' }}>
@@ -534,13 +534,13 @@ const displayEmail = user?.email || ''
                               ✓ COMPLETE
                             </span>
                           ) : (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)', letterSpacing: '0.04em' }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(var(--kurso-primary-rgb), 0.1)', color: 'var(--kurso-primary-lighter)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)', letterSpacing: '0.04em' }}>
                               IN PROGRESS
                             </span>
                           )}
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, letterSpacing: '0.04em',
                             background: isPaid ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)',
-                            color: isPaid ? '#22c55e' : '#f59e0b',
+                            color: isPaid ? '#22c55e' : 'var(--kurso-accent)',
                             border: isPaid ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(245,158,11,0.2)',
                           }}>
                             {isPaid ? 'PAID' : 'FREE PREVIEW'}
@@ -574,7 +574,7 @@ const displayEmail = user?.email || ''
                         <Link href={courseUrl} style={{
                           display: 'flex', alignItems: 'center', gap: 5,
                           padding: '7px 14px', borderRadius: 8,
-                          background: isComplete ? 'rgba(74,222,128,0.08)' : 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+                          background: isComplete ? 'rgba(74,222,128,0.08)' : 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))',
                           color: isComplete ? '#4ade80' : '#fff',
                           fontSize: 12, fontWeight: 700, textDecoration: 'none',
                           border: isComplete ? '1px solid rgba(74,222,128,0.2)' : 'none',
@@ -590,7 +590,7 @@ const displayEmail = user?.email || ''
                       <div style={{
                         height: '100%', borderRadius: 3,
                         width: `${progress}%`,
-                        background: isComplete ? '#4ade80' : 'linear-gradient(90deg,#7c3aed,#4f46e5)',
+                        background: isComplete ? '#4ade80' : 'linear-gradient(90deg,var(--kurso-primary),var(--kurso-secondary))',
                         transition: 'width 0.6s ease',
                       }} />
                     </div>
@@ -699,7 +699,7 @@ const displayEmail = user?.email || ''
                                 href={`/certificate/${c.certificateId}`}
                                 style={{
                                   display: 'flex', alignItems: 'center', gap: 4,
-                                  fontSize: 11, fontWeight: 700, color: '#a78bfa',
+                                  fontSize: 11, fontWeight: 700, color: 'var(--kurso-primary-lighter)',
                                   textDecoration: 'none',
                                 }}>
                                 <ExternalLink className="w-3 h-3" /> Verify

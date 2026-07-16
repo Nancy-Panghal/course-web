@@ -104,8 +104,8 @@ function LockedScreen({ course, onEnroll, expectedDeliveryText }: { course: Cour
       <div className="flex-1 flex items-center justify-center p-8" style={{ background: '#0a0a0a' }}>
         <div className="text-center max-w-md">
           <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5"
-            style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
-            <Lock className="w-10 h-10" style={{ color: '#8b5cf6' }} />
+            style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+            <Lock className="w-10 h-10" style={{ color: 'var(--kurso-primary-light)' }} />
           </div>
           <h2 className="text-2xl font-bold text-white mb-3">Course Not Available</h2>
           <p style={{ color: '#a1a1aa' }}>
@@ -120,8 +120,8 @@ function LockedScreen({ course, onEnroll, expectedDeliveryText }: { course: Cour
     <div className="flex-1 flex items-center justify-center p-8" style={{ background: '#0a0a0a' }}>
       <div className="text-center max-w-md">
         <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5"
-          style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
-          <Lock className="w-10 h-10" style={{ color: '#8b5cf6' }} />
+          style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+          <Lock className="w-10 h-10" style={{ color: 'var(--kurso-primary-light)' }} />
         </div>
         <h2 className="text-2xl font-bold text-white mb-3">This lesson is locked</h2>
         <p className="mb-4" style={{ color: '#a1a1aa' }}>
@@ -135,7 +135,7 @@ function LockedScreen({ course, onEnroll, expectedDeliveryText }: { course: Cour
         )}
         <button onClick={onEnroll}
           className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-white"
-          style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow: '0 8px 24px rgba(124,58,237,0.4)' }}>
+          style={{ background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', boxShadow: '0 8px 24px rgba(var(--kurso-primary-rgb), 0.4)' }}>
           Enroll Now — ₹{course.price.toLocaleString()}
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -632,7 +632,7 @@ export default function CourseLearnPage() {
   if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-8 h-8 rounded-lg animate-pulse" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }} />
+        <div className="w-8 h-8 rounded-lg animate-pulse" style={{ background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))' }} />
       </div>
     )
   }
@@ -673,17 +673,17 @@ export default function CourseLearnPage() {
             <Menu className="w-5 h-5" />
           </button>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-            <div style={{ width: 26, height: 26, borderRadius: 7, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 26, height: 26, borderRadius: 7, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Shield className="w-3.5 h-3.5 text-white" />
             </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }} className="hidden sm:block">AcademyKit</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }} className="hidden sm:block">Kurso</span>
           </Link>
           <span style={{ fontSize: 12, color: '#3f3f46' }} className="hidden md:block">/ {course.name}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} className="hidden sm:flex">
             <div style={{ width: 80, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}>
-              <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg,#7c3aed,#4f46e5)', borderRadius: 2 }} />
+              <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg,var(--kurso-primary),var(--kurso-secondary))', borderRadius: 2 }} />
             </div>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#52525b' }}>
               {completed.length}/{plannedTotal || lessons.length}
@@ -739,8 +739,8 @@ export default function CourseLearnPage() {
                 <button key={lesson.id} onClick={() => goTo(lesson)} style={{
                   width: '100%', padding: '10px 16px',
                   display: 'flex', alignItems: 'flex-start', gap: 10,
-                  background: isActive ? 'rgba(124,58,237,0.1)' : 'transparent',
-                  borderRight: isActive ? '2px solid #7c3aed' : '2px solid transparent',
+                  background: isActive ? 'rgba(var(--kurso-primary-rgb), 0.1)' : 'transparent',
+                  borderRight: isActive ? '2px solid var(--kurso-primary)' : '2px solid transparent',
                   borderLeft: 'none', borderTop: 'none', borderBottom: 'none',
                   cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s',
                 }}>
@@ -750,7 +750,7 @@ export default function CourseLearnPage() {
                       : isDone
                         ? <CheckCircle className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />
                         : isActive
-                          ? <Play className="w-3.5 h-3.5 fill-current" style={{ color: '#a78bfa' }} />
+                          ? <Play className="w-3.5 h-3.5 fill-current" style={{ color: 'var(--kurso-primary-lighter)' }} />
                           : <span style={{ fontSize: 10, fontWeight: 700, color: '#3f3f46' }}>{lesson.order_num}</span>
                     }
                   </div>
@@ -768,8 +768,8 @@ export default function CourseLearnPage() {
                       {hasQuiz && (
                         <span style={{
                           fontSize: 9, padding: '1px 5px', borderRadius: 4,
-                          background: lessonQuizResult ? 'rgba(74,222,128,0.08)' : 'rgba(124,58,237,0.08)',
-                          color: lessonQuizResult ? '#4ade80' : '#a78bfa',
+                          background: lessonQuizResult ? 'rgba(74,222,128,0.08)' : 'rgba(var(--kurso-primary-rgb), 0.08)',
+                          color: lessonQuizResult ? '#4ade80' : 'var(--kurso-primary-lighter)',
                           fontWeight: 700, textTransform: 'uppercase',
                         }}>
                           {lessonQuizResult ? `Quiz ${lessonQuizResult.score}/${lessonQuizResult.total}` : 'Quiz'}
@@ -798,7 +798,7 @@ export default function CourseLearnPage() {
             <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px 60px' }}>
 
               {!isEnrolled && (
-                <div style={{ marginBottom: 18, padding: 16, borderRadius: 12, background: 'rgba(124,58,237,0.09)', border: '1px solid rgba(124,58,237,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ marginBottom: 18, padding: 16, borderRadius: 12, background: 'rgba(var(--kurso-primary-rgb), 0.09)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.22)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div>
                     <p style={{ color: '#fff', fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
                       Free preview — {freeLessons} lesson{freeLessons !== 1 ? 's' : ''} available
@@ -808,7 +808,7 @@ export default function CourseLearnPage() {
                     </p>
                   </div>
                   <button onClick={() => setShowEnroll(true)}
-                    style={{ padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                    style={{ padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', border: 'none', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                     Enroll — ₹{course.price.toLocaleString()}
                   </button>
                 </div>
@@ -816,12 +816,12 @@ export default function CourseLearnPage() {
 
               {/* Content */}
               {currentLesson?.content_type === 'quiz' ? (
-                <div style={{ aspectRatio: '16/9', background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24, padding: 24, textAlign: 'center' }}>
+                <div style={{ aspectRatio: '16/9', background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24, padding: 24, textAlign: 'center' }}>
                   {quizQuestions ? (
                     <>
                       <p style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>🧠 This lesson is a quiz</p>
                       <Link href={`/resource/${currentLesson.id}?type=quiz`} target="_blank"
-                        style={{ padding: '10px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                        style={{ padding: '10px 20px', borderRadius: 10, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
                         {currentQuizResult ? `Retake Quiz (Last score: ${currentQuizResult.score}/${currentQuizResult.total})` : 'Take the Quiz'}
                       </Link>
                     </>
@@ -846,7 +846,7 @@ export default function CourseLearnPage() {
                 </div>
               ) : loadingContent ? (
                 <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', animation: 'pulse 1s infinite' }} />
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', animation: 'pulse 1s infinite' }} />
                 </div>
               ) : contentUrl ? (
                 <div style={{ marginBottom: 24 }}>
@@ -894,7 +894,7 @@ export default function CourseLearnPage() {
                     </div>
                   ) : (
                     <button onClick={() => markComplete(currentLesson.order_num)} disabled={savingProgress}
-                      style={{ padding: '8px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: savingProgress ? 0.6 : 1 }}>
+                      style={{ padding: '8px 20px', borderRadius: 10, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: savingProgress ? 0.6 : 1 }}>
                       {savingProgress ? 'Saving…' : 'Mark as Complete'}
                     </button>
                   )
@@ -906,13 +906,13 @@ export default function CourseLearnPage() {
                 <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
                   {currentLesson.summary_url && (
                     <Link href={`/resource/${currentLesson.id}?type=summary`} target="_blank"
-                      style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(124,58,237,0.12)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.22)', fontSize: 12, fontWeight: 700 }}>
+                      style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(var(--kurso-primary-rgb), 0.12)', color: 'var(--kurso-primary-lightest)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.22)', fontSize: 12, fontWeight: 700 }}>
                       📄 Summary
                     </Link>
                   )}
                   {currentLesson.notes_url && (
                     <Link href={`/resource/${currentLesson.id}?type=notes`} target="_blank"
-                      style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(124,58,237,0.12)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.22)', fontSize: 12, fontWeight: 700 }}>
+                      style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(var(--kurso-primary-rgb), 0.12)', color: 'var(--kurso-primary-lightest)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.22)', fontSize: 12, fontWeight: 700 }}>
                       📝 Notes
                     </Link>
                   )}
@@ -920,9 +920,9 @@ export default function CourseLearnPage() {
                     <Link href={`/resource/${currentLesson.id}?type=quiz`} target="_blank"
                       style={{
                         padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                        background: currentQuizResult ? 'rgba(74,222,128,0.1)' : 'rgba(124,58,237,0.12)',
-                        color: currentQuizResult ? '#4ade80' : '#c4b5fd',
-                        border: currentQuizResult ? '1px solid rgba(74,222,128,0.22)' : '1px solid rgba(124,58,237,0.22)',
+                        background: currentQuizResult ? 'rgba(74,222,128,0.1)' : 'rgba(var(--kurso-primary-rgb), 0.12)',
+                        color: currentQuizResult ? '#4ade80' : 'var(--kurso-primary-lightest)',
+                        border: currentQuizResult ? '1px solid rgba(74,222,128,0.22)' : '1px solid rgba(var(--kurso-primary-rgb), 0.22)',
                       }}>
                       🧠 {currentQuizResult ? `Quiz: ${currentQuizResult.score}/${currentQuizResult.total}` : 'Take Quiz'}
                     </Link>
@@ -943,7 +943,7 @@ export default function CourseLearnPage() {
                 {nextLesson ? (
                   isNextLocked ? (
                     <button onClick={() => setShowEnroll(true)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 10, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                       Enroll to unlock — ₹{course.price.toLocaleString()} <ChevronRight className="w-4 h-4" />
                     </button>
                   ) : (
@@ -983,7 +983,7 @@ export default function CourseLearnPage() {
                   background: 'rgba(245,158,11,0.06)',
                   border: '1px solid rgba(245,158,11,0.2)',
                 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', marginBottom: 6 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--kurso-accent)', marginBottom: 6 }}>
                     📝 Assignment{currentLesson.assignment_required ? ' (Required)' : ' (Optional)'}
                   </p>
 
@@ -1018,12 +1018,12 @@ export default function CourseLearnPage() {
                               alignItems: 'center',
                               gap: 6,
                               fontSize: 12,
-                              color: '#c4b5fd',
+                              color: 'var(--kurso-primary-lightest)',
                               marginBottom: 12,
                               padding: '6px 12px',
                               borderRadius: 8,
-                              background: 'rgba(124,58,237,0.12)',
-                              border: '1px solid rgba(124,58,237,0.22)',
+                              background: 'rgba(var(--kurso-primary-rgb), 0.12)',
+                              border: '1px solid rgba(var(--kurso-primary-rgb), 0.22)',
                               textDecoration: 'none',
                             }}
                           >
@@ -1051,19 +1051,19 @@ export default function CourseLearnPage() {
                           href={assignmentSubmission.submission_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ fontSize: 12, color: '#a78bfa', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          style={{ fontSize: 12, color: 'var(--kurso-primary-lighter)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
                           <Download className="w-3.5 h-3.5" /> View attached file
                         </a>
                       )}
                       {assignmentSubmission.status === 'reviewed' && (
-                        <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)' }}>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', marginBottom: 4 }}>
+                        <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--kurso-primary-lighter)', marginBottom: 4 }}>
                             Instructor Feedback:
                           </p>
                           <p style={{ fontSize: 12, color: '#e4e4e7' }}>{assignmentSubmission.creator_feedback}</p>
                           {assignmentSubmission.score !== null && assignmentSubmission.score !== undefined && (
-                            <p style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', marginTop: 6 }}>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--kurso-primary-lighter)', marginTop: 6 }}>
                               Score: {assignmentSubmission.score}/10
                             </p>
                           )}
@@ -1319,7 +1319,7 @@ export default function CourseLearnPage() {
 
               {certGenerating && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0', color: '#a1a1aa', fontSize: 13 }}>
-                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', animation: 'pulse 1s infinite' }} />
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--kurso-primary)', animation: 'pulse 1s infinite' }} />
                   Generating certificate…
                 </div>
               )}
@@ -1351,7 +1351,7 @@ export default function CourseLearnPage() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     padding: '10px 0', fontSize: 12, fontWeight: 600,
-                    color: '#a78bfa', textDecoration: 'none',
+                    color: 'var(--kurso-primary-lighter)', textDecoration: 'none',
                   }}>
                   <ExternalLink style={{ width: 13, height: 13 }} /> View verification page
                 </Link>

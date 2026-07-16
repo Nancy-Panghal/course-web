@@ -1,4 +1,4 @@
-# Kurso AcademyKit — Architecture Notes
+# Kurso Kurso — Architecture Notes
 
 This file tells AI (and future contributors) which components/routes are canonical, and how things should work.
 

@@ -51,7 +51,7 @@ export default async function CreatorStorefrontPage({ params }: { params: Promis
             <img src={photo} alt={displayName} className="w-20 h-20 rounded-2xl object-cover" />
           ) : (
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white"
-              style={{ background: 'rgba(124,58,237,0.2)' }}>
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.2)' }}>
               {displayName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -83,7 +83,7 @@ export default async function CreatorStorefrontPage({ params }: { params: Promis
                     <p className="text-xs mt-1 line-clamp-1" style={{ color: '#71717a' }}>{course.description}</p>
                   )}
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-sm font-semibold" style={{ color: '#8b5cf6' }}>₹{course.price?.toLocaleString('en-IN')}</span>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--kurso-primary-light)' }}>₹{course.price?.toLocaleString('en-IN')}</span>
                     {course.original_price > course.price && (
                       <span className="text-xs line-through" style={{ color: '#52525b' }}>₹{course.original_price?.toLocaleString('en-IN')}</span>
                     )}

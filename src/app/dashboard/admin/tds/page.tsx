@@ -36,7 +36,7 @@ export default function AdminTdsPage() {
 
   function statusLabel(status: string) {
     if (status === 'over_threshold') return { text: 'Over ₹5L — start deducting TDS', color: '#f87171', bg: 'rgba(248,113,113,0.1)' }
-    if (status === 'approaching') return { text: 'Approaching ₹5L', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' }
+    if (status === 'approaching') return { text: 'Approaching ₹5L', color: 'var(--kurso-accent)', bg: 'rgba(245,158,11,0.1)' }
     return { text: 'OK', color: '#71717a', bg: 'rgba(255,255,255,0.04)' }
   }
 

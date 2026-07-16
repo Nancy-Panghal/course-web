@@ -38,7 +38,7 @@ function html(title: string, contentUrl: string, contentType: string, chatId: st
 </head>
 <body>
   <main>
-    <header>AcademyKit Protected Telegram Lesson</header>
+    <header>Kurso Protected Telegram Lesson</header>
     <section class="player">
       <div class="wm">TG:${chatId}</div>
       ${player}

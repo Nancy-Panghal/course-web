@@ -175,7 +175,7 @@ export default function AnalyticsPage({
               label: 'Total Enrolled',
               value: overview.totalEnrolled,
               icon: Users,
-              color: '#8b5cf6',
+              color: 'var(--kurso-primary-light)',
             },
             {
               label: 'Completion Rate',
@@ -195,7 +195,7 @@ export default function AnalyticsPage({
               label: 'Active (7d)',
               value: overview.activeCount,
               icon: Zap,
-              color: '#f59e0b',
+              color: 'var(--kurso-accent)',
               sub: `${overview.inactiveCount} inactive`,
             },
           ].map((card, i) => {
@@ -231,7 +231,7 @@ export default function AnalyticsPage({
                   How many students completed each lesson
                 </p>
               </div>
-              <BarChart3 className="w-5 h-5" style={{ color: '#8b5cf6' }} />
+              <BarChart3 className="w-5 h-5" style={{ color: 'var(--kurso-primary-light)' }} />
             </div>
 
             {lessonDropoff.length === 0 ? (
@@ -323,7 +323,7 @@ export default function AnalyticsPage({
                 {
                   label: 'Paid Enrollments',
                   value: String(revenue.paidCount),
-                  color: '#8b5cf6',
+                  color: 'var(--kurso-primary-light)',
                 },
                 {
                   label: 'Avg Amount Paid',
@@ -385,7 +385,7 @@ export default function AnalyticsPage({
                 Not accessed course in the last 7 days · {inactiveStudents.length} students
               </p>
             </div>
-            <Clock className="w-5 h-5" style={{ color: '#f59e0b' }} />
+            <Clock className="w-5 h-5" style={{ color: 'var(--kurso-accent)' }} />
           </div>
 
           {inactiveStudents.length === 0 ? (
@@ -432,7 +432,7 @@ export default function AnalyticsPage({
                       <span className="text-xs px-2 py-1 rounded-full"
                         style={{
                           background: student.daysSinceAccess > 14 ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
-                          color: student.daysSinceAccess > 14 ? '#ef4444' : '#f59e0b',
+                          color: student.daysSinceAccess > 14 ? '#ef4444' : 'var(--kurso-accent)',
                         }}>
                         {student.daysSinceAccess}d ago
                       </span>
@@ -457,7 +457,7 @@ export default function AnalyticsPage({
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
                           style={{
                             background: 'rgba(139,92,246,0.1)',
-                            color: '#8b5cf6',
+                            color: 'var(--kurso-primary-light)',
                             border: '1px solid rgba(139,92,246,0.2)',
                           }}
                         >

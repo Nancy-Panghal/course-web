@@ -140,14 +140,14 @@ export default function UpgradePage() {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount,
         currency: 'INR',
-        name: 'AcademyKit',
+        name: 'Kurso',
         description: `${plan.name} Plan — Monthly Subscription`,
         order_id: orderId,
         prefill: {
           email: creator?.email || '',
           name: creator?.name || '',
         },
-        theme: { color: '#7c3aed' },
+        theme: { color: 'var(--kurso-primary)' },
         handler: async (response: any) => {
           try {
             const verifyRes = await fetch('/api/razorpay/verify-subscription', {
@@ -261,7 +261,7 @@ export default function UpgradePage() {
           <div className="w-7 h-7 violet-gradient rounded-lg flex items-center justify-center">
             <Shield className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="font-semibold text-white">AcademyKit</span>
+          <span className="font-semibold text-white">Kurso</span>
         </Link>
         <Link href="/dashboard"
           className="flex items-center gap-2 text-sm transition-colors"
@@ -286,7 +286,7 @@ export default function UpgradePage() {
             }}>
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5"
-                style={{color: trialStatus.expired ? '#ef4444' : '#f59e0b'}} />
+                style={{color: trialStatus.expired ? '#ef4444' : 'var(--kurso-accent)'}} />
               <div>
                 <p className="font-semibold text-white">
                   {trialStatus.expired
@@ -304,7 +304,7 @@ export default function UpgradePage() {
             </div>
             {!trialStatus.expired && (
               <span className="text-xs px-3 py-1.5 rounded-full flex-shrink-0 font-medium"
-                style={{background:'rgba(245,158,11,0.15)', color:'#f59e0b', border:'1px solid rgba(245,158,11,0.2)'}}>
+                style={{background:'rgba(245,158,11,0.15)', color:'var(--kurso-accent)', border:'1px solid rgba(245,158,11,0.2)'}}>
                 Trial active
               </span>
             )}
@@ -314,12 +314,12 @@ export default function UpgradePage() {
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-medium"
-            style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+            style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
             <Zap className="w-3 h-3" />
             Choose your plan
           </div>
           <h1 className="text-4xl font-bold text-white mb-3">
-            Upgrade AcademyKit
+            Upgrade Kurso
           </h1>
           <p style={{color:'#a1a1aa'}}>
             Cancel anytime. No hidden fees. Switch plans whenever you need.
@@ -349,18 +349,18 @@ export default function UpgradePage() {
               <div key={plan.id}
                 className="rounded-2xl p-8 flex flex-col transition-all"
                 style={{
-                  background: plan.highlighted ? 'linear-gradient(135deg, #7c3aed, #8b5cf6)' : '#0a0a0a',
+                  background: plan.highlighted ? 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))' : '#0a0a0a',
                   border: isCurrent
                     ? '2px solid #4ade80'
                     : plan.highlighted
-                    ? '1px solid #8b5cf6'
+                    ? '1px solid var(--kurso-primary-light)'
                     : '1px solid rgba(255,255,255,0.08)',
                   position: 'relative',
                 }}>
 
                 {plan.highlighted && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-violet-600 text-xs font-bold px-4 py-1 rounded-full"
-                    style={{color:'#7c3aed'}}>
+                    style={{color:'var(--kurso-primary)'}}>
                     MOST POPULAR
                   </div>
                 )}
@@ -392,7 +392,7 @@ export default function UpgradePage() {
                   {plan.features.map((f,i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
                       <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${plan.highlighted ? 'text-white' : 'text-violet-light'}`}
-                        style={{color: plan.highlighted ? '#fff' : '#8b5cf6'}} />
+                        style={{color: plan.highlighted ? '#fff' : 'var(--kurso-primary-light)'}} />
                       <span style={{color: plan.highlighted ? 'rgba(255,255,255,0.9)' : '#a1a1aa'}}>{f}</span>
                     </li>
                   ))}
@@ -409,8 +409,8 @@ export default function UpgradePage() {
                     disabled={payingPlan !== null}
                     className="w-full py-3 rounded-xl font-medium transition-all disabled:opacity-50"
                     style={{
-                      background: plan.highlighted ? '#fff' : 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
-                      color: plan.highlighted ? '#7c3aed' : '#fff',
+                      background: plan.highlighted ? '#fff' : 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))',
+                      color: plan.highlighted ? 'var(--kurso-primary)' : '#fff',
                     }}>
                     {payingPlan === plan.id ? 'Opening payment...' : `Upgrade to ${plan.name}`}
                   </button>
@@ -424,7 +424,7 @@ export default function UpgradePage() {
         {payments.length > 0 && (
           <div className="rounded-2xl p-6 glass mb-12" style={{border:'1px solid rgba(255,255,255,0.06)'}}>
             <div className="mb-4 flex items-center gap-2">
-              <FileText className="w-4 h-4" style={{color:'#8b5cf6'}} />
+              <FileText className="w-4 h-4" style={{color:'var(--kurso-primary-light)'}} />
               <div className="text-sm font-semibold text-white">Billing history</div>
             </div>
             <div className="flex flex-col gap-3">
@@ -452,7 +452,7 @@ export default function UpgradePage() {
                         onClick={() => handleInvoice(p.id, 'download')}
                         disabled={busy}
                         className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 disabled:opacity-50"
-                        style={{background:'linear-gradient(135deg, #7c3aed, #8b5cf6)', color:'#fff'}}>
+                        style={{background:'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))', color:'#fff'}}>
                         <Download className="w-3.5 h-3.5" />
                         {fetchingInvoiceFor === p.id + 'download' ? 'Downloading...' : 'Download'}
                       </button>
@@ -500,7 +500,7 @@ export default function UpgradePage() {
             </p>
             <Link href="/contact"
               className="text-sm font-medium transition-colors"
-              style={{color:'#8b5cf6'}}>
+              style={{color:'var(--kurso-primary-light)'}}>
               Contact us →
             </Link>
           </div>
@@ -515,7 +515,7 @@ export default function UpgradePage() {
             <div className="w-6 h-6 violet-gradient rounded-md flex items-center justify-center">
               <Shield className="w-3 h-3 text-white" />
             </div>
-            <span className="text-sm font-medium text-white">AcademyKit</span>
+            <span className="text-sm font-medium text-white">Kurso</span>
           </Link>
           <div className="flex gap-6 text-xs" style={{color:'#52525b'}}>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>

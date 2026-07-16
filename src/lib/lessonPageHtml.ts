@@ -111,7 +111,7 @@ export function renderLessonPage({
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>${title} — AcademyKit</title>
+  <title>${title} — Kurso</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -401,7 +401,7 @@ export function renderLessonPage({
   <nav class="nav">
     <a href="/" class="nav-logo">
       <div class="nav-logo-icon">🛡</div>
-      <span class="nav-logo-text">AcademyKit</span>
+      <span class="nav-logo-text">Kurso</span>
     </a>
     <span class="nav-badge">🔒 Protected</span>
   </nav>
@@ -419,7 +419,7 @@ export function renderLessonPage({
     <div class="pdf-container">
       <iframe src="${contentUrl}" class="pdf-wrap" title="${title}"></iframe>
       <div class="screen-watermark">
-        <div class="wm-grid">${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit</div>
+        <div class="wm-grid">${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso</div>
         <div class="wm-floating">Licensed to ${studentName} · ID ${shortId}</div>
       </div>
     </div>
@@ -502,7 +502,7 @@ export function renderLessonPage({
         disablepictureinpicture
       ></video>
       <div class="screen-watermark">
-        <div class="wm-grid">${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit · ${studentName} · ${shortId} · AcademyKit</div>
+        <div class="wm-grid">${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso · ${studentName} · ${shortId} · Kurso</div>
         <div class="wm-floating">Licensed to ${studentName} · ID ${shortId}</div>
       </div>
       <canvas id="wmCanvas" class="watermark-canvas"></canvas>
@@ -524,7 +524,7 @@ export function renderLessonPage({
 
     ${contentKind !== 'assignment' ? `
     <div class="wm-strip">
-      Licensed to ${studentName} · ID: ${shortId} · AcademyKit · Sharing violates your license
+      Licensed to ${studentName} · ID: ${shortId} · Kurso · Sharing violates your license
     </div>
     ` : ''}
 
@@ -614,7 +614,7 @@ export function renderLessonPage({
 
     const STUDENT = ${JSON.stringify(studentName)}
     const SHORT_ID = ${JSON.stringify(shortId)}
-    const WM_TEXT = STUDENT + ' · ' + SHORT_ID + ' · AcademyKit'
+    const WM_TEXT = STUDENT + ' · ' + SHORT_ID + ' · Kurso'
 
     function syncCanvasSize() {
       const wrap = document.getElementById('playerWrap')

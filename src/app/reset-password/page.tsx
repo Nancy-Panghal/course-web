@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
         </div>
 
         <div className="glass rounded-2xl p-8 glow"
-          style={{border:'1px solid rgba(124,58,237,0.2)'}}>
+          style={{border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
 
           {/* Loading */}
           {stage === 'loading' && (
@@ -155,7 +155,7 @@ export default function ResetPasswordPage() {
                     required minLength={8} autoFocus
                     className="w-full px-4 pr-10 py-3 rounded-xl text-sm text-white outline-none transition-all"
                     style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                    onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                    onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                     onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                   />
                   <button type="button" onClick={() => setShowPass(!showPass)}
@@ -171,7 +171,7 @@ export default function ResetPasswordPage() {
                     {[1,2,3,4].map(i => (
                       <div key={i} className="flex-1 h-1 rounded-full transition-all"
                         style={{background: password.length >= i * 3
-                          ? i <= 1 ? '#ef4444' : i <= 2 ? '#f59e0b' : i <= 3 ? '#3b82f6' : '#4ade80'
+                          ? i <= 1 ? '#ef4444' : i <= 2 ? 'var(--kurso-accent)' : i <= 3 ? '#3b82f6' : '#4ade80'
                           : 'rgba(255,255,255,0.08)'}} />
                     ))}
                   </div>
@@ -197,7 +197,7 @@ export default function ResetPasswordPage() {
                           ? '1px solid rgba(74,222,128,0.4)'
                           : '1px solid rgba(255,255,255,0.1)',
                     }}
-                    onFocus={e => { if (!confirm || confirm === password) e.target.style.borderColor = '#7c3aed' }}
+                    onFocus={e => { if (!confirm || confirm === password) e.target.style.borderColor = 'var(--kurso-primary)' }}
                     onBlur={e => {
                       if (!confirm) e.target.style.borderColor = 'rgba(255,255,255,0.1)'
                     }}

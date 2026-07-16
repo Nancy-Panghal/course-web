@@ -66,7 +66,7 @@ function couponState(coupon: Coupon) {
     return { label: 'Expired', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' }
   }
   if (coupon.usage_limit && coupon.times_used >= coupon.usage_limit) {
-    return { label: 'Used up', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' }
+    return { label: 'Used up', color: 'var(--kurso-accent)', bg: 'rgba(245,158,11,0.1)' }
   }
   return { label: 'Active', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' }
 }
@@ -273,9 +273,9 @@ export default function CouponsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {[
-            { label: 'Active coupons', value: stats.active, icon: Ticket, color: '#8b5cf6' },
+            { label: 'Active coupons', value: stats.active, icon: Ticket, color: 'var(--kurso-primary-light)' },
             { label: 'Total redemptions', value: stats.redemptions, icon: CheckCircle2, color: '#22c55e' },
-            { label: 'Limited offers', value: stats.limited, icon: Power, color: '#f59e0b' },
+            { label: 'Limited offers', value: stats.limited, icon: Power, color: 'var(--kurso-accent)' },
           ].map(item => {
             const Icon = item.icon
             return (
@@ -295,7 +295,7 @@ export default function CouponsPage() {
         <form onSubmit={createCoupon} className="rounded-2xl p-5 mb-8 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <div className="flex items-center gap-2">
-              <Plus className="w-5 h-5" style={{ color: '#8b5cf6' }} />
+              <Plus className="w-5 h-5" style={{ color: 'var(--kurso-primary-light)' }} />
               <h2 className="font-semibold text-white">Create coupon</h2>
             </div>
 
@@ -350,9 +350,9 @@ export default function CouponsPage() {
                   }}
                   className="w-12 rounded-l-xl flex items-center justify-center"
                   style={{
-                    background: form.discountType === 'percentage' ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.05)',
+                    background: form.discountType === 'percentage' ? 'rgba(var(--kurso-primary-rgb), 0.25)' : 'rgba(255,255,255,0.05)',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    color: form.discountType === 'percentage' ? '#c4b5fd' : '#71717a',
+                    color: form.discountType === 'percentage' ? 'var(--kurso-primary-lightest)' : '#71717a',
                   }}
                 >
                   <Percent className="w-4 h-4" />
@@ -365,10 +365,10 @@ export default function CouponsPage() {
                   }}
                   className="w-12 flex items-center justify-center"
                   style={{
-                    background: form.discountType === 'fixed' ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.05)',
+                    background: form.discountType === 'fixed' ? 'rgba(var(--kurso-primary-rgb), 0.25)' : 'rgba(255,255,255,0.05)',
                     borderTop: '1px solid rgba(255,255,255,0.1)',
                     borderBottom: '1px solid rgba(255,255,255,0.1)',
-                    color: form.discountType === 'fixed' ? '#c4b5fd' : '#71717a',
+                    color: form.discountType === 'fixed' ? 'var(--kurso-primary-lightest)' : '#71717a',
                   }}
                 >
                   <IndianRupee className="w-4 h-4" />
@@ -435,13 +435,13 @@ export default function CouponsPage() {
           </div>
         ) : courses.length === 0 ? (
           <div className="rounded-2xl p-12 text-center glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-            <BookOpen className="w-10 h-10 mx-auto mb-4" style={{ color: '#8b5cf6' }} />
+            <BookOpen className="w-10 h-10 mx-auto mb-4" style={{ color: 'var(--kurso-primary-light)' }} />
             <h3 className="text-lg font-semibold text-white mb-2">Create a course first</h3>
             <p className="text-sm" style={{ color: '#a1a1aa' }}>Coupons need at least one course to be useful at checkout.</p>
           </div>
         ) : coupons.length === 0 ? (
           <div className="rounded-2xl p-12 text-center glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-            <Ticket className="w-10 h-10 mx-auto mb-4" style={{ color: '#8b5cf6' }} />
+            <Ticket className="w-10 h-10 mx-auto mb-4" style={{ color: 'var(--kurso-primary-light)' }} />
             <h3 className="text-lg font-semibold text-white mb-2">No coupons yet</h3>
             <p className="text-sm" style={{ color: '#a1a1aa' }}>Create a launch code like LAUNCH50 and share it with students.</p>
           </div>
@@ -468,7 +468,7 @@ export default function CouponsPage() {
                     <button
                       onClick={() => copyCode(coupon.code)}
                       className="inline-flex items-center gap-2 max-w-full rounded-lg px-2 py-1 transition-all"
-                      style={{ background: 'rgba(124,58,237,0.12)', color: '#c4b5fd' }}
+                      style={{ background: 'rgba(var(--kurso-primary-rgb), 0.12)', color: 'var(--kurso-primary-lightest)' }}
                     >
                       <span className="font-mono text-sm font-semibold truncate">{coupon.code}</span>
                       <Copy className="w-3.5 h-3.5 flex-shrink-0" />
@@ -502,7 +502,7 @@ export default function CouponsPage() {
                         className="h-full rounded-full"
                         style={{
                           width: coupon.usage_limit ? `${usagePercent}%` : coupon.times_used > 0 ? '100%' : '0%',
-                          background: coupon.usage_limit ? '#8b5cf6' : '#22c55e',
+                          background: coupon.usage_limit ? 'var(--kurso-primary-light)' : '#22c55e',
                         }}
                       />
                     </div>

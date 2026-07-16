@@ -61,7 +61,7 @@ function AddLessonModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
       <div className="w-full max-w-md rounded-2xl p-6"
-        style={{ background: '#111', border: '1px solid rgba(124,58,237,0.3)' }}>
+        style={{ background: '#111', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-white">Add New Lesson</h2>
@@ -82,9 +82,9 @@ function AddLessonModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => 
                   onClick={() => setType(t)}
                   className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all"
                   style={{
-                    background: type === t ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)',
-                    border: type === t ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(255,255,255,0.08)',
-                    color: type === t ? '#8b5cf6' : '#a1a1aa',
+                    background: type === t ? 'rgba(var(--kurso-primary-rgb), 0.2)' : 'rgba(255,255,255,0.05)',
+                    border: type === t ? '1px solid rgba(var(--kurso-primary-rgb), 0.5)' : '1px solid rgba(255,255,255,0.08)',
+                    color: type === t ? 'var(--kurso-primary-light)' : '#a1a1aa',
                   }}
                 >
                   {t === 'video' ? <Video className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
@@ -105,7 +105,7 @@ function AddLessonModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => 
               required
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-              onFocus={e => e.target.style.borderColor = '#7c3aed'}
+              onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
           </div>
@@ -125,7 +125,7 @@ function AddLessonModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => 
                 required
                 className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
             </div>
@@ -249,8 +249,8 @@ export default function LessonsPage() {
           <div className="rounded-2xl p-16 text-center glass"
             style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
-              <BookOpen className="w-8 h-8" style={{ color: '#8b5cf6' }} />
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+              <BookOpen className="w-8 h-8" style={{ color: 'var(--kurso-primary-light)' }} />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">No lessons yet</h3>
             <p className="text-sm mb-6" style={{ color: '#a1a1aa' }}>
@@ -281,7 +281,7 @@ export default function LessonsPage() {
 
                 {/* Order badge */}
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
-                  style={{ background: 'rgba(124,58,237,0.15)', color: '#8b5cf6' }}>
+                  style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)' }}>
                   {String(i + 1).padStart(2, '0')}
                 </div>
 
@@ -289,8 +289,8 @@ export default function LessonsPage() {
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: 'rgba(255,255,255,0.05)' }}>
                   {lesson.r2_key.includes('.pdf') || lesson.r2_key.includes('pdf')
-                    ? <FileText className="w-4 h-4" style={{ color: '#f59e0b' }} />
-                    : <Video className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                    ? <FileText className="w-4 h-4" style={{ color: 'var(--kurso-accent)' }} />
+                    : <Video className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                   }
                 </div>
 
@@ -327,8 +327,8 @@ export default function LessonsPage() {
         {/* Info banner */}
         {lessons.length > 0 && (
           <div className="mt-6 flex items-start gap-3 p-4 rounded-xl"
-            style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)' }}>
-            <div className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#8b5cf6' }}>ℹ</div>
+            style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.15)' }}>
+            <div className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-primary-light)' }}>ℹ</div>
             <p className="text-sm" style={{ color: '#a1a1aa' }}>
               Lessons are delivered in order via WhatsApp. Students unlock the next lesson after marking the current one complete.
               Video links expire after 60 minutes to prevent piracy.

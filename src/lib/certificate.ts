@@ -235,8 +235,8 @@ function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: P
     page.drawText('SCAN TO VERIFY', { x: W - 72 - qrSize, y: 116, size: 7, font: tb, color: hx('#999999') })
   }
 
-  // AcademyKit centre branding
-  const brand = 'Verified by AcademyKit'
+  // Kurso centre branding
+  const brand = 'Verified by Kurso'
   page.drawText(brand, { x: cx(brand, ti, 11), y: 44, size: 11, font: ti, color: gold })
 }
 
@@ -323,7 +323,7 @@ function drawModern(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont,
   page.drawText('CERTIFICATE ID', { x: W - 230, y: footerY + 18, size: 8, font: bold, color: muted })
   page.drawText(d.certificateId, { x: W - 230, y: footerY - 2, size: 11, font: bold, color: white })
 
-  const brand = 'academykit.in'
+  const brand = 'kurso.in'
   page.drawText(brand, { x: cx(brand, regular, 10), y: 24, size: 10, font: regular, color: violet })
 }
 
@@ -441,7 +441,7 @@ function drawGold(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFF
   }
 
   // Centre branding
-  const brand = '— AcademyKit —'
+  const brand = '— Kurso —'
   page.drawText(brand, { x: cx(brand, ti, 12), y: 44, size: 12, font: ti, color: gold })
 }
 
@@ -537,7 +537,7 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
   }
 
   // Centre branding
-  const brand = 'AcademyKit'
+  const brand = 'Kurso'
   page.drawText(brand, { x: cx(brand, bold, 12), y: 44, size: 12, font: bold, color: violet })
 }
 
@@ -570,8 +570,8 @@ function drawRoyal(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDF
     page.drawImage(assets.logoImage, { x: 44, y: H - 44 - dims.height, width: dims.width, height: dims.height })
   }
 
-  // Small ACADEMYKIT label at very top
-  const ak = 'ACADEMYKIT'
+  // Small KURSO label at very top
+  const ak = 'KURSO'
   page.drawText(ak, { x: cx(ak, tb, 11), y: H - 52, size: 11, font: tb, color: gold })
 
   // Top gold divider
@@ -656,7 +656,7 @@ function drawRoyal(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDF
   }
 
   // Centre branding
-  const brand = '~ Verified by AcademyKit ~'
+  const brand = '~ Verified by Kurso ~'
   page.drawText(brand, { x: cx(brand, ti, 11), y: 44, size: 11, font: ti, color: gold })
 }
 
@@ -758,7 +758,7 @@ export async function issueCertificate(
     skills:         params.skills,
     logoUrl:        params.logoUrl,
     signatureUrl:   params.signatureUrl,
-    verificationUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://academykit.in'}/certificate/${certId}`,
+    verificationUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://kurso.in'}/certificate/${certId}`,
   })
 
   // ── Upload to Supabase Storage ────────────────────────────────────────────

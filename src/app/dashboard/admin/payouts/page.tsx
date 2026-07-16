@@ -192,8 +192,8 @@ export default function AdminPayoutsPage() {
                           onClick={() => pickSale(sale)}
                           className="flex justify-between items-center px-3 py-2 rounded-lg text-xs text-left transition-all"
                           style={{
-                            background: selectedPaymentId === sale.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
-                            border: selectedPaymentId === sale.id ? '1px solid rgba(124,58,237,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            background: selectedPaymentId === sale.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                            border: selectedPaymentId === sale.id ? '1px solid rgba(var(--kurso-primary-rgb), 0.4)' : '1px solid rgba(255,255,255,0.06)',
                           }}
                         >
                           <span style={{ color: '#a1a1aa' }}>
@@ -249,7 +249,7 @@ export default function AdminPayoutsPage() {
                     onClick={handleLogPayout}
                     disabled={saving || !amount}
                     className="px-5 py-2.5 rounded-lg text-sm font-medium text-white"
-                    style={{ background: '#7c3aed', opacity: saving || !amount ? 0.6 : 1 }}
+                    style={{ background: 'var(--kurso-primary)', opacity: saving || !amount ? 0.6 : 1 }}
                   >
                     {saving ? 'Logging…' : 'Log payout'}
                   </button>

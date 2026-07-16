@@ -191,7 +191,7 @@ export default function BroadcastPage() {
                     background: 'rgba(255,255,255,0.05)',
                     border: '1px solid rgba(255,255,255,0.1)',
                   }}
-                  onFocus={e => (e.target.style.borderColor = '#7c3aed')}
+                  onFocus={e => (e.target.style.borderColor = 'var(--kurso-primary)')}
                   onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.1)')}
                 >
                   <option value="" style={{ background: '#0a0a0a' }}>All enrolled students</option>
@@ -211,7 +211,7 @@ export default function BroadcastPage() {
                 ) : preview ? (
                   <>
                     <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
-                      style={{ background: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }}>
+                      style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--kurso-primary-light)' }}>
                       <Users className="w-3 h-3" />
                       {preview.total} total students
                     </span>
@@ -222,7 +222,7 @@ export default function BroadcastPage() {
                     </span>
                     {preview.noTelegram > 0 && (
                       <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
-                        style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>
+                        style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--kurso-accent)' }}>
                         <AlertCircle className="w-3 h-3" />
                         {preview.noTelegram} no Telegram
                       </span>
@@ -256,7 +256,7 @@ export default function BroadcastPage() {
                   lineHeight: '1.6',
                 }}
                 onFocus={e => {
-                  if (!overLimit) e.target.style.borderColor = '#7c3aed'
+                  if (!overLimit) e.target.style.borderColor = 'var(--kurso-primary)'
                 }}
                 onBlur={e => {
                   if (!overLimit) e.target.style.borderColor = 'rgba(255,255,255,0.1)'
@@ -298,7 +298,7 @@ export default function BroadcastPage() {
               onClick={handleSend}
               disabled={!canSend}
               className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: canSend ? '#7c3aed' : 'rgba(124,58,237,0.3)', color: '#fff' }}
+              style={{ background: canSend ? 'var(--kurso-primary)' : 'rgba(var(--kurso-primary-rgb), 0.3)', color: '#fff' }}
             >
               {sending ? (
                 <>
@@ -325,23 +325,23 @@ export default function BroadcastPage() {
 
             <div className="rounded-2xl p-5" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <Megaphone className="w-4 h-4" style={{ color: '#8b5cf6' }} />
-                <span className="text-sm font-semibold" style={{ color: '#8b5cf6' }}>How it works</span>
+                <Megaphone className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                <span className="text-sm font-semibold" style={{ color: 'var(--kurso-primary-light)' }}>How it works</span>
               </div>
               <ul className="flex flex-col gap-2.5 text-xs" style={{ color: '#a1a1aa' }}>
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
-                    style={{ background: 'rgba(139,92,246,0.2)', color: '#8b5cf6' }}>1</span>
+                    style={{ background: 'rgba(139,92,246,0.2)', color: 'var(--kurso-primary-light)' }}>1</span>
                   Select a course or send to all enrolled students.
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
-                    style={{ background: 'rgba(139,92,246,0.2)', color: '#8b5cf6' }}>2</span>
+                    style={{ background: 'rgba(139,92,246,0.2)', color: 'var(--kurso-primary-light)' }}>2</span>
                   Write your message (max 500 characters).
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
-                    style={{ background: 'rgba(139,92,246,0.2)', color: '#8b5cf6' }}>3</span>
+                    style={{ background: 'rgba(139,92,246,0.2)', color: 'var(--kurso-primary-light)' }}>3</span>
                   Students receive it directly in Telegram. They cannot forward it.
                 </li>
               </ul>
@@ -365,8 +365,8 @@ export default function BroadcastPage() {
                     className="text-left text-xs px-3 py-2.5 rounded-xl transition-all"
                     style={{ background: 'rgba(255,255,255,0.04)', color: '#a1a1aa' }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.background = 'rgba(124,58,237,0.1)'
-                      e.currentTarget.style.color = '#8b5cf6'
+                      e.currentTarget.style.background = 'rgba(var(--kurso-primary-rgb), 0.1)'
+                      e.currentTarget.style.color = 'var(--kurso-primary-light)'
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
@@ -392,8 +392,8 @@ export default function BroadcastPage() {
           ) : history.length === 0 ? (
             <div className="rounded-2xl p-12 text-center glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
-                <Send className="w-6 h-6" style={{ color: '#8b5cf6' }} />
+                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                <Send className="w-6 h-6" style={{ color: 'var(--kurso-primary-light)' }} />
               </div>
               <p className="text-sm text-white font-medium mb-1">No broadcasts yet</p>
               <p className="text-xs" style={{ color: '#52525b' }}>Your sent messages will appear here.</p>

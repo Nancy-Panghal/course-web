@@ -4,8 +4,38 @@
 @tailwind components;
 @tailwind utilities;
 
-.glow { box-shadow: 0 0 40px rgba(181, 113, 3, 0.15); }
-.glow-strong { box-shadow: 0 0 60px rgba(237, 164, 54, 0.3); }
+/* ─────────────────────────────────────────────────────────────────
+ * KURSO PLATFORM THEME — single source of truth
+ * Change any value below to re-theme the whole app (dashboard,
+ * marketing pages, auth, everything under src/app and src/components).
+ * IMPORTANT: this file must always hold literal hex/rgb values here,
+ * never var(--kurso-*) referencing itself — this block is the
+ * definition, everything else consumes it.
+ * This does NOT affect per-creator landing page themes
+ * (src/lib/landing-themes/*) — those are a separate, intentional system.
+ * It also does NOT reach email templates or the WhatsApp/Telegram
+ * lesson-viewer HTML, since those are standalone documents rendered
+ * outside this app and never load this stylesheet — see THEME.md.
+ * ───────────────────────────────────────────────────────────────── */
+:root {
+  /* Primary (brand) — used for buttons, active states, links, focus rings */
+  --kurso-primary: #f79514;          /* base orange */
+  --kurso-primary-light: #f8a537;    /* +15% toward white */
+  --kurso-primary-lighter: #faba66;  /* +35% toward white */
+  --kurso-primary-lightest: #fbcf95; /* +55% toward white */
+  --kurso-primary-rgb: 247, 149, 20; /* same as --kurso-primary, as r,g,b for rgba() */
+
+  /* Secondary — paired with primary in the logo-mark gradient */
+  --kurso-secondary: #4f46e5;        /* unchanged — see note below */
+
+  /* Accent — warm highlight color used in gradients, glows, selection */
+  --kurso-accent: #f59e0b;           /* unchanged — see note below */
+  --kurso-accent-soft: #f0a524;
+  --kurso-accent-rgb: 245, 158, 11;
+}
+
+.glow { box-shadow: 0 0 40px rgba(var(--kurso-accent-rgb), 0.15); }
+.glow-strong { box-shadow: 0 0 60px rgba(var(--kurso-accent-rgb), 0.3); }
 
 .glass {
   background: rgba(255, 255, 255, 0.03);
@@ -14,20 +44,20 @@
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #fff 0%, #f0a524 50%, #f59e0b 100%);
+  background: linear-gradient(135deg, #fff 0%, var(--kurso-accent-soft) 50%, var(--kurso-accent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .violet-gradient {
-  background: linear-gradient(135deg, #f0a524 0%, #f59e0b 100%);
+  background: linear-gradient(135deg, var(--kurso-accent-soft) 0%, var(--kurso-accent) 100%);
 }
 
 .grid-bg {
   background-image:
-    linear-gradient(rgba(124, 58, 237, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124, 58, 237, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(var(--kurso-primary-rgb), 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--kurso-primary-rgb), 0.03) 1px, transparent 1px);
   background-size: 64px 64px;
 }
 
@@ -37,8 +67,8 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(181, 113, 3, 0.2); }
-  50% { box-shadow: 0 0 40px rgba(237, 164, 54, 0.5); }
+  0%, 100% { box-shadow: 0 0 20px rgba(var(--kurso-accent-rgb), 0.2); }
+  50% { box-shadow: 0 0 40px rgba(var(--kurso-accent-rgb), 0.5); }
 }
 
 .animate-float { animation: float 6s ease-in-out infinite; }
@@ -52,7 +82,7 @@ body {
   overflow-x: hidden;
 }
 
-::selection { background: #f0a524; color: white; }
+::selection { background: var(--kurso-accent-soft); color: white; }
 
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #000; }

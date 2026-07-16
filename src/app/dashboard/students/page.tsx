@@ -91,7 +91,7 @@ export default function StudentsPage() {
   function getStatusColor(currentLesson: number) {
     if (currentLesson > totalLessons) return { bg: 'rgba(74,222,128,0.1)', color: '#4ade80', label: 'Completed' }
     if (currentLesson === 1) return { bg: 'rgba(250,204,21,0.1)', color: '#facc15', label: 'Just started' }
-    return { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6', label: 'In progress' }
+    return { bg: 'rgba(139,92,246,0.1)', color: 'var(--kurso-primary-light)', label: 'In progress' }
   }
 
   return (
@@ -118,7 +118,7 @@ export default function StudentsPage() {
               placeholder="Search by phone..."
               className="pl-10 pr-4 py-2.5 rounded-xl text-sm text-white outline-none w-64"
               style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-              onFocus={e => e.target.style.borderColor = '#7c3aed'}
+              onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
           </div>
@@ -127,7 +127,7 @@ export default function StudentsPage() {
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total', value: students.length, icon: Users, color: '#8b5cf6' },
+            { label: 'Total', value: students.length, icon: Users, color: 'var(--kurso-primary-light)' },
             { label: 'Completed', value: students.filter(s => s.current_lesson > totalLessons).length, icon: TrendingUp, color: '#4ade80' },
             { label: 'In Progress', value: students.filter(s => s.current_lesson <= totalLessons && s.current_lesson > 1).length, icon: BookOpen, color: '#3b82f6' },
             { label: 'Just Started', value: students.filter(s => s.current_lesson === 1).length, icon: Calendar, color: '#facc15' },
@@ -155,8 +155,8 @@ export default function StudentsPage() {
           <div className="rounded-2xl p-16 text-center glass"
             style={{border:'1px solid rgba(255,255,255,0.06)'}}>
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{background:'rgba(124,58,237,0.1)', border:'1px solid rgba(124,58,237,0.2)'}}>
-              <Users className="w-8 h-8" style={{color:'#8b5cf6'}} />
+              style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
+              <Users className="w-8 h-8" style={{color:'var(--kurso-primary-light)'}} />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">No students yet</h3>
             <p className="text-sm" style={{color:'#a1a1aa'}}>
@@ -195,8 +195,8 @@ export default function StudentsPage() {
                   {/* Phone */}
                   <div className="col-span-3 flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{background:'rgba(124,58,237,0.1)'}}>
-                      <Phone className="w-3.5 h-3.5" style={{color:'#8b5cf6'}} />
+                      style={{background:'rgba(var(--kurso-primary-rgb), 0.1)'}}>
+                      <Phone className="w-3.5 h-3.5" style={{color:'var(--kurso-primary-light)'}} />
                     </div>
                     <span className="text-sm text-white font-mono">+{student.phone}</span>
                   </div>
@@ -212,7 +212,7 @@ export default function StudentsPage() {
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full" style={{background:'rgba(255,255,255,0.06)'}}>
                         <div className="h-1.5 rounded-full transition-all"
-                          style={{width:`${progress}%`, background:'#8b5cf6'}} />
+                          style={{width:`${progress}%`, background:'var(--kurso-primary-light)'}} />
                       </div>
                       <span className="text-xs flex-shrink-0" style={{color:'#a1a1aa'}}>{progress}%</span>
                     </div>

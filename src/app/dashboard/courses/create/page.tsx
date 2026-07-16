@@ -110,7 +110,7 @@ function Input({ value, onChange, placeholder, type = 'text' }: {
       placeholder={placeholder}
       className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
       style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-      onFocus={e => e.target.style.borderColor = '#7c3aed'}
+      onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
       onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
     />
   )
@@ -307,7 +307,7 @@ export default function CreateCoursePage() {
                 <Input value={name} onChange={setName} placeholder="e.g. SEO Masterclass 2026" />
                 {name && (
                   <p className="text-xs mt-1.5" style={{color:'#52525b'}}>
-                    Course URL: <span style={{color:'#8b5cf6'}}>/c/{slug}</span>
+                    Course URL: <span style={{color:'var(--kurso-primary-light)'}}>/c/{slug}</span>
                   </p>
                 )}
               </Field>
@@ -320,7 +320,7 @@ export default function CreateCoursePage() {
                   rows={4}
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </Field>
@@ -369,7 +369,7 @@ export default function CreateCoursePage() {
                   rows={3}
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </Field>
@@ -483,7 +483,7 @@ export default function CreateCoursePage() {
                   rows={3}
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </Field>
@@ -574,16 +574,16 @@ export default function CreateCoursePage() {
                     onClick={() => setDelivery(opt.id)}
                     className="p-4 rounded-xl text-left transition-all relative"
                     style={{
-                      background: active ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
-                      border: active ? '2px solid rgba(124,58,237,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                      background: active ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                      border: active ? '2px solid rgba(var(--kurso-primary-rgb), 0.5)' : '1px solid rgba(255,255,255,0.08)',
                     }}>
                     {opt.recommended && (
                       <span className="absolute -top-2 right-3 text-xs px-2 py-0.5 rounded-full font-medium"
-                        style={{background:'#7c3aed', color:'#fff'}}>
+                        style={{background:'var(--kurso-primary)', color:'#fff'}}>
                         Recommended
                       </span>
                     )}
-                    <Icon className="w-5 h-5 mb-2" style={{color: active ? '#8b5cf6' : '#52525b'}} />
+                    <Icon className="w-5 h-5 mb-2" style={{color: active ? 'var(--kurso-primary-light)' : '#52525b'}} />
                     <p className="text-sm font-medium" style={{color: active ? '#fff' : '#a1a1aa'}}>
                       {opt.label}
                     </p>
@@ -604,7 +604,7 @@ export default function CreateCoursePage() {
               {selectedLanguages.map(lang => (
                 <span key={lang}
                   className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg"
-                  style={{background:'rgba(124,58,237,0.15)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.3)'}}>
+                  style={{background:'rgba(var(--kurso-primary-rgb), 0.15)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.3)'}}>
                   {lang}
                   <button onClick={() => toggleLanguage(lang)}>
                     <X className="w-3 h-3" />
@@ -631,7 +631,7 @@ export default function CreateCoursePage() {
                       className="w-full text-left px-4 py-2.5 text-sm transition-all"
                       style={{color:'#a1a1aa'}}
                       onMouseEnter={e => {
-                        e.currentTarget.style.background = 'rgba(124,58,237,0.1)'
+                        e.currentTarget.style.background = 'rgba(var(--kurso-primary-rgb), 0.1)'
                         e.currentTarget.style.color = '#fff'
                       }}
                       onMouseLeave={e => {

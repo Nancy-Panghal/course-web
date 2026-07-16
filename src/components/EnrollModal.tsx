@@ -150,7 +150,7 @@ function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: 
               outline: 'none',
               boxSizing: 'border-box',
             }}
-            onFocus={e => (e.target.style.borderColor = 'rgba(124,58,237,0.5)')}
+            onFocus={e => (e.target.style.borderColor = 'rgba(var(--kurso-primary-rgb), 0.5)')}
             onBlur={e => (e.target.style.borderColor = 'transparent')}
           />
         </div>
@@ -788,7 +788,7 @@ export default function EnrollModal({ onClose, course }: Props) {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderAmount,
         currency: 'INR',
-        name: 'AcademyKit',
+        name: 'Kurso',
         description: course.name,
         order_id: orderId,
         prefill: {
@@ -796,7 +796,7 @@ export default function EnrollModal({ onClose, course }: Props) {
           email: studentData?.email || '',
           contact: studentData?.phone || '',
         },
-        theme: { color: '#7c3aed' },
+        theme: { color: 'var(--kurso-primary)' },
         handler: async (response: any) => {
           const verifyRes = await fetch('/api/razorpay/verify', {
             method: 'POST',
@@ -861,7 +861,7 @@ export default function EnrollModal({ onClose, course }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
       <div className="w-full max-w-md rounded-2xl overflow-hidden"
-        style={{ background: '#0a0a0a', border: '1px solid rgba(124,58,237,0.3)' }}>
+        style={{ background: '#0a0a0a', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
 
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b"
@@ -892,7 +892,7 @@ export default function EnrollModal({ onClose, course }: Props) {
                 <button key={m} onClick={() => { setAuthMode(m); setError('') }}
                   className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{
-                    background: authMode === m ? 'rgba(124,58,237,0.3)' : 'transparent',
+                    background: authMode === m ? 'rgba(var(--kurso-primary-rgb), 0.3)' : 'transparent',
                     color: authMode === m ? '#fff' : '#a1a1aa',
                   }}>
                   {m === 'signup' ? 'New Student' : 'Already have account'}
@@ -926,7 +926,7 @@ export default function EnrollModal({ onClose, course }: Props) {
                     placeholder="Full name" required
                     className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                    onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                    onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                     onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
                 </div>
               )}
@@ -937,7 +937,7 @@ export default function EnrollModal({ onClose, course }: Props) {
                   placeholder="Email address" required
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white outline-none"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
               </div>
 
@@ -951,7 +951,7 @@ export default function EnrollModal({ onClose, course }: Props) {
                       placeholder="Mobile number (10 digits)" required maxLength={10}
                       className="w-full pl-10 pr-4 py-3 rounded-r-xl text-sm text-white outline-none"
                       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: 'none' }}
-                      onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                      onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                       onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
                   </div>
                 </div>
@@ -964,7 +964,7 @@ export default function EnrollModal({ onClose, course }: Props) {
                   required minLength={authMode === 'signup' ? 8 : undefined}
                   className="w-full px-4 pr-10 py-3 rounded-xl text-sm text-white outline-none"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
                 <button type="button" onClick={() => setShowPass(!showPass)}
                   className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#52525b' }}>
@@ -1018,7 +1018,7 @@ export default function EnrollModal({ onClose, course }: Props) {
                     placeholder="10 digit number" required maxLength={10}
                     className="w-full pl-10 pr-4 py-3 rounded-r-xl text-sm text-white outline-none"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: 'none' }}
-                    onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                    onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                     onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
                 </div>
               </div>
@@ -1036,7 +1036,7 @@ export default function EnrollModal({ onClose, course }: Props) {
           <div className="p-6">
             <div className="text-center mb-5">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
+                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
                 <Play className="w-6 h-6 text-violet-400" />
               </div>
               <h3 className="text-lg font-bold text-white mb-1">
@@ -1126,7 +1126,7 @@ export default function EnrollModal({ onClose, course }: Props) {
               </button>
               <p className="text-center text-xs" style={{ color: '#8b8b8d', fontSize: '1.1rem' }}>
                 Already enrolled?{' '}
-                <a href="/my-courses" style={{ color: '#8b5cf6', fontSize: '1.1rem' }}>View my courses →</a>
+                <a href="/my-courses" style={{ color: 'var(--kurso-primary-light)', fontSize: '1.1rem' }}>View my courses →</a>
               </p>
             </div>
           </div>
@@ -1183,7 +1183,7 @@ export default function EnrollModal({ onClose, course }: Props) {
                       onClick={handleApplyCoupon}
                       disabled={couponLoading || !couponCode.trim()}
                       className="px-4 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
-                      style={{ background: 'rgba(124,58,237,0.18)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.3)' }}
+                      style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lightest)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}
                     >
                       {couponLoading ? 'Checking' : 'Apply'}
                     </button>
@@ -1224,8 +1224,8 @@ export default function EnrollModal({ onClose, course }: Props) {
             </div>
 
             <div className="rounded-xl p-4 mb-5"
-              style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)' }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: '#8b5cf6' }}>After payment you'll get:</p>
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.15)' }}>
+              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--kurso-primary-light)' }}>After payment you'll get:</p>
               {[
                 hasTelegram ? 'Lessons delivered to your Telegram instantly' : null,
                 'Full web learning portal access',
@@ -1233,7 +1233,7 @@ export default function EnrollModal({ onClose, course }: Props) {
                 'Lifetime access — no expiry',
               ].filter(Boolean).map((item, i) => (
                 <div key={i} className="flex items-center gap-2 mb-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#8b5cf6' }} />
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--kurso-primary-light)' }} />
                   <p className="text-xs" style={{ color: '#a1a1aa' }}>{item}</p>
                 </div>
               ))}
@@ -1305,7 +1305,7 @@ export default function EnrollModal({ onClose, course }: Props) {
               <a href={learnUrl}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-medium text-white transition-all hover:opacity-90"
                 style={{
-                  background: hasTelegram ? 'rgba(255,255,255,0.07)' : 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+                  background: hasTelegram ? 'rgba(255,255,255,0.07)' : 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))',
                   border: hasTelegram ? '1px solid rgba(255,255,255,0.1)' : 'none',
                 }}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

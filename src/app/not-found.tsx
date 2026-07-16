@@ -25,7 +25,7 @@ export default function NotFound() {
       
       <div className="mt-12 pt-12 border-t border-white/5 w-full max-w-xs">
         <p className="text-[10px] font-black text-zinc-800 uppercase tracking-[0.3em]">
-          AcademyKit Diagnostic Tool
+          Kurso Diagnostic Tool
         </p>
       </div>
     </div>

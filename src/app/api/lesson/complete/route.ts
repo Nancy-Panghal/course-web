@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
               <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
                 <h2 style="margin:0 0 12px">Course completed</h2>
                 <p style="margin:0 0 12px">Hi ${escapeHtml(student.name || 'there')}, you completed <strong>${escapeHtml(course?.name || 'your course')}</strong>.</p>
-                <p style="margin:0">Your progress is saved in AcademyKit.</p>
+                <p style="margin:0">Your progress is saved in Kurso.</p>
               </div>
             `,
           })

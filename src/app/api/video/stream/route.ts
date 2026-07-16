@@ -243,7 +243,7 @@ export async function GET(req: NextRequest) {
   // 5. Forward range header for seeking support
   const rangeHeader = req.headers.get('range')
   const upstreamHeaders: Record<string, string> = {
-    'User-Agent': 'AcademyKit-Proxy/1.0',
+    'User-Agent': 'Kurso-Proxy/1.0',
   }
   if (rangeHeader) upstreamHeaders['Range'] = rangeHeader
 

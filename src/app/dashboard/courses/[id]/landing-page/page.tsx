@@ -226,7 +226,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
             <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all"
               style={{
-                background: activeTab === tab.id ? '#7c3aed' : 'transparent',
+                background: activeTab === tab.id ? 'var(--kurso-primary)' : 'transparent',
                 color: activeTab === tab.id ? '#fff' : '#71717a',
               }}>
               {tab.icon}{tab.label}
@@ -283,8 +283,8 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
                     <div key={t.id}
                       className="rounded-2xl p-4 flex flex-col gap-3 transition-all"
                       style={{
-                        background: active ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.03)',
-                        border: active ? '2px solid rgba(124,58,237,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                        background: active ? 'rgba(var(--kurso-primary-rgb), 0.1)' : 'rgba(255,255,255,0.03)',
+                        border: active ? '2px solid rgba(var(--kurso-primary-rgb), 0.5)' : '1px solid rgba(255,255,255,0.08)',
                       }}>
 
                       {/* Color swatch */}
@@ -298,7 +298,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-white">{t.name}</p>
                           {active && (
-                            <span className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#7c3aed' }}>
+                            <span className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--kurso-primary)' }}>
                               <Check className="w-2.5 h-2.5 text-white" />
                             </span>
                           )}
@@ -309,7 +309,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setSelectedTheme(t.id)}
                           className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
-                          style={{ background: active ? '#7c3aed' : 'rgba(255,255,255,0.06)', color: active ? '#fff' : '#a1a1aa' }}>
+                          style={{ background: active ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.06)', color: active ? '#fff' : '#a1a1aa' }}>
                           {active ? 'Selected' : 'Select'}
                         </button>
                         <a href={previewUrl(t.id)} target="_blank" rel="noopener noreferrer"
@@ -331,7 +331,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
               <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="font-semibold text-white">Page Sections & Order</h2>
-                  <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>
+                  <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-lighter)' }}>
                     {enabledCount} / {LANDING_SECTION_TYPES.length} visible
                   </span>
                 </div>
@@ -359,8 +359,8 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
                       <div key={section.type}
                         className="flex items-center gap-3 p-4 rounded-xl transition-all"
                         style={{
-                          background: on ? 'rgba(124,58,237,0.06)' : 'rgba(255,255,255,0.02)',
-                          border: on ? '1px solid rgba(124,58,237,0.2)' : '1px solid rgba(255,255,255,0.06)',
+                          background: on ? 'rgba(var(--kurso-primary-rgb), 0.06)' : 'rgba(255,255,255,0.02)',
+                          border: on ? '1px solid rgba(var(--kurso-primary-rgb), 0.2)' : '1px solid rgba(255,255,255,0.06)',
                         }}>
                         {/* Reorder arrows */}
                         <div className="flex flex-col gap-0.5 flex-shrink-0">
@@ -379,7 +379,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
                         {/* Toggle */}
                         <button type="button" onClick={() => updateSectionEnabled(section.type, !on)}
                           className="relative flex-shrink-0 transition-all"
-                          style={{ width: 40, height: 22, borderRadius: 999, background: on ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}>
+                          style={{ width: 40, height: 22, borderRadius: 999, background: on ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
                           <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: on ? '20px' : '2px' }} />
                         </button>
 
@@ -389,7 +389,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
                           <p className="text-xs" style={{ color: '#52525b' }}>{meta.description}</p>
                         </div>
 
-                        <div style={{ color: on ? '#a78bfa' : '#3f3f46', flexShrink: 0 }}>
+                        <div style={{ color: on ? 'var(--kurso-primary-lighter)' : '#3f3f46', flexShrink: 0 }}>
                           {on ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                         </div>
                       </div>
@@ -417,7 +417,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
               {/* ── BONUSES CONTENT ── */}
               <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <Gift className="w-4 h-4" style={{ color: '#a78bfa' }} />
+                  <Gift className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
                   <h2 className="font-semibold text-white">Bonuses</h2>
                 </div>
                 <p className="text-xs mb-4" style={{ color: '#71717a' }}>
@@ -453,7 +453,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
               {/* ── DISCLAIMER CONTENT ── */}
               <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <AlertTriangle className="w-4 h-4" style={{ color: '#a78bfa' }} />
+                  <AlertTriangle className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
                   <h2 className="font-semibold text-white">Disclaimer</h2>
                 </div>
                 <p className="text-xs mb-4" style={{ color: '#71717a' }}>
@@ -474,7 +474,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
               {/* ── COUNTDOWN & SEATS CONTENT ── */}
               <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <Timer className="w-4 h-4" style={{ color: '#a78bfa' }} />
+                  <Timer className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
                   <h2 className="font-semibold text-white">Countdown & Seats</h2>
                 </div>
                 <p className="text-xs mb-4" style={{ color: '#71717a' }}>
@@ -510,7 +510,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
                   </div>
                 </div>
                 {landingConfig.urgency.endAt && new Date(landingConfig.urgency.endAt).getTime() <= Date.now() && (
-                  <p className="text-xs mt-3" style={{ color: '#f59e0b' }}>
+                  <p className="text-xs mt-3" style={{ color: 'var(--kurso-accent)' }}>
                     ⚠ This date is in the past — the countdown won't show on the live page until you set a future date.
                   </p>
                 )}
@@ -534,19 +534,19 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
                     <button key={fp.id} type="button" onClick={() => setFontPair(fp.id)}
                       className="flex items-start gap-3 p-4 rounded-xl text-left transition-all"
                       style={{
-                        background: active ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.03)',
-                        border: active ? '2px solid rgba(124,58,237,0.45)' : '1px solid rgba(255,255,255,0.08)',
+                        background: active ? 'rgba(var(--kurso-primary-rgb), 0.12)' : 'rgba(255,255,255,0.03)',
+                        border: active ? '2px solid rgba(var(--kurso-primary-rgb), 0.45)' : '1px solid rgba(255,255,255,0.08)',
                       }}>
                       {/* Mini font preview box */}
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ background: active ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)' }}>
-                        <Type className="w-4 h-4" style={{ color: active ? '#a78bfa' : '#52525b' }} />
+                        style={{ background: active ? 'rgba(var(--kurso-primary-rgb), 0.2)' : 'rgba(255,255,255,0.05)' }}>
+                        <Type className="w-4 h-4" style={{ color: active ? 'var(--kurso-primary-lighter)' : '#52525b' }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-white">{fp.label}</p>
                           {active && (
-                            <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#7c3aed' }}>
+                            <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--kurso-primary)' }}>
                               <Check className="w-2 h-2 text-white" />
                             </div>
                           )}

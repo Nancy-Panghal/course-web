@@ -13,7 +13,7 @@ export default function PrivacyPage() {
           <div className="w-7 h-7 violet-gradient rounded-lg flex items-center justify-center">
             <Shield className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="font-semibold text-white">AcademyKit</span>
+          <span className="font-semibold text-white">Kurso</span>
         </Link>
         <Link href="/"
           className="flex items-center gap-2 text-sm transition-colors"
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         {/* Header */}
         <div className="mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-medium"
-            style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+            style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
             Legal
           </div>
           <h1 className="text-4xl font-bold text-white mb-3">Privacy Policy</h1>
@@ -39,11 +39,11 @@ export default function PrivacyPage() {
         <div className="prose-custom">
 
           <Section title="1. Introduction">
-            AcademyKit ("we", "us", "our") is committed to protecting your privacy. This Privacy
+            Kurso ("we", "us", "our") is committed to protecting your privacy. This Privacy
             Policy explains how we collect, use, store, and share your personal data when you use
-            our platform at academykit.in.
+            our platform at kurso.in.
             <br /><br />
-            By using AcademyKit, you consent to the practices described in this policy. If you
+            By using Kurso, you consent to the practices described in this policy. If you
             do not agree, please discontinue use of the Service.
           </Section>
 
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
           <Section title="3. How We Use Your Information">
             We use your data to:
             <ul>
-              <li>Provide, maintain, and improve the AcademyKit platform</li>
+              <li>Provide, maintain, and improve the Kurso platform</li>
               <li>Process payments and manage your subscription</li>
               <li>Deliver course content to your enrolled students via WhatsApp and web portal</li>
               <li>Send transactional emails (receipts, security alerts, account notifications)</li>
@@ -120,8 +120,8 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="6. Student Data">
-            Creators who use AcademyKit to deliver courses to students act as independent data
-            controllers for their students' data. AcademyKit acts as a data processor on behalf
+            Creators who use Kurso to deliver courses to students act as independent data
+            controllers for their students' data. Kurso acts as a data processor on behalf
             of Creators.
             <br /><br />
             Creators are responsible for:
@@ -135,7 +135,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="7. Cookies">
-            AcademyKit uses the following cookies:
+            Kurso uses the following cookies:
             <ul>
               <li><strong style={{color:'#fff'}}>Essential cookies</strong> — required for authentication and session management</li>
               <li><strong style={{color:'#fff'}}>Preference cookies</strong> — remember your settings and preferences</li>
@@ -165,18 +165,18 @@ export default function PrivacyPage() {
               <li><strong style={{color:'#fff'}}>Objection</strong> — object to processing of your data for specific purposes</li>
               <li><strong style={{color:'#fff'}}>Withdrawal of consent</strong> — withdraw consent at any time where processing is consent-based</li>
             </ul>
-            To exercise any of these rights, email privacy@academykit.in. We will respond within
+            To exercise any of these rights, email privacy@kurso.in. We will respond within
             30 days.
           </Section>
 
           <Section title="10. Children's Privacy">
-            AcademyKit is not intended for users under 18 years of age. We do not knowingly
+            Kurso is not intended for users under 18 years of age. We do not knowingly
             collect personal data from children. If you believe a child has provided us with
             personal data, please contact us immediately and we will delete it.
           </Section>
 
           <Section title="11. International Data Transfers">
-            AcademyKit is operated from India. If you access the Service from outside India,
+            Kurso is operated from India. If you access the Service from outside India,
             your data may be transferred to and processed in India and other countries where
             our service providers operate. By using the Service, you consent to these transfers.
             <br /><br />
@@ -193,9 +193,9 @@ export default function PrivacyPage() {
           <Section title="13. Contact Us">
             For privacy-related questions, data requests, or concerns:
             <br /><br />
-            <strong style={{color:'#fff'}}>AcademyKit — Privacy Team</strong><br />
-            Email: privacy@academykit.in<br />
-            Support: support@academykit.in<br /><br />
+            <strong style={{color:'#fff'}}>Kurso — Privacy Team</strong><br />
+            Email: privacy@kurso.in<br />
+            Support: support@kurso.in<br /><br />
             We aim to respond to all privacy requests within 30 days.
           </Section>
 
@@ -218,7 +218,7 @@ export default function PrivacyPage() {
           <Link href="/refund-policy" style={{color:'#52525b'}} className="hover:text-white transition-colors">Refund Policy</Link>
           <Link href="/" style={{color:'#52525b'}} className="hover:text-white transition-colors">Home</Link>
         </div>
-        <p className="text-xs mt-4" style={{color:'#3f3f46'}}>© 2026 AcademyKit. All rights reserved.</p>
+        <p className="text-xs mt-4" style={{color:'#3f3f46'}}>© 2026 Kurso. All rights reserved.</p>
       </div>
     </div>
   )

@@ -84,15 +84,15 @@ function TextRenderer({ url, name }: { url: string; name?: string | null }) {
         <style>{`
           .md h1{font-size:1.5rem;font-weight:800;color:#fff;margin:1em 0 .4em}
           .md h2{font-size:1.2rem;font-weight:700;color:#e4e4e7;margin:.9em 0 .3em}
-          .md h3{font-size:1rem;font-weight:700;color:#a78bfa;margin:.8em 0 .2em}
+          .md h3{font-size:1rem;font-weight:700;color:var(--kurso-primary-lighter);margin:.8em 0 .2em}
           .md p{margin:.5em 0;color:#d4d4d8;line-height:1.75}
           .md ul{padding-left:1.4em;margin:.5em 0}
           .md li{margin:.25em 0;color:#d4d4d8}
-          .md code{background:rgba(124,58,237,.15);color:#c4b5fd;padding:2px 5px;border-radius:4px;font-size:.88em;font-family:monospace}
+          .md code{background:rgba(var(--kurso-primary-rgb), .15);color:var(--kurso-primary-lightest);padding:2px 5px;border-radius:4px;font-size:.88em;font-family:monospace}
           .md hr{border:none;border-top:1px solid rgba(255,255,255,.08);margin:1.2em 0}
-          .md a{color:#a78bfa;text-decoration:underline}
+          .md a{color:var(--kurso-primary-lighter);text-decoration:underline}
           .md strong{color:#fff;font-weight:700}
-          .md em{color:#c4b5fd;font-style:italic}
+          .md em{color:var(--kurso-primary-lightest);font-style:italic}
         `}</style>
         <div className="md p-6 rounded-xl bg-white/[0.02] border border-white/[0.07]"
           dangerouslySetInnerHTML={{ __html: html }} />
@@ -192,7 +192,7 @@ export default function LessonResourcePage({
 
   if (loading) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="w-8 h-8 rounded-lg animate-pulse" style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }} />
+      <div className="w-8 h-8 rounded-lg animate-pulse" style={{ background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))' }} />
     </div>
   )
 
@@ -260,8 +260,8 @@ export default function LessonResourcePage({
                           onClick={() => !submitted && setAnswers(p => ({ ...p, [idx]: oi }))}
                           className="text-left rounded-lg px-4 py-3 text-sm border transition"
                           style={{
-                            background: correct ? 'rgba(74,222,128,0.1)' : wrong ? 'rgba(239,68,68,0.1)' : sel ? 'rgba(124,58,237,0.16)' : 'rgba(255,255,255,0.03)',
-                            borderColor: correct ? 'rgba(74,222,128,0.35)' : wrong ? 'rgba(239,68,68,0.35)' : sel ? 'rgba(124,58,237,0.45)' : 'rgba(255,255,255,0.08)',
+                            background: correct ? 'rgba(74,222,128,0.1)' : wrong ? 'rgba(239,68,68,0.1)' : sel ? 'rgba(var(--kurso-primary-rgb), 0.16)' : 'rgba(255,255,255,0.03)',
+                            borderColor: correct ? 'rgba(74,222,128,0.35)' : wrong ? 'rgba(239,68,68,0.35)' : sel ? 'rgba(var(--kurso-primary-rgb), 0.45)' : 'rgba(255,255,255,0.08)',
                             cursor: submitted ? 'default' : 'pointer',
                           }}>
                           {opt}
@@ -278,12 +278,12 @@ export default function LessonResourcePage({
                 <button onClick={handleSubmit}
                   disabled={Object.keys(answers).length < questions.length || saving}
                   className="w-full rounded-xl py-3 font-semibold text-white disabled:opacity-40 transition-all"
-                  style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
+                  style={{ background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))' }}>
                   {saving ? 'Saving…' : 'Submit Quiz'}
                 </button>
               ) : (
                 <div className="p-5 rounded-xl text-center"
-                  style={{ background: score === questions.length ? 'rgba(74,222,128,0.08)' : 'rgba(124,58,237,0.08)', border: `1px solid ${score === questions.length ? 'rgba(74,222,128,0.2)' : 'rgba(124,58,237,0.2)'}` }}>
+                  style={{ background: score === questions.length ? 'rgba(74,222,128,0.08)' : 'rgba(var(--kurso-primary-rgb), 0.08)', border: `1px solid ${score === questions.length ? 'rgba(74,222,128,0.2)' : 'rgba(var(--kurso-primary-rgb), 0.2)'}` }}>
                   <p className="text-2xl font-bold text-white mb-1">{score}/{questions.length}</p>
                   <p className="text-sm text-zinc-400">
                     {score === questions.length ? '🎉 Perfect score!' : score >= questions.length / 2 ? '👍 Good job!' : '📖 Review the lesson and try again.'}
@@ -316,7 +316,7 @@ export default function LessonResourcePage({
                   <p className="text-white font-semibold mb-4">{resourceName || 'Resource file'}</p>
                   <a href={resourceUrl} download
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold"
-                    style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)' }}>
+                    style={{ background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))' }}>
                     Download File
                   </a>
                 </div>

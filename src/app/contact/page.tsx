@@ -58,7 +58,7 @@ export default function ContactPage() {
         {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-medium"
-            style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+            style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
             We're here to help
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Contact Us</h1>
@@ -84,7 +84,7 @@ export default function ContactPage() {
               </p>
               <a href="mailto:nancypanghal13@gmail.com"
                 className="text-sm font-medium transition-colors"
-                style={{color:'#8b5cf6'}}>
+                style={{color:'var(--kurso-primary-light)'}}>
                 nancypanghal13@gmail.com
               </a>
             </div>
@@ -108,7 +108,7 @@ export default function ContactPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm font-medium transition-colors"
-                style={{color:'#8b5cf6'}}>
+                style={{color:'var(--kurso-primary-light)'}}>
                 Chat on WhatsApp →
               </a>
             </div>
@@ -117,7 +117,7 @@ export default function ContactPage() {
 
             {/* Response time */}
             <div className="rounded-2xl p-5"
-              style={{background:'rgba(124,58,237,0.08)', border:'1px solid rgba(124,58,237,0.2)'}}>
+              style={{background:'rgba(var(--kurso-primary-rgb), 0.08)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
               <p className="text-sm font-semibold text-white mb-2">Response Times</p>
               {[
                 {type:'WhatsApp', time:'~5 hours'},
@@ -125,9 +125,9 @@ export default function ContactPage() {
                 {type:'Billing issues', time:'Same day'},
               ].map((r,i) => (
                 <div key={i} className="flex justify-between items-center py-1.5"
-                  style={{borderBottom: i < 2 ? '1px solid rgba(124,58,237,0.1)' : 'none'}}>
+                  style={{borderBottom: i < 2 ? '1px solid rgba(var(--kurso-primary-rgb), 0.1)' : 'none'}}>
                   <span className="text-sm" style={{color:'#a1a1aa'}}>{r.type}</span>
-                  <span className="text-xs font-medium" style={{color:'#8b5cf6'}}>{r.time}</span>
+                  <span className="text-xs font-medium" style={{color:'var(--kurso-primary-light)'}}>{r.time}</span>
                 </div>
               ))}
             </div>
@@ -151,7 +151,7 @@ export default function ContactPage() {
                           placeholder="Your name" required
                           className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                           style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                          onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                          onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                           onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                         />
                       </div>
@@ -162,7 +162,7 @@ export default function ContactPage() {
                           placeholder="your@email.com" required
                           className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                           style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                          onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                          onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                           onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                         />
                       </div>
@@ -178,7 +178,7 @@ export default function ContactPage() {
                           border:'1px solid rgba(255,255,255,0.1)',
                           color: subject ? '#fff' : '#52525b',
                         }}
-                        onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                        onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                         onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                       >
                         <option value="" style={{background:'#111'}}>Select a subject</option>
@@ -198,7 +198,7 @@ export default function ContactPage() {
                         required rows={6}
                         className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
                         style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                        onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                        onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                         onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                       />
                     </div>
@@ -235,7 +235,7 @@ export default function ContactPage() {
                   <button
                     onClick={() => { setSent(false); setName(''); setEmail(''); setSubject(''); setMessage('') }}
                     className="text-sm transition-colors"
-                    style={{color:'#8b5cf6'}}>
+                    style={{color:'var(--kurso-primary-light)'}}>
                     Send another message
                   </button>
                 </div>
@@ -245,10 +245,10 @@ export default function ContactPage() {
             {/* Feature idea nudge — fills the space below the form, same width as the form */}
             <div className="rounded-2xl p-5 flex items-start gap-3"
               style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
-              <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" style={{color:'#8b5cf6'}} />
+              <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" style={{color:'var(--kurso-primary-light)'}} />
               <p className="text-sm" style={{color:'#a1a1aa'}}>
                 Got a feature idea instead of a support question? Tell us on our{' '}
-                <Link href="/feedback" className="font-medium" style={{color:'#8b5cf6'}}>Feedback page</Link>
+                <Link href="/feedback" className="font-medium" style={{color:'var(--kurso-primary-light)'}}>Feedback page</Link>
                 {' '}— we read every one.
               </p>
             </div>

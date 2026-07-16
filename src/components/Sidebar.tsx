@@ -35,7 +35,7 @@ export default function Sidebar() {
         <div className="w-8 h-8 violet-gradient rounded-lg flex items-center justify-center">
           <Shield className="w-4 h-4 text-white" />
         </div>
-        <span className="font-semibold text-white">AcademyKit</span>
+        <span className="font-semibold text-white">Kurso</span>
       </div>
 
       {/* Nav */}
@@ -49,9 +49,9 @@ export default function Sidebar() {
               onClick={() => setMobileOpen(false)}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{
-                background: active ? 'rgba(124,58,237,0.15)' : 'transparent',
-                color: active ? '#8b5cf6' : '#a1a1aa',
-                border: active ? '1px solid rgba(124,58,237,0.2)' : '1px solid transparent',
+                background: active ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'transparent',
+                color: active ? 'var(--kurso-primary-light)' : '#a1a1aa',
+                border: active ? '1px solid rgba(var(--kurso-primary-rgb), 0.2)' : '1px solid transparent',
               }}
             >
               <Icon className="w-4 h-4" />
@@ -65,7 +65,7 @@ export default function Sidebar() {
       <div className="px-3 pb-2">
         <Link href="/upgrade"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full"
-          style={{background:'rgba(124,58,237,0.1)', color:'#8b5cf6', border:'1px solid rgba(124,58,237,0.2)'}}>
+          style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
           <Zap className="w-4 h-4" />
           Upgrade Plan
         </Link>

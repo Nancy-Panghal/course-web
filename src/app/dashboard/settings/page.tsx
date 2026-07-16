@@ -32,7 +32,7 @@ function InputField({ label, value, onChange, placeholder, type = 'text', disabl
             cursor: disabled ? 'not-allowed' : 'text',
             color: disabled ? '#52525b' : '#fff',
           }}
-          onFocus={e => { if (!disabled) e.target.style.borderColor = '#7c3aed' }}
+          onFocus={e => { if (!disabled) e.target.style.borderColor = 'var(--kurso-primary)' }}
           onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)' }}
         />
         {rightElement}
@@ -56,7 +56,7 @@ function Toggle({ label, desc, value, onChange }: {
       </div>
       <button onClick={() => onChange(!value)}
         className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
-        style={{ background: value ? '#7c3aed' : 'rgba(255,255,255,0.1)' }}>
+        style={{ background: value ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
         <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
           style={{ left: value ? '24px' : '4px' }} />
       </button>
@@ -159,7 +159,7 @@ function PublicProfileSection() {
       </button>
       {savedSlug && (
         <p className="text-xs mt-3" style={{ color: '#52525b' }}>
-          Live at: <a href={`/creator/${savedSlug}`} target="_blank" style={{ color: '#8b5cf6' }}>kurso.in/creator/{savedSlug}</a>
+          Live at: <a href={`/creator/${savedSlug}`} target="_blank" style={{ color: 'var(--kurso-primary-light)' }}>kurso.in/creator/{savedSlug}</a>
         </p>
       )}
     </SectionCard>
@@ -176,8 +176,8 @@ function SectionCard({ title, icon: Icon, children }: {
       style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="flex items-center gap-2 mb-6">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{ background: 'rgba(124,58,237,0.1)' }}>
-          <Icon className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+          style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)' }}>
+          <Icon className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
         </div>
         <h2 className="font-semibold text-white">{title}</h2>
       </div>
@@ -441,9 +441,9 @@ export default function SettingsPage() {
                 disabled={!hasChanges || saving}
                 className="px-6 rounded-xl text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap"
                 style={{
-                  background: hasChanges ? '#7c3aed' : 'rgba(255,255,255,0.05)',
+                  background: hasChanges ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.05)',
                   color: hasChanges ? '#fff' : '#52525b',
-                  border: '1px solid ' + (hasChanges ? '#7c3aed' : 'rgba(255,255,255,0.1)'),
+                  border: '1px solid ' + (hasChanges ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)'),
                   cursor: hasChanges ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -466,7 +466,7 @@ export default function SettingsPage() {
             style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
             <p className="text-sm font-medium text-white mb-1">Telegram delivery is managed centrally.</p>
             <p className="text-xs leading-relaxed" style={{ color: '#a1a1aa' }}>
-              Your students can access lessons on Telegram after enrollment. No setup needed — the shared AcademyKit bot handles delivery automatically.
+              Your students can access lessons on Telegram after enrollment. No setup needed — the shared Kurso bot handles delivery automatically.
             </p>
           </div>
         </SectionCard>
@@ -525,7 +525,7 @@ export default function SettingsPage() {
                 }}>
                 {payoutStatus === 'connected'
                   ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
-                  : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: payoutStatus === 'pending' ? '#f59e0b' : '#71717a' }} />
+                  : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: payoutStatus === 'pending' ? 'var(--kurso-accent)' : '#71717a' }} />
                 }
                 <div>
                   <p className="text-sm font-medium text-white">
@@ -604,7 +604,7 @@ export default function SettingsPage() {
                       {new Date(p.payout_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                     </div>
                     <div className="col-span-3 text-white font-medium">₹{Number(p.amount).toLocaleString('en-IN')}</div>
-                    <div className="col-span-2" style={{ color: '#f59e0b' }}>₹{Number(p.platform_fee).toLocaleString('en-IN')}</div>
+                    <div className="col-span-2" style={{ color: 'var(--kurso-accent)' }}>₹{Number(p.platform_fee).toLocaleString('en-IN')}</div>
                     <div className="col-span-2 font-semibold" style={{ color: '#4ade80' }}>
                       ₹{Number(p.net_amount ?? p.amount - p.platform_fee).toLocaleString('en-IN')}
                     </div>
@@ -615,7 +615,7 @@ export default function SettingsPage() {
                             ? { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }
                             : p.status === 'failed'
                             ? { background: 'rgba(239,68,68,0.1)', color: '#ef4444' }
-                            : { background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }
+                            : { background: 'rgba(245,158,11,0.1)', color: 'var(--kurso-accent)' }
                         }>
                         {p.status}
                       </span>
@@ -731,7 +731,7 @@ export default function SettingsPage() {
               {/* Contact link */}
               <p className="text-xs text-center" style={{ color: '#52525b' }}>
                 Having second thoughts?{' '}
-                <Link href="/contact" style={{ color: '#8b5cf6' }}>
+                <Link href="/contact" style={{ color: 'var(--kurso-primary-light)' }}>
                   Contact us
                 </Link>
                 {' '}and we can help.
@@ -797,7 +797,7 @@ export default function SettingsPage() {
               {/* Contact link */}
               <p className="text-xs text-center mt-4" style={{ color: '#52525b' }}>
                 If you have any issue you can{' '}
-                <Link href="/contact" style={{ color: '#8b5cf6' }}>
+                <Link href="/contact" style={{ color: 'var(--kurso-primary-light)' }}>
                   contact us
                 </Link>
                 {' '}and we will help you.

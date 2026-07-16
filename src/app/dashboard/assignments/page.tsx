@@ -121,7 +121,7 @@ export default function AssignmentsPage() {
         </div>
 
         {/* Info message */}
-        <div className="rounded-2xl p-5 mb-6" style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
+        <div className="rounded-2xl p-5 mb-6" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <p className="text-sm" style={{ color: '#a1a1aa' }}>
               Want to add assignments to your lessons? Click below to manage your course assignments.
@@ -143,9 +143,9 @@ export default function AssignmentsPage() {
             <button key={f} onClick={() => changeFilter(f)}
               className="px-4 py-2 rounded-xl text-sm font-medium capitalize transition-all"
               style={{
-                background: filter === f ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)',
-                border: filter === f ? '1px solid rgba(124,58,237,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                color: filter === f ? '#8b5cf6' : '#a1a1aa',
+                background: filter === f ? 'rgba(var(--kurso-primary-rgb), 0.2)' : 'rgba(255,255,255,0.05)',
+                border: filter === f ? '1px solid rgba(var(--kurso-primary-rgb), 0.4)' : '1px solid rgba(255,255,255,0.08)',
+                color: filter === f ? 'var(--kurso-primary-light)' : '#a1a1aa',
               }}>
               {f}
             </button>
@@ -175,7 +175,7 @@ export default function AssignmentsPage() {
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-xs px-2 py-0.5 rounded-full"
                         style={a.status === 'pending'
-                          ? { background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }
+                          ? { background: 'rgba(245,158,11,0.1)', color: 'var(--kurso-accent)' }
                           : { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
                         {a.status === 'pending' ? '⏳ Pending' : '✅ Reviewed'}
                       </span>
@@ -195,7 +195,7 @@ export default function AssignmentsPage() {
                     <Link
                       href={`/dashboard/courses/${a.course_id}`}
                       className="inline-flex items-center gap-1 mt-2 text-xs font-medium transition-colors"
-                      style={{ color: '#8b5cf6' }}>
+                      style={{ color: 'var(--kurso-primary-light)' }}>
                       <Plus className="w-3 h-3" />
                       Add/Edit Assignment
                     </Link>
@@ -226,7 +226,7 @@ export default function AssignmentsPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm font-medium mt-2 inline-flex items-center gap-1"
-                        style={{ color: '#a78bfa' }}
+                        style={{ color: 'var(--kurso-primary-lighter)' }}
                       >
                         <BookOpen className="w-3.5 h-3.5" />
                         Download attached file
@@ -239,13 +239,13 @@ export default function AssignmentsPage() {
                 {a.status === 'reviewed' && a.creator_feedback && (
                   <div style={{
                     padding: 12, borderRadius: 10,
-                    background: 'rgba(124,58,237,0.06)',
-                    border: '1px solid rgba(124,58,237,0.2)',
+                    background: 'rgba(var(--kurso-primary-rgb), 0.06)',
+                    border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)',
                   }}>
-                    <p className="text-xs font-semibold mb-2" style={{ color: '#a78bfa' }}>Your feedback:</p>
+                    <p className="text-xs font-semibold mb-2" style={{ color: 'var(--kurso-primary-lighter)' }}>Your feedback:</p>
                     <p className="text-sm" style={{ color: '#e4e4e7' }}>{a.creator_feedback}</p>
                     {a.score !== null && a.score !== undefined && (
-                      <p className="text-xs font-bold mt-2" style={{ color: '#a78bfa' }}>Score: {a.score}/10</p>
+                      <p className="text-xs font-bold mt-2" style={{ color: 'var(--kurso-primary-lighter)' }}>Score: {a.score}/10</p>
                     )}
                   </div>
                 )}
@@ -254,8 +254,8 @@ export default function AssignmentsPage() {
                 {reviewingId === a.id && (
                   <div style={{
                     marginTop: 12, padding: 14, borderRadius: 12,
-                    background: 'rgba(124,58,237,0.06)',
-                    border: '1px solid rgba(124,58,237,0.2)',
+                    background: 'rgba(var(--kurso-primary-rgb), 0.06)',
+                    border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)',
                   }}>
                     <p className="text-sm font-semibold text-white mb-3">Write feedback</p>
                     <textarea
