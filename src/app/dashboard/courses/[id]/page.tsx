@@ -5,6 +5,8 @@ import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextModuleOrder } from '@/lib/utils'
 import Link from 'next/link'
+import LandingPageDesigner from '@/components/LandingPageDesigner'
+import CustomPageOverrideEditor from '@/components/CustomPageOverrideEditor'
 import {
   ArrowLeft, Plus, Video, FileText, Globe,
   Eye, EyeOff, ExternalLink, Copy, Check,
@@ -1941,8 +1943,11 @@ export default function CourseManagePage({
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<'lessons' | 'settings'>('lessons')
+  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing' | 'admin'>('lessons')
   const [token, setToken] = useState('')
+  // Only ever flips false -> true, once a background check against the admin-only
+  // API confirms it — never shown by default, never flashes visible then hides.
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Settings state
   const [editName, setEditName] = useState('')
@@ -1997,7 +2002,14 @@ export default function CourseManagePage({
       if (!user) { router.push('/login'); return }
       setCreatorId(user.id)
       const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) setToken(session.access_token)
+      if (session?.access_token) {
+        setToken(session.access_token)
+        // Lightweight admin check — reuses the admin-only API's own requireAdmin
+        // check as the source of truth for whether the Admin tab should exist.
+        fetch(`/api/admin/custom-page?courseId=${id}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+          .then(res => { if (res.ok) setIsAdmin(true) })
+          .catch(() => {})
+      }
 
       const { data: courseData } = await supabase
         .from('courses')
@@ -2449,15 +2461,20 @@ export default function CourseManagePage({
               </span>
             </div>
             <div className="flex items-center gap-4 mt-4 border-b border-white/5">
-              {(['lessons', 'settings'] as const).map(tab => (
+              {([
+                { id: 'lessons' as const, label: 'Lessons' },
+                { id: 'settings' as const, label: 'Settings' },
+                { id: 'landing' as const, label: 'Landing Page' },
+                ...(isAdmin ? [{ id: 'admin' as const, label: 'Admin' }] : []),
+              ]).map(tab => (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className="px-4 py-2 text-sm font-medium capitalize transition-all relative"
-                  style={{ color: activeTab === tab ? 'var(--kurso-primary-light)' : '#52525b' }}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="px-4 py-2 text-sm font-medium transition-all relative"
+                  style={{ color: activeTab === tab.id ? 'var(--kurso-primary-light)' : '#52525b' }}
                 >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  {activeTab === tab && (
+                  {tab.label}
+                  {activeTab === tab.id && (
                     <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[var(--kurso-primary-light)]" />
                   )}
                 </button>
@@ -2680,10 +2697,10 @@ export default function CourseManagePage({
                       </div>
                     )}
                   </div>
-                )}
+               )}
               </>
             
-            ) : (
+            ) : activeTab === 'settings' ? (
               <div className="flex flex-col gap-6">
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                   <h2 className="font-semibold text-white mb-5">Course Settings</h2>
@@ -3237,7 +3254,11 @@ export default function CourseManagePage({
                   </div>
                 </div>
               </div>
-            )}
+            ) : activeTab === 'landing' ? (
+              <LandingPageDesigner courseId={course.id} />
+            ) : activeTab === 'admin' && isAdmin ? (
+              <CustomPageOverrideEditor courseId={course.id} />
+            ) : null}
           </div>
 
           {/* ── RIGHT: Course Info + Share ── */}
@@ -3295,12 +3316,12 @@ export default function CourseManagePage({
                 <ExternalLink className="w-4 h-4" />
                 Preview Course Page
               </Link>
-              <Link href={`/dashboard/courses/${course.id}/landing-page`}
+              <button onClick={() => setActiveTab('landing')}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
                 style={{ background: 'rgba(255,255,255,0.04)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <Pencil className="w-4 h-4" />
                 Design Landing Page
-              </Link>
+              </button>
             </div>
 
             {/* Student Update / Delay Broadcast */}
