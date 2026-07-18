@@ -261,48 +261,107 @@ export default async function AboutCoursePage({
         </section>
       )
   );
+  // Instructor #1 always comes from the original host_name/about_creator/
+  // host_image/instructor_title columns — those are left untouched since
+  // they're relied on elsewhere (certificates, slugs, emails). Any extra
+  // instructors a creator adds live in the separate `co_instructors` column
+  // and are appended after the primary one, display-only.
+  const primaryInstructor = {
+    name: course.host_name || creatorProfile?.name || 'Course Creator',
+    title: course.instructor_title || 'Course Instructor',
+    image: course.host_image || '',
+    bio: course.about_creator || 'Expert instructor dedicated to helping you master this subject and achieve your goals.',
+  }
+  const coInstructors: (typeof primaryInstructor)[] = Array.isArray(course.co_instructors)
+    ? course.co_instructors
+        .filter((i: any) => i && typeof i.name === 'string' && i.name.trim().length > 0)
+        .map((i: any) => ({
+          name: i.name.trim(),
+          title: (i.title || 'Co-Instructor').toString(),
+          image: (i.image || '').toString(),
+          bio: (i.bio || '').toString(),
+        }))
+    : []
+  const allInstructors = [primaryInstructor, ...coInstructors]
+
   const instructorNode = (
     show('instructor') && (
       <section className="ak-section py-18 px-6" style={{ background: c.bg }}>
         <div className="max-w-4xl mx-auto">
-          <h2 className="ak-section-title text-center mb-12">Meet your instructor</h2>
+          <h2 className="ak-section-title text-center mb-12">
+            {allInstructors.length > 1 ? 'Meet your instructors' : 'Meet your instructor'}
+          </h2>
 
-          <div className="ak-glow rounded-3xl overflow-hidden"
-            style={{ background: c.cardBg, border: `1px solid ${c.accentBorder}` }}>
-            <div className="flex flex-col md:flex-row">
+          {allInstructors.length === 1 ? (
+            <div className="ak-glow rounded-3xl overflow-hidden"
+              style={{ background: c.cardBg, border: `1px solid ${c.accentBorder}` }}>
+              <div className="flex flex-col md:flex-row">
 
-              {/* Left accent strip + photo */}
-              <div className="flex-shrink-0 flex flex-col items-center justify-center p-8 md:p-10"
-                style={{ background: c.accentSoft, borderRight: `1px solid ${c.accentBorder}`, minWidth: 200 }}>
-                <div className="w-28 h-28 rounded-2xl overflow-hidden mb-4"
-                  style={{ border: `3px solid ${c.accentBorderStrong}` }}>
-                  {course.host_image ? (
-                    <img src={course.host_image} alt={course.host_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl"
-                      style={{ background: c.accentGradient }}>
-                      {(course.host_name || creatorProfile?.name || 'C').charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                {/* Left accent strip + photo */}
+                <div className="flex-shrink-0 flex flex-col items-center justify-center p-8 md:p-10"
+                  style={{ background: c.accentSoft, borderRight: `1px solid ${c.accentBorder}`, minWidth: 200 }}>
+                  <div className="w-28 h-28 rounded-2xl overflow-hidden mb-4"
+                    style={{ border: `3px solid ${c.accentBorderStrong}` }}>
+                    {primaryInstructor.image ? (
+                      <img src={primaryInstructor.image} alt={primaryInstructor.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl"
+                        style={{ background: c.accentGradient }}>
+                        {primaryInstructor.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-center">
+                    <p style={{ fontFamily: fonts.heading, fontSize: '1rem', fontWeight: 800, color: c.textPrimary }}>
+                      {primaryInstructor.name}
+                    </p>
+                    <p style={{ fontSize: '0.72rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4 }}>
+                      {primaryInstructor.title}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p style={{ fontFamily: fonts.heading, fontSize: '1rem', fontWeight: 800, color: c.textPrimary }}>
-                    {course.host_name || creatorProfile?.name || 'Course Creator'}
-                  </p>
-                  <p style={{ fontSize: '0.72rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4 }}>
-                    {course.instructor_title || 'Course Instructor'}
+
+                {/* Right: bio */}
+                <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
+                  <p style={{ color: c.textSecondary, fontSize: '0.95rem', lineHeight: 1.8 }}>
+                    {primaryInstructor.bio}
                   </p>
                 </div>
-              </div>
-
-              {/* Right: bio */}
-              <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
-                <p style={{ color: c.textSecondary, fontSize: '0.95rem', lineHeight: 1.8 }}>
-                  {course.about_creator || 'Expert instructor dedicated to helping you master this subject and achieve your goals.'}
-                </p>
               </div>
             </div>
-          </div>
+          ) : (
+            /* 2+ instructors — equal-width cards that sit in one row and
+               only wrap onto a second row if the screen is too narrow to
+               fit them all. */
+            <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
+              {allInstructors.map((inst, i) => (
+                <div key={i} className="ak-card flex flex-col items-center text-center p-7">
+                  <div className="w-20 h-20 rounded-2xl overflow-hidden mb-4 flex-shrink-0"
+                    style={{ border: `3px solid ${c.accentBorderStrong}` }}>
+                    {inst.image ? (
+                      <img src={inst.image} alt={inst.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-2xl"
+                        style={{ background: c.accentGradient }}>
+                        {inst.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <p style={{ fontFamily: fonts.heading, fontSize: '0.95rem', fontWeight: 800, color: c.textPrimary }}>
+                    {inst.name}
+                  </p>
+                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4, marginBottom: 10 }}>
+                    {inst.title}
+                  </p>
+                  {inst.bio && (
+                    <p style={{ color: c.textSecondary, fontSize: '0.85rem', lineHeight: 1.7 }}>
+                      {inst.bio}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
       )
@@ -476,26 +535,58 @@ const disclaimerNode = (
     )
   )
 
-const urgencyNode = (
+const hasCountdown = !!landingConfig.urgency.endAt
+  const hasSeats = typeof landingConfig.urgency.seatsAvailable === 'number'
+
+  const urgencyNode = (
     show('urgency') && hasUrgencyContent(landingConfig.urgency) && (
-      <section className="ak-section py-5 px-6" style={{ background: c.accentSoft, borderTop: `1px solid ${c.accentBorder}`, borderBottom: `1px solid ${c.accentBorder}` }}>
-        <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-          {landingConfig.urgency.endAt && (
-            <div className="flex items-center gap-2.5">
-              <Timer className="w-4 h-4" style={{ color: c.accentText }} />
-              <span style={{ fontSize: '0.85rem', color: c.textSecondary, fontWeight: 500 }}>{landingConfig.urgency.label}</span>
-              <CountdownTimer endAt={landingConfig.urgency.endAt} textColor={c.textPrimary} />
-            </div>
-          )}
-          {typeof landingConfig.urgency.seatsAvailable === 'number' && (
-            <div className="flex items-center gap-2.5">
-              <Users className="w-4 h-4" style={{ color: c.accentText }} />
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: c.textPrimary }}>
-                {landingConfig.urgency.seatsAvailable}
-              </span>
-              <span style={{ fontSize: '0.85rem', color: c.textSecondary, fontWeight: 500 }}>{landingConfig.urgency.seatsLabel}</span>
-            </div>
-          )}
+      <section className="ak-section py-10 px-6" style={{ background: c.sectionAltBg }}>
+        <div className="max-w-3xl mx-auto">
+          <div className="ak-glow rounded-3xl overflow-hidden flex flex-col sm:flex-row"
+            style={{ background: c.cardBg, border: `1px solid ${c.accentBorder}` }}>
+
+            {hasCountdown && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-7">
+                <div className="flex items-center gap-2">
+                  <Timer className="w-4 h-4" style={{ color: c.accentText }} />
+                  <span style={{ fontSize: '0.8rem', color: c.textSecondary, fontWeight: 600 }}>
+                    {landingConfig.urgency.label}
+                  </span>
+                </div>
+                <CountdownTimer
+                  endAt={landingConfig.urgency.endAt}
+                  accentGradient={c.accentGradient}
+                  boxShadowColor={c.accentGradientShadow}
+                  labelColor={c.textMuted}
+                />
+              </div>
+            )}
+
+            {hasCountdown && hasSeats && (
+              <div className="w-full h-px sm:w-px sm:h-auto flex-shrink-0" style={{ background: c.border }} />
+            )}
+
+            {hasSeats && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-1.5 px-6 py-7">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" style={{ color: c.accentText }} />
+                  {landingConfig.urgency.seatsAvailable! <= 5 && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                        style={{ background: c.accentText }} />
+                      <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: c.accentText }} />
+                    </span>
+                  )}
+                </div>
+                <p style={{ fontSize: '1.9rem', fontWeight: 800, color: c.textPrimary, lineHeight: 1, fontFamily: fonts.heading }}>
+                  {landingConfig.urgency.seatsAvailable}
+                </p>
+                <p style={{ fontSize: '0.8rem', color: c.textSecondary, fontWeight: 500, textAlign: 'center' }}>
+                  {landingConfig.urgency.seatsLabel}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
     )

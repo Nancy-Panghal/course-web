@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 import { ArrowRight, ArrowLeft, Globe, MessageCircle, Monitor, Plus, X } from 'lucide-react'
+import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 
 const LANGUAGES = [
   'English', 'Hindi', 'Tamil', 'Telugu', 'Marathi',
@@ -149,7 +150,7 @@ export default function CreateCoursePage() {
   const [instructorTitle, setInstructorTitle] = useState('')
   const [requirements, setRequirements] = useState([''])
   const [targetAudience, setTargetAudience] = useState([''])
-
+  const [coInstructors, setCoInstructors] = useState<CoInstructor[]>([])
   const slug = slugify(name)
 
   function toggleLanguage(lang: string) {
@@ -262,6 +263,9 @@ export default function CreateCoursePage() {
         instructor_title: instructorTitle.trim() || null,
         requirements: requirements.filter(r => r.trim()),
         target_audience: targetAudience.filter(t => t.trim()),
+        co_instructors: coInstructors
+          .filter(ci => ci.name.trim())
+          .map(ci => ({ name: ci.name.trim(), title: ci.title.trim(), image: ci.image, bio: ci.bio.trim() })),
         refund_window_days: refundWindowDays === '' ? 0 : parseInt(refundWindowDays),
         refund_policy_text: refundPolicyText.trim() || null,
       })
@@ -485,6 +489,14 @@ export default function CreateCoursePage() {
                   style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
                   onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </Field>
+
+              <Field label="Additional Instructors" hint="Optional — for co-taught courses. Shown alongside you on the course page.">
+                <CoInstructorsEditor
+                  value={coInstructors}
+                  onChange={setCoInstructors}
+                  onUpload={file => uploadToSupabase(file, 'images')}
                 />
               </Field>
 

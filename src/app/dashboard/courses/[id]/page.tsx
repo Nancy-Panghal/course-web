@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextModuleOrder } from '@/lib/utils'
 import Link from 'next/link'
 import LandingPageDesigner from '@/components/LandingPageDesigner'
+import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import CustomPageOverrideEditor from '@/components/CustomPageOverrideEditor'
 import {
   ArrowLeft, Plus, Video, FileText, Globe,
@@ -53,6 +54,7 @@ interface Course {
   level?: string
   category?: string
   requirements?: string[]
+  co_instructors?: { name: string; title: string; image: string; bio: string }[]
 }
 
 interface Lesson {
@@ -1989,6 +1991,7 @@ export default function CourseManagePage({
   const [editUseLogoOnCertificate, setEditUseLogoOnCertificate] = useState(false)
   const [editBrandName, setEditBrandName] = useState('')
   const [editInstructorTitle, setEditInstructorTitle] = useState('')
+  const [editCoInstructors, setEditCoInstructors] = useState<CoInstructor[]>([])
   const [editPromoVideoUrl, setEditPromoVideoUrl] = useState('')
   const [editTargetAudience, setEditTargetAudience] = useState<string[]>([])
   const [editTestimonials, setEditTestimonials] = useState<{ name: string; text: string; rating: number }[]>([])
@@ -2052,6 +2055,7 @@ export default function CourseManagePage({
       setEditUseLogoOnCertificate(courseData.use_logo_on_certificate || false)
       setEditBrandName(courseData.brand_name || '')
       setEditInstructorTitle(courseData.instructor_title || '')
+      setEditCoInstructors(Array.isArray(courseData.co_instructors) ? courseData.co_instructors : [])
       setEditPromoVideoUrl(courseData.promo_video_url || '')
       setEditTargetAudience(courseData.target_audience || [''])
       setEditTestimonials(courseData.testimonials || [])
@@ -2120,6 +2124,9 @@ export default function CourseManagePage({
         refund_policy_text: editRefundPolicyText.trim() || null,
         brand_name: editBrandName.trim() || null,
         instructor_title: editInstructorTitle.trim() || null,
+        co_instructors: editCoInstructors
+          .filter(ci => ci.name.trim())
+          .map(ci => ({ name: ci.name.trim(), title: ci.title.trim(), image: ci.image, bio: ci.bio.trim() })),
         promo_video_url: editPromoVideoUrl.trim() || null,
         target_audience: editTargetAudience.filter(t => t.trim()),
         testimonials: editTestimonials.filter(t => t.name.trim() && t.text.trim()),
@@ -2151,6 +2158,7 @@ export default function CourseManagePage({
         free_preview_config: editFreePreview,
         refund_window_days: editRefundWindowDays === '' ? 0 : parseInt(editRefundWindowDays),
         refund_policy_text: editRefundPolicyText.trim() || undefined,
+        co_instructors: editCoInstructors.filter(ci => ci.name.trim()),
       })
     }
     setSavingSettings(false)
@@ -2920,6 +2928,21 @@ export default function CourseManagePage({
                       />
                       <textarea value={editAbout} onChange={e => setEditAbout(e.target.value)} rows={2} placeholder="Bio"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none" />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                        Additional Instructors
+                        <span className="text-zinc-600 font-normal ml-1">— optional, for co-taught courses</span>
+                      </label>
+                      <CoInstructorsEditor
+                        value={editCoInstructors}
+                        onChange={setEditCoInstructors}
+                        onUpload={async file => {
+                          const { publicUrl } = await uploadToSupabase(file, 'images')
+                          return publicUrl
+                        }}
+                      />
                     </div>
 
                     {/* Promo video */}

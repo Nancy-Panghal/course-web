@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { slugify } from '@/lib/utils'
-import { LANDING_THEMES, DEFAULT_LANDING_THEME_ID, type LandingThemeId } from '@/lib/landing-themes'
+import { LANDING_THEMES, DEFAULT_LANDING_THEME_ID, getLandingTheme, type LandingThemeId } from '@/lib/landing-themes'
+import CountdownTimer from '@/components/CountdownTimer'
 import {
   ArrowDown, ArrowLeft, ArrowUp, Check, ExternalLink, Image as ImageIcon, X, Eye, EyeOff,
   Layout, Palette, Plus, Trash2, Type, Lock, Gift, AlertTriangle, Timer,
@@ -497,6 +498,41 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
                   <p className="text-xs mt-3" style={{ color: 'var(--kurso-accent)' }}>
                     ⚠ This date is in the past — the countdown won't show on the live page until you set a future date.
                   </p>
+                )}
+
+                {(landingConfig.urgency.endAt || typeof landingConfig.urgency.seatsAvailable === 'number') && (
+                  <div className="mt-5 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: '#71717a' }}>Live preview</p>
+                    <div className="rounded-2xl flex flex-col sm:flex-row overflow-hidden"
+                      style={{ background: getLandingTheme(selectedTheme).colors.cardBg, border: `1px solid ${getLandingTheme(selectedTheme).colors.accentBorder}` }}>
+                      {landingConfig.urgency.endAt && (
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2 px-5 py-5">
+                          <span style={{ fontSize: '0.75rem', color: getLandingTheme(selectedTheme).colors.textSecondary, fontWeight: 600 }}>
+                            {landingConfig.urgency.label || 'Enrollment closes in'}
+                          </span>
+                          <CountdownTimer
+                            endAt={new Date(Date.now() + 2 * 86400000 + 3 * 3600000 + 45 * 60000).toISOString()}
+                            accentGradient={getLandingTheme(selectedTheme).colors.accentGradient}
+                            boxShadowColor={getLandingTheme(selectedTheme).colors.accentGradientShadow}
+                            labelColor={getLandingTheme(selectedTheme).colors.textMuted}
+                          />
+                        </div>
+                      )}
+                      {typeof landingConfig.urgency.seatsAvailable === 'number' && (
+                        <div className="flex-1 flex flex-col items-center justify-center gap-1 px-5 py-5">
+                          <p style={{ fontSize: '1.6rem', fontWeight: 800, color: getLandingTheme(selectedTheme).colors.textPrimary, lineHeight: 1 }}>
+                            {landingConfig.urgency.seatsAvailable}
+                          </p>
+                          <p style={{ fontSize: '0.75rem', color: getLandingTheme(selectedTheme).colors.textSecondary, fontWeight: 500 }}>
+                            {landingConfig.urgency.seatsLabel}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[10px] mt-2" style={{ color: '#52525b' }}>
+                      Preview uses a sample countdown time and your selected theme's colors — actual timing comes from the date you set above.
+                    </p>
+                  </div>
                 )}
               </div>
             </>
