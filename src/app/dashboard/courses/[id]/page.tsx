@@ -1945,11 +1945,8 @@ export default function CourseManagePage({
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing' | 'admin'>('lessons')
+  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing' | 'customPage'>('lessons')
   const [token, setToken] = useState('')
-  // Only ever flips false -> true, once a background check against the admin-only
-  // API confirms it — never shown by default, never flashes visible then hides.
-  const [isAdmin, setIsAdmin] = useState(false)
 
   // Settings state
   const [editName, setEditName] = useState('')
@@ -2005,14 +2002,7 @@ export default function CourseManagePage({
       if (!user) { router.push('/login'); return }
       setCreatorId(user.id)
       const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        setToken(session.access_token)
-        // Lightweight admin check — reuses the admin-only API's own requireAdmin
-        // check as the source of truth for whether the Admin tab should exist.
-        fetch(`/api/admin/custom-page?courseId=${id}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
-          .then(res => { if (res.ok) setIsAdmin(true) })
-          .catch(() => {})
-      }
+      if (session?.access_token) setToken(session.access_token)
 
       const { data: courseData } = await supabase
         .from('courses')
@@ -2473,7 +2463,7 @@ export default function CourseManagePage({
                 { id: 'lessons' as const, label: 'Lessons' },
                 { id: 'settings' as const, label: 'Settings' },
                 { id: 'landing' as const, label: 'Landing Page' },
-                ...(isAdmin ? [{ id: 'admin' as const, label: 'Admin' }] : []),
+                { id: 'customPage' as const, label: 'Custom Page' },
               ]).map(tab => (
                 <button
                   key={tab.id}
@@ -3279,7 +3269,7 @@ export default function CourseManagePage({
               </div>
             ) : activeTab === 'landing' ? (
               <LandingPageDesigner courseId={course.id} />
-            ) : activeTab === 'admin' && isAdmin ? (
+            ) : activeTab === 'customPage' ? (
               <CustomPageOverrideEditor courseId={course.id} />
             ) : null}
           </div>

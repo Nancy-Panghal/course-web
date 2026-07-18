@@ -7,6 +7,7 @@ const SUBJECT_LABELS: Record<string, string> = {
   technical: 'Technical Support',
   upgrade: 'Upgrade / Plan Change',
   refund: 'Refund Request',
+  landing_customization: 'Landing Page Customization Request',
   other: 'Other',
 }
 

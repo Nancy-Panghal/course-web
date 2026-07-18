@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { slugify } from '@/lib/utils'
-import { ExternalLink, AlertTriangle, Check, Copy, Upload, Download } from 'lucide-react'
+import { ExternalLink, AlertTriangle, Check, Copy, Upload, Download, Sparkles, Code2 } from 'lucide-react'
 
 type CourseDetail = {
   id: string; name: string; host_name: string | null; slug: string | null
@@ -11,12 +11,14 @@ type CourseDetail = {
 
 export default function CustomPageOverrideEditor({ courseId }: { courseId: string }) {
   const [token, setToken] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+  const [userName, setUserName] = useState('')
   const [authError, setAuthError] = useState('')
   const [detail, setDetail] = useState<CourseDetail | null>(null)
   const [initialContent, setInitialContent] = useState('') // what was actually saved, for the overwrite check
   const [content, setContent] = useState('')               // live edit buffer
   const [enabled, setEnabled] = useState(false)
-  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [loadingDetail, setLoadingDetail] = useState(true)
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -24,6 +26,12 @@ export default function CustomPageOverrideEditor({ courseId }: { courseId: strin
   const [copiedMsg, setCopiedMsg] = useState('')
   const [confirmingReplace, setConfirmingReplace] = useState(false)
   const [exporting, setExporting] = useState(false)
+
+  // "Request the team to update it for you" — free-form description + contact
+  const [requestText, setRequestText] = useState('')
+  const [sendingRequest, setSendingRequest] = useState(false)
+  const [requestSent, setRequestSent] = useState(false)
+  const [requestError, setRequestError] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -36,18 +44,17 @@ export default function CustomPageOverrideEditor({ courseId }: { courseId: strin
         return
       }
       setToken(session.access_token)
+      setUserEmail(session.user?.email || '')
+      setUserName(session.user?.user_metadata?.full_name || session.user?.user_metadata?.username || '')
 
       setLoadingDetail(true)
-      const res = await fetch(`/api/admin/custom-page?courseId=${courseId}`, {
+      const res = await fetch(`/api/course-custom-page?courseId=${courseId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const data = await res.json()
       setLoadingDetail(false)
       if (!res.ok) {
-        // A 401 here just means this creator isn't the admin — the parent
-        // page already gates whether this component renders at all, but
-        // this is the honest fallback if that check is ever bypassed.
-        setAuthError(res.status === 401 ? 'Not authorized.' : (data.error || 'Failed to load course.'))
+        setError(data.error || 'Failed to load course.')
         return
       }
       setDetail(data.course)
@@ -60,7 +67,7 @@ export default function CustomPageOverrideEditor({ courseId }: { courseId: strin
 
   // True only when saving would actually destroy a previously saved custom
   // version — i.e. there WAS content, and it's different from what's about
-  // to be saved. This is the exact case Nancy asked to be warned about.
+  // to be saved.
   const wouldOverwriteExisting = initialContent.trim().length > 0 && content.trim() !== initialContent.trim()
 
   function copyToClipboard(text: string, label: string) {
@@ -74,13 +81,13 @@ export default function CustomPageOverrideEditor({ courseId }: { courseId: strin
     if (!detail) return
     setExporting(true)
     setError('')
-    const res = await fetch(`/api/admin/custom-page?exportCourseId=${detail.id}`, {
+    const res = await fetch(`/api/course-custom-page?exportCourseId=${detail.id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()
     setExporting(false)
     if (!res.ok) { setError(data.error || 'Export failed.'); return }
-    copyToClipboard(data.html, 'Auto-generated page copied — paste it into your LLM chat')
+    copyToClipboard(data.html, 'Page code copied — paste it into your LLM chat')
   }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -92,29 +99,73 @@ export default function CustomPageOverrideEditor({ courseId }: { courseId: strin
     e.target.value = '' // allow re-uploading the same filename later
   }
 
-  async function handleSave() {
+  async function persist(nextEnabled: boolean, nextContent: string) {
     if (!detail) return
+    setSaving(true)
+    setError('')
+    const res = await fetch('/api/course-custom-page', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ courseId: detail.id, customPageOverride: nextContent, useCustomOverride: nextEnabled }),
+    })
+    const data = await res.json()
+    setSaving(false)
+    if (!res.ok) { setError(data.error || 'Save failed.'); return false }
+    setEnabled(nextEnabled)
+    setInitialContent(nextContent)
+    setContent(nextContent)
+    setSavedMsg(true)
+    setTimeout(() => setSavedMsg(false), 2500)
+    return true
+  }
 
+  async function handleSaveNewVersion() {
+    if (!detail) return
     if (wouldOverwriteExisting && !confirmingReplace) {
       setConfirmingReplace(true)
       return
     }
-
-    setSaving(true)
-    setError('')
-    const res = await fetch('/api/admin/custom-page', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ courseId: detail.id, customPageOverride: content, useCustomOverride: enabled }),
-    })
-    const data = await res.json()
-    setSaving(false)
     setConfirmingReplace(false)
-    if (!res.ok) { setError(data.error || 'Save failed.'); return }
-    setInitialContent(content)
-    setDetail(prev => prev ? { ...prev, use_custom_override: enabled, custom_page_override: content } : prev)
-    setSavedMsg(true)
-    setTimeout(() => setSavedMsg(false), 2500)
+    // Saving here keeps whichever version is currently live selected below —
+    // it doesn't force-enable the custom version. Use the selector to switch.
+    await persist(enabled, content)
+  }
+
+  // Selecting a version is its own action — flips `enabled` and saves
+  // immediately, mutually exclusive with the other option.
+  async function selectVersion(useCustom: boolean) {
+    if (useCustom === enabled) return
+    if (useCustom && content.trim().length === 0) {
+      setError('Add your custom page content below before switching to it.')
+      return
+    }
+    await persist(useCustom, content)
+  }
+
+  async function handleSendRequest() {
+    if (!requestText.trim() || sendingRequest || !detail) return
+    setSendingRequest(true)
+    setRequestError('')
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: userName || 'Kurso creator',
+          email: userEmail || 'no-email-on-file@kurso.in',
+          subject: 'landing_customization',
+          message: `Course: ${detail.name} (${detail.id})\nLive page: ${previewUrl}\n\nWhat they want changed:\n${requestText.trim()}`,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not send your request.')
+      setRequestSent(true)
+      setRequestText('')
+    } catch (err: any) {
+      setRequestError(err.message || 'Could not send your request.')
+    } finally {
+      setSendingRequest(false)
+    }
   }
 
   const previewUrl = detail
@@ -133,140 +184,196 @@ export default function CustomPageOverrideEditor({ courseId }: { courseId: strin
     return <div className="text-sm" style={{ color: '#71717a' }}>Loading...</div>
   }
 
-  if (!detail) return null
+  if (!detail) {
+    return (
+      <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+        {error || 'Could not load this course.'}
+      </div>
+    )
+  }
 
   return (
-    <div className="flex flex-col gap-4">
-                <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <h2 className="font-semibold text-white">{detail.name}</h2>
-                    <a href={previewUrl} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <ExternalLink className="w-3 h-3" /> View live page
-                    </a>
-                  </div>
-                  <p className="text-xs" style={{ color: '#52525b' }}>{detail.host_name || 'No host name'} · {detail.is_published ? 'Published' : 'Draft'}</p>
+    <div className="flex flex-col gap-5">
 
-                  <div className="flex items-center gap-3 mt-5 p-4 rounded-xl" style={{ background: enabled ? 'rgba(var(--kurso-primary-rgb), 0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <button type="button" onClick={() => setEnabled(v => !v)}
-                      className="relative flex-shrink-0" style={{ width: 40, height: 22, borderRadius: 999, background: enabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
-                      <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: enabled ? '20px' : '2px' }} />
-                    </button>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-white">Use custom page for this course</p>
-                      <p className="text-xs" style={{ color: '#71717a' }}>
-                        When on, the HTML below completely replaces the normal auto-generated landing page. The
-                        auto-generated page is never deleted — turning this off instantly reverts to it.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+      {/* ── 1. REQUEST THE TEAM ── */}
+      <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
+          <h2 className="font-semibold text-white">Want a fully custom design for this page?</h2>
+        </div>
+        <p className="text-xs mb-4" style={{ color: '#71717a' }}>
+          Tell us how you want your course page to look and we'll build it for you — completely free, no extra cost.
+        </p>
+        <textarea value={requestText} onChange={e => { setRequestText(e.target.value); setRequestSent(false) }}
+          placeholder="Describe the look, layout, or changes you want — e.g. 'a darker theme with a video at the top' or 'match the style of my Instagram page'..."
+          rows={4}
+          className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600 resize-y mb-3" />
+        {requestError && (
+          <p className="text-xs mb-2" style={{ color: '#ef4444' }}>{requestError}</p>
+        )}
+        {requestSent ? (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold w-fit"
+            style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
+            <Check className="w-4 h-4" /> Request sent — we'll reach out soon
+          </div>
+        ) : (
+          <button onClick={handleSendRequest} disabled={!requestText.trim() || sendingRequest}
+            className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+            {sendingRequest ? 'Sending...' : 'Contact us — it\'s free'}
+          </button>
+        )}
+      </div>
 
-                {/* ── STEP 1: get a copy of the current page to hand to an LLM ── */}
-                <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <h2 className="font-semibold text-white mb-1">1. Copy what to hand your LLM</h2>
-                  <p className="text-xs mb-4" style={{ color: '#71717a' }}>
-                    Grab a copy of whichever version is currently live, paste it into an LLM chat along with what
-                    the creator wants changed, and bring the result back to step 2 below.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={handleExportAutoGenerated} disabled={exporting}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <Download className="w-3.5 h-3.5" /> {exporting ? 'Exporting...' : 'Copy auto-generated page'}
-                    </button>
-                    {initialContent.trim().length > 0 && (
-                      <button type="button" onClick={() => copyToClipboard(initialContent, 'Current custom version copied')}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium"
-                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <Copy className="w-3.5 h-3.5" /> Copy current custom version
-                      </button>
-                    )}
-                  </div>
-                  {copiedMsg && (
-                    <p className="text-xs mt-2 flex items-center gap-1.5" style={{ color: '#22c55e' }}>
-                      <Check className="w-3.5 h-3.5" /> {copiedMsg}
-                    </p>
-                  )}
-                  <p className="text-xs mt-3" style={{ color: '#52525b' }}>
-                    ⚠ The auto-generated export is a reference snapshot only — its buy button's code is stripped
-                    (it depends on a live session that won't exist elsewhere). If your LLM builds a new page from
-                    it, have it replace the buy button with a plain link instead.
-                  </p>
-                </div>
+      {/* ── 2. FOR DEVELOPERS / VIBE CODERS ── */}
+      <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <Code2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
+          <h2 className="font-semibold text-white">Prefer to build it yourself?</h2>
+        </div>
+        <p className="text-xs mb-3" style={{ color: '#71717a' }}>
+          If you're a developer or comfortable "vibe coding" with an AI tool, you can do it yourself:
+        </p>
+        <ol className="flex flex-col gap-1.5 mb-2 text-xs" style={{ color: '#a1a1aa' }}>
+          <li>1. Copy your current page's code below</li>
+          <li>2. Paste it into an AI/LLM tool along with what you want changed</li>
+          <li>3. Bring the new version back and upload or paste it here</li>
+          <li>4. Something broke? Switch back to the auto-generated version any time — nothing is deleted</li>
+          <li>5. Stuck, or want us to take it from here? Use the contact box above, anytime</li>
+        </ol>
+      </div>
 
-                {/* ── STEP 2: bring the new version back ── */}
-                <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <h2 className="font-semibold text-white">2. Paste or upload the new version</h2>
-                    <span className="text-xs" style={{ color: '#52525b' }}>{content.length.toLocaleString()} characters</span>
-                  </div>
-                  <p className="text-xs mb-3" style={{ color: '#71717a' }}>
-                    Full standalone HTML document, including its own &lt;style&gt; tags. Rendered inside a sandboxed
-                    iframe on the live page — any JS in here runs isolated from the rest of the site.
-                  </p>
+      {/* ── 3. COPY CURRENT CODE ── */}
+      <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+        <h2 className="font-semibold text-white mb-1">Copy your page code</h2>
+        <p className="text-xs mb-4" style={{ color: '#71717a' }}>
+          Grab whichever version is currently live — this is what you'll hand to your AI tool.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={handleExportAutoGenerated} disabled={exporting}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
+            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <Download className="w-3.5 h-3.5" /> {exporting ? 'Exporting...' : 'Copy auto-generated page'}
+          </button>
+          {initialContent.trim().length > 0 && (
+            <button type="button" onClick={() => copyToClipboard(initialContent, 'Your custom version copied')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <Copy className="w-3.5 h-3.5" /> Copy your custom version
+            </button>
+          )}
+          <a href={previewUrl} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium"
+            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <ExternalLink className="w-3.5 h-3.5" /> View live page
+          </a>
+        </div>
+        {copiedMsg && (
+          <p className="text-xs mt-2 flex items-center gap-1.5" style={{ color: '#22c55e' }}>
+            <Check className="w-3.5 h-3.5" /> {copiedMsg}
+          </p>
+        )}
+        <p className="text-xs mt-3" style={{ color: '#52525b' }}>
+          Note: the auto-generated export is a reference snapshot — its buy button's code is stripped, since that
+          depends on a live login session that won't exist elsewhere. Have your AI tool replace it with a plain
+          link to your course page.
+        </p>
+      </div>
 
-                  {wouldOverwriteExisting && (
-                    <div className="flex items-start gap-2 mb-3 p-3 rounded-xl" style={{ background: 'rgba(var(--kurso-accent-rgb), 0.08)', border: '1px solid rgba(var(--kurso-accent-rgb), 0.2)' }}>
-                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
-                      <div className="flex-1">
-                        <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
-                          Saving will replace the current custom version — it can't be recovered afterward. Copy it
-                          first if you might want it back.
-                        </p>
-                        <button type="button" onClick={() => copyToClipboard(initialContent, 'Current custom version copied')}
-                          className="text-xs font-semibold mt-1.5 underline" style={{ color: 'var(--kurso-accent)' }}>
-                          Copy the version that will be replaced
-                        </button>
-                      </div>
-                    </div>
-                  )}
+      {/* ── 4. UPLOAD NEW VERSION ── */}
+      <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="font-semibold text-white">Bring your new version back</h2>
+          <span className="text-xs" style={{ color: '#52525b' }}>{content.length.toLocaleString()} characters</span>
+        </div>
+        <p className="text-xs mb-3" style={{ color: '#71717a' }}>
+          Full standalone HTML document, including its own &lt;style&gt; tags. It runs inside a sandboxed frame on
+          your live page, isolated from the rest of the site.
+        </p>
 
-                  <div className="flex items-center gap-2 mb-2">
-                    <input ref={fileInputRef} type="file" accept=".html,text/html" className="hidden" onChange={handleFileUpload} />
-                    <button type="button" onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <Upload className="w-3.5 h-3.5" /> Upload .html file
-                    </button>
-                    <span className="text-xs" style={{ color: '#52525b' }}>or paste directly below</span>
-                  </div>
+        {wouldOverwriteExisting && (
+          <div className="flex items-start gap-2 mb-3 p-3 rounded-xl" style={{ background: 'rgba(var(--kurso-accent-rgb), 0.08)', border: '1px solid rgba(var(--kurso-accent-rgb), 0.2)' }}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+            <div className="flex-1">
+              <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
+                Saving will replace your current custom version — it can't be recovered afterward. Copy it first if
+                you might want it back.
+              </p>
+              <button type="button" onClick={() => copyToClipboard(initialContent, 'Your custom version copied')}
+                className="text-xs font-semibold mt-1.5 underline" style={{ color: 'var(--kurso-accent)' }}>
+                Copy the version that will be replaced
+              </button>
+            </div>
+          </div>
+        )}
 
-                  <textarea value={content} onChange={e => { setContent(e.target.value); setConfirmingReplace(false) }}
-                    spellCheck={false}
-                    placeholder="<!doctype html>&#10;<html>&#10;  <head>...&#10;  <style>...</style>&#10;  </head>&#10;  <body>...</body>&#10;</html>"
-                    className="w-full rounded-xl p-4 text-xs bg-black border text-zinc-100 placeholder:text-zinc-700 resize-y"
-                    style={{ borderColor: 'rgba(255,255,255,0.1)', minHeight: 420, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: 1.6 }}
-                  />
-                </div>
+        <div className="flex items-center gap-2 mb-2">
+          <input ref={fileInputRef} type="file" accept=".html,text/html" className="hidden" onChange={handleFileUpload} />
+          <button type="button" onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <Upload className="w-3.5 h-3.5" /> Upload .html file
+          </button>
+          <span className="text-xs" style={{ color: '#52525b' }}>or paste directly below</span>
+        </div>
 
-                {enabled && content.trim().length === 0 && (
-                  <div className="flex items-start gap-2 p-3 rounded-xl" style={{ background: 'rgba(var(--kurso-accent-rgb), 0.08)', border: '1px solid rgba(var(--kurso-accent-rgb), 0.2)' }}>
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
-                    <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
-                      This is on but there's no HTML yet — the live page falls back to the normal auto-generated
-                      page until you add content and save.
-                    </p>
-                  </div>
-                )}
+        <textarea value={content} onChange={e => { setContent(e.target.value); setConfirmingReplace(false) }}
+          spellCheck={false}
+          placeholder="<!doctype html>&#10;<html>&#10;  <head>...&#10;  <style>...</style>&#10;  </head>&#10;  <body>...</body>&#10;</html>"
+          className="w-full rounded-xl p-4 text-xs bg-black border text-zinc-100 placeholder:text-zinc-700 resize-y"
+          style={{ borderColor: 'rgba(255,255,255,0.1)', minHeight: 320, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: 1.6 }}
+        />
 
-                {error && (
-                  <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                    {error}
-                  </div>
-                )}
+        {content.trim().length > 0 && content.trim() !== initialContent.trim() && (
+          <button onClick={handleSaveNewVersion} disabled={saving}
+            className="w-full mt-3 py-2.5 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+            {saving ? 'Saving...' : confirmingReplace ? 'Click again to replace & save' : 'Save this version'}
+          </button>
+        )}
+      </div>
 
-      <button onClick={handleSave} disabled={saving}
-        className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
-        {saving
-          ? 'Saving...'
-          : savedMsg
-          ? (<><Check className="w-4 h-4" /> Saved</>)
-          : confirmingReplace
-          ? 'Click again to replace & save'
-          : 'Save'}
-      </button>
+      {/* ── 5. WHICH VERSION IS LIVE ── */}
+      <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+        <h2 className="font-semibold text-white mb-1">Which version is live?</h2>
+        <p className="text-xs mb-4" style={{ color: '#71717a' }}>
+          Switch any time — your auto-generated page is never deleted, so you can always come back to it.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button type="button" onClick={() => selectVersion(false)} disabled={saving}
+            className="text-left p-4 rounded-xl transition-all disabled:opacity-50"
+            style={{
+              background: !enabled ? 'rgba(var(--kurso-primary-rgb), 0.1)' : 'rgba(255,255,255,0.02)',
+              border: !enabled ? '2px solid var(--kurso-primary)' : '1px solid rgba(255,255,255,0.08)',
+            }}>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm font-semibold text-white">Auto-Generated</p>
+              {!enabled && <Check className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />}
+            </div>
+            <p className="text-xs" style={{ color: '#71717a' }}>Built from your theme, sections, and course data — always kept up to date automatically.</p>
+          </button>
+          <button type="button" onClick={() => selectVersion(true)} disabled={saving || content.trim().length === 0}
+            className="text-left p-4 rounded-xl transition-all disabled:opacity-50"
+            style={{
+              background: enabled ? 'rgba(var(--kurso-primary-rgb), 0.1)' : 'rgba(255,255,255,0.02)',
+              border: enabled ? '2px solid var(--kurso-primary)' : '1px solid rgba(255,255,255,0.08)',
+            }}>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm font-semibold text-white">Your Custom Version</p>
+              {enabled && <Check className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />}
+            </div>
+            <p className="text-xs" style={{ color: '#71717a' }}>
+              {content.trim().length === 0 ? 'Add your custom page above first' : 'The version you pasted or uploaded above.'}
+            </p>
+          </button>
+        </div>
+        {savedMsg && (
+          <p className="text-xs mt-3 flex items-center gap-1.5" style={{ color: '#22c55e' }}>
+            <Check className="w-3.5 h-3.5" /> Saved
+          </p>
+        )}
+        {error && (
+          <p className="text-xs mt-3" style={{ color: '#ef4444' }}>{error}</p>
+        )}
+      </div>
     </div>
   )
 }
