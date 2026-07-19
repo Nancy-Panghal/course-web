@@ -149,6 +149,14 @@ async function buildStandaloneSnapshot(pageHtml: string, origin: string, title: 
   const bodyMatch = pageHtml.match(/<body[^>]*>([\s\S]*)<\/body>/)
   let bodyInner = bodyMatch ? bodyMatch[1] : pageHtml
   bodyInner = bodyInner.replace(/<script[\s\S]*?<\/script>/gi, '')
+  // Iframes (e.g. the YouTube promo video embed) don't work reliably once
+  // this becomes a custom page: they'd be nested inside Kurso's own
+  // sandboxed iframe, which intentionally has no allow-same-origin — and
+  // YouTube's player script fails to initialize in that context, throwing
+  // console errors on the live page. Strip them and leave a clear marker
+  // so whoever edits this knows a video embed was there and needs to be
+  // re-added as a plain link or thumbnail image instead.
+  bodyInner = bodyInner.replace(/<iframe[\s\S]*?<\/iframe>/gi, '<!-- Video embed removed — iframes inside iframes don\'t work reliably here. Link to the video instead, e.g. <a href="YOUR_YOUTUBE_URL">Watch the preview</a> -->')
 
   return `<!doctype html>
 <html>
