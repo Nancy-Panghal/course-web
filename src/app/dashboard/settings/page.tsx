@@ -209,19 +209,16 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false)
   const [deleteApiError, setDeleteApiError] = useState('')
 
-  // ── Payout connection state ──────────────────────────────────────
-  // Kurso does not collect or store raw bank/UPI/PAN details. Connecting a
-  // payout account happens entirely on Razorpay's side via Route — this page
-  // only shows connection status and starts that flow.
-  const [payoutToken, setPayoutToken] = useState('')
-  const [payoutLoading, setPayoutLoading] = useState(true)
-  const [payoutConnecting, setPayoutConnecting] = useState(false)
-  const [payoutError, setPayoutError] = useState('')
-  const [payoutStatus, setPayoutStatus] = useState('not_connected') // 'not_connected' | 'pending' | 'connected'
-  // Payout history
-  const [payouts, setPayouts] = useState<any[]>([])
-  const [payoutsLoading, setPayoutsLoading] = useState(true)
-
+  // ── Vyapar Gateway connection state ────────────────────────────────
+  // Each creator connects their OWN Vyapar Gateway account so student
+  // payments settle directly to them — Kurso never touches the money.
+  const [vyaparToken, setVyaparToken] = useState('')
+  const [vyaparLoading, setVyaparLoading] = useState(true)
+  const [vyaparStatus, setVyaparStatus] = useState('not_connected') // 'not_connected' | 'connected'
+  const [vyaparApiKeyInput, setVyaparApiKeyInput] = useState('')
+  const [vyaparWebhookSecretInput, setVyaparWebhookSecretInput] = useState('')
+  const [vyaparSaving, setVyaparSaving] = useState(false)
+  const [vyaparError, setVyaparError] = useState('')
   const hasChanges =
     name !== originalName
     
@@ -261,36 +258,25 @@ export default function SettingsPage() {
       })
     }, [])
 
-  // ── Load payout settings + history ────────────────────────────
+  // ── Load Vyapar Gateway connection status ──────────────────────
   useEffect(() => {
-    async function loadPayout() {
+    async function loadVyapar() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) return
-      setPayoutToken(session.access_token)
+      setVyaparToken(session.access_token)
 
-      const [settingsRes, payoutsRes] = await Promise.all([
-        fetch('/api/creator/payout-settings', {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }),
-        fetch('/api/creator/payouts', {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        }),
-      ])
-
-      if (settingsRes.ok) {
-        const d = await settingsRes.json()
-        setPayoutStatus(d.status || 'not_connected')
+      const res = await fetch('/api/creator/vyapar-connect', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.ok) {
+        const d = await res.json()
+        setVyaparStatus(d.status || 'not_connected')
       }
-      setPayoutLoading(false)
-
-      if (payoutsRes.ok) {
-        const d = await payoutsRes.json()
-        setPayouts(d.payouts || [])
-      }
-      setPayoutsLoading(false)
+      setVyaparLoading(false)
     }
-    loadPayout()
+    loadVyapar()
   }, [])
+
 
   async function handleSave() {
     setSaving(true)
@@ -337,34 +323,27 @@ export default function SettingsPage() {
     })
   }
 
-  async function handleConnectPayout() {
-    setPayoutError('')
-    setPayoutConnecting(true)
+  async function handleSaveVyapar() {
+    setVyaparError('')
+    setVyaparSaving(true)
     try {
-      const res = await fetch('/api/creator/payout-connect', {
+      const res = await fetch('/api/creator/vyapar-connect', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${payoutToken}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${vyaparToken}` },
+        body: JSON.stringify({ apiKey: vyaparApiKeyInput, webhookSecret: vyaparWebhookSecretInput }),
       })
-
       const json = await res.json()
       if (!res.ok) {
-        setPayoutError(json.error || 'Could not start payout setup.')
+        setVyaparError(json.error || 'Could not save your Vyapar Gateway details.')
         return
       }
-
-      if (json.available && json.url) {
-        window.location.href = json.url
-        return
-      }
-
-      setPayoutError(json.message || 'Payout setup is opening soon — check back shortly.')
+      setVyaparStatus('connected')
+      setVyaparApiKeyInput('')
+      setVyaparWebhookSecretInput('')
     } catch {
-      setPayoutError('Network error. Please try again.')
+      setVyaparError('Network error. Please try again.')
     } finally {
-      setPayoutConnecting(false)
+      setVyaparSaving(false)
     }
   }
 
@@ -501,130 +480,84 @@ export default function SettingsPage() {
 
         <div className="mb-12" />
 
-        {/* ── Payout Settings ── */}
-        <SectionCard title="Payout Settings" icon={IndianRupee}>
-          {payoutLoading ? (
+        {/* ── Get Paid — Vyapar Gateway ── */}
+        <SectionCard title="Get Paid — Vyapar Gateway" icon={IndianRupee}>
+          {vyaparLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <>
-              {/* Status banner */}
               <div className="mb-5 flex items-center gap-3 p-3 rounded-xl"
                 style={{
-                  background: payoutStatus === 'connected'
-                    ? 'rgba(74,222,128,0.08)'
-                    : payoutStatus === 'pending'
-                    ? 'rgba(245,158,11,0.08)'
-                    : 'rgba(255,255,255,0.03)',
-                  border: payoutStatus === 'connected'
-                    ? '1px solid rgba(74,222,128,0.2)'
-                    : payoutStatus === 'pending'
-                    ? '1px solid rgba(245,158,11,0.2)'
-                    : '1px solid rgba(255,255,255,0.08)',
+                  background: vyaparStatus === 'connected' ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.03)',
+                  border: vyaparStatus === 'connected' ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(255,255,255,0.08)',
                 }}>
-                {payoutStatus === 'connected'
+                {vyaparStatus === 'connected'
                   ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
-                  : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: payoutStatus === 'pending' ? 'var(--kurso-accent)' : '#71717a' }} />
+                  : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#71717a' }} />
                 }
                 <div>
                   <p className="text-sm font-medium text-white">
-                    {payoutStatus === 'connected'
-                      ? 'Payout account connected'
-                      : payoutStatus === 'pending'
-                      ? 'Payout setup pending'
-                      : 'No payout account connected yet'}
+                    {vyaparStatus === 'connected' ? 'Vyapar Gateway connected' : 'Not connected yet'}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
-                    {payoutStatus === 'connected'
-                      ? 'Your earnings will be sent directly to the account you connected via Razorpay.'
-                      : payoutStatus === 'pending'
-                      ? 'Finish verification with Razorpay to activate payouts.'
-                      : 'Connect a payout account so we know where to send your earnings.'}
+                    {vyaparStatus === 'connected'
+                      ? 'Student payments settle directly to your own Vyapar Gateway account.'
+                      : 'Connect your own Vyapar Gateway account so student payments go straight to you.'}
                   </p>
                 </div>
               </div>
 
-              {/* Security note */}
-              <div className="mb-4 p-3 rounded-xl flex items-start gap-2"
-                style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
-                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#38bdf8' }} />
+              <div className="mb-5 p-4 rounded-xl" style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
+                <p className="text-xs font-semibold mb-2" style={{ color: '#38bdf8' }}>How to set this up</p>
+                <ol className="text-xs space-y-1.5 list-decimal list-inside" style={{ color: '#a1a1aa' }}>
+                  <li>Sign up at <a href="https://vyapargateway.com" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#38bdf8' }}>vyapargateway.com</a> with your own name, PAN, and UPI ID — not Kurso's.</li>
+                  <li>For &quot;Website URL,&quot; use your Kurso storefront link (e.g. kurso.in/your-slug).</li>
+                  <li>If asked for a Merchant Category Code (MCC), use <strong>8299</strong> (Schools &amp; Educational Services).</li>
+                  <li>&quot;Merchant Code&quot; is generated by Vyapar after approval — nothing to fill in yourself.</li>
+                  <li>Once approved, copy your API key and webhook secret from your Vyapar dashboard and paste them below.</li>
+                </ol>
+              </div>
+
+              <div className="mb-2 p-3 rounded-xl flex items-start gap-2"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#a1a1aa' }} />
                 <p className="text-xs" style={{ color: '#a1a1aa' }}>
-                  Kurso never sees or stores your bank details, UPI ID, or PAN. Payout setup happens directly with Razorpay — we only receive a connection status back.
+                  Your key and secret are encrypted before we store them, and are never shown again after saving.
                 </p>
               </div>
 
-              {payoutError && (
+              <InputField
+                label="Vyapar Gateway API key"
+                value={vyaparApiKeyInput}
+                onChange={setVyaparApiKeyInput}
+                placeholder={vyaparStatus === 'connected' ? 'Enter a new key to rotate it' : 'vg_live_...'}
+                type="password"
+              />
+              <InputField
+                label="Vyapar Gateway webhook secret"
+                value={vyaparWebhookSecretInput}
+                onChange={setVyaparWebhookSecretInput}
+                placeholder={vyaparStatus === 'connected' ? 'Enter a new secret to rotate it' : 'Paste your webhook secret'}
+                type="password"
+              />
+
+              {vyaparError && (
                 <div className="mb-3 p-3 rounded-xl flex items-start gap-2"
                   style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
-                  <p className="text-xs" style={{ color: '#fca5a5' }}>{payoutError}</p>
+                  <p className="text-xs" style={{ color: '#fca5a5' }}>{vyaparError}</p>
                 </div>
               )}
 
-              <button onClick={handleConnectPayout} disabled={payoutConnecting || payoutStatus === 'connected'}
+              <button onClick={handleSaveVyapar}
+                disabled={vyaparSaving || !vyaparApiKeyInput.trim() || !vyaparWebhookSecretInput.trim()}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-                {payoutConnecting
-                  ? 'Opening...'
-                  : payoutStatus === 'connected'
-                  ? 'Connected'
-                  : payoutStatus === 'pending'
-                  ? 'Continue Setup with Razorpay'
-                  : 'Connect via Razorpay'}
+                {vyaparSaving ? 'Saving...' : vyaparStatus === 'connected' ? 'Update Credentials' : 'Save & Connect'}
               </button>
             </>
           )}
-
-          {/* Payout history */}
-          <div className="mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <p className="text-sm font-semibold text-white mb-3">Payout History</p>
-            {payoutsLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : payouts.length === 0 ? (
-              <p className="text-xs py-4 text-center" style={{ color: '#52525b' }}>
-                No payouts yet. Payouts are sent manually for now — they'll appear here as soon as one is recorded.
-              </p>
-            ) : (
-              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ background: 'rgba(255,255,255,0.03)', color: '#52525b', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="col-span-3">Date</div>
-                  <div className="col-span-3">Gross</div>
-                  <div className="col-span-2">Fee</div>
-                  <div className="col-span-2">Net</div>
-                  <div className="col-span-2">Status</div>
-                </div>
-                {payouts.map((p: any, i: number) => (
-                  <div key={p.id}
-                    className="grid grid-cols-12 gap-2 px-4 py-3 items-center text-xs"
-                    style={{ borderBottom: i < payouts.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                    <div className="col-span-3" style={{ color: '#a1a1aa' }}>
-                      {new Date(p.payout_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
-                    </div>
-                    <div className="col-span-3 text-white font-medium">₹{Number(p.amount).toLocaleString('en-IN')}</div>
-                    <div className="col-span-2" style={{ color: 'var(--kurso-accent)' }}>₹{Number(p.platform_fee).toLocaleString('en-IN')}</div>
-                    <div className="col-span-2 font-semibold" style={{ color: '#4ade80' }}>
-                      ₹{Number(p.net_amount ?? p.amount - p.platform_fee).toLocaleString('en-IN')}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-                        style={
-                          p.status === 'paid'
-                            ? { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }
-                            : p.status === 'failed'
-                            ? { background: 'rgba(239,68,68,0.1)', color: '#ef4444' }
-                            : { background: 'rgba(245,158,11,0.1)', color: 'var(--kurso-accent)' }
-                        }>
-                        {p.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </SectionCard>
 
         <div className="mb-12" />

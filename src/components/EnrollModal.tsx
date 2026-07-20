@@ -234,16 +234,9 @@ function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: 
 }
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, findPaidEnrollmentByPhone } from '@/lib/enrollments'
+import VyaparPayWidget from '@/components/VyaparPayWidget'
 
-declare global {
-  interface Window { Razorpay: any }
-  interface ImportMetaEnv {
-    readonly RAZORPAY_KEY_ID: string
-  }
-  interface ImportMeta {
-    readonly env: ImportMetaEnv
-  }
-}
+
 
 interface CourseData {
   id: string
@@ -278,16 +271,7 @@ type CouponResult = {
   final_amount: number
 }
 
-function loadRazorpay(): Promise<boolean> {
-  return new Promise(resolve => {
-    if (window.Razorpay) return resolve(true)
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.onload = () => resolve(true)
-    script.onerror = () => resolve(false)
-    document.body.appendChild(script)
-  })
-}
+
 
 // ── Telegram button ──────────────────────────────────────────────
 function TelegramButton({ token, username, label }: { token: string; username: string; label?: string }) {
@@ -342,6 +326,7 @@ export default function EnrollModal({ onClose, course }: Props) {
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [vyaparOrder, setVyaparOrder] = useState<any>(null)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
   // Auth fields
@@ -755,96 +740,61 @@ export default function EnrollModal({ onClose, course }: Props) {
     setLoading(true)
     setError('')
     try {
-      const loaded = await loadRazorpay()
-      if (!loaded) throw new Error('Failed to load Razorpay. Check your connection.')
-
-      const orderRes = await fetch('/api/razorpay/create-order', {
+      const orderRes = await fetch('/api/vyapar/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: course.price,
           courseId: course.id,
-          creatorSlug: course.creatorSlug,
           couponCode: activeCoupon?.coupon_code || '',
+          studentName: studentData?.name,
+          studentEmail: studentData?.email,
+          studentPhone: studentData?.phone,
         }),
       })
-      const { orderId, amount: orderAmount, pricing, error: orderError } = await orderRes.json()
-      if (orderError) throw new Error(orderError)
-      if (pricing) {
+      const data = await orderRes.json()
+      if (data.error) throw new Error(data.error)
+      if (data.pricing) {
         setCouponResult({
           valid: true,
           reason: activeCoupon ? 'Coupon applied' : '',
-          coupon_id: pricing.couponId,
-          coupon_code: pricing.couponCode,
+          coupon_id: data.pricing.couponId,
+          coupon_code: data.pricing.couponCode,
           discount_type: activeCoupon?.discount_type || null,
           discount_value: activeCoupon?.discount_value || null,
-          original_amount: pricing.originalAmount,
-          discount_amount: pricing.discountAmount,
-          final_amount: pricing.finalAmount,
+          original_amount: data.pricing.originalAmount,
+          discount_amount: data.pricing.discountAmount,
+          final_amount: data.pricing.finalAmount,
         })
       }
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: orderAmount,
-        currency: 'INR',
-        name: 'Kurso',
-        description: course.name,
-        order_id: orderId,
-        prefill: {
-          name: studentData?.name || '',
-          email: studentData?.email || '',
-          contact: studentData?.phone || '',
-        },
-        theme: { color: 'var(--kurso-primary)' },
-        handler: async (response: any) => {
-          const verifyRes = await fetch('/api/razorpay/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              studentId: studentData?.id,
-              studentEmail: studentData?.email,
-              studentName: studentData?.name,
-              studentPhone: studentData?.phone,
-              creatorId: course.creatorId,
-              courseId: course.id,
-              amount: pricing?.finalAmount || payableAmount,
-              couponCode: pricing?.couponCode || activeCoupon?.coupon_code || '',
-            }),
-          })
-          const result = await verifyRes.json()
-          if (result.success) {
-            const confirmedEnrollment = await findPaidEnrollment({
-              courseId: course.id,
-              user: (await supabase.auth.getUser()).data.user,
-              phone: studentData?.phone,
-              select: 'id',
-            })
-            if (!confirmedEnrollment) {
-              setError('Payment verified but enrollment not found. Please contact support.')
-              setLoading(false)
-              return
-            }
-            setStep('success')
-            // Generate paid tokens in background — non-blocking; persist to enrollment row
-            generatePaidTokens(studentData, response.razorpay_payment_id, confirmedEnrollment.id)
-            
-          } else {
-            setError('Payment verification failed. Please contact support.')
-          }
-          setLoading(false)
-        },
-        modal: { ondismiss: () => setLoading(false) },
-      }
-      const rzp = new window.Razorpay(options)
-      rzp.open()
+      setVyaparOrder(data)
     } catch (err: any) {
       setError(err.message)
+    } finally {
       setLoading(false)
     }
+  }
+
+  async function handleVyaparSuccess(enrollmentId: string | null) {
+    if (!enrollmentId) {
+      const confirmedEnrollment = await findPaidEnrollment({
+        courseId: course.id,
+        user: (await supabase.auth.getUser()).data.user,
+        phone: studentData?.phone,
+        select: 'id',
+      })
+      enrollmentId = confirmedEnrollment?.id || null
+    }
+    if (!enrollmentId) {
+      setError('Payment received but enrollment not found yet. Please refresh in a moment or contact support.')
+      return
+    }
+    setStep('success')
+    generatePaidTokens(studentData, vyaparOrder?.clientTxnId, enrollmentId)
+  }
+
+  function handleVyaparExpired() {
+    setVyaparOrder(null)
+    setError('This payment window expired or failed. Please try again.')
   }
 
   // ── Loading ──────────────────────────────────────────────────────
@@ -1246,7 +1196,17 @@ export default function EnrollModal({ onClose, course }: Props) {
               </div>
             )}
 
-            {payableAmount > 0 ? (
+            {payableAmount > 0 && vyaparOrder ? (
+              <VyaparPayWidget
+                qrCode={vyaparOrder.qrCode}
+                upiIntent={vyaparOrder.upiIntent}
+                expiresAt={vyaparOrder.expiresAt}
+                clientTxnId={vyaparOrder.clientTxnId}
+                amount={payableAmount}
+                onSuccess={handleVyaparSuccess}
+                onExpired={handleVyaparExpired}
+              />
+            ) : payableAmount > 0 ? (
               <button onClick={handlePayment} disabled={loading}
                 className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong disabled:opacity-50 text-lg">
                 {loading ? 'Opening payment…' : `Pay ₹${payableAmount.toLocaleString()} Securely`}
@@ -1258,14 +1218,16 @@ export default function EnrollModal({ onClose, course }: Props) {
               </button>
             )}
             {payableAmount > 0 ? (
-              <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Powered by Razorpay · 256-bit SSL</p>
+              <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Secured by UPI · 256-bit SSL</p>
             ) : (
               <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Free enrollment · Instantly access your course</p>
             )}
-            <button onClick={() => setStep(isCompletelyFree ? 'auth' : (isNothingFree ? 'auth' : 'demo'))}
-              className="w-full text-center text-xs mt-2" style={{ color: '#52525b' }}>
-              ← Back
-            </button>
+            {!vyaparOrder && (
+              <button onClick={() => setStep(isCompletelyFree ? 'auth' : (isNothingFree ? 'auth' : 'demo'))}
+                className="w-full text-center text-xs mt-2" style={{ color: '#52525b' }}>
+                ← Back
+              </button>
+            )}
           </div>
         )}
 

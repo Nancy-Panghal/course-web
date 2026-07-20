@@ -69,7 +69,7 @@ export default async function AboutCoursePage({
     return (
       <DraftGate
         isPublished={course.is_published}
-        courseData={{ id: course.id, name: course.name, creatorSlug: course.slug, creatorName: course.host_name || 'Instructor' }}
+        courseData={{ id: course.id, name: course.name, creatorSlug: course.slug, creatorName: course.host_name || 'Instructor', creatorId: course.creator_id }}
       >
         <iframe
           title={`${course.name} — custom page`}

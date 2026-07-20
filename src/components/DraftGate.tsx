@@ -9,6 +9,7 @@ interface CourseData {
   name: string
   creatorSlug: string
   creatorName: string
+  creatorId?: string
 }
 
 export default function DraftGate({
@@ -38,6 +39,16 @@ export default function DraftGate({
         return
       }
 
+      // The creator can always preview their own course, published or not —
+      // they're never going to be an "enrolled paying student" of their own
+      // course, so the enrollment check below would otherwise block them
+      // from ever seeing a draft they're actively building (including a
+      // custom page override they just pasted in to test).
+      if (courseData.creatorId && user.id === courseData.creatorId) {
+        if (!cancelled) setStatus('allow')
+        return
+      }
+
       const enrollment = await findPaidEnrollment({
         courseId: courseData.id,
         user,
@@ -60,7 +71,7 @@ export default function DraftGate({
 
     check()
     return () => { cancelled = true }
-  }, [isPublished, courseData.id, courseData.name, courseData.creatorName])
+  }, [isPublished, courseData.id, courseData.name, courseData.creatorName, courseData.creatorId])
 
   if (status === 'allow') return <>{children}</>
 

@@ -4,10 +4,9 @@ import Link from 'next/link'
 import { Shield, Check, ArrowLeft, Zap, AlertTriangle, Award, FileText, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getCreatorProfile, getTrialStatus } from '@/lib/creator'
+import VyaparPayWidget from '@/components/VyaparPayWidget'
 
-declare global {
-  interface Window { Razorpay: any }
-}
+
 
 const plans = [
   {
@@ -61,16 +60,7 @@ const plans = [
   },
 ]
 
-function loadRazorpay(): Promise<boolean> {
-  return new Promise(resolve => {
-    if (window.Razorpay) return resolve(true)
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.onload = () => resolve(true)
-    script.onerror = () => resolve(false)
-    document.body.appendChild(script)
-  })
-}
+
 
 export default function UpgradePage() {
   const [creator, setCreator] = useState<any>(null)
@@ -78,6 +68,7 @@ export default function UpgradePage() {
   const [trialStatus, setTrialStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [payingPlan, setPayingPlan] = useState<string | null>(null)
+  const [vyaparOrder, setVyaparOrder] = useState<any>(null)
   const [fetchingInvoiceFor, setFetchingInvoiceFor] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -108,98 +99,50 @@ export default function UpgradePage() {
 
   async function handleUpgrade(plan: typeof plans[0]) {
     if (payingPlan) return
-
     setPayingPlan(plan.id)
     setError('')
     setSuccess('')
-
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        throw new Error('Please log in before upgrading.')
-      }
+      if (!session?.access_token) throw new Error('Please log in before upgrading.')
 
-      const loaded = await loadRazorpay()
-      if (!loaded) throw new Error('Failed to load Razorpay')
-
-      const orderRes = await fetch('/api/razorpay/create-subscription-order', {
+      const orderRes = await fetch('/api/vyapar/create-subscription-order', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          planId: plan.id,
-          currency: 'INR',
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ planId: plan.id }),
       })
-      const { orderId, amount, error: orderError } = await orderRes.json()
-      if (orderError) throw new Error(orderError)
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount,
-        currency: 'INR',
-        name: 'Kurso',
-        description: `${plan.name} Plan — Monthly Subscription`,
-        order_id: orderId,
-        prefill: {
-          email: creator?.email || '',
-          name: creator?.name || '',
-        },
-        theme: { color: 'var(--kurso-primary)' },
-        handler: async (response: any) => {
-          try {
-            const verifyRes = await fetch('/api/razorpay/verify-subscription', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({
-                planId: plan.id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            })
-            const verifyData = await verifyRes.json()
-
-            if (!verifyRes.ok || verifyData.error) {
-              throw new Error(verifyData.error || 'Payment verification failed.')
-            }
-
-            setSuccess(`Successfully upgraded to ${plan.name} plan! Your academy is now fully active.`)
-            setCreator(verifyData.creator)
-            setTrialStatus(getTrialStatus(verifyData.creator))
-
-            // Refresh payment history so the new charge shows up immediately
-            if (verifyData.creator?.id) {
-              const { data: paymentRows } = await supabase
-                .from('kurso_subscription_payments')
-                .select('id, plan_name, amount, paid_at')
-                .eq('creator_id', verifyData.creator.id)
-                .order('paid_at', { ascending: false })
-                .limit(10)
-              setPayments(paymentRows || [])
-            }
-          } catch (err: any) {
-            setError(err.message || 'Payment received but plan activation failed. Contact support.')
-          } finally {
-            setPayingPlan(null)
-          }
-        },
-        modal: {
-          ondismiss: () => setPayingPlan(null),
-        },
-      }
-
-      const rzp = new window.Razorpay(options)
-      rzp.open()
+      const data = await orderRes.json()
+      if (data.error) throw new Error(data.error)
+      setVyaparOrder(data)
     } catch (err: any) {
       setError(err.message)
       setPayingPlan(null)
     }
+  }
+
+  async function handleVyaparSubActivated() {
+    const profile = await getCreatorProfile()
+    setCreator(profile)
+    setTrialStatus(getTrialStatus(profile))
+    setSuccess(`Successfully upgraded! Your academy is now fully active.`)
+
+    if (profile?.id) {
+      const { data: paymentRows } = await supabase
+        .from('kurso_subscription_payments')
+        .select('id, plan_name, amount, paid_at')
+        .eq('creator_id', profile.id)
+        .order('paid_at', { ascending: false })
+        .limit(10)
+      setPayments(paymentRows || [])
+    }
+    setVyaparOrder(null)
+    setPayingPlan(null)
+  }
+
+  function handleVyaparSubExpired() {
+    setVyaparOrder(null)
+    setPayingPlan(null)
+    setError('This payment window expired or failed. Please try again.')
   }
 
   // One call does everything: finds-or-creates the invoice row server-side
@@ -403,6 +346,16 @@ export default function UpgradePage() {
                     style={{background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.2)'}}>
                     ✓ Active Plan
                   </div>
+                ) : payingPlan === plan.id && vyaparOrder ? (
+                  <VyaparPayWidget
+                    qrCode={vyaparOrder.qrCode}
+                    upiIntent={vyaparOrder.upiIntent}
+                    expiresAt={vyaparOrder.expiresAt}
+                    clientTxnId={vyaparOrder.clientTxnId}
+                    amount={plan.price}
+                    onSuccess={handleVyaparSubActivated}
+                    onExpired={handleVyaparSubExpired}
+                  />
                 ) : (
                   <button
                     onClick={() => handleUpgrade(plan)}
