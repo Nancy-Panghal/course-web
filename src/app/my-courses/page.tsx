@@ -10,6 +10,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { resolveAccountType } from '@/lib/account'
 import { slugify } from '@/lib/utils'
+import RefundRequestButton from '@/components/RefundRequestButton'
 
 interface EnrolledCourse {
   enrollmentId: string
@@ -651,8 +652,9 @@ const displayEmail = user?.email || ''
                     <div style={{
                       padding: '8px 22px',
                       borderTop: '1px solid rgba(255,255,255,0.05)',
-                      display: 'flex', justifyContent: 'flex-end',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     }}>
+                      <RefundRequestButton enrollmentId={c.enrollmentId} />
                       <button
                         onClick={() => downloadInvoice(c.enrollmentId)}
                         style={{

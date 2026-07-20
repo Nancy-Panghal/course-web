@@ -4,6 +4,8 @@ import { verifyVyaparSignature } from '@/lib/vyapar'
 import { decryptSecret } from '@/lib/creator-secrets'
 import { normalizePhone } from '@/lib/phone'
 import { getSubscriptionPlan } from '@/app/api/razorpay/subscription-plans'
+import { escapeHtml, sendLoggedEmail } from '@/lib/email'
+import { generateInvoicePdfForPayment } from '@/lib/invoice'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -187,7 +189,150 @@ async function handleFlowA(transaction: any, body: any, signature: string) {
     signature_hash: signature, student_id: student.id, enrollment_id: enrollmentId,
   }).eq('id', transaction.id)
 
+  // Mirror into the legacy `payments` table so the existing invoice system
+  // (numbering, GST, download route) keeps working unchanged.
+  const { data: course } = await supabaseAdmin.from('courses').select('name').eq('id', transaction.course_id).maybeSingle()
+  const { data: paymentRow, error: paymentInsertError } = await supabaseAdmin
+    .from('payments')
+    .insert({
+      creator_id: transaction.creator_id,
+      course_id: transaction.course_id,
+      student_id: student.id,
+      enrollment_id: enrollmentId,
+      provider: 'vyapar',
+      provider_payment_id: body.upi_txn_id,
+      provider_order_id: body.order_id,
+      buyer_name: body.customer_name || transaction.student_name || null,
+      buyer_email: email || null,
+      buyer_phone: cleanedPhone || null,
+      currency: 'INR',
+      gross_amount: body.amount,
+      discount_amount: 0,
+      net_amount: body.amount,
+      platform_fee: 0,
+      creator_earning: body.amount,
+      status: 'paid',
+      metadata: { source: 'vyapar_webhook' },
+      paid_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single()
+
+  if (paymentInsertError) {
+    console.error('[vyapar-webhook] Failed to mirror payments row — invoice for this sale will be unavailable until fixed manually:', paymentInsertError)
+  } else {
+    // Best-effort notifications — none of these should block the webhook
+    // from returning success, since the payment itself is already final.
+    await maybeSendInvoiceEmails({
+      paymentId: paymentRow.id,
+      creatorId: transaction.creator_id,
+      courseId: transaction.course_id,
+      studentId: student.id,
+      studentEmail: email,
+    })
+    await maybeSendCreatorEnrollmentEmail({
+      creatorId: transaction.creator_id,
+      courseId: transaction.course_id,
+      courseName: course?.name || 'a course',
+      studentName: body.customer_name,
+      studentEmail: email,
+      studentPhone: cleanedPhone,
+    })
+  }
+
   return NextResponse.json({ received: true, message: 'Enrollment activated' })
+}
+
+// ── Notification emails ──────────────────────────────────────────
+async function maybeSendInvoiceEmails({
+  paymentId, creatorId, courseId, studentId, studentEmail,
+}: {
+  paymentId: string; creatorId: string; courseId: string; studentId?: string | null; studentEmail?: string | null
+}) {
+  try {
+    const { pdfBuffer, invoiceRow } = await generateInvoicePdfForPayment(supabaseAdmin, paymentId)
+    const base64Pdf = Buffer.from(pdfBuffer).toString('base64')
+    const filename = `${invoiceRow.invoice_number}.pdf`
+
+    const { data } = await supabaseAdmin.auth.admin.getUserById(creatorId)
+    const creatorEmail = data?.user?.email
+    const prefs = data?.user?.user_metadata?.email_notifications || {}
+
+    if (creatorEmail && prefs.paidSale !== false) {
+      await sendLoggedEmail({
+        supabase: supabaseAdmin,
+        emailType: 'creator_invoice_copy',
+        to: creatorEmail,
+        subject: `Invoice ${invoiceRow.invoice_number} — ₹${Number(invoiceRow.amount).toLocaleString('en-IN')}`,
+        creatorId, courseId, paymentId,
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+            <h2 style="margin:0 0 12px">New sale — invoice attached</h2>
+            <p style="margin:0 0 8px"><strong>${escapeHtml(invoiceRow.student_name || 'A student')}</strong> paid <strong>₹${Number(invoiceRow.amount).toLocaleString('en-IN')}</strong> for <strong>${escapeHtml(invoiceRow.course_name)}</strong>.</p>
+            <p style="margin:0">Invoice ${invoiceRow.invoice_number} is attached for your records.</p>
+          </div>
+        `,
+        attachments: [{ filename, content: base64Pdf }],
+      })
+    }
+
+    if (studentEmail) {
+      await sendLoggedEmail({
+        supabase: supabaseAdmin,
+        emailType: 'student_invoice_copy',
+        to: studentEmail,
+        subject: `Your invoice for ${invoiceRow.course_name}`,
+        creatorId, studentId: studentId || null, courseId, paymentId,
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+            <h2 style="margin:0 0 12px">Payment confirmed</h2>
+            <p style="margin:0 0 8px">Your invoice ${invoiceRow.invoice_number} is attached.</p>
+          </div>
+        `,
+        attachments: [{ filename, content: base64Pdf }],
+      })
+    }
+  } catch (err) {
+    console.error('[webhook-email/invoice]', err)
+  }
+}
+
+async function maybeSendCreatorEnrollmentEmail({
+  creatorId, courseId, courseName, studentName, studentEmail, studentPhone,
+}: {
+  creatorId: string; courseId: string; courseName: string
+  studentName?: string | null; studentEmail?: string | null; studentPhone?: string | null
+}) {
+  try {
+    const { data } = await supabaseAdmin.auth.admin.getUserById(creatorId)
+    const creator = data?.user
+    const prefs = creator?.user_metadata?.email_notifications || {}
+    if (prefs.newEnrollment === false || !creator?.email) return
+
+    const safeCourse = escapeHtml(courseName || 'your course')
+    const safeStudent = escapeHtml(studentName || studentEmail || studentPhone || 'A student')
+
+    await sendLoggedEmail({
+      supabase: supabaseAdmin,
+      emailType: 'creator_new_enrollment',
+      to: creator.email,
+      subject: `New enrollment: ${courseName}`,
+      creatorId, courseId,
+      metadata: { student_name: studentName || null, student_email: studentEmail || null, student_phone: studentPhone || null },
+      html: `
+        <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+          <h2 style="margin:0 0 12px">New student enrolled</h2>
+          <p style="margin:0 0 8px"><strong>${safeStudent}</strong> enrolled in <strong>${safeCourse}</strong>.</p>
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
+            style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
+            Open dashboard
+          </a>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.error('[webhook-email/creator-enrollment]', err)
+  }
 }
 
 // ── Flow B: creator → Kurso subscription ────────────────────────────

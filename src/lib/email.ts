@@ -14,6 +14,7 @@ type SendLoggedEmailInput = EmailLogContext & {
   to: string
   subject: string
   html: string
+  attachments?: { filename: string; content: string }[]
 }
 
 export function escapeHtml(value: string) {
@@ -31,6 +32,7 @@ export async function sendLoggedEmail({
   to,
   subject,
   html,
+  attachments,
   creatorId = null,
   studentId = null,
   courseId = null,
@@ -80,6 +82,7 @@ export async function sendLoggedEmail({
         to,
         subject,
         html,
+        ...(attachments && attachments.length ? { attachments } : {}),
       }),
     })
 

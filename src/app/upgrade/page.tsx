@@ -72,6 +72,8 @@ export default function UpgradePage() {
   const [fetchingInvoiceFor, setFetchingInvoiceFor] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [refundRequesting, setRefundRequesting] = useState(false)
+  const [refundMessage, setRefundMessage] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -150,6 +152,28 @@ export default function UpgradePage() {
   // PDF. `mode: 'view'` opens it inline in a new tab; `mode: 'download'`
   // saves it to disk. Either way, this always shows the actual PDF —
   // there's no separate "generate first" step anymore.
+  async function handleRequestSubscriptionRefund() {
+    if (!window.confirm('Request a refund for your current subscription payment? Only available within 15 days of your billing date.')) return
+    setRefundRequesting(true)
+    setRefundMessage('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Please log in again.')
+      const res = await fetch('/api/creator/subscription-refund-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({}),
+      })
+      const json = await res.json()
+      if (!res.ok) { setRefundMessage(json.error || 'Could not submit your request.'); return }
+      setRefundMessage(json.message || 'Your refund request has been sent to Kurso.')
+    } catch (err: any) {
+      setRefundMessage(err.message || 'Network error. Please try again.')
+    } finally {
+      setRefundRequesting(false)
+    }
+  }
+
   async function handleInvoice(paymentId: string, mode: 'view' | 'download') {
     setFetchingInvoiceFor(paymentId + mode)
     setError('')
@@ -414,6 +438,16 @@ export default function UpgradePage() {
                 )
               })}
             </div>
+            <button
+              onClick={handleRequestSubscriptionRefund}
+              disabled={refundRequesting}
+              className="text-xs mt-4 underline disabled:opacity-50"
+              style={{ color: '#52525b', background: 'none', border: 'none', cursor: 'pointer' }}>
+              {refundRequesting ? 'Sending...' : 'Need to request a refund?'}
+            </button>
+            {refundMessage && (
+              <p className="text-xs mt-2" style={{ color: refundMessage.includes('sent') ? '#4ade80' : '#fca5a5' }}>{refundMessage}</p>
+            )}
           </div>
         )}
 

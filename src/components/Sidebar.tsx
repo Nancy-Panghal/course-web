@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Shield, LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList } from 'lucide-react'
+import { Shield, LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList, Undo } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 
@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Students', href: '/dashboard/students', icon: Users },
   { label: 'Assignments', href: '/dashboard/assignments', icon: ClipboardList }, 
   { label: 'Revenue', href: '/dashboard/revenue', icon: IndianRupee },
+  { label: 'Refunds', href: '/dashboard/refunds', icon: Undo },
   { label: 'Coupons', href: '/dashboard/coupons', icon: Ticket },
   { label: 'Broadcast', href: '/dashboard/broadcast', icon: Megaphone },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
