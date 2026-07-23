@@ -44,8 +44,7 @@ export async function POST(req: NextRequest) {
   // Identify which record this belongs to via the HEADER order id — never
   // trust the body for this lookup until the signature is verified below.
   const transaction = await firstRow(
-    supabaseAdmin.from('transactions')
-      .select('id, creator_id, course_id, student_name, student_email, student_phone, status')
+    supabaseAdmin.from('transactions').select('id, creator_id, course_id, ebook_id, product_type, student_name, student_email, student_phone, status')
       .eq('gateway_order_id', headerOrderId)
   )
 
@@ -97,7 +96,11 @@ export async function POST(req: NextRequest) {
   await logWebhook({ provider: 'vyapar', flow, signature_valid: true, http_status_returned: 200, gateway_order_id: headerOrderId, client_txn_id: body.client_txn_id, event: body.event, raw_payload: body })
 
   try {
-    if (flow === 'flow_a') return await handleFlowA(transaction, body, signature)
+    if (flow === 'flow_a') {
+      return transaction.product_type === 'ebook'
+        ? await handleFlowAEbook(transaction, body, signature)
+        : await handleFlowA(transaction, body, signature)
+    }
     return await handleFlowB(subscription, body)
   } catch (err: any) {
     // Payment was genuinely verified but OUR processing failed — leave the
@@ -108,6 +111,110 @@ export async function POST(req: NextRequest) {
     await logWebhook({ provider: 'vyapar', flow, signature_valid: true, http_status_returned: 500, gateway_order_id: headerOrderId, raw_payload: body, error_message: err?.message || 'Unknown processing error' })
     return NextResponse.json({ error: 'Processing error — left pending for reconciliation' }, { status: 500 })
   }
+}
+
+// ── Flow A: ebook purchase ───────────────────────────────────────
+async function handleFlowAEbook(transaction: any, body: any, signature: string) {
+  if (transaction.status === 'success') return NextResponse.json({ received: true, message: 'Already processed' })
+  if (body.status === 'failed' || body.status === 'expired') {
+    await supabaseAdmin.from('transactions').update({ status: body.status }).eq('id', transaction.id)
+    return NextResponse.json({ received: true, message: `Marked ${body.status}` })
+  }
+  if (body.status !== 'success') return NextResponse.json({ received: true, message: `Ignored status: ${body.status}` })
+
+  await supabaseAdmin.from('transactions').update({
+    status: 'success', rrn: body.upi_txn_id, payer_vpa: body.payer_vpa, signature_hash: signature,
+  }).eq('id', transaction.id)
+
+  const { data: ebook } = await supabaseAdmin.from('ebooks').select('title').eq('id', transaction.ebook_id).maybeSingle()
+  const email = body.customer_email || transaction.student_email
+  const downloadUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/ebook-download/${transaction.id}`
+
+  const { data: paymentRow, error: paymentInsertError } = await supabaseAdmin
+    .from('payments')
+    .insert({
+      creator_id: transaction.creator_id,
+      product_type: 'ebook',
+      ebook_id: transaction.ebook_id,
+      provider: 'vyapar',
+      provider_payment_id: body.upi_txn_id,
+      provider_order_id: body.order_id,
+      buyer_name: body.customer_name || transaction.student_name || null,
+      buyer_email: email || null,
+      buyer_phone: body.customer_mobile || transaction.student_phone || null,
+      currency: 'INR',
+      gross_amount: body.amount,
+      discount_amount: 0,
+      net_amount: body.amount,
+      platform_fee: 0,
+      creator_earning: body.amount,
+      status: 'paid',
+      metadata: { source: 'vyapar_webhook' },
+      paid_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single()
+
+  if (paymentInsertError) {
+    console.error('[vyapar-webhook] Failed to record ebook payment — invoice unavailable until fixed manually:', paymentInsertError)
+    if (email) {
+      await sendLoggedEmail({
+        supabase: supabaseAdmin, emailType: 'ebook_purchase_download_link', to: email,
+        subject: `Your download: ${ebook?.title || 'Your ebook'}`, creatorId: transaction.creator_id,
+        html: `<div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111"><h2>Thanks for your purchase!</h2><p>Your copy of <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> is ready.</p><a href="${downloadUrl}" style="display:inline-block;background:#7c3aed;color:white;padding:12px 18px;border-radius:10px;text-decoration:none">Download your ebook</a></div>`,
+      }).catch(err => console.error('[webhook-email/ebook]', err))
+    }
+    return NextResponse.json({ received: true, message: 'Ebook purchase activated (invoice pending manual fix)' })
+  }
+
+  try {
+    const { pdfBuffer, invoiceRow } = await generateInvoicePdfForPayment(supabaseAdmin, paymentRow.id)
+    const base64Pdf = Buffer.from(pdfBuffer).toString('base64')
+    const filename = `${invoiceRow.invoice_number}.pdf`
+
+    if (email) {
+      await sendLoggedEmail({
+        supabase: supabaseAdmin,
+        emailType: 'ebook_purchase_download_link',
+        to: email,
+        subject: `Your download: ${ebook?.title || 'Your ebook'}`,
+        creatorId: transaction.creator_id,
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+            <h2 style="margin:0 0 12px">Thanks for your purchase!</h2>
+            <p style="margin:0 0 16px">Your copy of <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> is ready — invoice ${invoiceRow.invoice_number} is attached.</p>
+            <a href="${downloadUrl}" style="display:inline-block;background:#7c3aed;color:white;padding:12px 18px;border-radius:10px;text-decoration:none">Download your ebook</a>
+            <p style="margin:16px 0 0;font-size:12px;color:#666">This link is personal to you and limited to 5 downloads.</p>
+          </div>
+        `,
+        attachments: [{ filename, content: base64Pdf }],
+      })
+    }
+
+    const { data } = await supabaseAdmin.auth.admin.getUserById(transaction.creator_id)
+    const creatorEmail = data?.user?.email
+    if (creatorEmail) {
+      await sendLoggedEmail({
+        supabase: supabaseAdmin,
+        emailType: 'creator_ebook_sale',
+        to: creatorEmail,
+        subject: `New ebook sale: ${invoiceRow.invoice_number} — ₹${Number(invoiceRow.amount).toLocaleString('en-IN')}`,
+        creatorId: transaction.creator_id,
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+            <h2 style="margin:0 0 12px">New ebook sale</h2>
+            <p style="margin:0 0 8px"><strong>${escapeHtml(invoiceRow.student_name || 'A reader')}</strong> bought <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> for ₹${Number(invoiceRow.amount).toLocaleString('en-IN')}.</p>
+            <p style="margin:0">Invoice ${invoiceRow.invoice_number} is attached for your records.</p>
+          </div>
+        `,
+        attachments: [{ filename, content: base64Pdf }],
+      })
+    }
+  } catch (err) {
+    console.error('[webhook-email/ebook-invoice]', err)
+  }
+
+  return NextResponse.json({ received: true, message: 'Ebook purchase activated' })
 }
 
 // ── Flow A: student → creator ──────────────────────────────────────

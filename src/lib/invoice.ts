@@ -7,12 +7,20 @@ export async function getOrCreateInvoice(supabase: SupabaseClient, paymentId: st
 
   const { data: payment } = await supabase
     .from('payments')
-    .select('id, enrollment_id, creator_id, course_id, gross_amount, discount_amount, net_amount, buyer_name, buyer_email')
+    .select('id, enrollment_id, creator_id, course_id, ebook_id, product_type, gross_amount, discount_amount, net_amount, buyer_name, buyer_email')
     .eq('id', paymentId)
     .maybeSingle()
   if (!payment) throw new Error('Payment not found for invoice generation')
 
-  const { data: course } = await supabase.from('courses').select('name').eq('id', payment.course_id).maybeSingle()
+  let itemName = 'Course'
+  if (payment.product_type === 'ebook') {
+    const { data: ebook } = await supabase.from('ebooks').select('title').eq('id', payment.ebook_id).maybeSingle()
+    itemName = ebook?.title || 'Ebook'
+  } else {
+    const { data: course } = await supabase.from('courses').select('name').eq('id', payment.course_id).maybeSingle()
+    itemName = course?.name || 'Course'
+  }
+
   const { data: creator } = await supabase.from('creators').select('id, creator_gstin').eq('id', payment.creator_id).maybeSingle()
 
   const { data: seqResult, error: seqError } = await supabase.rpc('next_invoice_sequence', { p_creator_id: payment.creator_id })
@@ -25,12 +33,14 @@ export async function getOrCreateInvoice(supabase: SupabaseClient, paymentId: st
     .insert({
       creator_id: payment.creator_id,
       payment_id: payment.id,
-      enrollment_id: payment.enrollment_id,
+      enrollment_id: payment.enrollment_id || null,
+      product_type: payment.product_type || 'course',
+      ebook_id: payment.ebook_id || null,
       invoice_number: invoiceNumber,
       invoice_sequence_num: seqResult,
       student_name: payment.buyer_name || 'Student',
       student_email: payment.buyer_email || null,
-      course_name: course?.name || 'Course',
+      course_name: itemName,
       amount: payment.net_amount,
       discount_amount: payment.discount_amount || 0,
       gstin_shown: creator?.creator_gstin || null,

@@ -34,6 +34,26 @@ export async function getNextLessonOrder(
 }
 
 /**
+ * Applies a batch of {id, order_num, module_id?} changes as a single
+ * atomic transaction via the apply_lesson_reorder Postgres function.
+ * Use this instead of looping individual .update() calls whenever more
+ * than one lesson's order_num changes at once — the DB's deferrable
+ * unique constraint on (course_id, order_num) requires it.
+ */
+export async function applyLessonReorder(
+  supabase: SupabaseClient<any>,
+  updates: { id: string; order_num: number; module_id?: string | null }[]
+): Promise<{ error: string | null }> {
+  if (updates.length === 0) return { error: null }
+  const { error } = await supabase.rpc('apply_lesson_reorder', { p_updates: updates })
+  if (error) {
+    console.error('apply_lesson_reorder failed:', error)
+    return { error: error.message }
+  }
+  return { error: null }
+}
+
+/**
  * Renumbers all lessons for a course sequentially from 1.
  * Called after deleting a lesson to fill gaps.
  * @param supabase - Supabase client
@@ -43,7 +63,6 @@ export async function renumberLessons(
   supabase: SupabaseClient<any>,
   courseId: string
 ): Promise<void> {
-  // Get all lessons ordered by current order_num
   const { data: lessons, error: fetchError } = await supabase
     .from('lessons')
     .select('id, order_num')
@@ -55,16 +74,11 @@ export async function renumberLessons(
     return
   }
 
-  // Update each lesson with its correct sequential number
-  for (let i = 0; i < lessons.length; i++) {
-    const newOrder = i + 1
-    if (lessons[i].order_num !== newOrder) {
-      await supabase
-        .from('lessons')
-        .update({ order_num: newOrder })
-        .eq('id', lessons[i].id)
-    }
-  }
+  const updates = lessons
+    .map((l, i) => ({ id: l.id, order_num: i + 1 }))
+    .filter((u, i) => lessons[i].order_num !== u.order_num)
+
+  await applyLessonReorder(supabase, updates)
 }
 
 /**

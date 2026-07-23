@@ -32,6 +32,16 @@
   --kurso-accent: #f59e0b;           /* unchanged — see note below */
   --kurso-accent-soft: #f0a524;
   --kurso-accent-rgb: 245, 158, 11;
+
+  /* Dashboard widget accents — change these, not hex codes in components */
+  --kurso-info: #38bdf8;     /* Students */
+  --kurso-success: #4ade80;  /* Revenue widgets */
+  --kurso-purple: #c084fc;   /* Coupons */
+  --kurso-danger: #f87171;
+
+  /* Text tiers on dark backgrounds — use these instead of one-off greys */
+  --kurso-text-secondary: #d4d4d8; /* dates, sub-headings — needs to actually read */
+  --kurso-text-muted: #a1a1aa;     /* supporting/meta text, still legible */
 }
 
 .glow { box-shadow: 0 0 40px rgba(var(--kurso-accent-rgb), 0.15); }

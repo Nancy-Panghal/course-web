@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextModuleOrder } from '@/lib/utils'
+import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextModuleOrder, applyLessonReorder } from '@/lib/utils'
 import Link from 'next/link'
 import LandingPageDesigner from '@/components/LandingPageDesigner'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
@@ -11,7 +11,7 @@ import CustomPageOverrideEditor from '@/components/CustomPageOverrideEditor'
 import {
   ArrowLeft, Plus, Video, FileText, Globe,
   Eye, EyeOff, ExternalLink, Copy, Check,
-  GripVertical, Trash2, CheckCircle, AlertCircle,
+   Trash2, CheckCircle, AlertCircle,
   MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle,
   Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X, ChevronRight 
 } from 'lucide-react'
@@ -158,7 +158,6 @@ function AddModuleModal({
   nextOrder: number
 }) {
   const [name, setName] = useState('')
-  const [plannedLessons, setPlannedLessons] = useState('3')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -176,7 +175,7 @@ function AddModuleModal({
       course_id: courseId,
       name: name.trim(),
       order_num: nextOrder,
-      planned_lessons: plannedLessons ? parseInt(plannedLessons) : 0,
+      planned_lessons: 0,
     })
 
     if (insertError) {
@@ -207,13 +206,6 @@ function AddModuleModal({
             <label className="text-sm font-medium text-white mb-2 block">Module Name *</label>
             <input value={name} onChange={e => setName(e.target.value)}
               placeholder="e.g. Week 1, Foundation, Advanced SEO"
-              className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-white mb-2 block">How many lessons?</label>
-            <input value={plannedLessons} onChange={e => setPlannedLessons(e.target.value)}
-              type="number" min="0" placeholder="3"
               className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
           </div>
@@ -1024,20 +1016,35 @@ function LessonWidget({
   onDelete,
   onTogglePublish,
   onRefresh,
+  onRenumber,
 }: {
   lesson: Lesson
   onDelete: (id: string) => void
   onTogglePublish: (id: string, current: boolean) => void
   onRefresh: () => void
+  onRenumber: (lesson: Lesson, newNumber: string) => Promise<{ ok: boolean; error?: string }>
 }) {
-  const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.setData('lessonId', lesson.id)
-  }
-
   const [expanded, setExpanded] = useState(false)
   const [operationError, setOperationError] = useState('')
   const [resourceSaving, setResourceSaving] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+ const [editingNumber, setEditingNumber] = useState(false)
+  const [numberInput, setNumberInput] = useState(String(lesson.order_num))
+  const [numberSaving, setNumberSaving] = useState(false)
+  const [numberError, setNumberError] = useState('')
+  const [hoveringNumber, setHoveringNumber] = useState(false)
+
+  async function handleSaveNumber() {
+    setNumberSaving(true)
+    setNumberError('')
+    const result = await onRenumber(lesson, numberInput)
+    setNumberSaving(false)
+    if (!result.ok) {
+      setNumberError(result.error || 'Could not update the lesson number.')
+      return
+    }
+    setEditingNumber(false)
+  }
 
   async function uploadNotes(file: File | null) {
     if (!file) return
@@ -1092,8 +1099,6 @@ function LessonWidget({
         />
       )}
       <div className="rounded-2xl overflow-hidden transition-all"
-        draggable
-        onDragStart={handleDragStart}
         style={{
           border: lesson.is_published
             ? '1px solid rgba(74,222,128,0.2)'
@@ -1103,12 +1108,41 @@ function LessonWidget({
 
         {/* Main row */}
         <div className="flex items-center gap-3 p-4">
-          <GripVertical className="w-4 h-4 flex-shrink-0" style={{ color: '#3f3f46' }} />
-
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
-            style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)' }}>
-            {String(lesson.order_num).padStart(2, '0')}
-          </div>
+          {editingNumber ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <input
+                type="number"
+                min={1}
+                value={numberInput}
+                onChange={e => setNumberInput(e.target.value)}
+                autoFocus
+                className="w-12 text-xs font-bold text-center rounded-lg outline-none py-1.5"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.4)', color: '#fff' }}
+              />
+              <button onClick={handleSaveNumber} disabled={numberSaving}
+                title="Save lesson number"
+                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 disabled:opacity-50"
+                style={{ background: 'rgba(74,222,128,0.15)', color: '#4ade80' }}>
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => { setEditingNumber(false); setNumberError(''); setNumberInput(String(lesson.order_num)) }}
+                title="Cancel"
+                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setNumberInput(String(lesson.order_num)); setEditingNumber(true) }}
+              onMouseEnter={() => setHoveringNumber(true)}
+              onMouseLeave={() => setHoveringNumber(false)}
+              title="Change lesson number"
+              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)' }}>
+              {hoveringNumber ? 'Edit' : String(lesson.order_num).padStart(2, '0')}
+            </button>
+          )}
 
           <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(255,255,255,0.05)' }}>
@@ -1124,31 +1158,13 @@ function LessonWidget({
               <span className="text-xs" style={{ color: lesson.is_published ? '#4ade80' : '#52525b' }}>
                 {lesson.is_published ? '● Published' : '○ Draft'}
               </span>
+              {numberError && (
+                <span className="text-xs" style={{ color: '#ef4444' }}>{numberError}</span>
+              )}
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Assignment: show Edit/Add button directly in the row */}
-            {lesson.content_type === 'assignment' && (
-              <button
-                onClick={() => setExpanded(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-lighter)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.25)' }}>
-                📝 {lesson.assignment_prompt || lesson.assignment_file_url ? 'Edit' : 'Add'}
-              </button>
-            )}
-            {/* Quiz: show Edit Quiz directly in the row */}
-            {lesson.content_type === 'quiz' && (
-              <Link
-                href={`/dashboard/courses/${lesson.course_id}/lessons/${lesson.id}/quiz`}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-lighter)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.25)' }}>
-                🧠 {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
-                  ? `${lesson.quiz_questions.length} Qs`
-                  : 'Add Qs'}
-              </Link>
-            )}
-
             <button
               onClick={() => onTogglePublish(lesson.id, lesson.is_published)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
@@ -1164,9 +1180,13 @@ function LessonWidget({
             </button>
 
             <button onClick={() => { setExpanded(!expanded); setOperationError('') }}
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
-              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold flex-shrink-0"
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)' }}>
+              {lesson.content_type === 'assignment'
+                ? (lesson.assignment_prompt || lesson.assignment_file_url ? 'Edit' : 'Add')
+                : lesson.content_type === 'quiz'
+                  ? (Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0 ? 'Edit' : 'Add')
+                  : (expanded ? 'Close' : 'Edit')}
             </button>
           </div>
         </div>
@@ -2319,18 +2339,64 @@ export default function CourseManagePage({
     setCourse({ ...course, is_published: newState })
   }
 
-  async function handleLessonDrop(lessonId: string, moduleId: string | null) {
-    const { error } = await supabase
-      .from('lessons')
-      .update({ module_id: moduleId })
-      .eq('id', lessonId)
-
-    if (error) {
-      alert('Failed to move lesson: ' + error.message)
-      return
+  // Moving a lesson between modules by dragging was removed — it left
+  // order_num out of sync with what students actually received. Instead,
+  // creators change a lesson's number directly, and the whole course gets
+  // renumbered around it (see below). A lesson's module is now entirely
+  // determined by which module's number-range it falls into.
+  async function moveLessonToNumber(lesson: Lesson, rawNewNumber: string): Promise<{ ok: boolean; error?: string }> {
+    const parsed = parseInt(rawNewNumber, 10)
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return { ok: false, error: 'Enter a valid lesson number (1 or higher).' }
     }
 
+    // Fetch a fresh, authoritative snapshot — not React state — so this is
+    // correct even if the page has been open a while or another tab changed it.
+    const { data: allLessons, error: fetchError } = await supabase
+      .from('lessons')
+      .select('id, order_num, module_id')
+      .eq('course_id', id)
+      .order('order_num', { ascending: true })
+
+    if (fetchError || !allLessons) return { ok: false, error: 'Could not load lessons to reorder.' }
+
+    const total = allLessons.length
+    const newPos = Math.min(Math.max(parsed, 1), total)
+    const oldIndex = allLessons.findIndex(l => l.id === lesson.id)
+    if (oldIndex === -1) return { ok: false, error: 'Lesson not found.' }
+    if (newPos === oldIndex + 1) return { ok: true } // already at that position
+
+    const moved = allLessons[oldIndex]
+    const withoutMoved = allLessons.filter(l => l.id !== lesson.id)
+    const insertIndex = Math.min(newPos - 1, withoutMoved.length)
+
+    // The lesson takes on whichever module its new neighbors belong to —
+    // modules are just contiguous ranges over this same ordered list.
+    const neighborBefore = withoutMoved[insertIndex - 1]
+    const neighborAfter = withoutMoved[insertIndex]
+    const newModuleId = neighborBefore?.module_id ?? neighborAfter?.module_id ?? moved.module_id ?? null
+
+    const finalOrder = [...withoutMoved]
+    finalOrder.splice(insertIndex, 0, { ...moved, module_id: newModuleId })
+
+    const updates = finalOrder
+      .map((l, idx) => ({
+        id: l.id,
+        order_num: idx + 1,
+        module_id: l.id === lesson.id ? newModuleId : l.module_id,
+      }))
+      .filter(u => {
+        const original = allLessons.find(l => l.id === u.id)!
+        return original.order_num !== u.order_num || original.module_id !== u.module_id
+      })
+
+    if (updates.length === 0) return { ok: true }
+
+    const { error } = await applyLessonReorder(supabase, updates)
+    if (error) return { ok: false, error }
+
     await fetchLessons()
+    return { ok: true }
   }
 
   function copyCourseLink() {
@@ -2560,12 +2626,6 @@ export default function CourseManagePage({
                       const moduleLessons = lessons.filter(lesson => lesson.module_id === module.id)
                       return (
                         <div key={module.id} className="rounded-2xl p-4 transition-all"
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            const lessonId = e.dataTransfer.getData('lessonId')
-                            if (lessonId) handleLessonDrop(lessonId, module.id)
-                          }}
                           style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div className="flex items-center justify-between mb-3 gap-3">
                             <div className="flex-1 min-w-0">
@@ -2603,43 +2663,15 @@ export default function CourseManagePage({
                                 onDelete={deleteLesson}
                                 onTogglePublish={toggleLessonPublish}
                                 onRefresh={fetchLessons}
+                                onRenumber={moveLessonToNumber}
                               />
                             ))}
-                            {module.planned_lessons > 0 && moduleLessons.length >= module.planned_lessons && (
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-xl"
-                                style={{ background: 'rgba(234,179,8,0.05)', border: '1px solid rgba(234,179,8,0.18)' }}>
-                                <p className="text-xs" style={{ color: '#eab308' }}>
-                                  📋 You planned {module.planned_lessons} lesson{module.planned_lessons !== 1 ? 's' : ''} for this module — all added. Start a new module or keep adding here.
-                                </p>
-                                <div className="flex gap-2 flex-shrink-0">
-                                  <button
-                                    onClick={() => { setSelectedModuleForLesson(module.id); setShowAddModal(true) }}
-                                    className="text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap"
-                                    style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>
-                                    Continue Here
-                                  </button>
-                                  <button onClick={() => setShowModuleModal(true)}
-                                    className="text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap"
-                                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', color: 'var(--kurso-primary-light)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
-                                    New Module
-                                  </button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       )
                     })}
 
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault()
-                        const lessonId = e.dataTransfer.getData('lessonId')
-                        if (lessonId) handleLessonDrop(lessonId, null)
-                      }}
-                      className="flex flex-col gap-3 min-h-[50px]"
-                    >
+                    <div className="flex flex-col gap-3 min-h-[50px]">
                       {lessons.filter(lesson => !lesson.module_id).map(lesson => (
                         <LessonWidget
                           key={lesson.id}
@@ -2647,6 +2679,7 @@ export default function CourseManagePage({
                           onDelete={deleteLesson}
                           onTogglePublish={toggleLessonPublish}
                           onRefresh={fetchLessons}
+                          onRenumber={moveLessonToNumber}
                         />
                       ))}
                     </div>
@@ -3289,7 +3322,7 @@ export default function CourseManagePage({
                   <p className="text-sm font-semibold text-white">
                     {course.is_published ? 'Course is Live' : 'Course is Draft'}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
+                  <p className="text-xs mt-0.5" style={{ color: '#cfcfd4' }}>
                     {course.is_published
                       ? 'Students can find and enroll'
                       : 'Course page hidden · enrollment blocked · enrolled students unaffected'}
@@ -3329,19 +3362,14 @@ export default function CourseManagePage({
                 <ExternalLink className="w-4 h-4" />
                 Preview Course Page
               </Link>
-              <button onClick={() => setActiveTab('landing')}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <Pencil className="w-4 h-4" />
-                Design Landing Page
-              </button>
+              
             </div>
 
             {/* Student Update / Delay Broadcast */}
             <div className="rounded-2xl p-5"
               style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.2)' }}>
               <h3 className="font-semibold text-white mb-1">📢 Send Student Update</h3>
-              <p className="text-xs mb-3" style={{ color: '#71717a' }}>
+              <p className="text-xs mb-3" style={{ color: '#c9c9d0' }}>
                 Notify all enrolled students about schedule changes, delays, or upcoming lessons.
               </p>
               <textarea

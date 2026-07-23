@@ -67,10 +67,12 @@ export default function RefundRequestsPage() {
             {pending.map(r => (
               <div key={r.id} className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-white">{r.enrollments?.courses?.name || 'Course'}</p>
-                  <span className="text-xs" style={{ color: '#71717a' }}>₹{Number(r.enrollments?.amount_paid || 0).toLocaleString('en-IN')}</span>
+                  <p className="text-sm font-semibold text-white">
+                    {r.product_name} <span className="text-xs font-normal" style={{ color: 'var(--kurso-text-muted)' }}>({r.type})</span>
+                  </p>
+                  <span className="text-xs" style={{ color: '#71717a' }}>₹{Number(r.amount || 0).toLocaleString('en-IN')}</span>
                 </div>
-                <p className="text-xs mb-1" style={{ color: '#a1a1aa' }}>{r.students?.name || r.students?.email || 'Student'}</p>
+                <p className="text-xs mb-1" style={{ color: '#a1a1aa' }}>{r.buyer_name || r.buyer_email || 'Student'}</p>
                 {r.reason && <p className="text-xs mb-3 italic" style={{ color: '#71717a' }}>&quot;{r.reason}&quot;</p>}
                 <input
                   placeholder="Optional note to yourself"
@@ -103,7 +105,7 @@ export default function RefundRequestsPage() {
               {past.map(r => (
                 <div key={r.id} className="flex items-center justify-between p-3 rounded-lg text-xs"
                   style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ color: '#a1a1aa' }}>{r.enrollments?.courses?.name || 'Course'} — {r.students?.name || r.students?.email}</span>
+                  <span style={{ color: '#a1a1aa' }}>{r.product_name} — {r.buyer_name || r.buyer_email}</span>
                   <span style={{ color: r.status === 'completed' ? '#4ade80' : '#ef4444' }}>
                     {r.status === 'completed' ? 'Refunded' : 'Denied'}
                   </span>

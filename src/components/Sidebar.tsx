@@ -2,13 +2,14 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Shield, LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList, Undo } from 'lucide-react'
+import { Shield, LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList, Undo, Library } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 
 const navItems = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Courses', href: '/dashboard/courses', icon: BookOpen },
+  { label: 'Ebooks', href: '/dashboard/ebooks', icon: Library },
   { label: 'Students', href: '/dashboard/students', icon: Users },
   { label: 'Assignments', href: '/dashboard/assignments', icon: ClipboardList }, 
   { label: 'Revenue', href: '/dashboard/revenue', icon: IndianRupee },

@@ -134,6 +134,77 @@ export async function createSubscriptionRefundRequest({ creatorId, reason }: { c
   if (error) return { ok: false, status: 500, error: 'Could not submit your request' }
   return { ok: true, message: 'Your refund request has been sent to Kurso for review.' }
 }
+// ── Ebook refund requests (student ↔ creator) ────────────────────────
+export async function checkEbookRefundEligibility(purchaseId: string): Promise<{ eligible: boolean; reason?: string }> {
+  const { data: purchase } = await supabase
+    .from('transactions')
+    .select('id, status, ebook_id, created_at')
+    .eq('id', purchaseId)
+    .eq('product_type', 'ebook')
+    .maybeSingle()
+
+  if (!purchase || purchase.status !== 'success') return { eligible: false, reason: 'Not a completed purchase' }
+
+  const { data: ebook } = await supabase.from('ebooks').select('refund_window_days').eq('id', purchase.ebook_id).maybeSingle()
+  const windowDays = ebook?.refund_window_days ?? 0
+  if (windowDays <= 0) return { eligible: false, reason: 'This ebook does not accept refunds' }
+
+  const daysSince = (Date.now() - new Date(purchase.created_at).getTime()) / (1000 * 60 * 60 * 24)
+  if (daysSince > windowDays) return { eligible: false, reason: 'Refund window has closed' }
+
+  const { data: existing } = await supabase.from('refund_requests').select('id').eq('purchase_id', purchaseId).eq('type', 'ebook').maybeSingle()
+  if (existing) return { eligible: false, reason: 'A request already exists for this purchase' }
+
+  return { eligible: true }
+}
+
+export async function createEbookRefundRequest({ purchaseId, reason }: { purchaseId: string; reason?: string }): Promise<ActionResult> {
+  const elig = await checkEbookRefundEligibility(purchaseId)
+  if (!elig.eligible) return { ok: false, status: 400, error: elig.reason || 'Not eligible for a refund' }
+
+  const { data: purchase } = await supabase.from('transactions').select('id, creator_id, student_id').eq('id', purchaseId).maybeSingle()
+  if (!purchase) return { ok: false, status: 404, error: 'Purchase not found' }
+
+  const { error } = await supabase.from('refund_requests').insert({
+    type: 'ebook',
+    purchase_id: purchaseId,
+    creator_id: purchase.creator_id,
+    student_id: purchase.student_id,
+    requested_by: 'student',
+    reason: reason || null,
+  })
+  if (error) {
+    if (error.code === '23505') return { ok: false, status: 400, error: 'A request already exists for this purchase' }
+    return { ok: false, status: 500, error: 'Could not submit your request' }
+  }
+  return { ok: true, message: 'Your refund request has been sent to the creator.' }
+}
+
+export async function decideEbookRefundRequest({ requestId, creatorId, decision, note }: { requestId: string; creatorId: string; decision: 'approved' | 'denied'; note?: string }): Promise<ActionResult> {
+  const { data: request } = await supabase.from('refund_requests').select('id, purchase_id, creator_id, status, type').eq('id', requestId).maybeSingle()
+  if (!request || request.type !== 'ebook') return { ok: false, status: 404, error: 'Request not found' }
+  if (request.creator_id !== creatorId) return { ok: false, status: 403, error: 'Not your request to decide' }
+  if (request.status !== 'pending') return { ok: false, status: 400, error: 'This request has already been decided' }
+
+  await supabase.from('refund_requests').update({
+    status: decision === 'approved' ? 'completed' : 'denied',
+    decision_note: note || null,
+    decided_at: new Date().toISOString(),
+    decided_by: 'creator',
+    completed_at: decision === 'approved' ? new Date().toISOString() : null,
+  }).eq('id', requestId)
+
+  if (decision === 'approved') {
+    // Block further downloads immediately rather than deleting the record
+    const { data: purchase } = await supabase.from('transactions').select('ebook_download_count').eq('id', request.purchase_id).maybeSingle()
+    await supabase.from('transactions').update({
+      status: 'refunded',
+      ebook_download_limit: purchase?.ebook_download_count ?? 0,
+    }).eq('id', request.purchase_id)
+    return { ok: true, message: 'Marked as refunded. Further downloads have been blocked.' }
+  }
+  return { ok: true, message: 'Request denied.' }
+}
 
 export async function decideSubscriptionRefundRequest({ requestId, decision, note }: { requestId: string; decision: 'approved' | 'denied'; note?: string }): Promise<ActionResult> {
   const { data: request } = await supabase
