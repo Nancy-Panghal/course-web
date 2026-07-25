@@ -11,11 +11,6 @@ import DraftGate from '@/components/DraftGate'
 import { getLandingTheme } from '@/lib/landing-themes'
 import { getFontPairOverride } from '@/lib/landing-themes/fontPairs'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 function freePreviewLabel(config?: string) {
   const labels: Record<string, string> = {
     'nothing free': 'Paid only',
@@ -29,12 +24,16 @@ function freePreviewLabel(config?: string) {
   return labels[config || 'nothing free'] || 'Paid only'
 }
 
-/** Extract YouTube video ID from any youtube URL format */
 function getYoutubeId(url?: string | null): string | null {
   if (!url) return null
   const m = url.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/)
   return m ? m[1] : null
 }
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export default async function AboutCoursePage({
   params,
@@ -54,32 +53,8 @@ export default async function AboutCoursePage({
 
   if (!course || courseError) notFound()
 
-  // ── PER-CREATOR RAW HTML OVERRIDE ──────────────────────────────────────
-  // Fully opt-in per course row — set by Nancy via the admin-only custom
-  // page editor, never a creator self-serve feature. Short-circuits BEFORE
-  // any of the theme/lesson/module/live-session queries below, since none
-  // of that data is used when a custom page is active. Rendered inside a
-  // sandboxed iframe with NO `allow-same-origin`: the custom HTML/CSS/JS
-  // runs in a unique opaque origin that cannot read this site's cookies,
-  // localStorage, or DOM, and cannot make credentialed requests to the API
-  // as the visiting user — that containment, not the CSP header, is the
-  // real security boundary here. Still wrapped in DraftGate so draft/live
-  // gating applies exactly as it does to every other course.
-  if (course.use_custom_override === true && typeof course.custom_page_override === 'string' && course.custom_page_override.trim().length > 0) {
-    return (
-      <DraftGate
-        isPublished={course.is_published}
-        courseData={{ id: course.id, name: course.name, creatorSlug: course.slug, creatorName: course.host_name || 'Instructor', creatorId: course.creator_id }}
-      >
-        <iframe
-          title={`${course.name} — custom page`}
-          srcDoc={course.custom_page_override}
-          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
-          style={{ width: '100%', minHeight: '100vh', border: 'none', display: 'block' }}
-        />
-      </DraftGate>
-    )
-  }
+  
+
 
   const theme = getLandingTheme(previewThemeId || course.landing_theme)
   const c = theme.colors
@@ -131,12 +106,12 @@ export default async function AboutCoursePage({
   const groupedModules =
     modules.length > 0
       ? modules.map(mod => ({
-          name: mod.name,
-          lessons: publishedLessons.filter((l: any) => l.module_id === mod.id),
-        }))
+        name: mod.name,
+        lessons: publishedLessons.filter((l: any) => l.module_id === mod.id),
+      }))
       : publishedLessons.length > 0
-      ? [{ name: 'Course Content', lessons: publishedLessons }]
-      : []
+        ? [{ name: 'Course Content', lessons: publishedLessons }]
+        : []
 
   if (modules.length > 0) {
     const unassigned = publishedLessons.filter((l: any) => !l.module_id)
@@ -183,83 +158,83 @@ export default async function AboutCoursePage({
           ))}
         </div>
       </section>
-      )
+    )
   );
   const targetNode = (
     show('target') && targetAudience.length > 0 && (
-        <section className="ak-section py-16 px-6">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="ak-section-title text-center mb-3">Who is this course for?</h2>
-            <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
-              This course is designed for people who match one or more of these descriptions
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {targetAudience.map((item: string, i: number) => (
-                <div key={i} className="ak-card flex items-start gap-4 p-5">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: c.accentSoft, border: `1px solid ${c.accentBorder}` }}>
-                    <Target className="w-4 h-4" style={{ color: c.accentText }} />
-                  </div>
-                  <p style={{ color: c.textSecondary, fontSize: '0.92rem', lineHeight: 1.7 }}>{item}</p>
+      <section className="ak-section py-16 px-6">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="ak-section-title text-center mb-3">Who is this course for?</h2>
+          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+            This course is designed for people who match one or more of these descriptions
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {targetAudience.map((item: string, i: number) => (
+              <div key={i} className="ak-card flex items-start gap-4 p-5">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{ background: c.accentSoft, border: `1px solid ${c.accentBorder}` }}>
+                  <Target className="w-4 h-4" style={{ color: c.accentText }} />
                 </div>
-              ))}
-            </div>
+                <p style={{ color: c.textSecondary, fontSize: '0.92rem', lineHeight: 1.7 }}>{item}</p>
+              </div>
+            ))}
           </div>
-        </section>
-      )
+        </div>
+      </section>
+    )
   );
   const learnNode = (
     show('learn') && course.what_you_will_learn && course.what_you_will_learn.length > 0 && (
-        <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
-          <div className="max-w-4xl mx-auto">
-            <h2 className="ak-section-title text-center mb-3">What you'll walk away with</h2>
-            <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
-              Concrete skills and knowledge you'll have after completing this course
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {course.what_you_will_learn.map((item: string, i: number) => (
-                <div key={i} className="ak-card flex items-start gap-4 p-5">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: c.accentSoft, border: `1px solid ${c.accentBorder}` }}>
-                    <CheckCircle className="w-3.5 h-3.5" style={{ color: c.accentText }} />
-                  </div>
-                  <p style={{ color: c.textSecondary, fontSize: '0.92rem', lineHeight: 1.7 }}>{item}</p>
+      <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
+        <div className="max-w-4xl mx-auto">
+          <h2 className="ak-section-title text-center mb-3">What you'll walk away with</h2>
+          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+            Concrete skills and knowledge you'll have after completing this course
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {course.what_you_will_learn.map((item: string, i: number) => (
+              <div key={i} className="ak-card flex items-start gap-4 p-5">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{ background: c.accentSoft, border: `1px solid ${c.accentBorder}` }}>
+                  <CheckCircle className="w-3.5 h-3.5" style={{ color: c.accentText }} />
                 </div>
-              ))}
-            </div>
+                <p style={{ color: c.textSecondary, fontSize: '0.92rem', lineHeight: 1.7 }}>{item}</p>
+              </div>
+            ))}
           </div>
-        </section>
-      )
+        </div>
+      </section>
+    )
   );
   const requirementsNode = (
     show('requirements') && course.requirements && course.requirements.length > 0 && (
-        <section className="ak-section py-14 px-6">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="ak-section-title mb-8">Requirements</h2>
-            <ul className="flex flex-col gap-3">
-              {course.requirements.map((item: string, i: number) => (
-                <li key={i} className="flex items-start gap-3">
-                  <ChevronRight className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: c.accentText }} />
-                  <span style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.65 }}>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )
+      <section className="ak-section py-14 px-6">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="ak-section-title mb-8">Requirements</h2>
+          <ul className="flex flex-col gap-3">
+            {course.requirements.map((item: string, i: number) => (
+              <li key={i} className="flex items-start gap-3">
+                <ChevronRight className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: c.accentText }} />
+                <span style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.65 }}>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )
   );
   const curriculumNode = (
     show('curriculum') && groupedModules.length > 0 && (
-        <section className="ak-section" style={{ background: c.sectionAltBg }}>
-          <CurriculumAccordion
-            modules={groupedModules}
-            totalLessons={publishedLessons.length}
-            liveSessions={liveSessions || []}
-            themeColors={c}
-            themeFonts={{ heading: fonts.heading, body: fonts.body }}
-          />
-        </section>
-      )
+      <section className="ak-section" style={{ background: c.sectionAltBg }}>
+        <CurriculumAccordion
+          modules={groupedModules}
+          totalLessons={publishedLessons.length}
+          liveSessions={liveSessions || []}
+          themeColors={c}
+          themeFonts={{ heading: fonts.heading, body: fonts.body }}
+        />
+      </section>
+    )
   );
   // Instructor #1 always comes from the original host_name/about_creator/
   // host_image/instructor_title columns — those are left untouched since
@@ -274,13 +249,13 @@ export default async function AboutCoursePage({
   }
   const coInstructors: (typeof primaryInstructor)[] = Array.isArray(course.co_instructors)
     ? course.co_instructors
-        .filter((i: any) => i && typeof i.name === 'string' && i.name.trim().length > 0)
-        .map((i: any) => ({
-          name: i.name.trim(),
-          title: (i.title || 'Co-Instructor').toString(),
-          image: (i.image || '').toString(),
-          bio: (i.bio || '').toString(),
-        }))
+      .filter((i: any) => i && typeof i.name === 'string' && i.name.trim().length > 0)
+      .map((i: any) => ({
+        name: i.name.trim(),
+        title: (i.title || 'Co-Instructor').toString(),
+        image: (i.image || '').toString(),
+        bio: (i.bio || '').toString(),
+      }))
     : []
   const allInstructors = [primaryInstructor, ...coInstructors]
 
@@ -364,45 +339,45 @@ export default async function AboutCoursePage({
           )}
         </div>
       </section>
-      )
+    )
   );
   const testimonialsNode = (
     show('testimonials') && testimonials.length > 0 && (
-        <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
-          <div className="max-w-4xl mx-auto">
-            <h2 className="ak-section-title text-center mb-3">What students say</h2>
-            <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
-              Real feedback from people who've taken this course
-            </p>
-            {testimonials.length <= 2 ? (
-              /* 1 or 2 testimonials — centered grid */
-              <div className={`grid gap-4 mx-auto ${testimonials.length === 1 ? 'max-w-md' : 'max-w-2xl grid-cols-1 sm:grid-cols-2'}`}>
+      <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
+        <div className="max-w-4xl mx-auto">
+          <h2 className="ak-section-title text-center mb-3">What students say</h2>
+          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+            Real feedback from people who've taken this course
+          </p>
+          {testimonials.length <= 2 ? (
+            /* 1 or 2 testimonials — centered grid */
+            <div className={`grid gap-4 mx-auto ${testimonials.length === 1 ? 'max-w-md' : 'max-w-2xl grid-cols-1 sm:grid-cols-2'}`}>
+              {testimonials.map((t, i) => (
+                <div key={i} className="ak-card p-6 flex flex-col gap-3">
+                  <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
+                  <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
+                  <p style={{ fontSize: '0.82rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* 3+ testimonials — horizontal scroll */
+            <div style={{ overflowX: 'auto', paddingBottom: 12, marginLeft: -8, marginRight: -8 }}>
+              <div style={{ display: 'flex', gap: 16, paddingLeft: 8, paddingRight: 8, width: 'max-content' }}>
                 {testimonials.map((t, i) => (
-                  <div key={i} className="ak-card p-6 flex flex-col gap-3">
+                  <div key={i} className="ak-card p-6 flex flex-col gap-3"
+                    style={{ width: 300, flexShrink: 0 }}>
                     <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
                     <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
                     <p style={{ fontSize: '0.82rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
                   </div>
                 ))}
               </div>
-            ) : (
-              /* 3+ testimonials — horizontal scroll */
-              <div style={{ overflowX: 'auto', paddingBottom: 12, marginLeft: -8, marginRight: -8 }}>
-                <div style={{ display: 'flex', gap: 16, paddingLeft: 8, paddingRight: 8, width: 'max-content' }}>
-                  {testimonials.map((t, i) => (
-                    <div key={i} className="ak-card p-6 flex flex-col gap-3"
-                      style={{ width: 300, flexShrink: 0 }}>
-                      <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
-                      <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
-                      <p style={{ fontSize: '0.82rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )
+            </div>
+          )}
+        </div>
+      </section>
+    )
   );
   const howItWorksNode = (
     show('howItWorks') && (
@@ -415,7 +390,7 @@ export default async function AboutCoursePage({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { icon: <CheckCircle className="w-5 h-5" style={{ color: '#4ade80' }} />, title: 'Enroll & Pay', desc: 'Secure Razorpay payment. Your spot is confirmed instantly.' },
-              { icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#25D366' }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, title: 'Start on WhatsApp or Telegram', desc: 'Message the bot or tap the Telegram link — lesson 1 arrives straight to your chat.' },
+              { icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#25D366' }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>, title: 'Start on WhatsApp or Telegram', desc: 'Message the bot or tap the Telegram link — lesson 1 arrives straight to your chat.' },
               { icon: <Play className="w-5 h-5" style={{ color: c.accentText }} />, title: 'Learn at Your Pace', desc: 'Mark done, unlock next. Progress syncs across WhatsApp, Telegram, and the web.' },
             ].map((step, i) => (
               <div key={i} className="ak-card p-6 flex flex-col gap-4">
@@ -437,52 +412,52 @@ export default async function AboutCoursePage({
           </div>
         </div>
       </section>
-      )
+    )
   );
   const faqNode = (
     show('faq') && course.faq && course.faq.length > 0 && (
-        <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
-          <div className="max-w-2xl mx-auto">
-            <h2 className="ak-section-title text-center mb-3">Frequently asked questions</h2>
-            <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
-              Still have questions? Reach out through Telegram or WhatsApp.
-            </p>
-            <div className="flex flex-col gap-2">
-              {course.faq.map((item: any, i: number) => (
-                <details key={i} className="group rounded-2xl overflow-hidden"
-                  style={{ background: c.cardBg, border: `1px solid ${c.borderSoft}` }}>
-                  <summary className="flex items-center justify-between p-5 cursor-pointer list-none select-none gap-4">
-                    <span style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.92rem', lineHeight: 1.5 }}>{item.question}</span>
-                    <span className="faq-icon flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-lg"
-                      style={{ background: c.accentSoft, color: c.accentText, lineHeight: 1 }}>+</span>
-                  </summary>
-                  <div className="px-5 pb-5">
-                    <div style={{ height: 1, background: c.border, marginBottom: 14 }} />
-                    <p style={{ color: c.textSecondary, fontSize: '0.88rem', lineHeight: 1.75 }}>{item.answer}</p>
-                  </div>
-                </details>
-              ))}
-            </div>
+      <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
+        <div className="max-w-2xl mx-auto">
+          <h2 className="ak-section-title text-center mb-3">Frequently asked questions</h2>
+          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+            Still have questions? Reach out through Telegram or WhatsApp.
+          </p>
+          <div className="flex flex-col gap-2">
+            {course.faq.map((item: any, i: number) => (
+              <details key={i} className="group rounded-2xl overflow-hidden"
+                style={{ background: c.cardBg, border: `1px solid ${c.borderSoft}` }}>
+                <summary className="flex items-center justify-between p-5 cursor-pointer list-none select-none gap-4">
+                  <span style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.92rem', lineHeight: 1.5 }}>{item.question}</span>
+                  <span className="faq-icon flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-lg"
+                    style={{ background: c.accentSoft, color: c.accentText, lineHeight: 1 }}>+</span>
+                </summary>
+                <div className="px-5 pb-5">
+                  <div style={{ height: 1, background: c.border, marginBottom: 14 }} />
+                  <p style={{ color: c.textSecondary, fontSize: '0.88rem', lineHeight: 1.75 }}>{item.answer}</p>
+                </div>
+              </details>
+            ))}
           </div>
-        </section>
-      )
+        </div>
+      </section>
+    )
   );
   const refundNode = (
     show('refund') && (course.refund_window_days > 0 || course.refund_policy_text) && (
-        <section className="ak-section py-12 px-6">
-          <div className="max-w-2xl mx-auto rounded-2xl p-6"
-            style={{ background: c.cardBg, border: `1px solid ${c.borderSoft}` }}>
-            <h3 style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.95rem', marginBottom: 8 }}>
-              Refund Policy
-            </h3>
-            <p style={{ color: c.textSecondary, fontSize: '0.85rem', lineHeight: 1.7 }}>
-              {course.refund_policy_text
-                ? course.refund_policy_text
-                : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
-            </p>
-          </div>
-        </section>
-      )
+      <section className="ak-section py-12 px-6">
+        <div className="max-w-2xl mx-auto rounded-2xl p-6"
+          style={{ background: c.cardBg, border: `1px solid ${c.borderSoft}` }}>
+          <h3 style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.95rem', marginBottom: 8 }}>
+            Refund Policy
+          </h3>
+          <p style={{ color: c.textSecondary, fontSize: '0.85rem', lineHeight: 1.7 }}>
+            {course.refund_policy_text
+              ? course.refund_policy_text
+              : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
+          </p>
+        </div>
+      </section>
+    )
   );
 
   const bonusesNode = (
@@ -514,7 +489,7 @@ export default async function AboutCoursePage({
     )
   )
 
-const disclaimerNode = (
+  const disclaimerNode = (
     show('disclaimer') && landingConfig.disclaimer.text.trim().length > 0 && (
       <section className="ak-section py-12 px-6">
         <div className="max-w-2xl mx-auto rounded-2xl p-6"
@@ -535,7 +510,7 @@ const disclaimerNode = (
     )
   )
 
-const hasCountdown = !!landingConfig.urgency.endAt
+  const hasCountdown = !!landingConfig.urgency.endAt
   const hasSeats = typeof landingConfig.urgency.seatsAvailable === 'number'
 
   const urgencyNode = (
@@ -592,7 +567,7 @@ const hasCountdown = !!landingConfig.urgency.endAt
     )
   )
 
-const sectionNodes: Partial<Record<LandingSectionType, ReactNode>> = {
+  const sectionNodes: Partial<Record<LandingSectionType, ReactNode>> = {
     urgency: urgencyNode,
     stats: statsNode,
     target: targetNode,
@@ -610,8 +585,8 @@ const sectionNodes: Partial<Record<LandingSectionType, ReactNode>> = {
 
   return (
     <DraftGate isPublished={course.is_published} courseData={courseData}>
-    <div className="min-h-screen" style={{ background: c.bg, color: c.textPrimary, fontFamily: fonts.body }}>
-      <style>{`
+      <div className="min-h-screen" style={{ background: c.bg, color: c.textPrimary, fontFamily: fonts.body }}>
+        <style>{`
         @import url('${fonts.googleFontsImportUrl}');
         *, *::before, *::after { box-sizing: border-box; }
 
@@ -685,32 +660,32 @@ const sectionNodes: Partial<Record<LandingSectionType, ReactNode>> = {
         .ak-stars { color: var(--kurso-accent); letter-spacing: 1px; font-size: 13px; }
       `}</style>
 
-      {/* ── NAV ── */}
-      <nav className="ak-nav sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
-          {course.brand_logo_url ? (
-            <>
-              <img src={course.brand_logo_url} alt={brandDisplayName} className="h-7 max-w-[140px] object-contain" />
-              <span className="text-sm font-bold tracking-tight hidden sm:block" style={{ color: c.textPrimary }}>
-                {brandDisplayName}
-              </span>
-            </>
-          ) : (
-            <>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.accentGradient }}>
-                <Shield className="w-3.5 h-3.5 text-white" />
-              </div>
-              <span className="text-sm font-bold tracking-tight" style={{ color: c.textPrimary }}>{brandDisplayName}</span>
-            </>
-          )}
-        </Link>
-        <div style={{ maxWidth: 200 }}>
-          <CoursePageClient course={courseData} variant="nav" />
-        </div>
-      </nav>
+        {/* ── NAV ── */}
+        <nav className="ak-nav sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            {course.brand_logo_url ? (
+              <>
+                <img src={course.brand_logo_url} alt={brandDisplayName} className="h-7 max-w-[140px] object-contain" />
+                <span className="text-sm font-bold tracking-tight hidden sm:block" style={{ color: c.textPrimary }}>
+                  {brandDisplayName}
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.accentGradient }}>
+                  <Shield className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="text-sm font-bold tracking-tight" style={{ color: c.textPrimary }}>{brandDisplayName}</span>
+              </>
+            )}
+          </Link>
+          <div style={{ maxWidth: 200 }}>
+            <CoursePageClient course={courseData} variant="nav" />
+          </div>
+        </nav>
 
 
-{/* ══════════════════════════════════════════
+        {/* ══════════════════════════════════════════
           HERO — two columns on desktop when video, wide centered otherwise
       ══════════════════════════════════════════ */}
       <section className="ak-hero px-6 pt-16 pb-16">
@@ -913,97 +888,99 @@ const sectionNodes: Partial<Record<LandingSectionType, ReactNode>> = {
           )}
         </div>
       </section>
-      
-      {middleOrder.map((type) => (
-        <Fragment key={type}>{sectionNodes[type]}</Fragment>
-      ))}
 
-      {/* ══════════════════════════════════════════
+
+
+        {middleOrder.map((type) => (
+          <Fragment key={type}>{sectionNodes[type]}</Fragment>
+        ))}
+
+        {/* ══════════════════════════════════════════
           FINAL CTA
       ══════════════════════════════════════════ */}
-      <section className="ak-section py-24 px-6" style={{
-        background: `radial-gradient(ellipse 80% 90% at 50% 50%, ${c.ctaGlowRgba} 0%, transparent 70%), ${c.bg}`,
-      }}>
-        <div className="max-w-lg mx-auto text-center">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-7"
-            style={{ background: c.accentGradient, boxShadow: `0 10px 40px ${c.accentGradientShadow}` }}>
-            <Zap className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="mb-4" style={{
-            fontFamily: fonts.heading,
-            fontSize: 'clamp(1.8rem, 4.5vw, 2.6rem)', fontWeight: 900,
-            color: c.textPrimary, lineHeight: 1.1, letterSpacing: '-0.02em',
-          }}>
-            Ready to start learning?
-          </h2>
-          <p className="mb-8" style={{ color: c.textMuted, fontSize: '1rem', lineHeight: 1.65 }}>
-            Enroll now — get instant access on Telegram and the web.
-          </p>
+        <section className="ak-section py-24 px-6" style={{
+          background: `radial-gradient(ellipse 80% 90% at 50% 50%, ${c.ctaGlowRgba} 0%, transparent 70%), ${c.bg}`,
+        }}>
+          <div className="max-w-lg mx-auto text-center">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-7"
+              style={{ background: c.accentGradient, boxShadow: `0 10px 40px ${c.accentGradientShadow}` }}>
+              <Zap className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="mb-4" style={{
+              fontFamily: fonts.heading,
+              fontSize: 'clamp(1.8rem, 4.5vw, 2.6rem)', fontWeight: 900,
+              color: c.textPrimary, lineHeight: 1.1, letterSpacing: '-0.02em',
+            }}>
+              Ready to start learning?
+            </h2>
+            <p className="mb-8" style={{ color: c.textMuted, fontSize: '1rem', lineHeight: 1.65 }}>
+              Enroll now — get instant access on Telegram and the web.
+            </p>
 
-          {/* Price */}
-          <div className="flex items-baseline justify-center gap-3 mb-7">
-            <span style={{ fontFamily: fonts.heading, fontSize: 'clamp(2rem, 5vw, 2.6rem)', fontWeight: 900, color: c.textPrimary, lineHeight: 1 }}>
-              {course.free_preview_config === 'completely free' ? 'Free' : `₹${course.price?.toLocaleString()}`}
-            </span>
-            {discount > 0 && (
+            {/* Price */}
+            <div className="flex items-baseline justify-center gap-3 mb-7">
+              <span style={{ fontFamily: fonts.heading, fontSize: 'clamp(2rem, 5vw, 2.6rem)', fontWeight: 900, color: c.textPrimary, lineHeight: 1 }}>
+                {course.free_preview_config === 'completely free' ? 'Free' : `₹${course.price?.toLocaleString()}`}
+              </span>
+              {discount > 0 && (
+                <>
+                  <span style={{ fontSize: '1.1rem', color: c.textFaint, textDecoration: 'line-through' }}>₹{course.original_price?.toLocaleString()}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(74,222,128,0.10)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}>
+                    {discount}% OFF
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div style={{ width: '100%', maxWidth: 380, margin: '0 auto 24px' }}>
+              <CoursePageClient course={courseData} variant="cta" />
+            </div>
+
+            {/* Trust badges */}
+            <div className="flex items-center justify-center flex-wrap gap-5">
+              {[
+                { icon: <Lock className="w-3.5 h-3.5" />, label: 'Secure payment' },
+                { icon: <Send className="w-3.5 h-3.5" />, label: 'Telegram & WhatsApp' },
+                { icon: <Shield className="w-3.5 h-3.5" />, label: 'Anti-piracy' },
+              ].map((b, i) => (
+                <div key={i} className="flex items-center gap-1.5" style={{ fontSize: '0.82rem', color: c.textFaint }}>
+                  <span style={{ color: c.textMuted }}>{b.icon}</span>{b.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── FOOTER ── */}
+        <footer style={{ borderTop: `1px solid ${c.border}`, padding: '40px 24px', textAlign: 'center' }}>
+          <Link href="/" className="inline-flex items-center gap-2 mb-4">
+            {course.brand_logo_url ? (
               <>
-                <span style={{ fontSize: '1.1rem', color: c.textFaint, textDecoration: 'line-through' }}>₹{course.original_price?.toLocaleString()}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(74,222,128,0.10)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}>
-                  {discount}% OFF
-                </span>
+                <img src={course.brand_logo_url} alt={brandDisplayName} className="h-5 max-w-[100px] object-contain" style={{ opacity: 0.65 }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: c.textFaint }}>{brandDisplayName}</span>
+              </>
+            ) : (
+              <>
+                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: c.accentGradient }}>
+                  <Shield className="w-3 h-3 text-white" />
+                </div>
+                <span className="text-sm font-bold" style={{ color: c.textPrimary }}>{brandDisplayName}</span>
               </>
             )}
-          </div>
-
-          <div style={{ width: '100%', maxWidth: 380, margin: '0 auto 24px' }}>
-            <CoursePageClient course={courseData} variant="cta" />
-          </div>
-
-          {/* Trust badges */}
-          <div className="flex items-center justify-center flex-wrap gap-5">
-            {[
-              { icon: <Lock className="w-3.5 h-3.5" />, label: 'Secure payment' },
-              { icon: <Send className="w-3.5 h-3.5" />, label: 'Telegram & WhatsApp' },
-              { icon: <Shield className="w-3.5 h-3.5" />, label: 'Anti-piracy' },
-            ].map((b, i) => (
-              <div key={i} className="flex items-center gap-1.5" style={{ fontSize: '0.82rem', color: c.textFaint }}>
-                <span style={{ color: c.textMuted }}>{b.icon}</span>{b.label}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── FOOTER ── */}
-      <footer style={{ borderTop: `1px solid ${c.border}`, padding: '40px 24px', textAlign: 'center' }}>
-        <Link href="/" className="inline-flex items-center gap-2 mb-4">
-          {course.brand_logo_url ? (
-            <>
-              <img src={course.brand_logo_url} alt={brandDisplayName} className="h-5 max-w-[100px] object-contain" style={{ opacity: 0.65 }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: c.textFaint }}>{brandDisplayName}</span>
-            </>
-          ) : (
-            <>
-              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: c.accentGradient }}>
-                <Shield className="w-3 h-3 text-white" />
-              </div>
-              <span className="text-sm font-bold" style={{ color: c.textPrimary }}>{brandDisplayName}</span>
-            </>
+          </Link>
+          {creatorProfile?.creator_slug && (
+            <div className="mb-4 text-center">
+              <a href={`/creator/${creatorProfile.creator_slug}`}
+                style={{ color: c.accentText, fontSize: '0.9rem', fontWeight: 600 }}>
+                See more courses from {course.host_name || 'this creator'} →
+              </a>
+            </div>
           )}
-        </Link>
-        {creatorProfile?.creator_slug && (
-          <div className="mb-4 text-center">
-            <a href={`/creator/${creatorProfile.creator_slug}`}
-              style={{ color: c.accentText, fontSize: '0.9rem', fontWeight: 600 }}>
-              See more courses from {course.host_name || 'this creator'} →
-            </a>
-          </div>
-        )}
-        <p style={{ fontSize: 11, color: c.textFaint }}>
-          Powered by Kurso · Anti-piracy protected · Telegram delivery
-        </p>
-      </footer>
-    </div>
+          <p style={{ fontSize: 11, color: c.textFaint }}>
+            Powered by Kurso · Anti-piracy protected · Telegram delivery
+          </p>
+        </footer>
+      </div>
     </DraftGate>
   )
 }

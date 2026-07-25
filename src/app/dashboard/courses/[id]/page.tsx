@@ -7,7 +7,7 @@ import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextM
 import Link from 'next/link'
 import LandingPageDesigner from '@/components/LandingPageDesigner'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
-import CustomPageOverrideEditor from '@/components/CustomPageOverrideEditor'
+
 import {
   ArrowLeft, Plus, Video, FileText, Globe,
   Eye, EyeOff, ExternalLink, Copy, Check,
@@ -1965,7 +1965,7 @@ export default function CourseManagePage({
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing' | 'customPage'>('lessons')
+  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>('lessons')
   const [token, setToken] = useState('')
 
   // Settings state
@@ -2529,7 +2529,7 @@ export default function CourseManagePage({
                 { id: 'lessons' as const, label: 'Lessons' },
                 { id: 'settings' as const, label: 'Settings' },
                 { id: 'landing' as const, label: 'Landing Page' },
-                { id: 'customPage' as const, label: 'Custom Page' },
+                
               ]).map(tab => (
                 <button
                   key={tab.id}
@@ -3302,8 +3302,6 @@ export default function CourseManagePage({
               </div>
             ) : activeTab === 'landing' ? (
               <LandingPageDesigner courseId={course.id} />
-            ) : activeTab === 'customPage' ? (
-              <CustomPageOverrideEditor courseId={course.id} />
             ) : null}
           </div>
 
