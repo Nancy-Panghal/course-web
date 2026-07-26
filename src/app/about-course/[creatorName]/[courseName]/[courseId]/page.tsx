@@ -1,6 +1,6 @@
 import { Shield, CheckCircle, Lock, BookOpen, Play, Zap, Globe, Calendar, Timer, Send, Star, Users, Award, ChevronRight, Target, Gift, AlertTriangle } from 'lucide-react'
 import { Fragment, type ReactNode } from 'react'
-import { normalizeLandingConfig, getRenderableSections, hasUrgencyContent, type LandingSectionType } from '@/lib/landing-config'
+import { normalizeLandingConfig, getRenderableSectionEntries, hasUrgencyContent, getVideoEmbedUrl, type LandingSectionType, type LandingCustomSection } from '@/lib/landing-config'
 import CountdownTimer from '@/components/CountdownTimer'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
@@ -58,6 +58,11 @@ export default async function AboutCoursePage({
 
   const theme = getLandingTheme(previewThemeId || course.landing_theme)
   const c = theme.colors
+  // Slightly lighter variants of the two muted text colors, used only on the
+  // small/secondary text that was reading too dark/tiny — not applied
+  // page-wide, so nothing else on the page shifts.
+  const mutedSoft = `color-mix(in srgb, ${c.textMuted} 100%, white 14%)`
+  const faintSoft = `color-mix(in srgb, ${c.textFaint} 100%, white 18%)`
 
   // Font pair override — merges on top of theme's default fonts
   const fontOverride = getFontPairOverride(course.landing_font_pair)
@@ -69,11 +74,13 @@ export default async function AboutCoursePage({
   // (the old flat boolean map) is passed as a legacy fallback so courses configured
   // before this feature existed keep rendering exactly as before until re-saved.
   const landingConfig = normalizeLandingConfig(course.landing_config, course.landing_sections)
-  const enabledTypes = new Set(getRenderableSections(landingConfig))
+  const renderableEntries = getRenderableSectionEntries(landingConfig)
+  const enabledTypes = new Set(renderableEntries.map(e => e.type))
   const show = (key: LandingSectionType) => enabledTypes.has(key)
-  const middleOrder = getRenderableSections(landingConfig).filter(
-    (t) => t !== 'hero' && t !== 'finalCta'
+  const middleEntries = renderableEntries.filter(
+    (e) => e.type !== 'hero' && e.type !== 'finalCta'
   )
+  const customSectionsById = new Map(landingConfig.customSections.map(cs => [cs.id, cs]))
 
   const { data: creatorProfile } = await supabase
     .from('creators')
@@ -125,7 +132,18 @@ export default async function AboutCoursePage({
       : 0
 
   const brandDisplayName = course.brand_name || course.host_name || creatorProfile?.name || 'Kurso'
-  const promoVideoId = getYoutubeId(course.promo_video_url)
+  // Hero no longer embeds a video directly — videos now render in their own
+  // section (videosNode) right after the hero. Keeping this at `null` (instead
+  // of removing the ~15 `promoVideoId ? ... : ...` branches inside the hero
+  // JSX below) makes the hero always render its single, no-video layout with
+  // a one-line change instead of hand-editing a large block of nested JSX.
+  const promoVideoId = null
+  // promo_video_urls is the source of truth; promo_video_url (singular) is
+  // read only as a fallback for courses configured before this feature existed.
+  const promoVideos: string[] = (Array.isArray(course.promo_video_urls) && course.promo_video_urls.length > 0
+    ? course.promo_video_urls
+    : course.promo_video_url ? [course.promo_video_url] : []
+  ).slice(0, 3)
   const testimonials: { name: string; text: string; rating?: number }[] = course.testimonials || []
   const targetAudience: string[] = course.target_audience || []
 
@@ -153,7 +171,7 @@ export default async function AboutCoursePage({
           ].map((s, i) => (
             <div key={i} className="text-center">
               <div className="ak-stat-num mb-1">{s.num}</div>
-              <div style={{ fontSize: 12, color: c.textMuted, fontWeight: 500 }}>{s.label}</div>
+              <div style={{ fontSize: 13, color: mutedSoft, fontWeight: 500 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -165,7 +183,7 @@ export default async function AboutCoursePage({
       <section className="ak-section py-16 px-6">
         <div className="max-w-4xl mx-auto">
           <h2 className="ak-section-title text-center mb-3">Who is this course for?</h2>
-          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+          <p className="text-center mb-10" style={{ color: mutedSoft, fontSize: '1rem' }}>
             This course is designed for people who match one or more of these descriptions
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -188,7 +206,7 @@ export default async function AboutCoursePage({
       <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
         <div className="max-w-4xl mx-auto">
           <h2 className="ak-section-title text-center mb-3">What you'll walk away with</h2>
-          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+          <p className="text-center mb-10" style={{ color: mutedSoft, fontSize: '1rem' }}>
             Concrete skills and knowledge you'll have after completing this course
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -215,7 +233,7 @@ export default async function AboutCoursePage({
             {course.requirements.map((item: string, i: number) => (
               <li key={i} className="flex items-start gap-3">
                 <ChevronRight className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: c.accentText }} />
-                <span style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.65 }}>{item}</span>
+                <span style={{ color: c.textSecondary, fontSize: '0.96rem', lineHeight: 1.65 }}>{item}</span>
               </li>
             ))}
           </ul>
@@ -267,47 +285,48 @@ export default async function AboutCoursePage({
             {allInstructors.length > 1 ? 'Meet your instructors' : 'Meet your instructor'}
           </h2>
 
-          {allInstructors.length === 1 ? (
-            <div className="ak-glow rounded-3xl overflow-hidden"
-              style={{ background: c.cardBg, border: `1px solid ${c.accentBorder}` }}>
-              <div className="flex flex-col md:flex-row">
-
-                {/* Left accent strip + photo */}
-                <div className="flex-shrink-0 flex flex-col items-center justify-center p-8 md:p-10"
-                  style={{ background: c.accentSoft, borderRight: `1px solid ${c.accentBorder}`, minWidth: 200 }}>
-                  <div className="w-28 h-28 rounded-2xl overflow-hidden mb-4"
-                    style={{ border: `3px solid ${c.accentBorderStrong}` }}>
-                    {primaryInstructor.image ? (
-                      <img src={primaryInstructor.image} alt={primaryInstructor.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl"
-                        style={{ background: c.accentGradient }}>
-                        {primaryInstructor.name.charAt(0).toUpperCase()}
+          {landingConfig.instructorLayout === 'rectangle' ? (
+            /* Rectangle: fixed wide width, height grows with the bio text,
+               one per row — never side by side, regardless of count. */
+            <div className="flex flex-col gap-5">
+              {allInstructors.map((inst, i) => (
+                <div key={i} className="ak-glow rounded-3xl overflow-hidden"
+                  style={{ background: c.cardBg, border: `1px solid ${c.accentBorder}` }}>
+                  <div className="flex flex-col md:flex-row">
+                    <div className="flex-shrink-0 flex flex-col items-center justify-center p-8 md:p-10"
+                      style={{ background: c.accentSoft, borderRight: `1px solid ${c.accentBorder}`, minWidth: 200 }}>
+                      <div className="w-28 h-28 rounded-2xl overflow-hidden mb-4"
+                        style={{ border: `3px solid ${c.accentBorderStrong}` }}>
+                        {inst.image ? (
+                          <img src={inst.image} alt={inst.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl"
+                            style={{ background: c.accentGradient }}>
+                            {inst.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div className="text-center">
-                    <p style={{ fontFamily: fonts.heading, fontSize: '1rem', fontWeight: 800, color: c.textPrimary }}>
-                      {primaryInstructor.name}
-                    </p>
-                    <p style={{ fontSize: '0.72rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4 }}>
-                      {primaryInstructor.title}
-                    </p>
+                      <div className="text-center">
+                        <p style={{ fontFamily: fonts.heading, fontSize: '1rem', fontWeight: 800, color: c.textPrimary }}>
+                          {inst.name}
+                        </p>
+                        <p style={{ fontSize: '0.72rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4 }}>
+                          {inst.title}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
+                      <p style={{ color: c.textSecondary, fontSize: '0.98rem', lineHeight: 1.8 }}>
+                        {inst.bio}
+                      </p>
+                    </div>
                   </div>
                 </div>
-
-                {/* Right: bio */}
-                <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
-                  <p style={{ color: c.textSecondary, fontSize: '0.95rem', lineHeight: 1.8 }}>
-                    {primaryInstructor.bio}
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           ) : (
-            /* 2+ instructors — equal-width cards that sit in one row and
-               only wrap onto a second row if the screen is too narrow to
-               fit them all. */
+            /* Square: compact cards that sit in one row and only wrap onto a
+               second row if the screen is too narrow to fit them all. */
             <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
               {allInstructors.map((inst, i) => (
                 <div key={i} className="ak-card flex flex-col items-center text-center p-7">
@@ -329,7 +348,7 @@ export default async function AboutCoursePage({
                     {inst.title}
                   </p>
                   {inst.bio && (
-                    <p style={{ color: c.textSecondary, fontSize: '0.85rem', lineHeight: 1.7 }}>
+                    <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7 }}>
                       {inst.bio}
                     </p>
                   )}
@@ -346,7 +365,7 @@ export default async function AboutCoursePage({
       <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
         <div className="max-w-4xl mx-auto">
           <h2 className="ak-section-title text-center mb-3">What students say</h2>
-          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+          <p className="text-center mb-10" style={{ color: mutedSoft, fontSize: '1rem' }}>
             Real feedback from people who've taken this course
           </p>
           {testimonials.length <= 2 ? (
@@ -355,8 +374,8 @@ export default async function AboutCoursePage({
               {testimonials.map((t, i) => (
                 <div key={i} className="ak-card p-6 flex flex-col gap-3">
                   <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
-                  <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
-                  <p style={{ fontSize: '0.82rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
+                  <p style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
                 </div>
               ))}
             </div>
@@ -367,9 +386,11 @@ export default async function AboutCoursePage({
                 {testimonials.map((t, i) => (
                   <div key={i} className="ak-card p-6 flex flex-col gap-3"
                     style={{ width: 300, flexShrink: 0 }}>
-                    <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
-                    <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
-                    <p style={{ fontSize: '0.82rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
+                   <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
+                    <p style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p> 
+
+
                   </div>
                 ))}
               </div>
@@ -384,7 +405,7 @@ export default async function AboutCoursePage({
       <section className="ak-section py-16 px-6">
         <div className="max-w-3xl mx-auto">
           <h2 className="ak-section-title text-center mb-3">How course delivery works</h2>
-          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+          <p className="text-center mb-10" style={{ color: mutedSoft, fontSize: '1rem' }}>
             Lessons arrive directly on Telegram or WhatsApp — no extra app needed
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -405,7 +426,7 @@ export default async function AboutCoursePage({
                 </div>
                 <div>
                   <p style={{ fontSize: '0.95rem', fontWeight: 700, color: c.textPrimary, marginBottom: 6 }}>{step.title}</p>
-                  <p style={{ fontSize: '0.87rem', color: c.textMuted, lineHeight: 1.65 }}>{step.desc}</p>
+                  <p style={{ fontSize: '0.92rem', color: mutedSoft, lineHeight: 1.65 }}>{step.desc}</p>
                 </div>
               </div>
             ))}
@@ -419,7 +440,7 @@ export default async function AboutCoursePage({
       <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
         <div className="max-w-2xl mx-auto">
           <h2 className="ak-section-title text-center mb-3">Frequently asked questions</h2>
-          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+          <p className="text-center mb-10" style={{ color: mutedSoft, fontSize: '1rem' }}>
             Still have questions? Reach out through Telegram or WhatsApp.
           </p>
           <div className="flex flex-col gap-2">
@@ -433,7 +454,7 @@ export default async function AboutCoursePage({
                 </summary>
                 <div className="px-5 pb-5">
                   <div style={{ height: 1, background: c.border, marginBottom: 14 }} />
-                  <p style={{ color: c.textSecondary, fontSize: '0.88rem', lineHeight: 1.75 }}>{item.answer}</p>
+                  <p style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.75 }}>{item.answer}</p>
                 </div>
               </details>
             ))}
@@ -442,30 +463,14 @@ export default async function AboutCoursePage({
       </section>
     )
   );
-  const refundNode = (
-    show('refund') && (course.refund_window_days > 0 || course.refund_policy_text) && (
-      <section className="ak-section py-12 px-6">
-        <div className="max-w-2xl mx-auto rounded-2xl p-6"
-          style={{ background: c.cardBg, border: `1px solid ${c.borderSoft}` }}>
-          <h3 style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.95rem', marginBottom: 8 }}>
-            Refund Policy
-          </h3>
-          <p style={{ color: c.textSecondary, fontSize: '0.85rem', lineHeight: 1.7 }}>
-            {course.refund_policy_text
-              ? course.refund_policy_text
-              : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
-          </p>
-        </div>
-      </section>
-    )
-  );
+  
 
   const bonusesNode = (
     show('bonuses') && landingConfig.bonuses.length > 0 && (
       <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
         <div className="max-w-4xl mx-auto">
           <h2 className="ak-section-title text-center mb-3">What's included</h2>
-          <p className="text-center mb-10" style={{ color: c.textMuted, fontSize: '0.95rem' }}>
+          <p className="text-center mb-10" style={{ color: mutedSoft, fontSize: '1rem' }}>
             Extra resources and bonuses that come with this course
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -478,7 +483,7 @@ export default async function AboutCoursePage({
                 <div>
                   <p style={{ color: c.textPrimary, fontSize: '0.92rem', fontWeight: 700, marginBottom: bonus.description ? 4 : 0 }}>{bonus.title}</p>
                   {bonus.description && (
-                    <p style={{ color: c.textSecondary, fontSize: '0.85rem', lineHeight: 1.65 }}>{bonus.description}</p>
+                    <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.65 }}>{bonus.description}</p>
                   )}
                 </div>
               </div>
@@ -500,7 +505,7 @@ export default async function AboutCoursePage({
               <h3 style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.95rem', marginBottom: 8 }}>
                 {landingConfig.disclaimer.title}
               </h3>
-              <p style={{ color: c.textSecondary, fontSize: '0.85rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+              <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
                 {landingConfig.disclaimer.text}
               </p>
             </div>
@@ -509,6 +514,59 @@ export default async function AboutCoursePage({
       </section>
     )
   )
+
+  // Custom, creator-written text sections. Unlike every other section this
+  // renders from a lookup keyed by customId (not a singleton const), since a
+  // course can have several. Text only — no image/video/embed markup exists
+  // anywhere in this render path. Theme colors/fonts apply automatically;
+  // `background: 'custom'` is the only per-section override available.
+  const customSectionNode = (cs: LandingCustomSection) => {
+    if (!cs.heading.trim() && !cs.body.trim()) return null
+    const headingSizePx = cs.headingSize === 'lg' ? 'clamp(1.5rem, 3.4vw, 2rem)' : cs.headingSize === 'sm' ? '1.15rem' : '1.5rem'
+    const bodySizePx = cs.bodySize === 'lg' ? '1.05rem' : cs.bodySize === 'sm' ? '0.85rem' : '0.95rem'
+    const paddingY = cs.spacing === 'compact' ? 40 : cs.spacing === 'roomy' ? 112 : 64
+    const backgroundStyle = cs.background === 'custom' ? cs.backgroundColor : undefined
+    return (
+      <section className="ak-section px-6" style={{ paddingTop: paddingY, paddingBottom: paddingY, background: backgroundStyle }}>
+        <div className="max-w-3xl mx-auto">
+          <div className={cs.style === 'card' ? 'ak-card p-8' : ''} style={{ textAlign: cs.align }}>
+            {cs.heading.trim() && (
+              <h2 style={{
+                fontFamily: fonts.heading, fontSize: headingSizePx, fontWeight: 800,
+                color: c.textPrimary, lineHeight: 1.2, marginBottom: cs.body.trim() ? 16 : 0,
+              }}>
+                {cs.heading}
+              </h2>
+            )}
+            {cs.body.trim() && (
+              <p style={{ fontSize: bodySizePx, color: c.textSecondary, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+                {cs.body}
+              </p>
+            )}
+            {cs.images.length > 0 && (
+              cs.images.length <= 3 ? (
+                <div className="grid gap-4 mt-6" style={{ gridTemplateColumns: `repeat(${cs.images.length}, 1fr)` }}>
+                  {cs.images.map((src, imgI) => (
+                    <img key={imgI} src={src} alt="" className="w-full rounded-2xl object-cover"
+                      style={{ aspectRatio: cs.images.length === 1 ? '16 / 9' : '4 / 3', border: `1px solid ${c.borderSoft}` }} />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6" style={{ overflowX: 'auto', paddingBottom: 8, marginLeft: -8, marginRight: -8 }}>
+                  <div style={{ display: 'flex', gap: 16, paddingLeft: 8, paddingRight: 8, width: 'max-content' }}>
+                    {cs.images.map((src, imgI) => (
+                      <img key={imgI} src={src} alt="" className="rounded-2xl object-cover flex-shrink-0"
+                        style={{ width: 280, aspectRatio: '4 / 3', border: `1px solid ${c.borderSoft}` }} />
+                    ))}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   const hasCountdown = !!landingConfig.urgency.endAt
   const hasSeats = typeof landingConfig.urgency.seatsAvailable === 'number'
@@ -567,7 +625,35 @@ export default async function AboutCoursePage({
     )
   )
 
+  const videosNode = (
+    show('videos') && promoVideos.length > 0 && (
+      <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${promoVideos.length === 1 ? 480 : 280}px, 1fr))` }}>
+            {promoVideos.map((url, i) => {
+              const embedUrl = getVideoEmbedUrl(url)
+              if (!embedUrl) return null
+              return (
+                <div key={i} className="ak-card overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
+                  <iframe
+                    src={embedUrl}
+                    title={`${course.name} video ${i + 1}`}
+                    className="w-full h-full"
+                    style={{ border: 0 }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+    )
+  )
+
   const sectionNodes: Partial<Record<LandingSectionType, ReactNode>> = {
+    videos: videosNode,
     urgency: urgencyNode,
     stats: statsNode,
     target: targetNode,
@@ -579,7 +665,6 @@ export default async function AboutCoursePage({
     testimonials: testimonialsNode,
     howItWorks: howItWorksNode,
     faq: faqNode,
-    refund: refundNode,
     disclaimer: disclaimerNode,
   }
 
@@ -779,11 +864,11 @@ export default async function AboutCoursePage({
 
               {/* CTA — only shown here when there's NO video */}
               {!promoVideoId && (
-              <div className="fu fu5 flex flex-col gap-3 mb-5" style={{ width: '100%' }}>
-                <div style={{ width: '100%', maxWidth: 360 }}>
+              <div className="fu fu5 flex flex-col items-center gap-3 mb-5" style={{ width: '100%' }}>
+                <div className="flex justify-center" style={{ width: '100%', maxWidth: 360 }}>
                   <CoursePageClient course={courseData} variant="cta" />
                 </div>
-                <p style={{ fontSize: 12, color: c.textFaint }}>🔒 Secure payment · Instant access · Anti-piracy protected</p>
+                <p style={{ fontSize: 13, color: faintSoft }}>🔒 Secure payment · Instant access · Anti-piracy protected</p>
               </div>
               )}
 
@@ -862,10 +947,10 @@ export default async function AboutCoursePage({
                     </>
                   )}
                 </div>
-                <div style={{ width: '100%', maxWidth: 360 }}>
+                <div className="flex justify-center" style={{ width: '100%', maxWidth: 360 }}>
                   <CoursePageClient course={courseData} variant="cta" />
                 </div>
-                <p style={{ fontSize: 12, color: c.textFaint }}>🔒 Secure payment · Instant access · Anti-piracy protected</p>
+                <p style={{ fontSize: 13, color: faintSoft }}>🔒 Secure payment · Instant access · Anti-piracy protected</p>
               </div>
 
               {/* WhatsApp / Telegram / Web Access pills */}
@@ -891,9 +976,13 @@ export default async function AboutCoursePage({
 
 
 
-        {middleOrder.map((type) => (
-          <Fragment key={type}>{sectionNodes[type]}</Fragment>
-        ))}
+        {middleEntries.map((entry) => {
+          if (entry.type === 'custom') {
+            const cs = entry.customId ? customSectionsById.get(entry.customId) : undefined
+            return cs ? <Fragment key={entry.customId}>{customSectionNode(cs)}</Fragment> : null
+          }
+          return <Fragment key={entry.type}>{sectionNodes[entry.type]}</Fragment>
+        })}
 
         {/* ══════════════════════════════════════════
           FINAL CTA
@@ -913,7 +1002,7 @@ export default async function AboutCoursePage({
             }}>
               Ready to start learning?
             </h2>
-            <p className="mb-8" style={{ color: c.textMuted, fontSize: '1rem', lineHeight: 1.65 }}>
+            <p className="mb-8" style={{ color: mutedSoft, fontSize: '1rem', lineHeight: 1.65 }}>
               Enroll now — get instant access on Telegram and the web.
             </p>
 
@@ -932,7 +1021,7 @@ export default async function AboutCoursePage({
               )}
             </div>
 
-            <div style={{ width: '100%', maxWidth: 380, margin: '0 auto 24px' }}>
+            <div className="flex justify-center" style={{ width: '100%', maxWidth: 380, margin: '0 auto 24px' }}>
               <CoursePageClient course={courseData} variant="cta" />
             </div>
 
@@ -943,8 +1032,8 @@ export default async function AboutCoursePage({
                 { icon: <Send className="w-3.5 h-3.5" />, label: 'Telegram & WhatsApp' },
                 { icon: <Shield className="w-3.5 h-3.5" />, label: 'Anti-piracy' },
               ].map((b, i) => (
-                <div key={i} className="flex items-center gap-1.5" style={{ fontSize: '0.82rem', color: c.textFaint }}>
-                  <span style={{ color: c.textMuted }}>{b.icon}</span>{b.label}
+                <div key={i} className="flex items-center gap-1.5" style={{ fontSize: '0.87rem', color: faintSoft }}>
+                  <span style={{ color: mutedSoft }}>{b.icon}</span>{b.label}
                 </div>
               ))}
             </div>
@@ -968,6 +1057,13 @@ export default async function AboutCoursePage({
               </>
             )}
           </Link>
+          {(course.refund_policy_text || course.refund_window_days > 0) && (
+            <p className="mb-4" style={{ color: mutedSoft, fontSize: '0.85rem', lineHeight: 1.7, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
+              {course.refund_policy_text
+                ? course.refund_policy_text
+                : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
+            </p>
+          )}
           {creatorProfile?.creator_slug && (
             <div className="mb-4 text-center">
               <a href={`/creator/${creatorProfile.creator_slug}`}
@@ -976,9 +1072,6 @@ export default async function AboutCoursePage({
               </a>
             </div>
           )}
-          <p style={{ fontSize: 11, color: c.textFaint }}>
-            Powered by Kurso · Anti-piracy protected · Telegram delivery
-          </p>
         </footer>
       </div>
     </DraftGate>

@@ -49,6 +49,7 @@ interface Course {
   brand_name?: string
   instructor_title?: string
   promo_video_url?: string
+  promo_video_urls?: string[]
   target_audience?: string[]
   testimonials?: { name: string; text: string; rating?: number }[]
   level?: string
@@ -2009,7 +2010,7 @@ export default function CourseManagePage({
   const [editBrandName, setEditBrandName] = useState('')
   const [editInstructorTitle, setEditInstructorTitle] = useState('')
   const [editCoInstructors, setEditCoInstructors] = useState<CoInstructor[]>([])
-  const [editPromoVideoUrl, setEditPromoVideoUrl] = useState('')
+  const [editPromoVideoUrls, setEditPromoVideoUrls] = useState<string[]>([])
   const [editTargetAudience, setEditTargetAudience] = useState<string[]>([])
   const [editTestimonials, setEditTestimonials] = useState<{ name: string; text: string; rating: number }[]>([])
   const [editLevel, setEditLevel] = useState('')
@@ -2066,7 +2067,14 @@ export default function CourseManagePage({
       setEditBrandName(courseData.brand_name || '')
       setEditInstructorTitle(courseData.instructor_title || '')
       setEditCoInstructors(Array.isArray(courseData.co_instructors) ? courseData.co_instructors : [])
-      setEditPromoVideoUrl(courseData.promo_video_url || '')
+      // promo_video_urls is the new source of truth; fall back to the old
+      // single-video column so a course configured before this feature
+      // existed keeps showing its video instead of an empty list.
+      setEditPromoVideoUrls(
+        Array.isArray(courseData.promo_video_urls) && courseData.promo_video_urls.length > 0
+          ? courseData.promo_video_urls
+          : (courseData.promo_video_url ? [courseData.promo_video_url] : [])
+      )
       setEditTargetAudience(courseData.target_audience || [''])
       setEditTestimonials(courseData.testimonials || [])
       setEditLevel(courseData.level || '')
@@ -2137,7 +2145,9 @@ export default function CourseManagePage({
         co_instructors: editCoInstructors
           .filter(ci => ci.name.trim())
           .map(ci => ({ name: ci.name.trim(), title: ci.title.trim(), image: ci.image, bio: ci.bio.trim() })),
-        promo_video_url: editPromoVideoUrl.trim() || null,
+        promo_video_urls: editPromoVideoUrls.map(v => v.trim()).filter(Boolean).slice(0, 3),
+        // Kept in sync for anything that still reads the old single column.
+        promo_video_url: editPromoVideoUrls.find(v => v.trim()) || null,
         target_audience: editTargetAudience.filter(t => t.trim()),
         testimonials: editTestimonials.filter(t => t.name.trim() && t.text.trim()),
         level: editLevel || null,
@@ -2968,20 +2978,30 @@ export default function CourseManagePage({
                       />
                     </div>
 
-                    {/* Promo video */}
+                   {/* Promo videos */}
                     <div>
                       <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
-                        Promo / Preview Video URL
-                        <span className="text-zinc-600 font-normal ml-1">— YouTube link, shown next to hero text</span>
+                        Promo / Preview Videos
+                        <span className="text-zinc-600 font-normal ml-1">— up to 3, YouTube or Vimeo links, shown in their own section right after the hero</span>
                       </label>
-                      <input
-                        value={editPromoVideoUrl}
-                        onChange={e => setEditPromoVideoUrl(e.target.value)}
-                        placeholder="https://youtube.com/watch?v=... or youtu.be/..."
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
-                      />
-                      <p className="text-[10px] text-zinc-600 mt-1">Embed a YouTube promo video to appear beside the hero text on your landing page.</p>
-                    </div>
+                      <div className="flex flex-col gap-2">
+                        {editPromoVideoUrls.map((url, i) => (
+                          <div key={i} className="flex gap-2">
+                            <input value={url}
+                              onChange={e => { const n = [...editPromoVideoUrls]; n[i] = e.target.value; setEditPromoVideoUrls(n) }}
+                              placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
+                              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                            <button onClick={() => setEditPromoVideoUrls(editPromoVideoUrls.filter((_, idx) => idx !== i))}
+                              className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        ))}
+                        {editPromoVideoUrls.length < 3 && (
+                          <button onClick={() => setEditPromoVideoUrls([...editPromoVideoUrls, ''])}
+                            className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add video</button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-zinc-600 mt-1">A link that isn't a recognized YouTube or Vimeo URL is skipped on the live page rather than breaking it.</p>
+                    </div> 
 
                     {/* Target audience */}
                     <div>
