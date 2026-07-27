@@ -10,10 +10,8 @@ import {
 } from 'lucide-react'
 import {
   DEFAULT_LANDING_CONFIG, normalizeLandingConfig, LANDING_SECTION_META, LANDING_SECTION_TYPES,
-  MAX_CUSTOM_SECTION_IMAGES,
-  type LandingConfig, type LandingSectionType, type LandingSectionEntry, type LandingCustomSection,
+  type LandingConfig, type LandingSectionType, type LandingSectionEntry,
 } from '@/lib/landing-config'
-import { MAX_CUSTOM_SECTIONS_PER_COURSE, MAX_CUSTOM_HEADING_LENGTH, MAX_CUSTOM_BODY_LENGTH } from '@/lib/customSectionText'
 
 async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl: string }> {
   const ext = file.name.split('.').pop()
@@ -56,7 +54,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
   const [selectedTheme, setSelectedTheme] = useState<LandingThemeId>(DEFAULT_LANDING_THEME_ID)
   const [brandLogoUrl, setBrandLogoUrl] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [uploadingCustomImageId, setUploadingCustomImageId] = useState<string | null>(null)
+  
   const [landingConfig, setLandingConfig] = useState<LandingConfig>(DEFAULT_LANDING_CONFIG)
   const [fontPair, setFontPair] = useState<FontPairId>('theme-default')
   const [activeTab, setActiveTab] = useState<'theme' | 'sections' | 'fonts'>('theme')
@@ -116,84 +114,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
     })
   }
 
-  function addCustomSection() {
-    if (landingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE) return
-    const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    const section: LandingCustomSection = {
-      id, heading: '', body: '', headingSize: 'md', bodySize: 'md', align: 'left',
-      style: 'plain', background: 'theme', backgroundColor: '#000000', spacing: 'normal', images: [],
-    }
-
-    setLandingConfig(prev => {
-      // New sections default to last — just above the pinned Final CTA. The
-      // creator repositions with the same reorder arrows as every other section.
-      const finalCtaIdx = prev.sections.findIndex(s => s.type === PINNED_BOTTOM)
-      const entry: LandingSectionEntry = { type: 'custom', enabled: true, customId: id }
-      const sections = [...prev.sections]
-      if (finalCtaIdx === -1) sections.push(entry)
-      else sections.splice(finalCtaIdx, 0, entry)
-      return { ...prev, sections, customSections: [...prev.customSections, section] }
-    })
-  }
-
-  function updateCustomSection(id: string, patch: Partial<LandingCustomSection>) {
-    setLandingConfig(prev => ({ ...prev, customSections: prev.customSections.map(cs => cs.id === id ? { ...cs, ...patch } : cs) }))
-  }
-
-  function removeCustomSection(id: string) {
-    setLandingConfig(prev => ({
-      ...prev,
-      sections: prev.sections.filter(s => s.customId !== id),
-      customSections: prev.customSections.filter(cs => cs.id !== id),
-    }))
-  }
-
-  async function addCustomSectionImages(id: string, files: FileList) {
-    const cs = landingConfig.customSections.find(c => c.id === id)
-    if (!cs) return
-    const remaining = MAX_CUSTOM_SECTION_IMAGES - cs.images.length
-    if (remaining <= 0) return
-    const toUpload = Array.from(files).slice(0, remaining)
-    setUploadingCustomImageId(id)
-    try {
-      const uploaded: string[] = []
-      for (const file of toUpload) {
-        if (file.size > 5 * 1024 * 1024) continue // skip anything over 5MB rather than fail the whole batch
-        const { publicUrl } = await uploadToSupabase(file, 'custom-section-images')
-        uploaded.push(publicUrl)
-      }
-      updateCustomSection(id, { images: [...cs.images, ...uploaded] })
-    } catch (err: any) {
-      setError(err.message || 'Image upload failed')
-    } finally {
-      setUploadingCustomImageId(null)
-    }
-  }
-
-  function removeCustomSectionImage(id: string, imageUrl: string) {
-    const cs = landingConfig.customSections.find(c => c.id === id)
-    if (!cs) return
-    updateCustomSection(id, { images: cs.images.filter(img => img !== imageUrl) })
-  }
-  function updateBonus(index: number, field: 'title' | 'description', value: string) {
-    setLandingConfig(prev => ({ ...prev, bonuses: prev.bonuses.map((b, i) => i === index ? { ...b, [field]: value } : b) }))
-  }
-  function addBonus() {
-    setLandingConfig(prev => ({ ...prev, bonuses: [...prev.bonuses, { title: '', description: '' }] }))
-  }
-  function removeBonus(index: number) {
-    setLandingConfig(prev => ({ ...prev, bonuses: prev.bonuses.filter((_, i) => i !== index) }))
-  }
-
-  function updateDisclaimer(field: 'title' | 'text', value: string) {
-    setLandingConfig(prev => ({ ...prev, disclaimer: { ...prev.disclaimer, [field]: value } }))
-  }
-
-  function updateUrgency(field: 'endAt' | 'label' | 'seatsLabel', value: string): void
-  function updateUrgency(field: 'seatsAvailable', value: number | null): void
-  function updateUrgency(field: any, value: any) {
-    setLandingConfig(prev => ({ ...prev, urgency: { ...prev.urgency, [field]: value } }))
-  }
+  
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -466,17 +387,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
                         <p className="text-xs" style={{ color: '#52525b' }}>{description}</p>
                       </div>
 
-                      {isCustom ? (
-                        <button type="button" onClick={() => removeCustomSection(section.customId!)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      ) : (
-                        <div style={{ color: on ? 'var(--kurso-primary-lighter)' : '#3f3f46', flexShrink: 0 }}>
-                          {on ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                        </div>
-                      )}
+                      
                     </div>
                   )
                 })}
@@ -518,197 +429,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
               </div>
             </div>
 
-            {/* ── BONUSES CONTENT ── */}
-            <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-2 mb-1">
-                <Gift className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
-                <h2 className="font-semibold text-white">Bonuses</h2>
-              </div>
-              <p className="text-xs mb-4" style={{ color: '#71717a' }}>
-                Extra resources or perks included with the course. Turn the "Bonuses" toggle on above once you've
-                added at least one — an empty list stays hidden on the live page either way.
-              </p>
-              <div className="flex flex-col gap-3">
-                {landingConfig.bonuses.map((bonus, i) => (
-                  <div key={i} className="flex gap-2 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="flex-1 flex flex-col gap-2">
-                      <input value={bonus.title} onChange={e => updateBonus(i, 'title', e.target.value)}
-                        placeholder="Bonus title (e.g. Private community access)"
-                        className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                      <input value={bonus.description} onChange={e => updateBonus(i, 'description', e.target.value)}
-                        placeholder="Short description (optional)"
-                        className="w-full px-3 py-2 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                    </div>
-                    <button type="button" onClick={() => removeBonus(i)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-                <button type="button" onClick={addBonus}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium"
-                  style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                  <Plus className="w-3.5 h-3.5" /> Add bonus
-                </button>
-              </div>
-            </div>
-
-            {/* ── DISCLAIMER CONTENT ── */}
-            <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-2 mb-1">
-                <AlertTriangle className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
-                <h2 className="font-semibold text-white">Disclaimer</h2>
-              </div>
-              <p className="text-xs mb-4" style={{ color: '#71717a' }}>
-                Optional legal/compliance notice — e.g. finance educators often need a "not a registered advisor"
-                line. Position it wherever it needs to sit using the arrows above (turn "Disclaimer" on in the
-                list first).
-              </p>
-              <div className="flex flex-col gap-2">
-                <input value={landingConfig.disclaimer.title} onChange={e => updateDisclaimer('title', e.target.value)}
-                  placeholder="Title (e.g. Important information)"
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                <textarea value={landingConfig.disclaimer.text} onChange={e => updateDisclaimer('text', e.target.value)}
-                  placeholder="Disclaimer text shown on the live page..." rows={3}
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600 resize-none" />
-              </div>
-            </div>
-
-            {/* ── CUSTOM SECTIONS CONTENT ── */}
-            <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-2 mb-1">
-                <FileText className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
-                <h2 className="font-semibold text-white">Custom sections</h2>
-              </div>
-              <p className="text-xs mb-4" style={{ color: '#71717a' }}>
-                Write your own text section — heading and body text, styled with your page's colors and fonts
-                automatically. Text only: no images, video or file uploads. New sections are added just above
-                your Final CTA by default — use the arrows in the list above to move one anywhere else, or
-                toggle it off any time to roll back to the auto-generated page without losing your text.
-              </p>
-              <div className="flex flex-col gap-4">
-                {landingConfig.customSections.map((cs) => (
-                  <div key={cs.id} className="p-4 rounded-xl flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <input value={cs.heading} onChange={e => updateCustomSection(cs.id, { heading: e.target.value })}
-                      maxLength={MAX_CUSTOM_HEADING_LENGTH}
-                      placeholder="Heading"
-                      className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                    <textarea value={cs.body} onChange={e => updateCustomSection(cs.id, { body: e.target.value })}
-                      maxLength={MAX_CUSTOM_BODY_LENGTH}
-                      placeholder="Body text..." rows={4}
-                      className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600 resize-none" />
-                    <p className="text-[10px] -mt-1" style={{ color: '#52525b' }}>{cs.body.length} / {MAX_CUSTOM_BODY_LENGTH} characters</p>
-
-                    <div className="flex flex-col gap-2">
-                      <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Images ({cs.images.length} / {MAX_CUSTOM_SECTION_IMAGES})</span>
-                      {cs.images.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {cs.images.map((img, imgI) => (
-                            <div key={imgI} className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-                              <img src={img} alt="" className="w-full h-full object-cover" />
-                              <button type="button" onClick={() => removeCustomSectionImage(cs.id, img)}
-                                className="absolute top-0.5 right-0.5 w-5 h-5 rounded flex items-center justify-center"
-                                style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}>
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {cs.images.length < MAX_CUSTOM_SECTION_IMAGES && (
-                        <label className="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium cursor-pointer"
-                          style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                          <ImageIcon className="w-3.5 h-3.5" />
-                          {uploadingCustomImageId === cs.id ? 'Uploading...' : '1 image = full width · 2 side by side · 3+ scrolls — add images'}
-                          <input type="file" accept="image/*" multiple hidden disabled={uploadingCustomImageId === cs.id}
-                            onChange={e => { if (e.target.files?.length) addCustomSectionImages(cs.id, e.target.files); e.target.value = '' }} />
-                        </label>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Heading size</span>
-                        <select value={cs.headingSize} onChange={e => updateCustomSection(cs.id, { headingSize: e.target.value as any })}
-                            className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                          <option value="sm" style={{ color: '#000000' }}>Small</option>
-                          <option value="md" style={{ color: '#000000' }}>Medium</option>
-                          <option value="lg" style={{ color: '#000000' }}>Large</option>
-                        </select>
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Body text size</span>
-                        <select value={cs.bodySize} onChange={e => updateCustomSection(cs.id, { bodySize: e.target.value as any })}
-                            className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                          <option value="sm" style={{ color: '#000000' }}>Small</option>
-                          <option value="md" style={{ color: '#000000' }}>Medium</option>
-                          <option value="lg" style={{ color: '#000000' }}>Large</option>
-                        </select>
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Alignment</span>
-                        <select value={cs.align} onChange={e => updateCustomSection(cs.id, { align: e.target.value as any })}
-                            className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                          <option value="left" style={{ color: '#000000' }}>Left</option>
-                          <option value="center" style={{ color: '#000000' }}>Center</option>
-                        </select>
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Box style</span>
-                        <select value={cs.style} onChange={e => updateCustomSection(cs.id, { style: e.target.value as any })}
-                            className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                          <option value="plain" style={{ color: '#000000' }}>Plain</option>
-                          <option value="card" style={{ color: '#000000' }}>Card</option>
-                        </select>
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Spacing</span>
-                        <select value={cs.spacing} onChange={e => updateCustomSection(cs.id, { spacing: e.target.value as any })}
-                            className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                          <option value="compact" style={{ color: '#000000' }}>Compact</option>
-                          <option value="normal" style={{ color: '#000000' }}>Normal</option>
-                          <option value="roomy" style={{ color: '#000000' }}>Roomy</option>
-                        </select>
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Background</span>
-                        <select value={cs.background} onChange={e => updateCustomSection(cs.id, { background: e.target.value as any })}
-                            className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                          <option value="theme" style={{ color: '#000000' }}>Match theme (recommended)</option>
-                          <option value="custom" style={{ color: '#000000' }}>Custom color</option>
-                        </select>
-                      </label>
-                    </div>
-
-
-                    {cs.background === 'custom' && (
-                      <label className="flex items-center gap-2">
-                        <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Background color</span>
-                        <input type="color" value={cs.backgroundColor} onChange={e => updateCustomSection(cs.id, { backgroundColor: e.target.value })}
-                          className="w-8 h-8 rounded border border-white/10 bg-transparent" />
-                      </label>
-                    )}
-
-                    <div className="flex justify-end">
-                      <button type="button" onClick={() => removeCustomSection(cs.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                        style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
-                        <Trash2 className="w-3.5 h-3.5" /> Remove section
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                <button type="button" onClick={addCustomSection}
-                  disabled={landingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium disabled:opacity-40"
-                  style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                  <Plus className="w-3.5 h-3.5" />
-                  {landingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE ? `Limit of ${MAX_CUSTOM_SECTIONS_PER_COURSE} reached` : 'Add custom section'}
-                </button>
-              </div>
-            </div>
+            
 
             {/* ── INSTRUCTOR LAYOUT ── */}
             <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -738,86 +459,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
               </div>
             </div>
 
-            {/* ── COUNTDOWN & SEATS CONTENT ── */}
-            <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-2 mb-1">
-                <Timer className="w-4 h-4" style={{ color: 'var(--kurso-primary-lighter)' }} />
-                <h2 className="font-semibold text-white">Countdown & Seats</h2>
-              </div>
-              <p className="text-xs mb-4" style={{ color: '#71717a' }}>
-                An urgency banner with a closing countdown and/or a seats-remaining counter. Both are optional and
-                independent — set one, both, or neither. Seats is a number you set yourself; it doesn't
-                auto-update from actual enrollments. Turn "Countdown & Seats" on in the list above to show it.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown ends at</label>
-                  <input type="datetime-local" value={landingConfig.urgency.endAt}
-                    onChange={e => updateUrgency('endAt', e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white" />
-                </div>
-                <div>
-                  <label className="text-xs block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
-                  <input value={landingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
-                    placeholder="Enrollment closes in"
-                    className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                </div>
-                <div>
-                  <label className="text-xs block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
-                  <input type="number" min={0} value={landingConfig.urgency.seatsAvailable ?? ''}
-                    onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
-                    placeholder="Leave blank to hide"
-                    className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                </div>
-                <div>
-                  <label className="text-xs block mb-1.5" style={{ color: '#a1a1aa' }}>Seats label</label>
-                  <input value={landingConfig.urgency.seatsLabel} onChange={e => updateUrgency('seatsLabel', e.target.value)}
-                    placeholder="seats left at this price"
-                    className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                </div>
-              </div>
-              {landingConfig.urgency.endAt && new Date(landingConfig.urgency.endAt).getTime() <= Date.now() && (
-                <p className="text-xs mt-3" style={{ color: 'var(--kurso-accent)' }}>
-                  ⚠ This date is in the past — the countdown won't show on the live page until you set a future date.
-                </p>
-              )}
-
-              {(landingConfig.urgency.endAt || typeof landingConfig.urgency.seatsAvailable === 'number') && (
-                <div className="mt-5 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: '#71717a' }}>Live preview</p>
-                  <div className="rounded-2xl flex flex-col sm:flex-row overflow-hidden"
-                    style={{ background: getLandingTheme(selectedTheme).colors.cardBg, border: `1px solid ${getLandingTheme(selectedTheme).colors.accentBorder}` }}>
-                    {landingConfig.urgency.endAt && (
-                      <div className="flex-1 flex flex-col items-center justify-center gap-2 px-5 py-5">
-                        <span style={{ fontSize: '0.75rem', color: getLandingTheme(selectedTheme).colors.textSecondary, fontWeight: 600 }}>
-                          {landingConfig.urgency.label || 'Enrollment closes in'}
-                        </span>
-                        <CountdownTimer
-                          endAt={new Date(Date.now() + 2 * 86400000 + 3 * 3600000 + 45 * 60000).toISOString()}
-                          accentGradient={getLandingTheme(selectedTheme).colors.accentGradient}
-                          boxShadowColor={getLandingTheme(selectedTheme).colors.accentGradientShadow}
-                          labelColor={getLandingTheme(selectedTheme).colors.textMuted}
-                        />
-                      </div>
-                    )}
-                    {typeof landingConfig.urgency.seatsAvailable === 'number' && (
-                      <div className="flex-1 flex flex-col items-center justify-center gap-1 px-5 py-5">
-                        <p style={{ fontSize: '1.6rem', fontWeight: 800, color: getLandingTheme(selectedTheme).colors.textPrimary, lineHeight: 1 }}>
-                          {landingConfig.urgency.seatsAvailable}
-                        </p>
-                        <p style={{ fontSize: '0.75rem', color: getLandingTheme(selectedTheme).colors.textSecondary, fontWeight: 500 }}>
-                          {landingConfig.urgency.seatsLabel}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-[10px] mt-2" style={{ color: '#52525b' }}>
-                    Preview uses a sample countdown time and your selected theme's colors — actual timing comes from the date you set above.
-                  </p>
-                </div>
-              )}
-            </div>
-          </>
+            </>
         )}
 
         {/* ── TAB: FONTS ── */}

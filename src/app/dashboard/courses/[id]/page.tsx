@@ -7,13 +7,19 @@ import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextM
 import Link from 'next/link'
 import LandingPageDesigner from '@/components/LandingPageDesigner'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
+import {
+  DEFAULT_LANDING_CONFIG, normalizeLandingConfig, MAX_CUSTOM_SECTION_IMAGES,
+  type LandingConfig, type LandingSectionEntry, type LandingCustomSection,
+} from '@/lib/landing-config'
+import { MAX_CUSTOM_SECTIONS_PER_COURSE, MAX_CUSTOM_HEADING_LENGTH, MAX_CUSTOM_BODY_LENGTH } from '@/lib/customSectionText'
+import { Gift, AlertTriangle as AlertTriangleIcon, FileText as FileTextIcon, Timer as TimerIcon, X as XIcon, Image as ImageIconLucide } from 'lucide-react'
 
 import {
   ArrowLeft, Plus, Video, FileText, Globe,
   Eye, EyeOff, ExternalLink, Copy, Check,
-   Trash2, CheckCircle, AlertCircle,
+  Trash2, CheckCircle, AlertCircle,
   MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle,
-  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X, ChevronRight 
+  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X, ChevronRight
 } from 'lucide-react'
 
 interface Course {
@@ -145,6 +151,20 @@ async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl
     console.error('Upload error:', err)
     throw new Error(err.message || 'Upload failed')
   }
+}
+
+// A labeled horizontal rule — "――――― Section Name ―――――" — used to visually
+// break the long settings form into scannable groups.
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-4 mt-2 mb-1">
+      <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.12)' }} />
+      <span className="text-sm font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: '#d4d4d8' }}>
+        {label}
+      </span>
+      <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.12)' }} />
+    </div>
+  )
 }
 
 function AddModuleModal({
@@ -1029,7 +1049,7 @@ function LessonWidget({
   const [operationError, setOperationError] = useState('')
   const [resourceSaving, setResourceSaving] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
- const [editingNumber, setEditingNumber] = useState(false)
+  const [editingNumber, setEditingNumber] = useState(false)
   const [numberInput, setNumberInput] = useState(String(lesson.order_num))
   const [numberSaving, setNumberSaving] = useState(false)
   const [numberError, setNumberError] = useState('')
@@ -1156,7 +1176,7 @@ function LessonWidget({
               {lesson.duration && (
                 <span className="text-xs" style={{ color: '#52525b' }}>{lesson.duration}</span>
               )}
-              <span className="text-xs" style={{ color: lesson.is_published ? '#4ade80' : '#52525b' }}>
+              <span className="text-xs" style={{ color: lesson.is_published ? '#4ade80' : '#8f8f91' }}>
                 {lesson.is_published ? '● Published' : '○ Draft'}
               </span>
               {numberError && (
@@ -1589,39 +1609,39 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
           </div>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Session Title *</label>
+              <label className="text-sm font-semibold text-zinc-300 mb-2 block">Session Title *</label>
               <input value={fTitle} onChange={e => setFTitle(e.target.value)}
                 placeholder="e.g. Live Q&A — Week 3"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
             </div>
             <div>
-              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Description (optional)</label>
+              <label className="text-sm font-semibold text-zinc-300 mb-2 block">Description (optional)</label>
               <textarea value={fDesc} onChange={e => setFDesc(e.target.value)}
                 rows={2} placeholder="What will be covered in this session?"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none focus:border-violet-500/50" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Date *</label>
+                <label className="text-sm font-semibold text-zinc-300 mb-2 block">Date *</label>
                 <input value={fDate} onChange={e => setFDate(e.target.value)}
                   type="date"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
               </div>
               <div>
-                <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Time *</label>
+                <label className="text-sm font-semibold text-zinc-300 mb-2 block">Time *</label>
                 <input value={fTime} onChange={e => setFTime(e.target.value)}
                   type="time"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Duration (minutes)</label>
+              <label className="text-sm font-semibold text-zinc-300 mb-2 block">Duration (minutes)</label>
               <input value={fDuration} onChange={e => setFDuration(e.target.value)}
                 type="number" min="15" max="480"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
             </div>
             <div>
-              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Zoom / Meet Join URL *</label>
+              <label className="text-sm font-semibold text-zinc-300 mb-2 block">Zoom / Meet Join URL *</label>
               <input value={fJoinUrl} onChange={e => setFJoinUrl(e.target.value)}
                 type="url" placeholder="https://zoom.us/j/... or meet.google.com/..."
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
@@ -2016,6 +2036,8 @@ export default function CourseManagePage({
   const [editLevel, setEditLevel] = useState('')
   const [editCategory, setEditCategory] = useState('')
   const [editRequirements, setEditRequirements] = useState<string[]>([])
+  const [settingsLandingConfig, setSettingsLandingConfig] = useState<LandingConfig>(DEFAULT_LANDING_CONFIG)
+  const [uploadingCustomImageId, setUploadingCustomImageId] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -2080,6 +2102,7 @@ export default function CourseManagePage({
       setEditLevel(courseData.level || '')
       setEditCategory(courseData.category || '')
       setEditRequirements(courseData.requirements || [''])
+      setSettingsLandingConfig(normalizeLandingConfig(courseData.landing_config, courseData.landing_sections))
 
       await Promise.all([fetchLessons(), fetchModules()])
       setLoading(false)
@@ -2105,6 +2128,83 @@ export default function CourseManagePage({
     } finally {
       setUploadingImage(false)
     }
+  }
+
+  function updateBonus(index: number, field: 'title' | 'description', value: string) {
+    setSettingsLandingConfig(prev => ({ ...prev, bonuses: prev.bonuses.map((b, i) => i === index ? { ...b, [field]: value } : b) }))
+  }
+  function addBonus() {
+    setSettingsLandingConfig(prev => ({ ...prev, bonuses: [...prev.bonuses, { title: '', description: '' }] }))
+  }
+  function removeBonus(index: number) {
+    setSettingsLandingConfig(prev => ({ ...prev, bonuses: prev.bonuses.filter((_, i) => i !== index) }))
+  }
+
+  function updateDisclaimer(field: 'title' | 'text', value: string) {
+    setSettingsLandingConfig(prev => ({ ...prev, disclaimer: { ...prev.disclaimer, [field]: value } }))
+  }
+
+  function updateUrgency(field: 'endAt' | 'label' | 'seatsLabel', value: string): void
+  function updateUrgency(field: 'seatsAvailable', value: number | null): void
+  function updateUrgency(field: any, value: any) {
+    setSettingsLandingConfig(prev => ({ ...prev, urgency: { ...prev.urgency, [field]: value } }))
+  }
+
+  function addCustomSection() {
+    if (settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE) return
+    const csId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const section: LandingCustomSection = {
+      id: csId, heading: '', body: '', headingSize: 'md', bodySize: 'md', align: 'left',
+      style: 'plain', background: 'theme', backgroundColor: '#000000', spacing: 'normal', images: [],
+    }
+    setSettingsLandingConfig(prev => {
+      const finalCtaIdx = prev.sections.findIndex(s => s.type === 'finalCta')
+      const entry: LandingSectionEntry = { type: 'custom', enabled: true, customId: csId }
+      const sections = [...prev.sections]
+      if (finalCtaIdx === -1) sections.push(entry)
+      else sections.splice(finalCtaIdx, 0, entry)
+      return { ...prev, sections, customSections: [...prev.customSections, section] }
+    })
+  }
+
+  function updateCustomSection(csId: string, patch: Partial<LandingCustomSection>) {
+    setSettingsLandingConfig(prev => ({ ...prev, customSections: prev.customSections.map(cs => cs.id === csId ? { ...cs, ...patch } : cs) }))
+  }
+
+  function removeCustomSection(csId: string) {
+    setSettingsLandingConfig(prev => ({
+      ...prev,
+      sections: prev.sections.filter(s => s.customId !== csId),
+      customSections: prev.customSections.filter(cs => cs.id !== csId),
+    }))
+  }
+
+  async function addCustomSectionImages(csId: string, files: FileList) {
+    const cs = settingsLandingConfig.customSections.find(c => c.id === csId)
+    if (!cs) return
+    const remaining = MAX_CUSTOM_SECTION_IMAGES - cs.images.length
+    if (remaining <= 0) return
+    const toUpload = Array.from(files).slice(0, remaining)
+    setUploadingCustomImageId(csId)
+    try {
+      const uploaded: string[] = []
+      for (const file of toUpload) {
+        if (file.size > 5 * 1024 * 1024) continue
+        const { publicUrl } = await uploadToSupabase(file, 'custom-section-images')
+        uploaded.push(publicUrl)
+      }
+      updateCustomSection(csId, { images: [...cs.images, ...uploaded] })
+    } catch (err: any) {
+      alert(err.message || 'Image upload failed')
+    } finally {
+      setUploadingCustomImageId(null)
+    }
+  }
+
+  function removeCustomSectionImage(csId: string, imageUrl: string) {
+    const cs = settingsLandingConfig.customSections.find(c => c.id === csId)
+    if (!cs) return
+    updateCustomSection(csId, { images: cs.images.filter(img => img !== imageUrl) })
   }
 
   async function updateSettings() {
@@ -2153,6 +2253,19 @@ export default function CourseManagePage({
         level: editLevel || null,
         category: editCategory.trim() || null,
         requirements: editRequirements.filter(r => r.trim()),
+        landing_config: (() => {
+          const cleanedBonuses = settingsLandingConfig.bonuses.map(b => ({ title: b.title.trim(), description: b.description.trim() })).filter(b => b.title.length > 0)
+          const cleanedCustomSections = settingsLandingConfig.customSections
+            .map(cs => ({ ...cs, heading: cs.heading.trim(), body: cs.body.trim() }))
+            .filter(cs => cs.heading.length > 0 || cs.body.length > 0)
+          const cleanedCustomIds = new Set(cleanedCustomSections.map(cs => cs.id))
+          return {
+            ...settingsLandingConfig,
+            bonuses: cleanedBonuses,
+            customSections: cleanedCustomSections,
+            sections: settingsLandingConfig.sections.filter(s => s.type !== 'custom' || (s.customId ? cleanedCustomIds.has(s.customId) : false)),
+          }
+        })(),
       })
       .eq('id', id)
 
@@ -2332,12 +2445,12 @@ export default function CourseManagePage({
   }
 
   async function deleteModule(moduleId: string) {
-  await supabase.from('lessons').update({ module_id: null }).eq('module_id', moduleId)
-  await supabase.from('course_modules').delete().eq('id', moduleId)
-  await fetchModules()
-  await fetchLessons()
-  setDeletingModule(null)
-}
+    await supabase.from('lessons').update({ module_id: null }).eq('module_id', moduleId)
+    await supabase.from('course_modules').delete().eq('id', moduleId)
+    await fetchModules()
+    await fetchLessons()
+    setDeletingModule(null)
+  }
 
   async function toggleCoursePublish() {
     if (!course) return
@@ -2539,13 +2652,13 @@ export default function CourseManagePage({
                 { id: 'lessons' as const, label: 'Lessons' },
                 { id: 'settings' as const, label: 'Settings' },
                 { id: 'landing' as const, label: 'Landing Page' },
-                
+
               ]).map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className="px-4 py-2 text-sm font-medium transition-all relative"
-                  style={{ color: activeTab === tab.id ? 'var(--kurso-primary-light)' : '#52525b' }}
+                  style={{ color: activeTab === tab.id ? 'var(--kurso-primary-light)' : '#b8b8bb' }}
                 >
                   {tab.label}
                   {activeTab === tab.id && (
@@ -2553,7 +2666,7 @@ export default function CourseManagePage({
                   )}
                 </button>
               ))}
-              </div>
+            </div>
           </div>
         </div>
 
@@ -2564,57 +2677,57 @@ export default function CourseManagePage({
             {activeTab === 'lessons' ? (
               <>
                 {/* Content header */}
-              <div className="mb-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="font-semibold text-white">Course Content</h2>
-                    <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
-                      {lessons.length} lesson{lessons.length !== 1 ? 's' : ''} · {publishedCount} published
-                    </p>
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="font-semibold text-white">Course Content</h2>
+                      <p className="text-xs mt-0.5" style={{ color: '#9c9c9f' }}>
+                        {lessons.length} lesson{lessons.length !== 1 ? 's' : ''} · {publishedCount} published
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+
+                    {/* Add Module */}
+                    <button
+                      onClick={() => setShowModuleModal(true)}
+                      className="flex flex-col items-start p-4 rounded-2xl text-left transition-all hover:opacity-90"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-base">📁</span>
+                        <span className="text-sm font-bold text-white">Add Module</span>
+                        <Plus className="w-3.5 h-3.5 ml-auto flex-shrink-0" style={{ color: 'var(--kurso-primary-light)' }} />
+                      </div>
+                      <p className="text-xs mb-3" style={{ color: '#71717a' }}>Group lessons into weeks or topics</p>
+                      <div className="flex flex-col gap-1 w-full text-[10px]">
+                        <div className="px-2 py-1 rounded font-semibold" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lighter)' }}>📁 Module 1</div>
+                        <div className="ml-3 px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: '#52525b' }}>↳ Lesson · Lesson · ···</div>
+                        <div className="px-2 py-1 rounded font-semibold mt-0.5" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', color: '#52525b' }}>📁 Module 2</div>
+                        <div className="ml-3 px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.03)', color: '#3f3f46' }}>↳ Lesson · ···</div>
+                      </div>
+                    </button>
+
+                    {/* Add Lesson */}
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[12px] font-bold uppercase tracking-wider px-1" style={{ color: '#a7a7ab' }}>Add Lesson</p>
+                      {([
+                        { label: 'Video', icon: '🎬', type: 'video' as const },
+                        { label: 'PDF', icon: '📄', type: 'pdf' as const },
+                        { label: 'Live Session', icon: '📡', type: 'live' as const },
+                        { label: 'Quiz', icon: '🧠', type: 'quiz' as const },
+                        { label: 'Assignment', icon: '📝', type: 'assignment' as const },
+                      ]).map((btn, i) => (
+                        <button key={i}
+                          onClick={() => { setAddContentType(btn.type); setShowAddModal(true) }}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90 text-left w-full"
+                          style={{ background: 'rgba(255,255,255,0.04)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <span>{btn.icon}</span> {btn.label}
+                        </button>
+                      ))}
+                    </div>
+
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-
-                  {/* Add Module */}
-                  <button
-                    onClick={() => setShowModuleModal(true)}
-                    className="flex flex-col items-start p-4 rounded-2xl text-left transition-all hover:opacity-90"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-base">📁</span>
-                      <span className="text-sm font-bold text-white">Add Module</span>
-                      <Plus className="w-3.5 h-3.5 ml-auto flex-shrink-0" style={{ color: 'var(--kurso-primary-light)' }} />
-                    </div>
-                    <p className="text-xs mb-3" style={{ color: '#71717a' }}>Group lessons into weeks or topics</p>
-                    <div className="flex flex-col gap-1 w-full text-[10px]">
-                      <div className="px-2 py-1 rounded font-semibold" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lighter)' }}>📁 Module 1</div>
-                      <div className="ml-3 px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: '#52525b' }}>↳ Lesson · Lesson · ···</div>
-                      <div className="px-2 py-1 rounded font-semibold mt-0.5" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', color: '#52525b' }}>📁 Module 2</div>
-                      <div className="ml-3 px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.03)', color: '#3f3f46' }}>↳ Lesson · ···</div>
-                    </div>
-                  </button>
-
-                  {/* Add Lesson */}
-                  <div className="flex flex-col gap-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider px-1" style={{ color: '#52525b' }}>Add Lesson</p>
-                    {([
-                      { label: 'Video', icon: '🎬', type: 'video' as const },
-                      { label: 'PDF', icon: '📄', type: 'pdf' as const },
-                      { label: 'Live Session', icon: '📡', type: 'live' as const },
-                      { label: 'Quiz', icon: '🧠', type: 'quiz' as const },
-                      { label: 'Assignment', icon: '📝', type: 'assignment' as const },
-                    ]).map((btn, i) => (
-                      <button key={i}
-                        onClick={() => { setAddContentType(btn.type); setShowAddModal(true) }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90 text-left w-full"
-                        style={{ background: 'rgba(255,255,255,0.04)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <span>{btn.icon}</span> {btn.label}
-                      </button>
-                    ))}
-                  </div>
-
-                </div>
-              </div>
 
                 {/* Lesson list */}
                 {lessons.length === 0 && modules.length === 0 ? (
@@ -2649,7 +2762,7 @@ export default function CourseManagePage({
                                   <Trash2 className="w-3 h-3" />
                                 </button>
                               </div>
-                              <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>
+                              <p className="text-xs mt-0.5" style={{ color: '#a6a6ab' }}>
                                 {moduleLessons.length} lesson{moduleLessons.length !== 1 ? 's' : ''}
                               </p>
                             </div>
@@ -2708,7 +2821,7 @@ export default function CourseManagePage({
                       }}
                       onMouseLeave={e => {
                         e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-                        e.currentTarget.style.color = '#52525b'
+                        e.currentTarget.style.color = '#a9a9ae'
                       }}>
                       <Plus className="w-4 h-4" />
                       Add Lesson {lessons.length + 1}
@@ -2738,31 +2851,35 @@ export default function CourseManagePage({
                       </div>
                     )}
                   </div>
-               )}
+                )}
               </>
-            
+
             ) : activeTab === 'settings' ? (
               <div className="flex flex-col gap-6">
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                   <h2 className="font-semibold text-white mb-5">Course Settings</h2>
 
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-6">
+                    <SectionDivider label="Course Details" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Course Name</label>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Name</label>
                       <input value={editName} onChange={e => setEditName(e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                     </div>
 
+                    <SectionDivider label="Course Description" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Description</label>
-                      <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={3}
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Description</label>
+                      <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
                     </div>
 
-                    <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                    <div className="mt-6">
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                         Brand / Business Name
-                        <span className="text-zinc-600 font-normal ml-1">— shown in your landing page nav instead of "Kurso"</span>
+                        <span className="text-zinc-300 text-sm font-normal ml-1">
+                          — shown in your landing page nav instead of "Kurso"
+                        </span>
                       </label>
                       <input
                         value={editBrandName}
@@ -2770,14 +2887,14 @@ export default function CourseManagePage({
                         placeholder="Your brand name (leave blank to use instructor name)"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
                       />
-                      <p className="text-[10px] text-zinc-600 mt-1">
+                      <p className="text-sm text-zinc-400 mt-1">
                         If you have a registered business name, add it here. Otherwise it falls back to your instructor name.
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mt-5">
                       <div>
-                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Category</label>
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Category</label>
                         <input
                           value={editCategory}
                           onChange={e => setEditCategory(e.target.value)}
@@ -2786,12 +2903,12 @@ export default function CourseManagePage({
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Difficulty Level</label>
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Difficulty Level</label>
                         <select
                           value={editLevel}
                           onChange={e => setEditLevel(e.target.value)}
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none appearance-none cursor-pointer"
-                          style={{ background: '#050505', color: editLevel ? '#fff' : '#52525b' }}
+                          style={{ background: '#050505', color: editLevel ? '#fff' : '#a9a9ae' }}
                         >
                           <option value="" style={{ background: '#050505', color: '#52525b' }}>Select level…</option>
                           {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(l => (
@@ -2801,39 +2918,50 @@ export default function CourseManagePage({
                       </div>
                     </div>
 
+                    <SectionDivider label="Course Price" />
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Price (₹)</label>
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Price (₹)</label>
                         <input value={editPrice} onChange={e => setEditPrice(e.target.value)} type="number"
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Original Price (₹)</label>
-                        <input value={editOriginalPrice} onChange={e => setEditOriginalPrice(e.target.value)} type="number"
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                          Original Price (₹)
+                          <span className="text-zinc-400 text-sm font-normal ml-2">
+                            — To show discount(like 50% off)
+                          </span>
+                        </label>
+                        <input
+                          value={editOriginalPrice}
+                          onChange={e => setEditOriginalPrice(e.target.value)}
+                          type="number"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                        />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Refund Window (days)</label>
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Refund Window (days)</label>
                         <input value={editRefundWindowDays} onChange={e => setEditRefundWindowDays(e.target.value)} type="number"
                           placeholder="7"
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
-                        <p className="text-[10px] mt-1" style={{ color: '#52525b' }}>0 = no refunds accepted</p>
+                        <p className="text-base mt-1" style={{ color: '#a5a5a8' }}>0 = no refunds accepted</p>
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Refund Policy (shown to students)</label>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Refund Policy (shown to students)</label>
                       <textarea value={editRefundPolicyText} onChange={e => setEditRefundPolicyText(e.target.value)}
                         placeholder="Describe your refund terms in your own words..."
                         rows={3}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
                     </div>
 
+                    <SectionDivider label="Free Preview" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Free Preview Configuration</label>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Free Preview Configuration</label>
                       <select
                         value={editFreePreview}
                         onChange={e => setEditFreePreview(e.target.value)}
@@ -2848,37 +2976,40 @@ export default function CourseManagePage({
                         <option value="module 1 free" style={{ background: '#050505', color: '#fff' }}>Module 1 free</option>
                         <option value="2 modules free" style={{ background: '#050505', color: '#fff' }}>2 modules free</option>
                       </select>
-                      <p className="text-[10px] text-zinc-500 mt-1.5">Select how much content is free for students</p>
+                      <p className="text-sm text-zinc-400 mt-1.5">Select how much content is free for students</p>
                     </div>
 
+                    <SectionDivider label="Course Schedule" />
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Start Date</label>
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Start Date</label>
                         <input value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Start Time</label>
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Start Time</label>
                         <input value={editStartTime} onChange={e => setEditStartTime(e.target.value)}
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Duration</label>
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Duration</label>
                         <input value={editDuration} onChange={e => setEditDuration(e.target.value)}
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                       </div>
                     </div>
 
 
+                    <SectionDivider label="Certificate Skills" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Skills Covered (comma separated, for certificate)</label>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Skills Covered (comma separated, for certificate)</label>
                       <input value={editSkills} onChange={e => setEditSkills(e.target.value)}
                         placeholder="e.g. SEO, Content Marketing, Keyword Research"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 " />
                     </div>
 
+                    <SectionDivider label="What You'll Walk Away With " />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">What You Will Learn</label>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">What You'll Walk Away With</label>
                       <div className="flex flex-col gap-2">
                         {editLearn.map((item, i) => (
                           <div key={i} className="flex gap-2">
@@ -2890,14 +3021,15 @@ export default function CourseManagePage({
                           </div>
                         ))}
                         <button onClick={() => setEditLearn([...editLearn, ''])}
-                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Point</button>
+                          className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Point</button>
                       </div>
                     </div>
 
+                    <SectionDivider label="Requirements" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                         Requirements / Prerequisites
-                        <span className="text-zinc-600 font-normal ml-1">— shown on landing page</span>
+                        <span className="text-zinc-400 font-normal ml-1">— shown on landing page</span>
                       </label>
                       <div className="flex flex-col gap-2">
                         {editRequirements.map((item, i) => (
@@ -2913,12 +3045,13 @@ export default function CourseManagePage({
                           </div>
                         ))}
                         <button onClick={() => setEditRequirements([...editRequirements, ''])}
-                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Requirement</button>
+                          className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Requirement</button>
                       </div>
                     </div>
 
+                    <SectionDivider label="Instructor" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Instructor Photo</label>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Photo</label>
                       <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
                           {editHostImage ? (
@@ -2944,13 +3077,13 @@ export default function CourseManagePage({
                           >
                             {uploadingImage ? 'Uploading...' : 'Change Photo'}
                           </label>
-                          <p className="text-[10px] text-zinc-500 mt-1.5">Square JPG/PNG recommended (max 2MB)</p>
+                          <p className="text-[14px] text-zinc-400 mt-1.5"> JPG/PNG (max 2MB)</p>
                         </div>
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">About Instructor</label>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">About Instructor</label>
                       <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2" />
                       <input
@@ -2964,9 +3097,9 @@ export default function CourseManagePage({
                     </div>
 
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                         Additional Instructors
-                        <span className="text-zinc-600 font-normal ml-1">— optional, for co-taught courses</span>
+                        <span className="text-zinc-400 font-normal ml-1">— optional, for co-taught courses</span>
                       </label>
                       <CoInstructorsEditor
                         value={editCoInstructors}
@@ -2978,11 +3111,12 @@ export default function CourseManagePage({
                       />
                     </div>
 
-                   {/* Promo videos */}
+                    {/* Promo videos */}
+                    <SectionDivider label="Promo Videos" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                         Promo / Preview Videos
-                        <span className="text-zinc-600 font-normal ml-1">— up to 3, YouTube or Vimeo links, shown in their own section right after the hero</span>
+                        <span className="text-zinc-400 font-normal ml-1">— up to 3, YouTube or Vimeo links</span>
                       </label>
                       <div className="flex flex-col gap-2">
                         {editPromoVideoUrls.map((url, i) => (
@@ -3000,14 +3134,15 @@ export default function CourseManagePage({
                             className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add video</button>
                         )}
                       </div>
-                      <p className="text-[10px] text-zinc-600 mt-1">A link that isn't a recognized YouTube or Vimeo URL is skipped on the live page rather than breaking it.</p>
-                    </div> 
+                      
+                    </div>
 
                     {/* Target audience */}
+                    <SectionDivider label="Who Is This Course For?" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                         Who Is This Course For?
-                        <span className="text-zinc-600 font-normal ml-1">— shown as a "Who this is for" section</span>
+                        <span className="text-zinc-400 font-normal ml-1">— shown as a "Who this is for" section</span>
                       </label>
                       <div className="flex flex-col gap-2">
                         {editTargetAudience.map((item, i) => (
@@ -3021,15 +3156,16 @@ export default function CourseManagePage({
                           </div>
                         ))}
                         <button onClick={() => setEditTargetAudience([...editTargetAudience, ''])}
-                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Audience</button>
+                          className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Audience</button>
                       </div>
                     </div>
 
                     {/* Testimonials */}
+                    <SectionDivider label="What Students Say" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                         Student Testimonials
-                        <span className="text-zinc-600 font-normal ml-1">— shown on the landing page</span>
+                        
                       </label>
                       <div className="flex flex-col gap-3">
                         {editTestimonials.map((t, i) => (
@@ -3047,15 +3183,17 @@ export default function CourseManagePage({
                               onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], text: e.target.value }; setEditTestimonials(n) }}
                               placeholder="What they said about the course..."
                               rows={2}
-                              className="w-full bg-transparent text-sm text-zinc-400 outline-none resize-none" />
+                              className="w-full bg-transparent text-sm text-zinc-300 outline-none resize-none" />
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-zinc-500">Rating:</span>
-                              {[1,2,3,4,5].map(star => (
+                              <span className="text-sm text-zinc-300">Rating:</span>
+                              {[1, 2, 3, 4, 5].map(star => (
                                 <button key={star} type="button"
                                   onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star }; setEditTestimonials(n) }}
-                                  style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
+                                  style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
                               ))}
+                              <span className="text-sm text-zinc-400 ml-2">({t.rating || 5}/5)</span>
                             </div>
+                            <span className="text-sm text-zinc-400">Click on the stars to set rating </span>
                           </div>
                         ))}
                         <button onClick={() => setEditTestimonials([...editTestimonials, { name: '', text: '', rating: 5 }])}
@@ -3063,8 +3201,9 @@ export default function CourseManagePage({
                       </div>
                     </div>
 
+                    <SectionDivider label="Frequently Asked Questions" />
                     <div>
-                      <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Frequently Asked Questions</label>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Frequently Asked Questions</label>
                       <div className="flex flex-col gap-3">
                         {editFaq.map((faq, i) => (
                           <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
@@ -3096,12 +3235,13 @@ export default function CourseManagePage({
                           className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add FAQ</button>
                       </div>
                     </div>
+                    <SectionDivider label="Certificate" />
                     {/* Certificate Settings */}
-                    <div className="pt-6 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <div>
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <p className="text-sm font-semibold text-white">Completion Certificates</p>
-                          <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+                          <p className="text-xs mt-0.5" style={{ color: '#939397' }}>
                             Auto-issued as PDF when a student completes all lessons
                           </p>
                         </div>
@@ -3121,7 +3261,7 @@ export default function CourseManagePage({
                         <div className="flex flex-col gap-4 mt-2">
                           {/* Template picker */}
                           <div>
-                            <label className="text-xs font-medium text-zinc-500 mb-2 block">Certificate Template</label>
+                            <label className="text-sm font-medium text-zinc-400 mb-2 block">Select Certificate Template</label>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {([
                                 { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
@@ -3197,7 +3337,7 @@ export default function CourseManagePage({
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <div className="flex items-center justify-between mb-1.5">
-                                <label className="text-xs font-medium text-zinc-500">Use Brand Logo on Certificate</label>
+                                <label className="text-xs font-medium text-zinc-400">Use Brand Logo on Certificate</label>
                                 <button
                                   type="button"
                                   onClick={() => setEditUseLogoOnCertificate(v => !v)}
@@ -3232,14 +3372,14 @@ export default function CourseManagePage({
                               )}
 
                               {!editUseLogoOnCertificate && (
-                                <p className="text-xs mt-1" style={{ color: '#52525b' }}>
+                                <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
                                   Uses the same logo set in Design Landing Page.
                                 </p>
                               )}
                             </div>
 
                             <div>
-                              <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Instructor Signature (optional)</label>
+                              <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Signature (optional)</label>
                               <input type="file" accept="image/png,image/jpeg" id="cert-sig"
                                 className="hidden"
                                 onChange={async e => {
@@ -3258,7 +3398,7 @@ export default function CourseManagePage({
                           {/* Custom message */}
                           <div>
                             <div className="flex items-center justify-between mb-1.5">
-                              <label className="text-xs font-medium text-zinc-500">Custom Message on Certificate</label>
+                              <label className="text-sm font-medium text-zinc-400">Custom Message on Certificate</label>
                               <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
                             </div>
                             <input
@@ -3268,30 +3408,205 @@ export default function CourseManagePage({
                               placeholder="e.g. Keep building, keep shipping. — Your Name"
                               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
                             />
-                            <p className="text-xs mt-1" style={{ color: '#52525b' }}>
+                            <p className="text-[12px] mt-1" style={{ color: '#919193' }}>
                               Appears as a small line on the certificate. Leave blank to omit.
-                            </p>
-                          </div>
-
-                          {/* Preview badge */}
-                          <div
-                            className="flex items-center gap-3 p-3 rounded-xl"
-                            style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.15)' }}
-                          >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                              <circle cx="12" cy="8" r="6" /><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
-                            </svg>
-                            <p className="text-xs" style={{ color: '#a1a1aa' }}>
-                              Students get a PDF certificate at{' '}
-                              <span style={{ color: '#d4af37' }}>
-                                kurso.in/certificate/[ID]
-                              </span>{' '}
-                              — shareable verification link included.
                             </p>
                           </div>
                         </div>
                       )}
                     </div>
+
+                    <SectionDivider label="What's Included (Bonuses)" />
+                    <div className="flex flex-col gap-3">
+                      {settingsLandingConfig.bonuses.map((bonus, i) => (
+                        <div key={i} className="flex gap-2 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div className="flex-1 flex flex-col gap-2">
+                            <input value={bonus.title} onChange={e => updateBonus(i, 'title', e.target.value)}
+                              placeholder="Bonus title (e.g. Private community access)"
+                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
+                            <input value={bonus.description} onChange={e => updateBonus(i, 'description', e.target.value)}
+                              placeholder="Short description (optional)"
+                              className="w-full px-3 py-2 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
+                          </div>
+                          <button type="button" onClick={() => removeBonus(i)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                            style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={addBonus}
+                        className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                        <Plus className="w-3.5 h-3.5" /> Add bonus
+                      </button>
+                    </div>
+
+                    <SectionDivider label="Disclaimer" />
+                    <div className="flex flex-col gap-2">
+                      <input value={settingsLandingConfig.disclaimer.title} onChange={e => updateDisclaimer('title', e.target.value)}
+                        placeholder="Title (e.g. Important information)"
+                        className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                      <textarea value={settingsLandingConfig.disclaimer.text} onChange={e => updateDisclaimer('text', e.target.value)}
+                        placeholder="Disclaimer text shown on the live page..." rows={4}
+                        className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400 resize-none" />
+                    </div>
+                     
+                    <SectionDivider label="Custom Sections"   />
+                    <p className="text-sm -mt-3 mb-1" style={{ color: '#a1a1a4' }}>
+                      Create section according to your needs. Each section can have a heading, body text, and images. You can also customize the heading size, body text size, alignment, box style, and spacing. 
+                    </p>
+                    <div className="flex flex-col gap-4">
+                      {settingsLandingConfig.customSections.map((cs) => (
+                        <div key={cs.id} className="p-4 rounded-xl flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <input value={cs.heading} onChange={e => updateCustomSection(cs.id, { heading: e.target.value })}
+                            maxLength={MAX_CUSTOM_HEADING_LENGTH} placeholder="Heading"
+                            className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                          <textarea value={cs.body} onChange={e => updateCustomSection(cs.id, { body: e.target.value })}
+                            maxLength={MAX_CUSTOM_BODY_LENGTH} placeholder="Body text..." rows={4}
+                            className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600 resize-none" />
+                          <p className="text-[12px] -mt-1" style={{ color: '#8d8d91' }}>{cs.body.length} / {MAX_CUSTOM_BODY_LENGTH} characters</p>
+
+                          <div className="flex flex-col gap-2">
+                            <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Images ({cs.images.length} / {MAX_CUSTOM_SECTION_IMAGES})</span>
+                            {cs.images.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {cs.images.map((img, imgI) => (
+                                  <div key={imgI} className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <img src={img} alt="" className="w-full h-full object-cover" />
+                                    <button type="button" onClick={() => removeCustomSectionImage(cs.id, img)}
+                                      className="absolute top-0.5 right-0.5 w-5 h-5 rounded flex items-center justify-center"
+                                      style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}>
+                                      <XIcon className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {cs.images.length < MAX_CUSTOM_SECTION_IMAGES && (
+                              <label className="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium cursor-pointer"
+                                style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                                <ImageIconLucide className="w-3.5 h-3.5" />
+                                {uploadingCustomImageId === cs.id ? 'Uploading...' : '1 image = full width · 2 side by side · 3+ scrolls — add images'}
+                                <input type="file" accept="image/*" multiple hidden disabled={uploadingCustomImageId === cs.id}
+                                  onChange={e => { if (e.target.files?.length) addCustomSectionImages(cs.id, e.target.files); e.target.value = '' }} />
+                              </label>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Heading size</span>
+                              <select value={cs.headingSize} onChange={e => updateCustomSection(cs.id, { headingSize: e.target.value as any })}
+                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
+                                <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
+                                <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Body text size</span>
+                              <select value={cs.bodySize} onChange={e => updateCustomSection(cs.id, { bodySize: e.target.value as any })}
+                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
+                                <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
+                                <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Alignment</span>
+                              <select value={cs.align} onChange={e => updateCustomSection(cs.id, { align: e.target.value as any })}
+                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                <option value="left" style={{ background: '#27272a', color: '#fff' }}>Left</option>
+                                <option value="center" style={{ background: '#27272a', color: '#fff' }}>Center</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Box style</span>
+                              <select value={cs.style} onChange={e => updateCustomSection(cs.id, { style: e.target.value as any })}
+                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                <option value="plain" style={{ background: '#27272a', color: '#fff' }}>Plain</option>
+                                <option value="card" style={{ background: '#27272a', color: '#fff' }}>Card</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Spacing</span>
+                              <select value={cs.spacing} onChange={e => updateCustomSection(cs.id, { spacing: e.target.value as any })}
+                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                <option value="compact" style={{ background: '#27272a', color: '#fff' }}>Compact</option>
+                                <option value="normal" style={{ background: '#27272a', color: '#fff' }}>Normal</option>
+                                <option value="roomy" style={{ background: '#27272a', color: '#fff' }}>Roomy</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Background</span>
+                              <select value={cs.background} onChange={e => updateCustomSection(cs.id, { background: e.target.value as any })}
+                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                <option value="theme" style={{ background: '#27272a', color: '#fff' }}>Match theme (recommended)</option>
+                                <option value="custom" style={{ background: '#27272a', color: '#fff' }}>Custom color</option>
+                              </select>
+                            </label>
+                          </div>
+
+                          {cs.background === 'custom' && (
+                            <label className="flex items-center gap-2">
+                              <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Background color</span>
+                              <input type="color" value={cs.backgroundColor} onChange={e => updateCustomSection(cs.id, { backgroundColor: e.target.value })}
+                                className="w-8 h-8 rounded border border-white/10 bg-transparent" />
+                            </label>
+                          )}
+
+                          <div className="flex justify-end">
+                            <button type="button" onClick={() => removeCustomSection(cs.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                              style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
+                              <Trash2 className="w-3.5 h-3.5" /> Remove section
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <button type="button" onClick={addCustomSection}
+                        disabled={settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE}
+                        className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                        <Plus className="w-3.5 h-3.5" />
+                        {settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE ? `Limit of ${MAX_CUSTOM_SECTIONS_PER_COURSE} reached` : 'Add custom section'}
+                      </button>
+                    </div>
+
+                    <SectionDivider label="Countdown & Seats" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown ends at</label>
+                        <input type="datetime-local" value={settingsLandingConfig.urgency.endAt}
+                          onChange={e => updateUrgency('endAt', e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white" />
+                      </div>
+                      <div>
+                        <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
+                        <input value={settingsLandingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
+                          placeholder="Enrollment closes in"
+                          className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                      </div>
+                      <div>
+                        <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
+                        <input type="number" min={0} value={settingsLandingConfig.urgency.seatsAvailable ?? ''}
+                          onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
+                          placeholder="Leave blank to hide"
+                          className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                      </div>
+                      <div>
+                        <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats label</label>
+                        <input value={settingsLandingConfig.urgency.seatsLabel} onChange={e => updateUrgency('seatsLabel', e.target.value)}
+                          placeholder="seats left at this price"
+                          className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                      </div>
+                    </div>
+                    {settingsLandingConfig.urgency.endAt && new Date(settingsLandingConfig.urgency.endAt).getTime() <= Date.now() && (
+                      <p className="text-xs -mt-2" style={{ color: 'var(--kurso-accent)' }}>
+                        ⚠ This date is in the past — the countdown won't show on the live page until you set a future date.
+                      </p>
+                    )}
 
                     <button onClick={updateSettings} disabled={savingSettings}
                       className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50 mt-4">
@@ -3307,7 +3622,7 @@ export default function CourseManagePage({
                       <div className="p-5 rounded-2xl bg-red-500/5 border border-red-500/10 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div>
                           <p className="text-sm font-bold text-white mb-1">Delete Course</p>
-                          <p className="text-xs text-zinc-500">
+                          <p className="text-sm text-zinc-300 ">
                             Permanently delete this course and all its data. This cannot be undone.
                           </p>
                         </div>
@@ -3328,7 +3643,7 @@ export default function CourseManagePage({
           {/* ── RIGHT: Course Info + Share ── */}
           <div className="flex flex-col gap-4">
 
-            
+
             {/* Publish toggle */}
             <div className="rounded-2xl p-5"
               style={{
@@ -3371,7 +3686,7 @@ export default function CourseManagePage({
                 <Eye className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                 Course Page
               </h3>
-              <p className="text-xs mb-3" style={{ color: '#52525b' }}>
+              <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
                 This is what students see when they visit your course link.
               </p>
               <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
@@ -3380,7 +3695,7 @@ export default function CourseManagePage({
                 <ExternalLink className="w-4 h-4" />
                 Preview Course Page
               </Link>
-              
+
             </div>
 
             {/* Student Update / Delay Broadcast */}
@@ -3400,7 +3715,7 @@ export default function CourseManagePage({
               />
               <span className="text-xs" style={{ color: '#949499' }}>{delayMessage.length}/500</span>
               <div className="flex items-center justify-between mb-3">
-                
+
                 <span className="text-xs" style={{ color: '#949499' }}>Sends via Telegram & WhatsApp to all enrolled students</span>
               </div>
               <button
@@ -3423,7 +3738,7 @@ export default function CourseManagePage({
                 <Share2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                 Share Course
               </h3>
-              <p className="text-xs mb-4" style={{ color: '#949499' }}>
+              <p className="text-xs mb-4" style={{ color: '#adadb0' }}>
                 Share this link with your students to enroll.
               </p>
 
