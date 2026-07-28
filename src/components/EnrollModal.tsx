@@ -799,15 +799,16 @@ export default function EnrollModal({ onClose, course }: Props) {
 
   // ── Loading ──────────────────────────────────────────────────────
   if (checkingAuth) {
-    return (
+    const loadingModal = (
       <div className="fixed inset-0 z-50 flex items-center justify-center"
         style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
         <div className="w-10 h-10 violet-gradient rounded-xl animate-pulse-glow" />
       </div>
     )
+    return typeof document !== 'undefined' ? createPortal(loadingModal, document.body) : null
   }
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
       <div className="w-full max-w-md rounded-2xl overflow-hidden"
@@ -1292,4 +1293,6 @@ export default function EnrollModal({ onClose, course }: Props) {
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null
 }
