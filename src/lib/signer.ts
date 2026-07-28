@@ -178,6 +178,32 @@ export function verifyLessonResourceUrl(
   return { ...fail, valid: timingSafeEqual(sig, expected) }
 }
 
+// ══════════════════════════════════════════════════════════════════
+// MY COURSES PAGE URL (opened from WhatsApp — phone-only, no login)
+// ══════════════════════════════════════════════════════════════════
+
+export function signMyCoursesUrl(identity: string, ttl = TTL.RESOURCE): string {
+  const exp = Date.now() + ttl
+  const payload = `mycourses.${identity}.${exp}`
+  const sig = hmac(payload)
+  const p = new URLSearchParams({ identity, exp: String(exp), sig })
+  return `${BASE}/wa/my-courses?${p}`
+}
+
+export function verifyMyCoursesUrl(params: URLSearchParams): { valid: boolean; identity: string } {
+  const identity = params.get('identity') || ''
+  const exp = params.get('exp') || ''
+  const sig = params.get('sig') || ''
+  const fail = { valid: false, identity }
+
+  if (!identity || !exp || !sig) return fail
+  if (Date.now() > parseInt(exp, 10)) return fail
+
+  const payload = `mycourses.${identity}.${exp}`
+  const expected = hmac(payload)
+  return { valid: timingSafeEqual(sig, expected), identity }
+}
+
 const ZWS  = '\u200B'   // zero-width space  = bit 0
 const ZWNJ = '\u200C'   // zero-width non-joiner = bit 1
 

@@ -123,6 +123,13 @@ export default function LessonResourcePage({
   const [saving, setSaving] = useState(false)
   const [previousResult, setPreviousResult] = useState<{ score: number; total: number } | null>(null)
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null)
+  const [linkInvalid, setLinkInvalid] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
+
+  const identity = searchParams.get('identity') || ''
+  const exp = searchParams.get('exp') || ''
+  const sig = searchParams.get('sig') || ''
+  const cameFromSignedLink = Boolean(identity && exp && sig)
 
   useEffect(() => {
     async function load() {
@@ -134,15 +141,35 @@ export default function LessonResourcePage({
       const l = data?.[0] || null
       setLesson(l)
 
-      // Check for previous quiz attempt
       if (l && type === 'quiz') {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const enrollment = await findPaidEnrollment({ courseId: l.course_id, user })
-          if (enrollment) {
-            setEnrollmentId(enrollment.id)
-            const prev = (enrollment.quiz_results || []).find((r: any) => r.lessonId === lessonId)
-            if (prev) setPreviousResult({ score: prev.score, total: prev.total })
+        if (cameFromSignedLink) {
+          // WhatsApp path — verify the signed link server-side (this page
+          // can't hold the signing secret) and resolve the enrollment by
+          // phone instead of requiring a logged-in session.
+          try {
+            const params = new URLSearchParams({ lessonId, type, identity, exp, sig })
+            const res = await fetch(`/api/resource/resolve?${params.toString()}`)
+            const json = await res.json()
+            if (!res.ok || !json.valid) {
+              setLinkInvalid(true)
+            } else {
+              setEnrollmentId(json.enrollmentId || null)
+              if (json.previousResult) setPreviousResult(json.previousResult)
+            }
+          } catch (e) {
+            console.error('[quiz resolve]', e)
+            setLinkInvalid(true)
+          }
+        } else {
+          // Direct website visit — existing logged-in-session path
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const enrollment = await findPaidEnrollment({ courseId: l.course_id, user })
+            if (enrollment) {
+              setEnrollmentId(enrollment.id)
+              const prev = (enrollment.quiz_results || []).find((r: any) => r.lessonId === lessonId)
+              if (prev) setPreviousResult({ score: prev.score, total: prev.total })
+            }
           }
         }
       }
@@ -150,7 +177,7 @@ export default function LessonResourcePage({
       setLoading(false)
     }
     load()
-  }, [lessonId, type])
+  }, [lessonId, type, cameFromSignedLink, identity, exp, sig])
 
   const questions = useMemo(
     () => (Array.isArray(lesson?.quiz_questions) ? lesson!.quiz_questions! : []),
@@ -160,28 +187,33 @@ export default function LessonResourcePage({
   const score = questions.reduce((s, q, i) => s + (answers[i] === q.answerIndex ? 1 : 0), 0)
 
   async function handleSubmit() {
-    if (Object.keys(answers).length < questions.length) return
+    if (Object.keys(answers).length < questions.length || linkInvalid) return
     setSaving(true)
     setSubmitted(true)
 
-    // Save to Supabase
     try {
-      await fetch('/api/lesson/complete', {
+      const res = await fetch('/api/lesson/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enrollmentId,
+          identity: cameFromSignedLink ? identity : undefined,
+          source: cameFromSignedLink ? 'whatsapp' : 'web',
           lessonId,
           lessonNum: lesson?.order_num,
           courseId: lesson?.course_id,
-          source: 'web',
           quizScore: score,
           quizTotal: questions.length,
         }),
       })
-      setPreviousResult({ score, total: questions.length })
+      if (res.ok) {
+        setPreviousResult({ score, total: questions.length })
+      } else {
+        setSaveFailed(true)
+      }
     } catch (e) {
       console.error('[quiz submit]', e)
+      setSaveFailed(true)
     }
     setSaving(false)
   }
@@ -228,7 +260,11 @@ export default function LessonResourcePage({
 
         {/* ── QUIZ ── */}
         {type === 'quiz' && (
-          questions.length === 0 ? (
+          linkInvalid ? (
+            <div className="p-8 rounded-xl border border-red-500/20 bg-red-500/5 text-center text-red-400">
+              This link has expired or is invalid. Go back to WhatsApp and tap the lesson again to get a fresh link.
+            </div>
+          ) : questions.length === 0 ? (
             <div className="p-8 rounded-xl border border-white/10 bg-white/[0.03] text-center text-zinc-400">
               No quiz available for this lesson yet.
             </div>
@@ -288,7 +324,11 @@ export default function LessonResourcePage({
                   <p className="text-sm text-zinc-400">
                     {score === questions.length ? '🎉 Perfect score!' : score >= questions.length / 2 ? '👍 Good job!' : '📖 Review the lesson and try again.'}
                   </p>
-                  <p className="text-xs text-zinc-500 mt-2">Score saved to your progress.</p>
+                  {saveFailed ? (
+                    <p className="text-xs text-amber-400 mt-2">Your score didn't save — check your connection and retake the quiz.</p>
+                  ) : (
+                    <p className="text-xs text-zinc-500 mt-2">Score saved to your progress.</p>
+                  )}
                 </div>
               )}
             </div>
