@@ -152,12 +152,19 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
     return false
   }
 
-  // Telegram chat ID path
+  // Raw phone number (WhatsApp) or Telegram chat ID — the signed link
+  // never tags which channel it came from, and both are just numeric
+  // strings, so check both columns rather than guessing from the shape.
+  if (!/^[0-9]+$/.test(identity)) {
+    setCachedEnrollment(cacheKey, false)
+    return false
+  }
+
   const { data: enrollment } = await supabase
     .from('enrollments')
     .select('payment_status')
-    .eq('telegram_chat_id', identity)
     .eq('course_uuid', lesson.course_id)
+    .or(`phone.eq.${identity},telegram_chat_id.eq.${identity}`)
     .limit(1)
     .single()
 

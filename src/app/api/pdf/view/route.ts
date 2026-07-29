@@ -123,12 +123,17 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
     return false
   }
 
-  // 4. Otherwise, look up by Telegram chat ID (numeric string)
+  // 4. Otherwise, this is a raw phone number (WhatsApp) or a Telegram chat
+  //    ID — the signed link never tags which channel it came from, and
+  //    both are just numeric strings, so check both columns rather than
+  //    guessing from the shape of the identity itself.
+  if (!/^[0-9]+$/.test(identity)) return false // defensive: only ever a digit string past this point
+
   const { data: enrollment } = await supabase
     .from('enrollments')
     .select('payment_status')
-    .eq('telegram_chat_id', identity)
     .eq('course_uuid', lesson.course_id)
+    .or(`phone.eq.${identity},telegram_chat_id.eq.${identity}`)
     .limit(1)
     .single()
 
@@ -276,7 +281,7 @@ export async function GET(req: NextRequest) {
       const { data: enrollment } = await supabase
         .from('enrollments')
         .select('phone')
-        .eq('telegram_chat_id', identity)
+        .or(`phone.eq.${identity},telegram_chat_id.eq.${identity}`)
         .limit(1)
         .single()
       if (enrollment?.phone) studentName = enrollment.phone
