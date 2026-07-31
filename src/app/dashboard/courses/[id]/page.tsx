@@ -1984,6 +1984,7 @@ export default function CourseManagePage({
   const [broadcastSent, setBroadcastSent] = useState(false)
   const [creatorId, setCreatorId] = useState('')
   const [copied, setCopied] = useState(false)
+  const [copiedCheckout, setCopiedCheckout] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
   const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>('lessons')
@@ -2530,11 +2531,20 @@ export default function CourseManagePage({
     setTimeout(() => setCopied(false), 2500)
   }
 
+  function copyCheckoutLink() {
+    if (!course) return
+    const url = `${window.location.origin}/enroll/${course.id}`
+    navigator.clipboard.writeText(url)
+    setCopiedCheckout(true)
+    setTimeout(() => setCopiedCheckout(false), 2500)
+  }
+
   const publishedCount = lessons.filter(l => l.is_published).length
   const allPublished = lessons.length > 0 && publishedCount === lessons.length
   const plannedTotal = Math.max(course?.total_lessons || 0, lessons.length)
   const remainingLessons = Math.max(plannedTotal - publishedCount, 0)
   const courseUrl = course ? `${window.location.origin}/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}` : ''
+  const checkoutUrl = course ? `${window.location.origin}/enroll/${course.id}` : ''
 
   if (loading) {
     return (
@@ -3696,6 +3706,32 @@ export default function CourseManagePage({
                 Preview Course Page
               </Link>
 
+            </div>
+
+            {/* Checkout Link — for creators who already have their own landing page elsewhere */}
+            <div className="rounded-2xl p-5 glass"
+              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+                <LinkIcon className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                Checkout Link
+              </h3>
+              <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
+                Already have your own landing page? Use this link as your payment button instead — it skips straight to checkout, no Kurso page shown first.
+              </p>
+              <Link href={`/enroll/${course.id}`} target="_blank"
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all mb-2"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <ExternalLink className="w-4 h-4" />
+                Preview Checkout Link
+              </Link>
+              <button onClick={copyCheckoutLink}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {copiedCheckout
+                  ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
+                  : <><Copy className="w-4 h-4" />Copy Checkout Link</>
+                }
+              </button>
             </div>
 
             {/* Student Update / Delay Broadcast */}
