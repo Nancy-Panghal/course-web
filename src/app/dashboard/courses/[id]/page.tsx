@@ -89,6 +89,7 @@ interface Lesson {
   live_join_url?: string | null
   live_recording_url?: string | null
   live_duration_minutes?: number | null
+  video_storage_path?: string | null
 }
 
 interface QuizQuestion {
@@ -621,30 +622,110 @@ function ExpectedDeliveryEditor({ lesson, onRefresh }: { lesson: Lesson; onRefre
 function LiveRecordingEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: () => void }) {
   const [url, setUrl] = useState(lesson.live_recording_url || '')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const hasProtectedRecording = !!lesson.video_storage_path
 
-  async function save() {
+  async function handleUpload(file: File) {
+    const allowedExt = ['.mp4', '.mov', '.webm', '.m4v']
+    const nameLower = file.name.toLowerCase()
+    if (!allowedExt.some(ext => nameLower.endsWith(ext))) {
+      setUploadError('Please upload an MP4, MOV, WEBM, or M4V file.')
+      return
+    }
+    if (file.size > 3 * 1024 * 1024 * 1024) {
+      setUploadError('File is larger than 3GB — please compress it first.')
+      return
+    }
+    setUploading(true)
+    setUploadError('')
+    try {
+      const { storagePath } = await uploadToSupabase(file, 'live-recordings')
+      // Deliberately does NOT touch content_url (the join link stays intact)
+      // and clears the old raw live_recording_url so nothing else in the
+      // app can still surface an unprotected link for this lesson.
+      await supabase.from('lessons').update({
+        video_storage_path: storagePath,
+        live_recording_url: null,
+      }).eq('id', lesson.id)
+      setUrl('')
+      onRefresh()
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function saveExternalLink() {
     const trimmed = url.trim()
     if (trimmed === (lesson.live_recording_url || '')) return
     setSaving(true)
-    await supabase.from('lessons').update({ live_recording_url: trimmed || null, content_url: trimmed || lesson.content_url }).eq('id', lesson.id)
+    await supabase.from('lessons').update({ live_recording_url: trimmed || null }).eq('id', lesson.id)
     setSaving(false)
     onRefresh()
+  }
+
+  if (hasProtectedRecording) {
+    return (
+      <div className="p-3 rounded-xl"
+        style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.18)' }}>
+        <p className="text-xs font-semibold mb-1" style={{ color: '#22c55e' }}>
+          🔒 Recording uploaded — watermarked & protected
+        </p>
+        <p className="text-[10px] text-zinc-500 mb-2">
+          Students watch this through the same protected player as your regular lesson videos — per-student watermark, expiring links.
+        </p>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="text-[11px] px-3 py-1.5 rounded-lg font-medium"
+          style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+          {uploading ? 'Uploading…' : 'Replace recording'}
+        </button>
+        <input ref={fileInputRef} type="file" accept="video/*" className="hidden"
+          onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+        {uploadError && <p className="text-[10px] mt-1.5" style={{ color: '#ef4444' }}>{uploadError}</p>}
+      </div>
+    )
   }
 
   return (
     <div className="p-3 rounded-xl"
       style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.18)' }}>
-      <p className="text-xs font-semibold mb-2" style={{ color: '#22c55e' }}>🎬 Add Recording URL</p>
+      <p className="text-xs font-semibold mb-2" style={{ color: '#22c55e' }}>🎬 Add Class Recording</p>
+
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="w-full py-2.5 rounded-lg text-sm font-semibold text-white mb-2 disabled:opacity-50"
+        style={{ background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))' }}>
+        {uploading ? 'Uploading…' : 'Upload Recording (recommended)'}
+      </button>
+      <input ref={fileInputRef} type="file" accept="video/*" className="hidden"
+        onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+      {uploadError && <p className="text-[10px] mb-2" style={{ color: '#ef4444' }}>{uploadError}</p>}
+      <p className="text-[10px] text-zinc-600 mb-3">
+        Uploaded recordings get a per-student watermark and expiring links, same as your regular lesson videos.
+      </p>
+
+      <div className="flex items-center gap-2 mb-2">
+        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+        <span className="text-[10px]" style={{ color: '#52525b' }}>or</span>
+        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+      </div>
+
       <input
         type="url"
         value={url}
         onChange={e => setUrl(e.target.value)}
-        onBlur={save}
-        placeholder="Paste recording link after session ends"
+        onBlur={saveExternalLink}
+        placeholder="Paste an external link (Drive, YouTube…)"
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-green-500/50"
       />
       <p className="text-[10px] text-zinc-600 mt-1.5">
-        {saving ? 'Saving…' : 'Once added, students can watch the recording on-demand.'}
+        {saving ? 'Saving…' : '⚠️ External links are not watermarked or protected — anyone with the link can share it.'}
       </p>
     </div>
   )
@@ -1438,6 +1519,8 @@ interface LiveSession {
   duration_minutes: number
   join_url: string
   recording_url?: string | null
+  recording_storage_path?: string | null
+  has_recording?: boolean
 }
 
 function LiveSessionsTab({ courseId, token }: { courseId: string; token: string }) {
@@ -1459,13 +1542,18 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
   const [recordingSessionId, setRecordingSessionId] = useState<string | null>(null)
   const [recordingUrl, setRecordingUrlState] = useState('')
   const [savingRecording, setSavingRecording] = useState(false)
+  const [uploadingRecording, setUploadingRecording] = useState(false)
+  const [recordingUploadError, setRecordingUploadError] = useState('')
+  const recordingFileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { fetchSessions() }, [courseId])
 
   async function fetchSessions() {
     setLoading(true)
     try {
-      const res = await fetch(`/api/live-sessions?courseId=${courseId}`)
+      const res = await fetch(`/api/live-sessions?courseId=${courseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
       const json = await res.json()
       setSessions(json.sessions || [])
     } catch { /* non-fatal */ }
@@ -1545,6 +1633,35 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
       headers: { Authorization: `Bearer ${token}` },
     })
     await fetchSessions()
+  }
+
+  async function handleSessionRecordingUpload(sessionId: string, file: File) {
+    const allowedExt = ['.mp4', '.mov', '.webm', '.m4v']
+    const nameLower = file.name.toLowerCase()
+    if (!allowedExt.some(ext => nameLower.endsWith(ext))) {
+      setRecordingUploadError('Please upload an MP4, MOV, WEBM, or M4V file.')
+      return
+    }
+    if (file.size > 3 * 1024 * 1024 * 1024) {
+      setRecordingUploadError('File is larger than 3GB — please compress it first.')
+      return
+    }
+    setUploadingRecording(true)
+    setRecordingUploadError('')
+    try {
+      const { storagePath } = await uploadToSupabase(file, 'live-session-recordings')
+      await fetch(`/api/live-sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ recording_storage_path: storagePath }),
+      })
+      setRecordingSessionId(null)
+      await fetchSessions()
+    } catch (err: any) {
+      setRecordingUploadError(err.message || 'Upload failed.')
+    } finally {
+      setUploadingRecording(false)
+    }
   }
 
   async function saveRecording(sessionId: string) {
@@ -1700,7 +1817,7 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
                           : { background: 'rgba(255,255,255,0.05)', color: '#52525b' }}>
                         {upcoming ? 'Upcoming' : 'Past'}
                       </span>
-                      {s.recording_url && (
+                      {s.has_recording && (
                         <span className="text-xs px-2 py-0.5 rounded-full"
                           style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
                           Recording added
@@ -1742,33 +1859,56 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
                 </div>
 
                 {/* Add recording (for past sessions without one) */}
-                {!upcoming && !s.recording_url && recordingSessionId !== s.id && (
+                {!upcoming && !s.has_recording && recordingSessionId !== s.id && (
                   <button
-                    onClick={() => { setRecordingSessionId(s.id); setRecordingUrlState('') }}
+                    onClick={() => { setRecordingSessionId(s.id); setRecordingUrlState(''); setRecordingUploadError('') }}
                     className="text-xs px-3 py-1.5 rounded-lg mt-1"
                     style={{ background: 'rgba(34,197,94,0.08)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
-                    + Add Recording URL
+                    + Add Recording
                   </button>
                 )}
 
                 {recordingSessionId === s.id && (
-                  <div className="flex gap-2 mt-2">
-                    <input
-                      value={recordingUrl}
-                      onChange={e => setRecordingUrlState(e.target.value)}
-                      type="url"
-                      placeholder="Recording link..."
-                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-violet-500/50"
-                    />
-                    <button onClick={() => saveRecording(s.id)} disabled={savingRecording}
-                      className="px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient disabled:opacity-50">
-                      {savingRecording ? '...' : 'Save'}
+                  <div className="mt-2 p-3 rounded-xl" style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.18)' }}>
+                    <button
+                      onClick={() => recordingFileInputRef.current?.click()}
+                      disabled={uploadingRecording}
+                      className="w-full py-2.5 rounded-lg text-sm font-semibold text-white mb-2 disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))' }}>
+                      {uploadingRecording ? 'Uploading…' : 'Upload Recording (recommended)'}
                     </button>
-                    <button onClick={() => setRecordingSessionId(null)}
-                      className="px-3 py-2 rounded-xl text-sm"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
-                      <X className="w-4 h-4" />
-                    </button>
+                    <input ref={recordingFileInputRef} type="file" accept="video/*" className="hidden"
+                      onChange={e => e.target.files?.[0] && handleSessionRecordingUpload(s.id, e.target.files[0])} />
+                    {recordingUploadError && <p className="text-[10px] mb-2" style={{ color: '#ef4444' }}>{recordingUploadError}</p>}
+                    <p className="text-[10px] text-zinc-600 mb-3">
+                      Uploaded recordings get a per-student watermark and expiring links.
+                    </p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                      <span className="text-[10px]" style={{ color: '#52525b' }}>or</span>
+                      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={recordingUrl}
+                        onChange={e => setRecordingUrlState(e.target.value)}
+                        type="url"
+                        placeholder="Or paste an external link..."
+                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-violet-500/50"
+                      />
+                      <button onClick={() => saveRecording(s.id)} disabled={savingRecording}
+                        className="px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient disabled:opacity-50">
+                        {savingRecording ? '...' : 'Save'}
+                      </button>
+                      <button onClick={() => setRecordingSessionId(null)}
+                        className="px-3 py-2 rounded-xl text-sm"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                        Cancel
+                      </button>
+                    </div>
+                    <p className="text-[10px] mt-1.5" style={{ color: '#71717a' }}>
+                      ⚠️ External links are not watermarked or protected.
+                    </p>
                   </div>
                 )}
               </div>

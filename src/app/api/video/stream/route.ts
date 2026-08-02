@@ -196,8 +196,8 @@ async function getStorageUrl(lessonId: string): Promise<string | null> {
     console.error('[video/stream] lesson not published', lessonId)
     return null
   }
-  if (lesson.content_type !== 'video') {
-    console.error('[video/stream] content_type is not "video", got:', JSON.stringify(lesson.content_type), lessonId)
+  if (lesson.content_type !== 'video' && !(lesson.content_type === 'live' && lesson.video_storage_path)) {
+    console.error('[video/stream] content_type is not "video" and no protected live recording, got:', JSON.stringify(lesson.content_type), lessonId)
     return null
   }
 

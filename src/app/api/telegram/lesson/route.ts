@@ -1,116 +1,207 @@
+/**
+ * app/api/lesson/view/route.ts
+ * ─────────────────────────────────────────────────────────────────
+ * Entry point for Telegram lesson links.
+ * Telegram bot sends:  https://yourapp.com/api/lesson/view?...signed params
+ *
+ * This route:
+ *  1. Verifies the signed URL
+ *  2. Verifies enrollment in Supabase
+ *  3. Logs access (piracy detection)
+ *  4. Returns HTML page with the lesson content — watermarked
+ *     (video uses /api/video/stream, PDF uses /api/pdf/view)
+ *
+ * Rendering itself lives in src/lib/lessonPageHtml.ts, shared with the
+ * WhatsApp lesson route (src/app/api/whatsapp/lesson/route.ts) so both
+ * platforms get identical watermarking, controls, and content-type
+ * handling (video/pdf/quiz/assignment/live) instead of two diverging
+ * implementations.
+ * ─────────────────────────────────────────────────────────────────
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
-import { signVideoUrl, signPdfUrl } from '@/lib/signer'
+import { verifyLessonPageUrl, signVideoUrl, signPdfUrl, encodeFingerprint, signLessonResourceUrl } from '@/lib/signer'
+import { renderLessonPage } from '@/lib/lessonPageHtml'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-function safeCompare(a: string, b: string) {
-  const left = Buffer.from(a)
-  const right = Buffer.from(b)
-  return left.length === right.length && crypto.timingSafeEqual(left, right)
-}
-
-function html(title: string, contentUrl: string, contentType: string, chatId: string) {
-  const safeTitle = title.replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] || c))
-  const player = contentType === 'pdf'
-    ? `<iframe src="${contentUrl}" title="${safeTitle}"></iframe>`
-    : `<video controls controlsList="nodownload" src="${contentUrl}"></video>`
-
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="robots" content="noindex,nofollow" />
-  <title>${safeTitle}</title>
-  <style>
-    html,body{margin:0;background:#050505;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
-    header{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;font-weight:700}
-    main{min-height:100vh;display:flex;flex-direction:column}
-    .player{position:relative;flex:1;background:#000;display:flex;align-items:center;justify-content:center}
-    video,iframe{width:100%;height:100%;border:0;max-height:calc(100vh - 46px)}
-    .wm{position:absolute;top:12px;left:12px;z-index:2;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.1);font-size:10px;color:rgba(255,255,255,.72);pointer-events:none}
-  </style>
-</head>
-<body>
-  <main>
-    <header>Kurso Protected Telegram Lesson</header>
-    <section class="player">
-      <div class="wm">TG:${chatId}</div>
-      ${player}
-    </section>
-  </main>
-</body>
-</html>`
+async function logAccess(lessonId: string, courseId: string, identity: string) {
+  try {
+    await supabase.from('lesson_access_logs').insert({
+      chat_id: identity,
+      lesson_id: lessonId,
+      course_id: courseId,
+      accessed_at: new Date().toISOString(),
+    })
+  } catch {
+    // non-critical
+  }
 }
 
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url)
-  const courseId = url.searchParams.get('courseId') || ''
-  const lessonId = url.searchParams.get('lessonId') || ''
-  const lesson = Number(url.searchParams.get('lesson') || '')
-  const chatId = url.searchParams.get('chatId') || ''
-  const exp = Number(url.searchParams.get('exp') || '')
-  const sig = url.searchParams.get('sig') || ''
+  const params = req.nextUrl.searchParams
 
-  if (!courseId || !lessonId || !lesson || !chatId || !exp || !sig) {
-    return NextResponse.json({ error: 'Invalid lesson link' }, { status: 400 })
+  const expParam = params.get('exp')
+  const hasAllParams = !!(
+    params.get('courseId') && params.get('lessonId') &&
+    params.get('lesson') && params.get('identity') &&
+    expParam && params.get('sig')
+  )
+
+  if (!hasAllParams) {
+    return new NextResponse(invalidLinkHtml(), {
+      status: 400,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
   }
 
-  if (Date.now() > exp) {
-    return NextResponse.json({ error: 'Lesson link expired' }, { status: 410 })
+  if (Date.now() > parseInt(expParam, 10)) {
+    return new NextResponse(expiredHtml(), {
+      status: 410,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
   }
 
-  const secret = process.env.TELEGRAM_LINK_SECRET || process.env.WHATSAPP_LINK_SECRET || process.env.TELEGRAM_WEBHOOK_SECRET
-  if (!secret) return NextResponse.json({ error: 'Telegram lesson links are not configured' }, { status: 500 })
+  const { valid, courseId, lessonId, lessonNum, identity } = verifyLessonPageUrl(params)
 
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(`${courseId}.${lessonId}.${lesson}.${chatId}.${exp}`)
-    .digest('hex')
-
-  if (!safeCompare(expected, sig)) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
+  if (!valid) {
+    return new NextResponse(invalidLinkHtml(), {
+      status: 403,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
   }
 
-  const enrollment = await supabase
-    .from('enrollments')
-    .select('id')
-    .eq('course_uuid', courseId)
-    .eq('telegram_chat_id', chatId)
-    .limit(1)
-
-  if (!enrollment.data?.[0]) {
-    return NextResponse.json({ error: 'Telegram enrollment not found' }, { status: 403 })
-  }
-
-  const { data } = await supabase
+  const { data: lesson } = await supabase
     .from('lessons')
-    .select('title, content_url, content_type, is_published, video_storage_path')
+    .select(`
+      id, title, content_type, order_num, duration, is_published, course_id,
+      summary_url, notes_url, quiz_questions,
+      assignment_prompt, assignment_required, assignment_file_url, assignment_file_name,
+      content_url, live_scheduled_at, live_recording_url, live_duration_minutes, video_storage_path
+    `)
     .eq('id', lessonId)
-    .eq('course_id', courseId)
-    .limit(1)
+    .single()
 
-  const row = data?.[0]
-  if (!row || !row.is_published) return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
-
-  // Generate signed URL for videos/PDFs so the proxy can enforce antipiracy
-  let playerUrl = row.content_url
-  if (row.content_type === 'video') {
-    playerUrl = signVideoUrl(lessonId, chatId)
-  } else if (row.content_type === 'pdf') {
-    playerUrl = signPdfUrl(lessonId, chatId)
+  if (!lesson || !lesson.is_published) {
+    return new NextResponse(notFoundHtml(), {
+      status: 404,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
   }
 
-  return new NextResponse(html(row.title, playerUrl, row.content_type, chatId), {
+  const { data: course } = await supabase
+    .from('courses')
+    .select('id, name, host_name, creator_id')
+    .eq('id', courseId)
+    .single()
+
+  let studentName = `User ${identity.slice(-6)}`
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('phone, payment_status, completed_lessons, quiz_results')
+    .eq('telegram_chat_id', identity)
+    .eq('course_uuid', courseId)
+    .limit(1)
+    .single()
+
+  if (enrollment?.phone) studentName = enrollment.phone
+
+  logAccess(lessonId, courseId, identity)
+
+  const contentUrl =
+    lesson.content_type === 'video' ? signVideoUrl(lessonId, identity) :
+    lesson.content_type === 'pdf' ? signPdfUrl(lessonId, identity) :
+    lesson.content_type === 'live' && lesson.video_storage_path ? signVideoUrl(lessonId, identity) :
+    null
+
+  const fingerprint = encodeFingerprint(identity)
+
+  const summaryUrl = lesson.summary_url ? signLessonResourceUrl(lesson.id, 'summary', identity) : null
+  const notesUrl = lesson.notes_url ? signLessonResourceUrl(lesson.id, 'notes', identity) : null
+  const quizUrl = (Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0)
+    ? signLessonResourceUrl(lesson.id, 'quiz', identity)
+    : null
+
+  const quizResult = Array.isArray(enrollment?.quiz_results)
+    ? enrollment.quiz_results.find((r: any) => r.lessonId === lesson.id)
+    : null
+
+  const isCompleted = Array.isArray(enrollment?.completed_lessons) && enrollment.completed_lessons.includes(lesson.order_num)
+
+  let telegramBotUsername = ''
+  if (course?.creator_id) {
+    const { data: creator } = await supabase
+      .from('creators')
+      .select('telegram_bot_username')
+      .eq('id', course.creator_id)
+      .single()
+    if (creator?.telegram_bot_username) {
+      telegramBotUsername = creator.telegram_bot_username.replace('@', '')
+    }
+  }
+
+  const { data: reminderRow } = enrollment?.phone
+    ? await supabase
+        .from('students')
+        .select('reminder_channel')
+        .eq('phone', enrollment.phone)
+        .maybeSingle()
+    : { data: null }
+
+  const html = renderLessonPage({
+    reminderChannel: reminderRow?.reminder_channel ?? null,
+    platform: 'telegram',
+    lesson,
+    course: course ? { id: course.id, name: course.name } : null,
+    studentName,
+    identity,
+    contentUrl,
+    fingerprint,
+    summaryUrl,
+    notesUrl,
+    quizUrl,
+    quizResult: quizResult || null,
+    isCompleted,
+    ctaUrl: telegramBotUsername ? `https://t.me/${telegramBotUsername}?start=done_${lesson.order_num}` : null,
+    ctaLabel: 'Continue on Telegram',
+    ctaColor: '#229ED9',
+  })
+
+  return new NextResponse(html, {
+    status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'private, no-store',
-      'X-Robots-Tag': 'noindex, nofollow',
+      'Cache-Control': 'no-store, no-cache, private',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'X-Content-Type-Options': 'nosniff',
     },
   })
+}
+
+function expiredHtml() {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Link Expired</title>
+  <style>body{background:#080808;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:24px}</style></head>
+  <body><div><div style="font-size:48px;margin-bottom:16px">⏱</div><h2 style="margin-bottom:12px">Link Expired</h2>
+  <p style="color:#71717a;margin-bottom:24px">This lesson link has expired. Go back to Telegram and tap the lesson button to get a fresh link.</p>
+  </div></body></html>`
+}
+
+function invalidLinkHtml() {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Link Not Valid</title>
+  <style>body{background:#080808;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:24px}</style></head>
+  <body><div><div style="font-size:48px;margin-bottom:16px">⚠️</div><h2 style="margin-bottom:12px">Link Not Valid</h2>
+  <p style="color:#71717a;margin-bottom:24px">This lesson link could not be verified. Go back to Telegram and tap the lesson button to get a fresh link. If this keeps happening, please let your instructor know — there may be a configuration issue.</p>
+  </div></body></html>`
+}
+
+function notFoundHtml() {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not Found</title>
+  <style>body{background:#080808;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:24px}</style></head>
+  <body><div><div style="font-size:48px;margin-bottom:16px">🔍</div><h2 style="margin-bottom:12px">Lesson Not Found</h2>
+  <p style="color:#71717a">This lesson may not be published yet. Contact your instructor.</p>
+  </div></body></html>`
 }

@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
       id, title, content_type, order_num, duration, is_published, course_id,
       summary_url, notes_url, quiz_questions,
       assignment_prompt, assignment_required, assignment_file_url, assignment_file_name,
-      content_url, live_scheduled_at, live_recording_url, live_duration_minutes
+      content_url, live_scheduled_at, live_recording_url, live_duration_minutes, video_storage_path
     `)
     .eq('id', lessonId)
     .eq('course_id', courseId)
@@ -152,6 +152,7 @@ export async function GET(req: NextRequest) {
   const contentUrl =
     lesson.content_type === 'video' ? signVideoUrl(lessonId, identity) :
     lesson.content_type === 'pdf' ? signPdfUrl(lessonId, identity) :
+    lesson.content_type === 'live' && lesson.video_storage_path ? signVideoUrl(lessonId, identity) :
     null
 
   const fingerprint = encodeFingerprint(identity)

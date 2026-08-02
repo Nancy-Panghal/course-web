@@ -43,6 +43,9 @@ interface Lesson {
   assignment_required?: boolean | null
   assignment_file_url?: string | null
   assignment_file_name?: string | null
+  video_storage_path?: string | null
+  live_recording_url?: string | null
+  
 }
 
 interface Course {
@@ -144,10 +147,29 @@ function LockedScreen({ course, onEnroll, expectedDeliveryText }: { course: Cour
   )
 }
 
-function PdfViewer({ src }: { src: string }) {
+function PdfViewer({ src, isMobile }: { src: string; isMobile: boolean }) {
+  if (isMobile) {
+    return (
+      <div style={{ width: '100%', minHeight: 220, background: '#111', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
+        <FileText className="w-8 h-8" style={{ color: '#71717a' }} />
+        <p style={{ color: '#a1a1aa', fontSize: 13 }}>PDF preview isn't supported on mobile browsers — download it to view.</p>
+        <a href={src} download target="_blank" rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, color: '#fff', background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', textDecoration: 'none' }}>
+          <Download className="w-4 h-4" /> Download PDF
+        </a>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ width: '100%', height: '75vh', background: '#111', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
-      <iframe src={src} style={{ width: '100%', height: '100%', border: 'none' }} title="Lesson PDF" />
+    <div>
+      <div style={{ width: '100%', height: '75vh', background: '#111', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <iframe src={src} style={{ width: '100%', height: '100%', border: 'none' }} title="Lesson PDF" />
+      </div>
+      <a href={src} download target="_blank" rel="noopener noreferrer"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, color: '#a1a1aa', textDecoration: 'none' }}>
+        <Download className="w-3.5 h-3.5" /> Download PDF
+      </a>
     </div>
   )
 }
@@ -157,6 +179,12 @@ export default function CourseLearnPage() {
   const router = useRouter()
 
   const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return
+    setIsMobile(/Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent))
+  }, [])
   const [loading, setLoading] = useState(true)
   const [course, setCourse] = useState<Course | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -429,7 +457,8 @@ export default function CourseLearnPage() {
   // lessons render their own dedicated UI further down instead.
   useEffect(() => {
     if (!currentLesson || !canAccess) { setContentUrl(null); return }
-    if (currentLesson.content_type !== 'video' && currentLesson.content_type !== 'pdf') {
+    const isRecordedLive = currentLesson.content_type === 'live' && !!currentLesson.video_storage_path
+    if (currentLesson.content_type !== 'video' && currentLesson.content_type !== 'pdf' && !isRecordedLive) {
       setContentUrl(null)
       setLoadingContent(false)
       return
@@ -465,7 +494,8 @@ export default function CourseLearnPage() {
   // Passed to WatermarkedPlayer as onExpired.
   const refreshContentUrl = useCallback(() => {
     if (!currentLesson || contentRetryRef.current) return
-    if (currentLesson.content_type !== 'video' && currentLesson.content_type !== 'pdf') return
+    const isRecordedLive = currentLesson.content_type === 'live' && !!currentLesson.video_storage_path
+    if (currentLesson.content_type !== 'video' && currentLesson.content_type !== 'pdf' && !isRecordedLive) return
     contentRetryRef.current = true
     const type = currentLesson.content_type === 'pdf' ? 'pdf' : 'video'
     getSignedContentUrl(currentLesson.id, type)
@@ -784,6 +814,15 @@ export default function CourseLearnPage() {
               )
             })}
           </div>
+
+          {isEnrolled && (
+            <LiveSessionsSidebarSection
+              courseId={course.id}
+              sessionToken={sessionToken}
+              studentName={user?.email || 'Student'}
+              studentId={enrollment?.phone || user?.phone || user?.user_metadata?.phone || ''}
+            />
+          )}
         </aside>
 
         {/* MAIN */}
@@ -830,7 +869,7 @@ export default function CourseLearnPage() {
                   )}
                 </div>
               ) : currentLesson?.content_type === 'assignment' ? null
-                : currentLesson?.content_type === 'live' ? (
+                : currentLesson?.content_type === 'live' && !currentLesson?.video_storage_path ? (
                 <div style={{ aspectRatio: '16/9', background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24, padding: 24, textAlign: 'center' }}>
                   {currentLesson.content_url ? (
                     <>
@@ -850,8 +889,11 @@ export default function CourseLearnPage() {
                 </div>
               ) : contentUrl ? (
                 <div style={{ marginBottom: 24 }}>
+                  {currentLesson?.content_type === 'live' && (
+                    <p style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>🎬 Class Recording</p>
+                  )}
                   {currentLesson?.content_type === 'pdf' ? (
-                    <PdfViewer src={contentUrl} />
+                    <PdfViewer src={contentUrl} isMobile={isMobile} />
                   ) : (
                     <WatermarkedPlayer
                       src={contentUrl}
@@ -1371,5 +1413,124 @@ export default function CourseLearnPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// ── LIVE SESSIONS (sidebar) ──
+// Separate from the `lessons` list above — these come from the
+// live_sessions table (scheduled multi-session live classes, distinct
+// from a per-lesson content_type of 'live'). Enrolled students only.
+interface LiveSessionItem {
+  id: string
+  title: string
+  scheduled_at: string
+  duration_minutes: number
+  join_url: string
+  has_recording?: boolean
+}
+
+function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, studentId }: { courseId: string; sessionToken: string | null; studentName: string; studentId: string }) {
+  const [sessions, setSessions] = useState<LiveSessionItem[]>([])
+  const [playingSessionId, setPlayingSessionId] = useState<string | null>(null)
+  const [playerUrl, setPlayerUrl] = useState<string | null>(null)
+  const [loadingPlayback, setLoadingPlayback] = useState(false)
+  const [playbackError, setPlaybackError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/live-sessions?courseId=${courseId}`)
+      .then(res => res.json())
+      .then(json => { if (!cancelled) setSessions(json.sessions || []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [courseId])
+
+  async function watchRecording(sessionId: string) {
+    if (!sessionToken) {
+      setPlaybackError('Please log in again to watch this recording.')
+      return
+    }
+    setPlayingSessionId(sessionId)
+    setLoadingPlayback(true)
+    setPlaybackError('')
+    setPlayerUrl(null)
+    try {
+      const res = await fetch(`/api/live-sessions/${sessionId}/sign-recording`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Could not load recording')
+      setPlayerUrl(json.url)
+    } catch (err: any) {
+      setPlaybackError(err.message || 'Could not load recording')
+    } finally {
+      setLoadingPlayback(false)
+    }
+  }
+
+  if (sessions.length === 0) return null
+
+  const now = Date.now()
+  const upcoming = sessions.filter(s => new Date(s.scheduled_at).getTime() >= now)
+  const pastWithRecording = sessions.filter(s => new Date(s.scheduled_at).getTime() < now && s.has_recording)
+
+  return (
+    <>
+      <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
+          Live Sessions
+        </p>
+
+        {upcoming.map(s => (
+          <a key={s.id} href={s.join_url} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 0', textDecoration: 'none' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#e4e4e7' }}>🔴 {s.title}</span>
+            <span style={{ fontSize: 10, color: 'var(--kurso-primary-light)' }}>
+              {new Date(s.scheduled_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })} — Join link
+            </span>
+          </a>
+        ))}
+
+        {pastWithRecording.map(s => (
+          <button key={s.id} onClick={() => watchRecording(s.id)}
+            style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 0', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#e4e4e7' }}>📼 {s.title}</span>
+            <span style={{ fontSize: 10, color: '#4ade80' }}>Watch recording</span>
+          </button>
+        ))}
+      </div>
+
+      {playingSessionId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setPlayingSessionId(null)}>
+          <div style={{ width: '100%', maxWidth: 720 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button onClick={() => setPlayingSessionId(null)}
+                style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8, color: '#fff', padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+                Close
+              </button>
+            </div>
+            {loadingPlayback ? (
+              <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', animation: 'pulse 1s infinite' }} />
+              </div>
+            ) : playbackError ? (
+              <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+                <p style={{ color: '#ef4444', fontSize: 13 }}>{playbackError}</p>
+              </div>
+            ) : playerUrl ? (
+              <WatermarkedPlayer
+                src={playerUrl}
+                studentName={studentName}
+                studentId={studentId}
+                lessonTitle="Live class recording"
+                onExpired={() => watchRecording(playingSessionId)}
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
+    </>
   )
 }

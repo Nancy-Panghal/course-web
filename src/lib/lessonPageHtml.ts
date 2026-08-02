@@ -34,6 +34,7 @@ export interface LessonPageLesson {
   live_scheduled_at?: string | null
   live_recording_url?: string | null
   live_duration_minutes?: number | null
+  video_storage_path?: string | null // set once a creator uploads a protected recording for a live lesson
 }
 
 export interface RenderLessonPageParams {
@@ -55,11 +56,16 @@ export interface RenderLessonPageParams {
   reminderChannel?: string | null // 'whatsapp' | 'telegram' | 'none' | null (student's saved preference)
 }
 
-function resolveContentKind(contentType: string): ContentKind {
+function resolveContentKind(lesson: LessonPageLesson): ContentKind {
+  const contentType = lesson.content_type
   if (contentType === 'pdf') return 'pdf'
   if (contentType === 'quiz') return 'quiz'
   if (contentType === 'assignment') return 'assignment'
-  if (contentType === 'live') return 'live'
+  // A live lesson with a protected upload plays through the same
+  // watermarked video branch as a regular video lesson — only a live
+  // lesson still awaiting/without a protected recording uses the
+  // dedicated 'live' branch (join link / unprotected legacy link).
+  if (contentType === 'live' && !lesson.video_storage_path) return 'live'
   return 'video'
 }
 
@@ -104,7 +110,7 @@ export function renderLessonPage({
   const title = lesson.title || 'Lesson'
   const courseName = course?.name || 'Course'
   const shortId = identity.slice(-6)
-  const contentKind = resolveContentKind(lesson.content_type)
+  const contentKind = resolveContentKind(lesson)
 
   return `<!DOCTYPE html>
 <html lang="en">

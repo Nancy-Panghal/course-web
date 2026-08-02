@@ -47,7 +47,7 @@ export async function PATCH(
     if (!owned) return NextResponse.json({ error: 'Session not found or access denied' }, { status: 403 })
 
     const body = await req.json()
-    const allowed = ['title', 'description', 'scheduled_at', 'duration_minutes', 'join_url', 'recording_url']
+    const allowed = ['title', 'description', 'scheduled_at', 'duration_minutes', 'join_url', 'recording_url', 'recording_storage_path']
     const updates: Record<string, any> = {}
 
     for (const key of allowed) {
@@ -67,6 +67,11 @@ export async function PATCH(
       }
     }
 
+    // Uploading a protected recording supersedes any legacy external link.
+    if (updates.recording_storage_path) {
+      updates.recording_url = null
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
@@ -75,12 +80,15 @@ export async function PATCH(
       .from('live_sessions')
       .update(updates)
       .eq('id', id)
-      .select('id, title, scheduled_at, duration_minutes, join_url, recording_url')
+      .select('id, title, scheduled_at, duration_minutes, join_url, recording_url, recording_storage_path')
       .single()
 
     if (error) throw error
 
-    return NextResponse.json({ ok: true, session: data })
+    return NextResponse.json({
+      ok: true,
+      session: { ...data, has_recording: !!(data.recording_url || data.recording_storage_path) },
+    })
   } catch (err: any) {
     console.error('[live-sessions PATCH]', err.message)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

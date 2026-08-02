@@ -22,7 +22,8 @@ async function getCreator(req: NextRequest) {
   return data.user
 }
 
-// ── GET — public, used by about-course and course manage page ─────
+// ── GET — public for the marketing page (recording link stripped),
+//         full detail for the owning creator (dashboard) ─────────
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url)
@@ -31,13 +32,27 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('live_sessions')
-      .select('id, title, description, scheduled_at, duration_minutes, join_url, recording_url')
+      .select('id, course_id, creator_id, title, description, scheduled_at, duration_minutes, join_url, recording_url, recording_storage_path')
       .eq('course_id', courseId)
       .order('scheduled_at', { ascending: true })
 
     if (error) throw error
 
-    return NextResponse.json({ sessions: data || [] })
+    const creator = await getCreator(req)
+    const isOwner = !!creator && (data || []).every(s => s.creator_id === creator.id)
+
+    const sessions = (data || []).map(s => {
+      const hasRecording = !!(s.recording_url || s.recording_storage_path)
+      if (isOwner) {
+        const { creator_id, ...rest } = s
+        return { ...rest, has_recording: hasRecording }
+      }
+      // Public/unauthenticated: never leak the raw link, just the status.
+      const { creator_id, recording_url, recording_storage_path, ...rest } = s
+      return { ...rest, has_recording: hasRecording }
+    })
+
+    return NextResponse.json({ sessions })
   } catch (err: any) {
     console.error('[live-sessions GET]', err.message)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

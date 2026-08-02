@@ -24,6 +24,7 @@ if (!SECRET && process.env.NODE_ENV === 'production') {
 // ── TTLs ───────────────────────────────────────────────────────────
 export const TTL = {
   VIDEO: 2 * 60 * 60 * 1000,      // 2 hours  — video stream
+  LIVE_SESSION_VIDEO: 2 * 60 * 60 * 1000, // 2 hours — live session recording stream
   PDF:   1 * 60 * 60 * 1000,      // 1 hour   — PDF view
   LESSON: 2 * 60 * 60 * 1000,     // 2 hours  — lesson page (from Telegram)
   RESOURCE: 2 * 60 * 60 * 1000,   // 2 hours  — notes, summary, quiz pages
@@ -67,6 +68,37 @@ export function verifyVideoUrl(params: URLSearchParams): { valid: boolean; lesso
   const payload = `video.${lessonId}.${identity}.${exp}`
   const expected = hmac(payload)
   return { valid: timingSafeEqual(sig, expected), lessonId, identity }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// LIVE SESSION RECORDING STREAM URL
+// Deliberately separate from signVideoUrl/verifyVideoUrl — the video
+// proxy resolves storage by looking up the `lessons` table, and a
+// live_sessions row is a different table entirely, so this uses its
+// own payload namespace ("lsvideo.") to avoid a signature from one
+// ever being replayable against the other's route.
+// ══════════════════════════════════════════════════════════════════
+
+export function signLiveSessionVideoUrl(sessionId: string, identity: string, ttl = TTL.LIVE_SESSION_VIDEO): string {
+  const exp = Date.now() + ttl
+  const payload = `lsvideo.${sessionId}.${identity}.${exp}`
+  const sig = hmac(payload)
+  const p = new URLSearchParams({ sessionId, identity, exp: String(exp), sig, t: 'lsv' })
+  return `${BASE}/api/live-session-video/stream?${p}`
+}
+
+export function verifyLiveSessionVideoUrl(params: URLSearchParams): { valid: boolean; sessionId: string; identity: string } {
+  const sessionId = params.get('sessionId') || ''
+  const identity = params.get('identity') || ''
+  const exp = params.get('exp') || ''
+  const sig = params.get('sig') || ''
+
+  if (!sessionId || !identity || !exp || !sig) return { valid: false, sessionId, identity }
+  if (Date.now() > parseInt(exp, 10)) return { valid: false, sessionId, identity }
+
+  const payload = `lsvideo.${sessionId}.${identity}.${exp}`
+  const expected = hmac(payload)
+  return { valid: timingSafeEqual(sig, expected), sessionId, identity }
 }
 
 // ══════════════════════════════════════════════════════════════════
