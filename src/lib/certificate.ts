@@ -11,6 +11,7 @@
 import { PDFDocument, rgb, StandardFonts, type PDFPage, type PDFFont, type RGB } from 'pdf-lib'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import QRCode from 'qrcode'
+import { getCertLayoutPalette, type CertPalette } from './certPalettes'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,13 +130,13 @@ function bust(url: string): string {
 
 // ─── Template 1: CLASSIC ─────────────────────────────────────────────────────
 // White bg · navy double border · Times-Roman · navy/gold palette
-function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFFont, assets: CertAssets = {}) {
-  const navy  = hx('#1a2744')
-  const gold  = hx('#c9a227')
-  const dkGld = hx('#8b6914')
+function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFFont, palette: CertPalette, assets: CertAssets = {}) {
+  const navy  = hx(palette.textPrimary)
+  const gold  = hx(palette.accent)
+  const dkGld = hx(palette.accentDark)
 
   // Background
-  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(1, 1, 1) })
+  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: hx(palette.background) })
 
   // Outer navy border
   page.drawRectangle({ x: 14, y: 14, width: W - 28, height: H - 28, borderColor: navy, borderWidth: 3 })
@@ -164,7 +165,7 @@ function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: P
 
   // "This is to certify that"
   const sub = 'This is to certify that'
-  page.drawText(sub, { x: cx(sub, ti, 16), y: H - 156, size: 16, font: ti, color: hx('#555555') })
+  page.drawText(sub, { x: cx(sub, ti, 16), y: H - 156, size: 16, font: ti, color: hx(palette.textMuted) })
 
   // Student name
   const name = fit(d.studentName, tb, 38, W - 120)
@@ -176,7 +177,7 @@ function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: P
 
   // "has successfully completed"
   const comp = 'has successfully completed'
-  page.drawText(comp, { x: cx(comp, ti, 16), y: H - 268, size: 16, font: ti, color: hx('#555555') })
+  page.drawText(comp, { x: cx(comp, ti, 16), y: H - 268, size: 16, font: ti, color: hx(palette.textMuted) })
 
   // Course name
   const course = fit(d.courseName, tb, 22, W - 120)
@@ -185,34 +186,34 @@ function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: P
   // Custom message
   if (d.customMessage) {
     const msg = fit(d.customMessage, ti, 13, W - 120)
-    page.drawText(msg, { x: cx(msg, ti, 13), y: H - 336, size: 13, font: ti, color: hx('#777777') })
+    page.drawText(msg, { x: cx(msg, ti, 13), y: H - 336, size: 13, font: ti, color: hx(palette.textSecondary) })
   }
 
   // Course duration and hours (if available)
   if (d.courseDuration) {
     const durationInfo = [d.courseDuration].filter(Boolean).join(' · ')
-    page.drawText(durationInfo, { x: cx(durationInfo, ti, 11), y: H - 358, size: 11, font: ti, color: hx('#666666') })
+    page.drawText(durationInfo, { x: cx(durationInfo, ti, 11), y: H - 358, size: 11, font: ti, color: hx(palette.textMuted) })
   }
 
   // Skills pills (if available)
   if (d.skills && d.skills.length > 0) {
-    drawSkillPills(page, d.skills, ti, H - 382, hx('#c9a227'), hx('#1a2744'))
+    drawSkillPills(page, d.skills, ti, H - 382, hx(palette.accent), hx(palette.textPrimary))
   }
 
   // Creator
   const creator = `Presented by ${d.creatorName}`
-  page.drawText(creator, { x: cx(creator, tr, 13), y: H - 410, size: 13, font: tr, color: hx('#444444') })
+  page.drawText(creator, { x: cx(creator, tr, 13), y: H - 410, size: 13, font: tr, color: hx(palette.textMuted) })
 
   // Bottom divider
   page.drawRectangle({ x: 40, y: 128, width: W - 80, height: 1.5, color: gold })
 
   // Date (left)
   page.drawText('Date of Completion', { x: 60, y: 110, size: 10, font: tb, color: navy })
-  page.drawText(fmt(d.issuedAt),      { x: 60, y: 90,  size: 13, font: tr, color: hx('#222222') })
+  page.drawText(fmt(d.issuedAt),      { x: 60, y: 90,  size: 13, font: tr, color: hx(palette.textPrimary) })
 
   // Cert ID (right)
   page.drawText('Certificate ID',  { x: W - 210, y: 110, size: 10, font: tb, color: navy })
-  page.drawText(d.certificateId,   { x: W - 210, y: 90,  size: 13, font: tr, color: hx('#222222') })
+  page.drawText(d.certificateId,   { x: W - 210, y: 90,  size: 13, font: tr, color: hx(palette.textPrimary) })
 
   // Signature (centre)
   const centerX = W / 2
@@ -220,19 +221,19 @@ function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: P
     const dims = assets.signatureImage.scaleToFit(140, 44)
     page.drawImage(assets.signatureImage, { x: centerX - dims.width / 2, y: 96, width: dims.width, height: dims.height })
   }
-  page.drawRectangle({ x: centerX - 80, y: 128, width: 160, height: 0.8, color: hx('#cccccc') })
+  page.drawRectangle({ x: centerX - 80, y: 128, width: 160, height: 0.8, color: hx(palette.divider) })
   const sigName = d.instructorName || d.creatorName
   page.drawText(sigName, { x: cx(sigName, tb, 11), y: 78, size: 11, font: tb, color: navy })
   if (d.instructorTitle) {
-    page.drawText(d.instructorTitle, { x: cx(d.instructorTitle, ti, 9), y: 65, size: 9, font: ti, color: hx('#777777') })
+    page.drawText(d.instructorTitle, { x: cx(d.instructorTitle, ti, 9), y: 65, size: 9, font: ti, color: hx(palette.textSecondary) })
   }
 
   // QR code (bottom-right)
   if (assets.qrImage) {
     const qrSize = 48
-    page.drawRectangle({ x: W - 72 - qrSize, y: 62, width: qrSize + 6, height: qrSize + 6, color: rgb(1, 1, 1) })
+    page.drawRectangle({ x: W - 72 - qrSize, y: 62, width: qrSize + 6, height: qrSize + 6, color: hx(palette.surface) })
     page.drawImage(assets.qrImage, { x: W - 69 - qrSize, y: 65, width: qrSize, height: qrSize })
-    page.drawText('SCAN TO VERIFY', { x: W - 72 - qrSize, y: 116, size: 7, font: tb, color: hx('#999999') })
+    page.drawText('SCAN TO VERIFY', { x: W - 72 - qrSize, y: 116, size: 7, font: tb, color: hx(palette.textSecondary) })
   }
 
   // Kurso centre branding
@@ -242,13 +243,13 @@ function drawClassic(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: P
 
 // ─── Template 2: MODERN ──────────────────────────────────────────────────────
 // Near-black bg · violet accent bars · Helvetica · clean layout
-function drawModern(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont, assets: CertAssets = {}) {
-  const bg     = hx('#0f0f1a')
-  const violet = hx('#7c3aed')
-  const lilac  = hx('#a78bfa')
-  const muted  = hx('#9ca3af')
-  const frame  = hx('#2d2d4e')
-  const white  = rgb(1, 1, 1)
+function drawModern(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont, palette: CertPalette, assets: CertAssets = {}) {
+  const bg     = hx(palette.background)
+  const violet = hx(palette.accent)
+  const lilac  = hx(palette.accentLight)
+  const muted  = hx(palette.textMuted)
+  const frame  = hx(palette.divider)
+  const white  = hx(palette.textLight)
 
   page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: bg })
   page.drawRectangle({ x: 0, y: 0, width: 8, height: H, color: violet })
@@ -329,11 +330,11 @@ function drawModern(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont,
 
 // ─── Template 3: GOLD ────────────────────────────────────────────────────────
 // Ivory bg · ornate gold double border · Times-Roman · warm palette
-function drawGold(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFFont, assets: CertAssets = {}) {
-  const cream = hx('#fdf8ed')
-  const gold  = hx('#c9a227')
-  const dkGld = hx('#8b6914')
-  const brown = hx('#3d2b1f')
+function drawGold(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFFont, palette: CertPalette, assets: CertAssets = {}) {
+  const cream = hx(palette.background)
+  const gold  = hx(palette.accent)
+  const dkGld = hx(palette.accentDark)
+  const brown = hx(palette.textPrimary)
 
   // Cream background
   page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: cream })
@@ -380,7 +381,7 @@ function drawGold(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFF
 
   // "has successfully completed the course"
   const comp = 'has successfully completed the course'
-  page.drawText(comp, { x: cx(comp, ti, 15), y: H - 268, size: 15, font: ti, color: hx('#666666') })
+  page.drawText(comp, { x: cx(comp, ti, 15), y: H - 268, size: 15, font: ti, color: hx(palette.textMuted) })
 
   // Course name
   const course = fit(d.courseName, tb, 22, W - 120)
@@ -389,18 +390,18 @@ function drawGold(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFF
   // Custom message
   if (d.customMessage) {
     const msg = fit(d.customMessage, ti, 13, W - 120)
-    page.drawText(msg, { x: cx(msg, ti, 13), y: H - 336, size: 13, font: ti, color: hx('#777777') })
+    page.drawText(msg, { x: cx(msg, ti, 13), y: H - 336, size: 13, font: ti, color: hx(palette.textSecondary) })
   }
 
   // Course duration and hours (if available)
   if (d.courseDuration) {
     const durationInfo = [d.courseDuration].filter(Boolean).join(' · ')
-    page.drawText(durationInfo, { x: cx(durationInfo, ti, 11), y: H - 358, size: 11, font: ti, color: hx('#666666') })
+    page.drawText(durationInfo, { x: cx(durationInfo, ti, 11), y: H - 358, size: 11, font: ti, color: hx(palette.textMuted) })
   }
 
   // Skills pills (if available)
   if (d.skills && d.skills.length > 0) {
-    drawSkillPills(page, d.skills, ti, H - 382, hx('#c9a227'), hx('#8b6914'))
+    drawSkillPills(page, d.skills, ti, H - 382, hx(palette.accent), hx(palette.accentDark))
   }
 
   // Creator
@@ -429,7 +430,7 @@ function drawGold(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFF
   const sigName = d.instructorName || d.creatorName
   page.drawText(sigName, { x: cx(sigName, tb, 11), y: 78, size: 11, font: tb, color: brown })
   if (d.instructorTitle) {
-    page.drawText(d.instructorTitle, { x: cx(d.instructorTitle, ti, 9), y: 65, size: 9, font: ti, color: hx('#777777') })
+    page.drawText(d.instructorTitle, { x: cx(d.instructorTitle, ti, 9), y: 65, size: 9, font: ti, color: hx(palette.textSecondary) })
   }
 
   // QR code (bottom-right)
@@ -447,13 +448,13 @@ function drawGold(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFF
 
 // ─── Template 4: MINIMAL ─────────────────────────────────────────────────────
 // Pure white · left-aligned layout · single violet top bar · Helvetica
-function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont, ti: PDFFont, assets: CertAssets = {}) {
-  const violet = hx('#7c3aed')
-  const mid    = hx('#6b7280')
-  const faint  = hx('#e5e7eb')
+function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont, ti: PDFFont, palette: CertPalette, assets: CertAssets = {}) {
+  const violet = hx(palette.accent)
+  const mid    = hx(palette.textMuted)
+  const faint  = hx(palette.divider)
 
   // White background
-  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(1, 1, 1) })
+  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: hx(palette.background) })
 
   // Top violet strip
   page.drawRectangle({ x: 0, y: H - 8, width: W, height: 8, color: violet })
@@ -472,7 +473,7 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
 
   // Big student name (left-aligned)
   const name = fit(d.studentName, bold, 44, W - 120)
-  page.drawText(name, { x: 60, y: H - 148, size: 44, font: bold, color: rgb(0, 0, 0) })
+  page.drawText(name, { x: 60, y: H - 148, size: 44, font: bold, color: hx(palette.textPrimary) })
 
   // Accent rule under name
   page.drawRectangle({ x: 60, y: H - 163, width: 240, height: 2, color: violet })
@@ -482,7 +483,7 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
 
   // Course name (left)
   const course = fit(d.courseName, bold, 22, W - 120)
-  page.drawText(course, { x: 60, y: H - 240, size: 22, font: bold, color: rgb(0, 0, 0) })
+  page.drawText(course, { x: 60, y: H - 240, size: 22, font: bold, color: hx(palette.textPrimary) })
 
   // Custom message
   if (d.customMessage) {
@@ -501,7 +502,7 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
 
   // Skills pills (if available) — centred
   if (d.skills && d.skills.length > 0) {
-    drawSkillPills(page, d.skills, regular, H - 348, hx('#7c3aed'), hx('#6b7280'))
+    drawSkillPills(page, d.skills, regular, H - 348, hx(palette.accent), hx(palette.textMuted))
   }
 
   // Bottom hairline
@@ -509,11 +510,11 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
 
   // Date (left)
   page.drawText('Date',           { x: 60, y: 110, size: 9,  font: bold,    color: mid })
-  page.drawText(fmt(d.issuedAt),  { x: 60, y: 90,  size: 13, font: regular, color: rgb(0, 0, 0) })
+  page.drawText(fmt(d.issuedAt),  { x: 60, y: 90,  size: 13, font: regular, color: hx(palette.textPrimary) })
 
   // Cert ID (right)
   page.drawText('Certificate ID', { x: W - 220, y: 110, size: 9,  font: bold,    color: mid })
-  page.drawText(d.certificateId,  { x: W - 220, y: 90,  size: 13, font: regular, color: rgb(0, 0, 0) })
+  page.drawText(d.certificateId,  { x: W - 220, y: 90,  size: 13, font: regular, color: hx(palette.textPrimary) })
 
   // Signature (centre)
   const centerX = W / 2
@@ -523,7 +524,7 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
   }
   page.drawRectangle({ x: centerX - 80, y: 128, width: 160, height: 0.8, color: faint })
   const sigName = d.instructorName || d.creatorName
-  page.drawText(sigName, { x: cx(sigName, bold, 11), y: 78, size: 11, font: bold, color: rgb(0, 0, 0) })
+  page.drawText(sigName, { x: cx(sigName, bold, 11), y: 78, size: 11, font: bold, color: hx(palette.textPrimary) })
   if (d.instructorTitle) {
     page.drawText(d.instructorTitle, { x: cx(d.instructorTitle, regular, 9), y: 65, size: 9, font: regular, color: mid })
   }
@@ -531,7 +532,7 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
   // QR code (bottom-right)
   if (assets.qrImage) {
     const qrSize = 48
-    page.drawRectangle({ x: W - 72 - qrSize, y: 62, width: qrSize + 6, height: qrSize + 6, color: rgb(1, 1, 1) })
+    page.drawRectangle({ x: W - 72 - qrSize, y: 62, width: qrSize + 6, height: qrSize + 6, color: hx(palette.surface) })
     page.drawImage(assets.qrImage, { x: W - 69 - qrSize, y: 65, width: qrSize, height: qrSize })
     page.drawText('SCAN TO VERIFY', { x: W - 72 - qrSize, y: 116, size: 7, font: bold, color: mid })
   }
@@ -543,12 +544,12 @@ function drawMinimal(page: PDFPage, d: DrawData, bold: PDFFont, regular: PDFFont
 
 // ─── Template 5: ROYAL ───────────────────────────────────────────────────────
 // Deep navy bg · gold borders · Times-Roman · premium feel
-function drawRoyal(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFFont, assets: CertAssets = {}) {
-  const navy   = hx('#060d2e')
-  const gold   = hx('#d4af37')
-  const ltGold = hx('#f0d060')
-  const dkGld  = hx('#8b6914')
-  const muted  = hx('#9ca3af')
+function drawRoyal(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDFFont, palette: CertPalette, assets: CertAssets = {}) {
+  const navy   = hx(palette.background)
+  const gold   = hx(palette.accent)
+  const ltGold = hx(palette.accentLight)
+  const dkGld  = hx(palette.accentDark)
+  const muted  = hx(palette.textMuted)
 
   // Navy background
   page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: navy })
@@ -616,23 +617,23 @@ function drawRoyal(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDF
 
   // Skills pills (if available)
   if (d.skills && d.skills.length > 0) {
-    drawSkillPills(page, d.skills, ti, H - 382, hx('#d4af37'), hx('#f0d060'))
+    drawSkillPills(page, d.skills, ti, H - 382, hx(palette.accent), hx(palette.accentDark))
   }
 
   // Creator
   const creator = `Presented by ${d.creatorName}`
-  page.drawText(creator, { x: cx(creator, tr, 13), y: H - 410, size: 13, font: tr, color: rgb(1, 1, 1) })
+  page.drawText(creator, { x: cx(creator, tr, 13), y: H - 410, size: 13, font: tr, color: hx(palette.textLight) })
 
   // Bottom divider
   page.drawRectangle({ x: 36, y: 128, width: W - 72, height: 1.5, color: gold })
 
   // Date
   page.drawText('Date of Completion', { x: 60, y: 110, size: 10, font: tb, color: gold })
-  page.drawText(fmt(d.issuedAt),      { x: 60, y: 90,  size: 13, font: tr, color: rgb(1, 1, 1) })
+  page.drawText(fmt(d.issuedAt),      { x: 60, y: 90,  size: 13, font: tr, color: hx(palette.textLight) })
 
   // Cert ID
   page.drawText('Certificate ID', { x: W - 208, y: 110, size: 10, font: tb, color: gold })
-  page.drawText(d.certificateId,  { x: W - 208, y: 90,  size: 13, font: tr, color: rgb(1, 1, 1) })
+  page.drawText(d.certificateId,  { x: W - 208, y: 90,  size: 13, font: tr, color: hx(palette.textLight) })
 
   // Signature (centre)
   const centerX = W / 2
@@ -650,7 +651,7 @@ function drawRoyal(page: PDFPage, d: DrawData, tb: PDFFont, tr: PDFFont, ti: PDF
   // QR code (bottom-right)
   if (assets.qrImage) {
     const qrSize = 48
-    page.drawRectangle({ x: W - 72 - qrSize, y: 62, width: qrSize + 6, height: qrSize + 6, color: rgb(1, 1, 1) })
+    page.drawRectangle({ x: W - 72 - qrSize, y: 62, width: qrSize + 6, height: qrSize + 6, color: hx(palette.surface) })
     page.drawImage(assets.qrImage, { x: W - 69 - qrSize, y: 65, width: qrSize, height: qrSize })
     page.drawText('SCAN TO VERIFY', { x: W - 72 - qrSize, y: 116, size: 7, font: tb, color: muted })
   }
@@ -669,6 +670,7 @@ export async function generateCertificatePDF(data: {
   certificateId: string
   issuedAt:      Date
   template:      CertTemplate
+  paletteId?: string | null
   customMessage?: string
   courseDuration?: string
   instructorName?: string
@@ -692,13 +694,14 @@ export async function generateCertificatePDF(data: {
   const signatureImage = await embedImageFromUrl(doc, data.signatureUrl)
   const qrImage        = await embedQrCode(doc, data.verificationUrl)
   const assets = { logoImage, signatureImage, qrImage }
+  const palette = getCertLayoutPalette(data.template, data.paletteId)
 
   switch (data.template) {
-    case 'modern':  drawModern (page, data, bold, regular, assets); break
-    case 'gold':    drawGold   (page, data, timesBold, timesRegular, timesItalic, assets); break
-    case 'minimal': drawMinimal(page, data, bold, regular, timesItalic, assets); break
-    case 'royal':   drawRoyal  (page, data, timesBold, timesRegular, timesItalic, assets); break
-    default:        drawClassic(page, data, timesBold, timesRegular, timesItalic, assets); break
+    case 'modern':  drawModern (page, data, bold, regular, palette, assets); break
+    case 'gold':    drawGold   (page, data, timesBold, timesRegular, timesItalic, palette, assets); break
+    case 'minimal': drawMinimal(page, data, bold, regular, timesItalic, palette, assets); break
+    case 'royal':   drawRoyal  (page, data, timesBold, timesRegular, timesItalic, palette, assets); break
+    default:        drawClassic(page, data, timesBold, timesRegular, timesItalic, palette, assets); break
   }
 
   return doc.save()
@@ -716,6 +719,7 @@ export async function issueCertificate(
     courseName:    string
     creatorName:   string
     template:      CertTemplate
+    paletteId?: string | null
     customMessage?: string
     courseDuration?: string
     
@@ -751,6 +755,7 @@ export async function issueCertificate(
     certificateId:  certId,
     issuedAt,
     template:       params.template,
+    paletteId:      params.paletteId,
     customMessage:  params.customMessage,
     courseDuration: params.courseDuration,
     instructorName: params.instructorName,

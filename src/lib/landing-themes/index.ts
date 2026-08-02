@@ -5,6 +5,12 @@ import { sunriseEditorial } from './sunriseEditorial'
 import { carbonBlack } from './carbonBlack'
 import { cherryBlossom } from './cherryBlossom'
 import { oceanBreeze } from './oceanBreeze'
+import { orchidBloom } from './orchidBloom'
+import { paperWhite } from './paperWhite'
+import { sageMeadow } from './sageMeadow'
+import { amberForge } from './amberForge'
+import { indigoSlate } from './indigoSlate'
+import { lagoonTeal } from './lagoonTeal'
 
 export type { LandingTheme, LandingThemeId } from './types'
 
@@ -18,6 +24,12 @@ export const LANDING_THEMES: LandingTheme[] = [
   carbonBlack,
   cherryBlossom,
   oceanBreeze,
+  orchidBloom,
+  paperWhite,
+  sageMeadow,
+  amberForge,
+  indigoSlate,
+  lagoonTeal,
 ]
 
 const THEME_MAP: Record<LandingThemeId, LandingTheme> = {
@@ -27,6 +39,12 @@ const THEME_MAP: Record<LandingThemeId, LandingTheme> = {
   'carbon-black': carbonBlack,
   'cherry-blossom': cherryBlossom,
   'ocean-breeze': oceanBreeze,
+  'orchid-bloom': orchidBloom,
+  'paper-white': paperWhite,
+  'sage-meadow': sageMeadow,
+  'amber-forge': amberForge,
+  'indigo-slate': indigoSlate,
+  'lagoon-teal': lagoonTeal,
 }
 
 /** Safe lookup — always falls back to the default theme for unknown/blank ids. */

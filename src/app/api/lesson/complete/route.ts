@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     // ── Determine planned lesson total (use courses.total_lessons; fall back to published count) ─
     const { data: courseRow } = await supabase
       .from('courses')
-      .select('total_lessons, name, creator_id, host_name, cert_enabled, cert_template, cert_custom_message, cert_logo_url, cert_signature_url, brand_logo_url, use_logo_on_certificate')
+      .select('total_lessons, name, creator_id, host_name, cert_enabled, cert_template, cert_palette, cert_custom_message, cert_logo_url, cert_signature_url, brand_logo_url, use_logo_on_certificate')
       .eq('id', courseId)
       .maybeSingle()
 
@@ -245,6 +245,7 @@ export async function POST(req: NextRequest) {
             courseName:    courseRow!.name,
             creatorName:   courseRow!.host_name || 'Creator',
             template:      (courseRow!.cert_template ?? 'classic') as CertTemplate,
+            paletteId:     courseRow!.cert_palette ?? 'classic-gold',
             customMessage: courseRow!.cert_custom_message ?? undefined,
             logoUrl: courseRow!.use_logo_on_certificate
               ? (courseRow!.brand_logo_url || undefined)

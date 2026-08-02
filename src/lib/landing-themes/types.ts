@@ -8,6 +8,12 @@ export type LandingThemeId =
   | 'carbon-black'
   | 'cherry-blossom'
   | 'ocean-breeze'
+  | 'orchid-bloom'
+  | 'paper-white'
+  | 'sage-meadow'
+  | 'amber-forge'
+  | 'indigo-slate'
+  | 'lagoon-teal'
 
 export interface LandingThemeColors {
   /** Page background (solid hex) */

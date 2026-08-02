@@ -12,6 +12,7 @@ import {
   type LandingConfig, type LandingSectionEntry, type LandingCustomSection,
 } from '@/lib/landing-config'
 import { MAX_CUSTOM_SECTIONS_PER_COURSE, MAX_CUSTOM_HEADING_LENGTH, MAX_CUSTOM_BODY_LENGTH } from '@/lib/customSectionText'
+import { CERT_PALETTES, getCertLayoutPalette } from '@/lib/certPalettes'
 import { Gift, AlertTriangle as AlertTriangleIcon, FileText as FileTextIcon, Timer as TimerIcon, X as XIcon, Image as ImageIconLucide } from 'lucide-react'
 
 import {
@@ -54,6 +55,8 @@ interface Course {
   use_logo_on_certificate?: boolean
   brand_name?: string
   instructor_title?: string
+  cert_template?: string
+  cert_palette?: string
   promo_video_url?: string
   promo_video_urls?: string[]
   target_audience?: string[]
@@ -1941,6 +1944,7 @@ function CertificatePreviewModal({
   isOpen,
   onClose,
   template,
+  paletteId,
   courseName,
   creatorName,
   skills,
@@ -1952,6 +1956,7 @@ function CertificatePreviewModal({
   isOpen: boolean
   onClose: () => void
   template: string
+  paletteId?: string
   courseName: string
   creatorName: string
   skills?: string
@@ -1962,40 +1967,20 @@ function CertificatePreviewModal({
 }) {
   if (!isOpen) return null
 
-  const templateStyles: Record<string, any> = {
-    classic: {
-      background: 'linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%)',
-      borderColor: '#1a2744',
-      accentColor: '#c9a227',
-      textColor: '#1a2744',
-    },
-    modern: {
-      background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%)',
-      borderColor: 'var(--kurso-primary)',
-      accentColor: 'var(--kurso-primary)',
-      textColor: '#ffffff',
-    },
-    gold: {
-      background: 'linear-gradient(135deg, #fdf8ed 0%, #f5ecd8 100%)',
-      borderColor: '#c9a227',
-      accentColor: '#c9a227',
-      textColor: '#3d2b1f',
-    },
-    minimal: {
-      background: '#ffffff',
-      borderColor: 'var(--kurso-primary)',
-      accentColor: 'var(--kurso-primary)',
-      textColor: '#000000',
-    },
-    royal: {
-      background: 'linear-gradient(135deg, #060d2e 0%, #0a1440 100%)',
-      borderColor: '#d4af37',
-      accentColor: '#d4af37',
-      textColor: '#ffffff',
-    },
+  const palette = getCertLayoutPalette(template, paletteId)
+  const isModern = template === 'modern'
+  const isGold = template === 'gold'
+  const isMinimal = template === 'minimal'
+  const isRoyal = template === 'royal'
+  const style = {
+    background: palette.background,
+    borderColor: isMinimal ? 'transparent' : palette.accent,
+    accentColor: palette.accent,
+    accentLight: palette.accentLight,
+    divider: palette.divider,
+    textColor: palette.textPrimary,
+    mutedTextColor: palette.textMuted,
   }
-
-  const style = templateStyles[template] || templateStyles.classic
 
   const skillsArray = skills
     ? skills.split(',').map(s => s.trim()).filter(Boolean)
@@ -2015,9 +2000,17 @@ function CertificatePreviewModal({
         {/* Preview Area */}
         <div className="p-6 flex-1 overflow-auto" style={{ background: '#0a0a0a' }}>
           <div
-            className="w-full aspect-[1.414/1] rounded-xl overflow-hidden shadow-2xl p-6 md:p-8 flex flex-col items-center justify-center mx-auto"
-            style={{ background: style.background, border: `4px solid ${style.borderColor}` }}
+            className="w-full aspect-[1.414/1] rounded-xl overflow-hidden shadow-2xl p-6 md:p-8 flex flex-col items-center justify-center mx-auto relative"
+            style={{
+              background: style.background,
+              border: isMinimal ? '0' : isGold ? `5px solid ${style.borderColor}` : isRoyal ? `3px solid ${style.borderColor}` : `4px solid ${style.borderColor}`,
+              outline: isGold ? `1px solid ${palette.accentDark}` : isRoyal ? `1px solid ${palette.accentDark}` : undefined,
+              outlineOffset: isGold || isRoyal ? '-12px' : undefined,
+            }}
           >
+            {isModern && <><span className="absolute inset-y-0 left-0 w-2" style={{ background: style.accentColor }} /><span className="absolute inset-y-0 right-0 w-2" style={{ background: style.accentColor }} /><span className="absolute inset-x-2 top-0 h-1.5" style={{ background: style.accentColor }} /><span className="absolute inset-7 border" style={{ borderColor: style.divider }} /></>}
+            {isMinimal && <><span className="absolute inset-x-0 top-0 h-2" style={{ background: style.accentColor }} /><span className="absolute inset-y-2 left-0 w-1" style={{ background: style.accentColor }} /></>}
+            {!isModern && !isMinimal && <span className="absolute inset-4 pointer-events-none" style={{ border: `1px solid ${isRoyal ? palette.accentDark : isGold ? palette.accentDark : style.divider}` }} />}
             {/* Logo */}
             {logoUrl && (
               <div className="mb-4 md:mb-6">
@@ -2028,7 +2021,7 @@ function CertificatePreviewModal({
             {/* Certificate Header */}
             <p
               className="text-xs tracking-[0.2em] uppercase mb-3 md:mb-4"
-              style={{ color: style.accentColor }}
+              style={{ color: isModern || isRoyal ? style.accentLight : style.accentColor }}
             >
               Certificate of Completion
             </p>
@@ -2045,7 +2038,7 @@ function CertificatePreviewModal({
             {/* Course Name */}
             <p
               className="text-lg md:text-xl mb-4 md:mb-6 text-center"
-              style={{ color: style.textColor }}
+              style={{ color: style.mutedTextColor }}
             >
               has successfully completed <strong>{courseName}</strong>
             </p>
@@ -2057,7 +2050,7 @@ function CertificatePreviewModal({
                   <span
                     key={i}
                     className="px-2 md:px-3 py-1 rounded-full text-xs"
-                    style={{ background: `${style.accentColor}20`, color: style.accentColor, border: `1px solid ${style.accentColor}40` }}
+                    style={{ background: `${style.accentColor}20`, color: isModern || isRoyal ? style.accentLight : style.accentColor, border: `1px solid ${style.accentColor}40` }}
                   >
                     {skill}
                   </span>
@@ -2069,7 +2062,7 @@ function CertificatePreviewModal({
             {courseDuration && (
               <p
                 className="text-xs md:text-sm mb-4 md:mb-6"
-                style={{ color: style.textColor + 'cc' }}
+                style={{ color: style.mutedTextColor }}
               >
                 Duration: {courseDuration}
               </p>
@@ -2079,7 +2072,7 @@ function CertificatePreviewModal({
             {customMessage && (
               <p
                 className="text-xs md:text-sm mb-4 md:mb-6 italic text-center max-w-md"
-                style={{ color: style.textColor + 'aa' }}
+                style={{ color: style.mutedTextColor }}
               >
                 "{customMessage}"
               </p>
@@ -2168,9 +2161,12 @@ export default function CourseManagePage({
   const [editIsFreeCourse, setEditIsFreeCourse] = useState(false)
   const [editCertEnabled, setEditCertEnabled] = useState(true)
   const [editCertTemplate, setEditCertTemplate] = useState<string>('classic')
+  const [editCertPalette, setEditCertPalette] = useState<string>('classic-gold')
   const [editCertCustomMessage, setEditCertCustomMessage] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
+  const settingsLoadedRef = useRef(false)
+  const lastSavedSettingsRef = useRef('')
 
   // Deletion state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -2238,6 +2234,11 @@ export default function CourseManagePage({
       setEditIsFreeCourse(courseData.is_free_course ?? false)
       setEditCertEnabled(courseData.cert_enabled !== false)
       setEditCertTemplate(courseData.cert_template || 'classic')
+      setEditCertPalette(
+        courseData.cert_palette && CERT_PALETTES.some(p => p.id === courseData.cert_palette)
+          ? courseData.cert_palette
+          : 'classic-gold'
+      )
       setEditCertCustomMessage(courseData.cert_custom_message || '')
       setEditCertLogoUrl(courseData.cert_logo_url || '')
       setEditCertSignatureUrl(courseData.cert_signature_url || '')
@@ -2364,7 +2365,7 @@ export default function CourseManagePage({
     updateCustomSection(csId, { images: cs.images.filter(img => img !== imageUrl) })
   }
 
-  async function updateSettings() {
+  async function updateSettings(): Promise<boolean> {
     setSavingSettings(true)
     const { error } = await supabase
       .from('courses')
@@ -2389,6 +2390,7 @@ export default function CourseManagePage({
         original_price: editIsFreeCourse ? 0 : (editOriginalPrice ? parseInt(editOriginalPrice) : parseInt(editPrice) || 0),
         cert_enabled: editCertEnabled,
         cert_template: editCertTemplate,
+        cert_palette: editCertPalette,
         cert_logo_url: editCertLogoUrl || null,
         cert_signature_url: editCertSignatureUrl || null,
         cert_custom_message: editCertCustomMessage.trim() || null,
@@ -2447,13 +2449,45 @@ export default function CourseManagePage({
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
         is_free_course: editIsFreeCourse,
+        cert_template: editCertTemplate,
+        cert_palette: editCertPalette,
         refund_window_days: editRefundWindowDays === '' ? 0 : parseInt(editRefundWindowDays),
         refund_policy_text: editRefundPolicyText.trim() || undefined,
         co_instructors: editCoInstructors.filter(ci => ci.name.trim()),
       })
     }
     setSavingSettings(false)
+    return !error
   }
+
+  const settingsSnapshot = JSON.stringify({
+    editName, editDesc, editPrice, editOriginalPrice, editRefundWindowDays, editRefundPolicyText,
+    editHostName, editAbout, editStartDate, editStartTime, editDuration, editPlannedLessons,
+    editNextLessonDate, editCourseEndDate, editStudentMessage, editLearn, editFaq, editHostImage,
+    editIsFreeCourse, editCertEnabled, editCertTemplate, editCertPalette, editCertCustomMessage,
+    editSkills, editCertLogoUrl, editCertSignatureUrl, editUseLogoOnCertificate, editBrandName,
+    editInstructorTitle, editCoInstructors, editPromoVideoUrls, editTargetAudience, editTestimonials,
+    editLevel, editCategory, editRequirements, settingsLandingConfig,
+  })
+
+  useEffect(() => {
+    if (!course) return
+    if (!settingsLoadedRef.current) {
+      settingsLoadedRef.current = true
+      lastSavedSettingsRef.current = settingsSnapshot
+      return
+    }
+    if (settingsSnapshot === lastSavedSettingsRef.current) return
+
+    const timer = window.setTimeout(async () => {
+      const saved = await updateSettings()
+      if (saved) lastSavedSettingsRef.current = settingsSnapshot
+    }, 1000)
+
+    return () => window.clearTimeout(timer)
+  // The snapshot deliberately groups every settings control into one debounced save.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsSnapshot, course])
 
   async function handleDeleteCourse() {
     if (deleteInput !== course?.name) return
@@ -3034,7 +3068,12 @@ export default function CourseManagePage({
             ) : activeTab === 'settings' ? (
               <div className="flex flex-col gap-6">
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <h2 className="font-semibold text-white mb-5">Course Settings</h2>
+                  <div className="flex items-center justify-between gap-4 mb-5">
+                    <h2 className="font-semibold text-white">Course Settings</h2>
+                    <span className="text-xs" style={{ color: savingSettings ? 'var(--kurso-primary-light)' : '#71717a' }}>
+                      {savingSettings ? 'Saving changes…' : 'Changes save automatically'}
+                    </span>
+                  </div>
 
                   <div className="flex flex-col gap-6">
                     <SectionDivider label="Course Details" />
@@ -3443,186 +3482,6 @@ export default function CourseManagePage({
                           className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add FAQ</button>
                       </div>
                     </div>
-                    <SectionDivider label="Certificate" />
-                    {/* Certificate Settings */}
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <p className="text-sm font-semibold text-white">Completion Certificates</p>
-                          <p className="text-xs mt-0.5" style={{ color: '#939397' }}>
-                            Auto-issued as PDF when a student completes all lessons
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setEditCertEnabled(v => !v)}
-                          className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
-                          style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
-                        >
-                          <div
-                            className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
-                            style={{ left: editCertEnabled ? '24px' : '4px' }}
-                          />
-                        </button>
-                      </div>
-
-                      {editCertEnabled && (
-                        <div className="flex flex-col gap-4 mt-2">
-                          {/* Template picker */}
-                          <div>
-                            <label className="text-sm font-medium text-zinc-400 mb-2 block">Select Certificate Template</label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {([
-                                { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
-                                { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
-                                { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
-                                { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
-                                { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
-                              ] as const).map(t => (
-                                <div
-                                  key={t.id}
-                                  className="flex items-center gap-2"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditCertTemplate(t.id)}
-                                    className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
-                                    style={{
-                                      background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
-                                      border: editCertTemplate === t.id
-                                        ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
-                                        : '1px solid rgba(255,255,255,0.08)',
-                                    }}
-                                  >
-                                    {/* Tiny colour swatch */}
-                                    <div
-                                      className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
-                                      style={{
-                                        background:
-                                          t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
-                                            t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
-                                              t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
-                                                t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
-                                                  'linear-gradient(135deg,#060d2e,#d4af37)',
-                                      }}
-                                    />
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-semibold text-white">{t.label}</p>
-                                      <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
-                                    </div>
-                                    {editCertTemplate === t.id && (
-                                      <div
-                                        className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
-                                        style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
-                                      >
-                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                          <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                      </div>
-                                    )}
-                                  </button>
-                                  {/* Preview icon button */}
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setPreviewTemplate(t.id)
-                                      setShowCertPreview(true)
-                                    }}
-                                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10"
-                                    style={{
-                                      background: 'rgba(255,255,255,0.03)',
-                                      border: '1px solid rgba(255,255,255,0.08)',
-                                      color: '#a1a1aa',
-                                    }}
-                                    title={`Preview ${t.label} template`}
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <label className="text-xs font-medium text-zinc-400">Use Brand Logo on Certificate</label>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditUseLogoOnCertificate(v => !v)}
-                                  className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                                  style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
-                                >
-                                  <div
-                                    className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-                                    style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
-                                  />
-                                </button>
-                              </div>
-
-                              {editUseLogoOnCertificate && brandLogoUrl && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
-                                  <span className="text-xs text-zinc-500">Will print on the certificate</span>
-                                </div>
-                              )}
-
-                              {editUseLogoOnCertificate && !brandLogoUrl && (
-                                <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
-                                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
-                                  <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
-                                    Please provide the brand logo above —{' '}
-                                    <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
-                                      upload it in Design Landing Page
-                                    </Link>.
-                                  </p>
-                                </div>
-                              )}
-
-                              {!editUseLogoOnCertificate && (
-                                <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
-                                  Uses the same logo set in Design Landing Page.
-                                </p>
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Signature (optional)</label>
-                              <input type="file" accept="image/png,image/jpeg" id="cert-sig"
-                                className="hidden"
-                                onChange={async e => {
-                                  const file = e.target.files?.[0]
-                                  if (!file) return
-                                  const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
-                                  setEditCertSignatureUrl(publicUrl)
-                                }} />
-                              <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
-                                {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
-                              </label>
-                              {editCertSignatureUrl && <span className="text-xs text-zinc-500 ml-2">Uploaded</span>}
-                            </div>
-                          </div>
-
-                          {/* Custom message */}
-                          <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <label className="text-sm font-medium text-zinc-400">Custom Message on Certificate</label>
-                              <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
-                            </div>
-                            <input
-                              type="text"
-                              value={editCertCustomMessage}
-                              onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
-                              placeholder="e.g. Keep building, keep shipping. — Your Name"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
-                            />
-                            <p className="text-[12px] mt-1" style={{ color: '#919193' }}>
-                              Appears as a small line on the certificate. Leave blank to omit.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
 
                     <SectionDivider label="What's Included (Bonuses)" />
                     <div className="flex flex-col gap-3">
@@ -3816,13 +3675,215 @@ export default function CourseManagePage({
                       </p>
                     )}
 
-                    <button onClick={updateSettings} disabled={savingSettings}
-                      className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50 mt-4">
-                      {savingSettings ? 'Saving Changes...' : 'Save All Changes'}
-                    </button>
+                    <div className="flex flex-col gap-6">
+                      <SectionDivider label="Certificate" />
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <p className="text-sm font-semibold text-white">Completion Certificates</p>
+                            <p className="text-xs mt-0.5" style={{ color: '#939397' }}>
+                              Auto-issued as PDF when a student completes all lessons
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setEditCertEnabled(v => !v)}
+                            className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
+                            style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
+                          >
+                            <div
+                              className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                              style={{ left: editCertEnabled ? '24px' : '4px' }}
+                            />
+                          </button>
+                        </div>
+
+                        {editCertEnabled && (
+                          <div className="flex flex-col gap-4 mt-2">
+                            <div>
+                              <label className="text-sm font-medium text-zinc-400 mb-2 block">Choose a Color Palette</label>
+                              <p className="text-xs mb-2" style={{ color: '#71717a' }}>
+                                Choose any color palette, then select any layout you like below.
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {CERT_PALETTES.map(palette => (
+                                  <button
+                                    key={palette.id}
+                                    type="button"
+                                    onClick={() => setEditCertPalette(palette.id)}
+                                    className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
+                                    style={{
+                                      background: editCertPalette === palette.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                                      border: editCertPalette === palette.id ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)' : '1px solid rgba(255,255,255,0.08)',
+                                    }}
+                                  >
+                                    <span className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.background}, ${palette.accent})`, border: `1px solid ${palette.divider}` }} />
+                                    <span className="text-sm font-semibold text-white">{palette.label}</span>
+                                    {editCertPalette === palette.id && <span className="ml-auto w-2 h-2 rounded-full" style={{ background: 'var(--kurso-primary)' }} />}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-sm font-medium text-zinc-400 mb-2 block">Choose a Layout</label>
+                              <p className="text-xs mb-2" style={{ color: '#71717a' }}>
+                                After selecting a color palette, select any layout and then click Preview to have a glance. You can change the color palette and layout by selecting another option.
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {([
+                                  { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
+                                  { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
+                                  { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
+                                  { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
+                                  { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
+                                ] as const).map(t => (
+                                  <div
+                                    key={t.id}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditCertTemplate(t.id)}
+                                      className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
+                                      style={{
+                                        background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                                        border: editCertTemplate === t.id
+                                          ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
+                                          : '1px solid rgba(255,255,255,0.08)',
+                                      }}
+                                    >
+                                      <div
+                                        className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
+                                        style={{
+                                          background:
+                                            t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
+                                              t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
+                                                t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
+                                                  t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
+                                                    'linear-gradient(135deg,#060d2e,#d4af37)',
+                                        }}
+                                      />
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-white">{t.label}</p>
+                                        <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
+                                      </div>
+                                      {editCertTemplate === t.id && (
+                                        <div
+                                          className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
+                                          style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
+                                        >
+                                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                            <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                          </svg>
+                                        </div>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setPreviewTemplate(t.id)
+                                        setShowCertPreview(true)
+                                      }}
+                                      className="px-3 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10 text-xs font-medium"
+                                      style={{
+                                        background: 'rgba(255,255,255,0.03)',
+                                        border: '1px solid rgba(255,255,255,0.08)',
+                                        color: '#a1a1aa',
+                                      }}
+                                      title={`Preview ${t.label} template`}
+                                    >
+                                      Preview
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <label className="text-xs font-medium text-zinc-400">Use Brand Logo on Certificate</label>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditUseLogoOnCertificate(v => !v)}
+                                    className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                                    style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
+                                  >
+                                    <div
+                                      className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                                      style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
+                                    />
+                                  </button>
+                                </div>
+
+                                {editUseLogoOnCertificate && brandLogoUrl && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
+                                    <span className="text-xs text-zinc-500">Will print on the certificate</span>
+                                  </div>
+                                )}
+
+                                {editUseLogoOnCertificate && !brandLogoUrl && (
+                                  <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
+                                    style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                                    <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
+                                      Please provide the brand logo above —{' '}
+                                      <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
+                                        upload it in Design Landing Page
+                                      </Link>.
+                                    </p>
+                                  </div>
+                                )}
+
+                                {!editUseLogoOnCertificate && (
+                                  <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
+                                    Uses the same logo set in Design Landing Page.
+                                  </p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Signature (optional)</label>
+                                <input type="file" accept="image/png,image/jpeg" id="cert-sig"
+                                  className="hidden"
+                                  onChange={async e => {
+                                    const file = e.target.files?.[0]
+                                    if (!file) return
+                                    const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
+                                    setEditCertSignatureUrl(publicUrl)
+                                  }} />
+                                <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
+                                  {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
+                                </label>
+                                {editCertSignatureUrl && <span className="text-xs text-zinc-500 ml-2">Uploaded</span>}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-sm font-medium text-zinc-400">Custom Message on Certificate</label>
+                                <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
+                              </div>
+                              <input
+                                type="text"
+                                value={editCertCustomMessage}
+                                onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
+                                placeholder="e.g. Keep building, keep shipping. — Your Name"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                              />
+                              <p className="text-[12px] mt-1" style={{ color: '#919193' }}>
+                                Appears as a small line on the certificate. Leave blank to omit.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                     {/* Danger Zone */}
-                    <div className="mt-12 pt-8 border-t border-red-500/20">
+                    <div className="order-20 mt-12 pt-8 border-t border-red-500/20">
                       <div className="flex items-center gap-2 mb-4">
                         <AlertTriangle className="w-4 h-4 text-red-500" />
                         <h3 className="text-sm font-bold text-red-500 uppercase tracking-widest">Danger Zone</h3>
@@ -3891,7 +3952,9 @@ export default function CourseManagePage({
             <div className="rounded-2xl p-5 glass"
               style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
               <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                <Eye className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                <span className="text-xs font-semibold" style={{ color: 'var(--kurso-primary-light)' }}>
+                  Preview
+                </span>
                 Course Page
               </h3>
               <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
@@ -4009,6 +4072,7 @@ export default function CourseManagePage({
           isOpen={showCertPreview}
           onClose={() => setShowCertPreview(false)}
           template={previewTemplate}
+          paletteId={editCertPalette}
           courseName={course.name}
           creatorName={course.host_name || 'Instructor'}
           skills={editSkills}

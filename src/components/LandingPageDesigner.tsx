@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { slugify } from '@/lib/utils'
 import { LANDING_THEMES, DEFAULT_LANDING_THEME_ID, getLandingTheme, type LandingThemeId } from '@/lib/landing-themes'
@@ -48,6 +48,8 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [savedMsg, setSavedMsg] = useState(false)
+  const landingLoadedRef = useRef(false)
+  const lastSavedSnapshotRef = useRef('')
 
   const [courseName, setCourseName] = useState('')
   const [hostName, setHostName] = useState('')
@@ -132,7 +134,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
     }
   }
 
-  async function handleSave() {
+  async function saveLandingPage() {
     setSaving(true)
     setError('')
 
@@ -173,10 +175,43 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
 
     setSaving(false)
     if (updateError) { setError(updateError.message); return }
+
+    const nextSnapshot = JSON.stringify({
+      selectedTheme,
+      brandLogoUrl,
+      landingConfig: configToSave,
+      fontPair,
+    })
+    lastSavedSnapshotRef.current = nextSnapshot
+
     setLandingConfig(configToSave)
     setSavedMsg(true)
     setTimeout(() => setSavedMsg(false), 2500)
   }
+
+  const landingSnapshot = JSON.stringify({
+    selectedTheme,
+    brandLogoUrl,
+    landingConfig,
+    fontPair,
+  })
+
+  useEffect(() => {
+    if (loading) return
+    if (!landingLoadedRef.current) {
+      landingLoadedRef.current = true
+      lastSavedSnapshotRef.current = landingSnapshot
+      return
+    }
+    if (saving) return
+    if (landingSnapshot === lastSavedSnapshotRef.current) return
+
+    const timer = window.setTimeout(async () => {
+      await saveLandingPage()
+    }, 1500)
+
+    return () => window.clearTimeout(timer)
+  }, [landingSnapshot, loading, saving])
 
   const middleSections = landingConfig.sections.filter(s => s.type !== PINNED_TOP && s.type !== PINNED_BOTTOM)
   const enabledCount = landingConfig.sections.filter(s => s.enabled).length
@@ -200,7 +235,10 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
     <div className="flex flex-col gap-6">
 
       {/* Header — course name already shown by the parent course page, this is just the live-preview link */}
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between">
+        <p className="text-xs" style={{ color: '#9c9ca0' }}>
+          {saving ? 'Saving…' : savedMsg ? '✓ Saved' : 'Saved automatically'}
+        </p>
         <a href={previewUrl(selectedTheme)} target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all"
           style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -517,11 +555,6 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
             {error}
           </div>
         )}
-
-        <button onClick={handleSave} disabled={saving}
-          className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-          {saving ? 'Saving...' : savedMsg ? '✓ Saved' : 'Save Landing Page'}
-        </button>
       </div>
     </div>
   )

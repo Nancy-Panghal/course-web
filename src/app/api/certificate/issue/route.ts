@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     // Use the enrollment's own course_uuid as the authoritative course ID
     const { data: course, error: courseErr } = await supabase
       .from('courses')
-      .select('id, name, host_name, cert_enabled, cert_template, cert_custom_message, duration, total_hours, skills, instructor_name, instructor_title, cert_logo_url, cert_signature_url, brand_logo_url, use_logo_on_certificate')
+      .select('id, name, host_name, cert_enabled, cert_template, cert_palette, cert_custom_message, duration, total_hours, skills, instructor_name, instructor_title, cert_logo_url, cert_signature_url, brand_logo_url, use_logo_on_certificate')
       .eq('id', enrollment.course_uuid)
       .maybeSingle()
 
@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
       courseName: course.name,
       creatorName: course.host_name || 'Creator',
       template: (course.cert_template ?? 'classic') as CertTemplate,
+      paletteId: course.cert_palette ?? 'classic-gold',
       customMessage: course.cert_custom_message ?? undefined,
       courseDuration: course.duration,
       instructorName: course.instructor_name,
