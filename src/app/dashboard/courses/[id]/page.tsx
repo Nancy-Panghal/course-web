@@ -72,6 +72,7 @@ interface Lesson {
   content_type: string
   order_num: number
   is_published: boolean
+  is_free: boolean
   duration: string
   module_id?: string | null
   summary_url?: string | null
@@ -1117,12 +1118,14 @@ function LessonWidget({
   lesson,
   onDelete,
   onTogglePublish,
+  onToggleFree,
   onRefresh,
   onRenumber,
 }: {
   lesson: Lesson
   onDelete: (id: string) => void
   onTogglePublish: (id: string, current: boolean) => void
+  onToggleFree: (id: string, current: boolean) => void
   onRefresh: () => void
   onRenumber: (lesson: Lesson, newNumber: string) => Promise<{ ok: boolean; error?: string }>
 }) {
@@ -1279,6 +1282,19 @@ function LessonWidget({
                 ? <><EyeOff className="w-3 h-3" />Unpublish</>
                 : <><Eye className="w-3 h-3" />Publish</>
               }
+            </button>
+
+            <button
+              onClick={() => onToggleFree(lesson.id, lesson.is_free)}
+              title={lesson.is_free ? 'Make this lesson paid' : 'Make this lesson free to preview'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: lesson.is_free ? 'rgba(56,189,248,0.1)' : 'rgba(255,255,255,0.05)',
+                color: lesson.is_free ? '#38bdf8' : '#8f8f91',
+                border: lesson.is_free ? '1px solid rgba(56,189,248,0.2)' : '1px solid rgba(255,255,255,0.08)',
+              }}>
+              <Gift className="w-3 h-3" />
+              {lesson.is_free ? 'Free' : 'Paid'}
             </button>
 
             <button onClick={() => { setExpanded(!expanded); setOperationError('') }}
@@ -2553,6 +2569,14 @@ export default function CourseManagePage({
     await fetchLessons()
   }
 
+  async function toggleLessonFree(lessonId: string, current: boolean) {
+    await supabase
+      .from('lessons')
+      .update({ is_free: !current })
+      .eq('id', lessonId)
+    await fetchLessons()
+  }
+
   async function publishAllLessons() {
     if (publishingRef.current) return
 
@@ -2931,11 +2955,12 @@ export default function CourseManagePage({
                             {moduleLessons.length === 0 ? (
                               <p className="text-xs py-3" style={{ color: '#52525b' }}>No lessons in this module yet.</p>
                             ) : moduleLessons.map(lesson => (
-                              <LessonWidget
+                       <LessonWidget
                                 key={lesson.id}
                                 lesson={lesson}
                                 onDelete={deleteLesson}
                                 onTogglePublish={toggleLessonPublish}
+                                onToggleFree={toggleLessonFree}
                                 onRefresh={fetchLessons}
                                 onRenumber={moveLessonToNumber}
                               />
@@ -2952,11 +2977,12 @@ export default function CourseManagePage({
                           lesson={lesson}
                           onDelete={deleteLesson}
                           onTogglePublish={toggleLessonPublish}
+                          onToggleFree={toggleLessonFree}
                           onRefresh={fetchLessons}
                           onRenumber={moveLessonToNumber}
                         />
                       ))}
-                    </div>
+                    </div>       
 
                     {/* Add next lesson */}
                     <button onClick={() => setShowAddModal(true)}
@@ -3108,26 +3134,6 @@ export default function CourseManagePage({
                         placeholder="Describe your refund terms in your own words..."
                         rows={3}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
-                    </div>
-
-                    <SectionDivider label="Free Preview" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Free Preview Configuration</label>
-                      <select
-                        value={editFreePreview}
-                        onChange={e => setEditFreePreview(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 appearance-none cursor-pointer"
-                        style={{ background: '#050505', color: '#fff' }}
-                      >
-                        <option value="completely free" style={{ background: '#050505', color: '#fff' }}>Completely free (no payment required)</option>
-                        <option value="nothing free" style={{ background: '#050505', color: '#fff' }}>Nothing free (Pay immediately)</option>
-                        <option value="lesson 1 free" style={{ background: '#050505', color: '#fff' }}>Lesson 1 free</option>
-                        <option value="2 lessons free" style={{ background: '#050505', color: '#fff' }}>2 lessons free</option>
-                        <option value="3 lessons free" style={{ background: '#050505', color: '#fff' }}>3 lessons free</option>
-                        <option value="module 1 free" style={{ background: '#050505', color: '#fff' }}>Module 1 free</option>
-                        <option value="2 modules free" style={{ background: '#050505', color: '#fff' }}>2 modules free</option>
-                      </select>
-                      <p className="text-sm text-zinc-400 mt-1.5">Select how much content is free for students</p>
                     </div>
 
                     <SectionDivider label="Course Schedule" />

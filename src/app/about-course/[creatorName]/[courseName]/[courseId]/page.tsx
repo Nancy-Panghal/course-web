@@ -919,7 +919,7 @@ export default async function AboutCoursePage({
                     fontFamily: fonts.heading,
                     fontSize: 'clamp(1.9rem, 3.5vw, 2.6rem)', fontWeight: 900, color: c.textPrimary, lineHeight: 1,
                   }}>
-                    {course.free_preview_config === 'completely free' ? 'Free' : `₹${course.price?.toLocaleString()}`}
+                    {course.is_free_course ? 'Free' : `₹${course.price?.toLocaleString()}`}
                   </span>
                   {discount > 0 && (
                     <>
