@@ -11,19 +11,6 @@ import DraftGate from '@/components/DraftGate'
 import { getLandingTheme } from '@/lib/landing-themes'
 import { getFontPairOverride } from '@/lib/landing-themes/fontPairs'
 
-function freePreviewLabel(config?: string) {
-  const labels: Record<string, string> = {
-    'nothing free': 'Paid only',
-    'completely free': 'Completely free',
-    'lesson 1 free': '1 lesson free',
-    '2 lessons free': '2 lessons free',
-    '3 lessons free': '3 lessons free',
-    'module 1 free': 'Module 1 free',
-    '2 modules free': '2 modules free',
-  }
-  return labels[config || 'nothing free'] || 'Paid only'
-}
-
 function getYoutubeId(url?: string | null): string | null {
   if (!url) return null
   const m = url.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/)
@@ -156,7 +143,7 @@ export default async function AboutCoursePage({
     creatorId: creatorProfile?.id || '',
     waNumber: creatorProfile?.whatsapp_number || '',
     telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || creatorProfile?.telegram_bot_username || '',
-    free_preview_config: course.free_preview_config,
+    is_free_course: course.is_free_course ?? false,
     isPublished: course.is_published,
   }
 
@@ -781,9 +768,7 @@ export default async function AboutCoursePage({
             <div className={`flex flex-col ${promoVideoId ? 'lg:flex-1 text-left' : 'items-center text-center'}`}>
 
               {/* Badge */}
-              {(course.free_preview_config === 'completely free' ||
-                freePreviewLabel(course.free_preview_config) !== 'Paid only' ||
-                course.category) && (
+              {(course.is_free_course || course.category) && (
                 <div className="fu fu1 flex mb-5" style={{ justifyContent: promoVideoId ? 'flex-start' : 'center' }}>
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -792,11 +777,9 @@ export default async function AboutCoursePage({
                     background: c.accentSoft, border: `1px solid ${c.accentBorder}`,
                     padding: '5px 16px', borderRadius: 999,
                   }}>
-                    {course.free_preview_config === 'completely free'
+                    {course.is_free_course
                       ? '✦ Completely free — Enroll now'
-                      : freePreviewLabel(course.free_preview_config) !== 'Paid only'
-                        ? `✦ ${freePreviewLabel(course.free_preview_config)} — Try before you buy`
-                        : course.category}
+                      : course.category}
                   </span>
                 </div>
               )}
@@ -849,7 +832,7 @@ export default async function AboutCoursePage({
                   fontFamily: fonts.heading,
                   fontSize: 'clamp(1.9rem, 3.5vw, 2.6rem)', fontWeight: 900, color: c.textPrimary, lineHeight: 1,
                 }}>
-                  {course.free_preview_config === 'completely free' ? 'Free' : `₹${course.price?.toLocaleString()}`}
+                  {course.is_free_course ? 'Free' : `₹${course.price?.toLocaleString()}`}
                 </span>
                 {discount > 0 && (
                   <>
@@ -1009,7 +992,7 @@ export default async function AboutCoursePage({
             {/* Price */}
             <div className="flex items-baseline justify-center gap-3 mb-7">
               <span style={{ fontFamily: fonts.heading, fontSize: 'clamp(2rem, 5vw, 2.6rem)', fontWeight: 900, color: c.textPrimary, lineHeight: 1 }}>
-                {course.free_preview_config === 'completely free' ? 'Free' : `₹${course.price?.toLocaleString()}`}
+                {course.is_free_course ? 'Free' : `₹${course.price?.toLocaleString()}`}
               </span>
               {discount > 0 && (
                 <>

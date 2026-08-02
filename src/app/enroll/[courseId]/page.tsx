@@ -62,7 +62,7 @@ export default async function CheckoutPage({
     creatorId: creatorProfile?.id || '',
     telegramBotUsername:
       process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || creatorProfile?.telegram_bot_username || '',
-    free_preview_config: course.free_preview_config,
+    is_free_course: course.is_free_course ?? false,
   }
 
   const brandName = course.brand_name || course.host_name || creatorProfile?.name || 'the creator'

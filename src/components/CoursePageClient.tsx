@@ -15,7 +15,7 @@ interface CourseData {
   creatorName: string
   creatorId: string
   telegramBotUsername?: string
-  free_preview_config?: string
+  is_free_course?: boolean
 }
 
 interface Props {

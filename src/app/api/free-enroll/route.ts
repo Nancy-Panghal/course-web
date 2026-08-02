@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if this is a free course or valid coupon makes it free
-    let isFree = course.free_preview_config === 'completely free';
+    let isFree = course.is_free_course === true;
     let appliedCoupon = null;
 
     if (!isFree && couponCode) {

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { signVideoUrl, signPdfUrl, TTL } from '@/lib/signer'
+import { isLessonFree } from '@/lib/freeLesson'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Verify lesson exists and is published
     const { data: lesson } = await supabase
       .from('lessons')
-      .select('id, is_published, content_type, course_id, order_num')
+      .select('id, is_published, content_type, course_id, order_num, is_free')
       .eq('id', lessonId)
       .single()
 
@@ -47,19 +48,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
     }
 
-    // ── NEW: verify enrollment once here, then return direct signed URL ──
+    // ── verify enrollment once here, then return direct signed URL ──
     const { data: course } = await supabase
       .from('courses')
-      .select('free_preview_config')
+      .select('is_free_course')
       .eq('id', lesson.course_id)
       .single()
 
-    const config = course?.free_preview_config || 'nothing free'
-    const maxFree: Record<string, number> = {
-      'lesson 1 free': 1, '2 lessons free': 2, '3 lessons free': 3,
-      'module 1 free': 3, '2 modules free': 6,
-    }
-    const isFree = config === 'completely free' || lesson.order_num <= (maxFree[config] ?? 0)
+    const isFree = isLessonFree(
+      { is_free: lesson.is_free ?? false },
+      { is_free_course: course?.is_free_course ?? false }
+    )
 
     if (!isFree && userId === 'web') {
       return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })

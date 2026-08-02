@@ -26,6 +26,7 @@ import { resolveAccountType } from '@/lib/account'
 import EnrollModal from '@/components/EnrollModal'
 import AssignmentSubmit from '@/components/AssignmentSubmit'
 import WatermarkedPlayer from '@/components/WatermarkedPlayer'
+import { isLessonFree } from '@/lib/freeLesson'
 
 interface Lesson {
   id: string
@@ -45,7 +46,7 @@ interface Lesson {
   assignment_file_name?: string | null
   video_storage_path?: string | null
   live_recording_url?: string | null
-  
+  is_free?: boolean
 }
 
 interface Course {
@@ -59,7 +60,7 @@ interface Course {
   next_lesson_date?: string
   course_end_date?: string
   student_update_message?: string
-  free_preview_config?: string
+  is_free_course?: boolean
   is_published?: boolean
 }
 
@@ -74,16 +75,6 @@ interface Enrollment {
   telegram_start_token?: string | null
   telegram_start_token_expires_at?: string | null
   certificate_student_name?: string | null
-}
-
-function isLessonFree(lesson: Lesson, config: string): boolean {
-  if (config === 'completely free') return true
-  if (config === 'lesson 1 free') return lesson.order_num === 1
-  if (config === '2 lessons free') return lesson.order_num <= 2
-  if (config === '3 lessons free') return lesson.order_num <= 3
-  if (config === 'module 1 free') return lesson.order_num <= 3
-  if (config === '2 modules free') return lesson.order_num <= 6
-  return false
 }
 
 async function getSignedContentUrl(lessonId: string, type: 'video' | 'pdf'): Promise<{ url: string; expiresAt: string | null }> {
@@ -443,7 +434,10 @@ export default function CourseLearnPage() {
     ? Math.round((completed.length / Math.max(plannedTotal, lessons.length)) * 100)
     : 0
   const remainingPlanned = Math.max(plannedTotal - lessons.length, 0)
-  const isFree = currentLesson && course?.is_published !== false && isLessonFree(currentLesson, course?.free_preview_config || 'nothing free')
+  const isFree = currentLesson && course?.is_published !== false && isLessonFree(
+    { is_free: currentLesson.is_free ?? false },
+    { is_free_course: course?.is_free_course ?? false }
+  )
   const canAccess = isEnrolled || isFree
   const allDone = plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)
@@ -668,8 +662,14 @@ export default function CourseLearnPage() {
   }
   if (!course) return null
 
-  const freeLessons = lessons.filter(l => isLessonFree(l, course.free_preview_config || 'nothing free')).length
-  const isNextLocked = nextLesson && !isEnrolled && !isLessonFree(nextLesson, course.free_preview_config || 'nothing free')
+  const freeLessons = lessons.filter(l => isLessonFree(
+    { is_free: l.is_free ?? false },
+    { is_free_course: course.is_free_course ?? false }
+  )).length
+  const isNextLocked = nextLesson && !isEnrolled && !isLessonFree(
+    { is_free: nextLesson.is_free ?? false },
+    { is_free_course: course.is_free_course ?? false }
+  )
   const quizQuestions = Array.isArray(currentLesson?.quiz_questions) && currentLesson!.quiz_questions!.length > 0
     ? currentLesson!.quiz_questions!
     : null
@@ -685,7 +685,7 @@ export default function CourseLearnPage() {
             creatorName: course.host_name || creatorProfile?.name || '',
             creatorId: course.creator_id,
             telegramBotUsername: creatorProfile?.telegram_bot_username,
-            free_preview_config: course.free_preview_config,
+            is_free_course: course.is_free_course,
           }}
         />
       )}
@@ -761,7 +761,10 @@ export default function CourseLearnPage() {
             {lessons.map(lesson => {
               const isActive = lesson.id === currentId
               const isDone = completed.includes(lesson.order_num)
-              const isLocked = !isEnrolled && !isLessonFree(lesson, course.free_preview_config || 'nothing free')
+              const isLocked = !isEnrolled && !isLessonFree(
+                { is_free: lesson.is_free ?? false },
+                { is_free_course: course.is_free_course ?? false }
+              )
               const lessonQuizResult = quizResults.find(r => r.lessonId === lesson.id)
               const hasQuiz = Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
 
@@ -805,7 +808,10 @@ export default function CourseLearnPage() {
                           {lessonQuizResult ? `Quiz ${lessonQuizResult.score}/${lessonQuizResult.total}` : 'Quiz'}
                         </span>
                       )}
-                      {!isEnrolled && isLessonFree(lesson, course.free_preview_config || 'nothing free') && (
+                      {!isEnrolled && isLessonFree(
+                        { is_free: lesson.is_free ?? false },
+                        { is_free_course: course.is_free_course ?? false }
+                      ) && (
                         <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'rgba(74,222,128,0.08)', color: '#4ade80', fontWeight: 700 }}>Free</span>
                       )}
                     </div>

@@ -42,7 +42,7 @@ interface Course {
   what_you_will_learn?: string[]
   faq?: { question: string; answer: string }[]
   host_image?: string
-  free_preview_config?: string
+  is_free_course?: boolean
   refund_window_days?: number
   refund_policy_text?: string
   scheduled_deletion_at?: string
@@ -2149,7 +2149,7 @@ export default function CourseManagePage({
   const [editLearn, setEditLearn] = useState<string[]>([])
   const [editFaq, setEditFaq] = useState<{ question: string; answer: string }[]>([])
   const [editHostImage, setEditHostImage] = useState('')
-  const [editFreePreview, setEditFreePreview] = useState('nothing free')
+  const [editIsFreeCourse, setEditIsFreeCourse] = useState(false)
   const [editCertEnabled, setEditCertEnabled] = useState(true)
   const [editCertTemplate, setEditCertTemplate] = useState<string>('classic')
   const [editCertCustomMessage, setEditCertCustomMessage] = useState('')
@@ -2219,7 +2219,7 @@ export default function CourseManagePage({
       setEditLearn(courseData.what_you_will_learn || [''])
       setEditFaq(courseData.faq || [{ question: '', answer: '' }])
       setEditHostImage(courseData.host_image || '')
-      setEditFreePreview(courseData.free_preview_config || 'nothing free')
+      setEditIsFreeCourse(courseData.is_free_course ?? false)
       setEditCertEnabled(courseData.cert_enabled !== false)
       setEditCertTemplate(courseData.cert_template || 'classic')
       setEditCertCustomMessage(courseData.cert_custom_message || '')
@@ -2355,8 +2355,6 @@ export default function CourseManagePage({
       .update({
         name: editName,
         description: editDesc,
-        price: parseInt(editPrice),
-        original_price: editOriginalPrice ? parseInt(editOriginalPrice) : parseInt(editPrice),
         host_name: editHostName,
         about_creator: editAbout,
         start_date: editStartDate,
@@ -2369,7 +2367,10 @@ export default function CourseManagePage({
         what_you_will_learn: editLearn.filter(l => l.trim()),
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
-        free_preview_config: editFreePreview,
+        // Server-side enforcement: if is_free_course is true, price is forced to 0
+        is_free_course: editIsFreeCourse,
+        price: editIsFreeCourse ? 0 : (parseInt(editPrice) || 0),
+        original_price: editIsFreeCourse ? 0 : (editOriginalPrice ? parseInt(editOriginalPrice) : parseInt(editPrice) || 0),
         cert_enabled: editCertEnabled,
         cert_template: editCertTemplate,
         cert_logo_url: editCertLogoUrl || null,
@@ -2429,7 +2430,7 @@ export default function CourseManagePage({
         what_you_will_learn: editLearn.filter(l => l.trim()),
         faq: editFaq.filter(f => f.question.trim() && f.answer.trim()),
         host_image: editHostImage,
-        free_preview_config: editFreePreview,
+        is_free_course: editIsFreeCourse,
         refund_window_days: editRefundWindowDays === '' ? 0 : parseInt(editRefundWindowDays),
         refund_policy_text: editRefundPolicyText.trim() || undefined,
         co_instructors: editCoInstructors.filter(ci => ci.name.trim()),

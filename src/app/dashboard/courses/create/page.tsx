@@ -142,7 +142,7 @@ export default function CreateCoursePage() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English'])
   const [langDropdown, setLangDropdown] = useState(false)
-  const [freePreview, setFreePreview] = useState('nothing free')
+  const [isFreeCourse, setIsFreeCourse] = useState(false)
   // Step 3 — new fields
   const [level, setLevel] = useState('')
   const [category, setCategory] = useState('')
@@ -211,8 +211,13 @@ export default function CreateCoursePage() {
   }
 
   async function handleCreate() {
-    if (!name || !price || !description) {
-      setError('Course name, price and description are required.')
+    if (!name || !description) {
+      setError('Course name and description are required.')
+      return
+    }
+    // When is_free_course is ON, price must be 0; otherwise require a price
+    if (!isFreeCourse && !price) {
+      setError('Please enter a price, or enable "Make this entire course free".')
       return
     }
     if (selectedLanguages.length === 0) {
@@ -242,8 +247,10 @@ export default function CreateCoursePage() {
         name,
         slug: finalSlug,
         description,
-        price: parseInt(price),
-        original_price: originalPrice ? parseInt(originalPrice) : parseInt(price),
+        // Server-side enforcement: if is_free_course is true, price is forced to 0
+        // regardless of what the client may have in the price field.
+        price: isFreeCourse ? 0 : parseInt(price),
+        original_price: isFreeCourse ? 0 : (originalPrice ? parseInt(originalPrice) : parseInt(price)),
         host_name: hostName || user.user_metadata?.full_name || '',
         about_creator: aboutCreator,
         host_image: hostImage,
@@ -255,7 +262,7 @@ export default function CreateCoursePage() {
         duration: duration,
         what_you_will_learn: whatYouWillLearn.filter(item => item.trim() !== ''),
         faq: faqs.filter(f => f.question.trim() !== '' && f.answer.trim() !== ''),
-        free_preview_config: freePreview,
+        is_free_course: isFreeCourse,
         // Step 3 fields
         level: level || null,
         category: category || null,
@@ -354,11 +361,66 @@ export default function CreateCoursePage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Price (₹) *">
-                  <Input value={price} onChange={setPrice} placeholder="4999" type="number" />
+                  <div className="relative">
+                    <Input
+                      value={price}
+                      onChange={v => {
+                        if (isFreeCourse) return // blocked when free toggle is on
+                        setPrice(v)
+                      }}
+                      placeholder={isFreeCourse ? '0 (course is free)' : '4999'}
+                      type="number"
+                    />
+                    {isFreeCourse && (
+                      <p className="text-xs mt-1.5" style={{ color: '#f97316' }}>
+                        This course is set to free. Turn off "Make this course free" below to set a price.
+                      </p>
+                    )}
+                  </div>
                 </Field>
                 <Field label="Original Price (₹)" hint="For showing discount">
-                  <Input value={originalPrice} onChange={setOriginalPrice} placeholder="9999" type="number" />
+                  <Input
+                    value={isFreeCourse ? '' : originalPrice}
+                    onChange={v => {
+                      if (isFreeCourse) return
+                      setOriginalPrice(v)
+                    }}
+                    placeholder={isFreeCourse ? '—' : '9999'}
+                    type="number"
+                  />
                 </Field>
+              </div>
+
+              {/* Make this entire course free toggle */}
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl"
+                style={{ background: isFreeCourse ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)', border: isFreeCourse ? '1px solid rgba(74,222,128,0.25)' : '1px solid rgba(255,255,255,0.08)' }}>
+                <div>
+                  <p className="text-sm font-semibold text-white">Make this entire course free</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+                    All lessons will be accessible without payment. Price is forced to ₹0.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isFreeCourse
+                    setIsFreeCourse(next)
+                    if (next) {
+                      setPrice('0')
+                      setOriginalPrice('')
+                    } else {
+                      setPrice('')
+                    }
+                  }}
+                  className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+                  style={{ background: isFreeCourse ? '#4ade80' : 'rgba(255,255,255,0.12)' }}
+                  aria-pressed={isFreeCourse}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                    style={{ transform: isFreeCourse ? 'translateX(20px)' : 'translateX(0)' }}
+                  />
+                </button>
               </div>
 
               <Field label="Refund Window (days)" hint="How many days after purchase a student can request a refund. Set to 0 for no refunds.">
@@ -376,23 +438,6 @@ export default function CreateCoursePage() {
                   onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
-              </Field>
-
-              <Field label="Free Preview Configuration" hint="Select how much content is free for students">
-                <select
-                  value={freePreview}
-                  onChange={e => setFreePreview(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all appearance-none cursor-pointer"
-                  style={{background:'#050505', color:'#fff', border:'1px solid rgba(255,255,255,0.1)'}}
-                >
-                  <option value="completely free" style={{background:'#050505', color:'#fff'}}>Completely free (no payment required)</option>
-                  <option value="nothing free" style={{background:'#050505', color:'#fff'}}>Nothing free (Pay immediately)</option>
-                  <option value="lesson 1 free" style={{background:'#050505', color:'#fff'}}>Lesson 1 free</option>
-                  <option value="2 lessons free" style={{background:'#050505', color:'#fff'}}>2 lessons free</option>
-                  <option value="3 lessons free" style={{background:'#050505', color:'#fff'}}>3 lessons free</option>
-                  <option value="module 1 free" style={{background:'#050505', color:'#fff'}}>Module 1 free</option>
-                  <option value="2 modules free" style={{background:'#050505', color:'#fff'}}>2 modules free</option>
-                </select>
               </Field>
 
               <div className="grid grid-cols-2 gap-4">

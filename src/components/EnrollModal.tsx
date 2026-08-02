@@ -246,7 +246,7 @@ interface CourseData {
   creatorName: string
   creatorId: string
   telegramBotUsername?: string
-  free_preview_config?: string
+  is_free_course?: boolean
 }
 
 interface Props {
@@ -356,8 +356,10 @@ export default function EnrollModal({ onClose, course }: Props) {
 
   const hasTelegram = Boolean(course.telegramBotUsername)
   const hasWhatsApp = Boolean(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER)
-  const isNothingFree = !course.free_preview_config || course.free_preview_config === 'nothing free'
-  const isCompletelyFree = course.price === 0 || course.free_preview_config === 'completely free'
+  // A course is "nothing free" when it has no free lessons AND is not free-course —
+  // meaning there's no preview to offer before payment.
+  const isNothingFree = !course.is_free_course && course.price > 0
+  const isCompletelyFree = course.price === 0 || course.is_free_course === true
 
   const creatorSlug = slugify(course.creatorName)
   const courseSlug = slugify(course.creatorSlug)
