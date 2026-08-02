@@ -3099,8 +3099,18 @@ export default function CourseManagePage({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-semibold text-zinc-300 mb-2 block">Price (₹)</label>
-                        <input value={editPrice} onChange={e => setEditPrice(e.target.value)} type="number"
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                        <input
+                          value={editIsFreeCourse ? '0' : editPrice}
+                          onChange={e => { if (!editIsFreeCourse) setEditPrice(e.target.value) }}
+                          type="number"
+                          disabled={editIsFreeCourse}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        />
+                        {editIsFreeCourse && (
+                          <p className="text-xs mt-1.5" style={{ color: '#f97316' }}>
+                            Turn off "Make this course free" below to set a price.
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="text-sm font-semibold text-zinc-300 mb-2 block">
@@ -3110,10 +3120,11 @@ export default function CourseManagePage({
                           </span>
                         </label>
                         <input
-                          value={editOriginalPrice}
-                          onChange={e => setEditOriginalPrice(e.target.value)}
+                          value={editIsFreeCourse ? '' : editOriginalPrice}
+                          onChange={e => { if (!editIsFreeCourse) setEditOriginalPrice(e.target.value) }}
                           type="number"
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                          disabled={editIsFreeCourse}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -3134,6 +3145,46 @@ export default function CourseManagePage({
                         placeholder="Describe your refund terms in your own words..."
                         rows={3}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
+                    </div>
+
+                    {/* Make this entire course free toggle */}
+                    <div
+                      className="flex items-center justify-between gap-4 p-4 rounded-xl"
+                      style={{
+                        background: editIsFreeCourse ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)',
+                        border: editIsFreeCourse ? '1px solid rgba(74,222,128,0.25)' : '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-white">Make this entire course free</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+                          All lessons accessible without payment. Price is forced to ₹0 on save.
+                        </p>
+                        {editIsFreeCourse && (
+                          <p className="text-xs mt-1" style={{ color: '#f97316' }}>
+                            Turn this off to re-enable pricing.
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !editIsFreeCourse
+                          setEditIsFreeCourse(next)
+                          if (next) {
+                            setEditPrice('0')
+                            setEditOriginalPrice('')
+                          }
+                        }}
+                        className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+                        style={{ background: editIsFreeCourse ? '#4ade80' : 'rgba(255,255,255,0.12)' }}
+                        aria-pressed={editIsFreeCourse}
+                      >
+                        <span
+                          className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                          style={{ transform: editIsFreeCourse ? 'translateX(20px)' : 'translateX(0)' }}
+                        />
+                      </button>
                     </div>
 
                     <SectionDivider label="Course Schedule" />
