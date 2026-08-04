@@ -27,6 +27,7 @@ import EnrollModal from '@/components/EnrollModal'
 import AssignmentSubmit from '@/components/AssignmentSubmit'
 import WatermarkedPlayer from '@/components/WatermarkedPlayer'
 import { isLessonFree } from '@/lib/freeLesson'
+import LessonQA from '@/components/LessonQA'
 
 interface Lesson {
   id: string
@@ -677,6 +678,9 @@ export default function CourseLearnPage() {
 
   return (
     <div className="min-h-screen flex flex-col text-white" style={{ background: '#080808' }}>
+      {currentLesson && currentLesson.qa_enabled !== false && (
+        <LessonQA lessonId={currentLesson.id} />
+      )}
       {showEnroll && (
         <EnrollModal
           onClose={() => setShowEnroll(false)}
@@ -951,7 +955,7 @@ export default function CourseLearnPage() {
               </div>
 
               {/* Resources row */}
-              {currentLesson && (currentLesson.summary_url || currentLesson.notes_url || quizQuestions || currentLesson.qa_enabled !== false) && (
+              {currentLesson && (currentLesson.summary_url || currentLesson.notes_url || quizQuestions) && (
                 <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
                   {currentLesson.summary_url && (
                     <Link href={`/resource/${currentLesson.id}?type=summary`} target="_blank"
@@ -976,13 +980,7 @@ export default function CourseLearnPage() {
                       🧠 {currentQuizResult ? `Quiz: ${currentQuizResult.score}/${currentQuizResult.total}` : 'Take Quiz'}
                     </Link>
                   )}
-                  {currentLesson.qa_enabled !== false && (
-                    <Link href={`/resource/${currentLesson.id}?type=qa`} target="_blank"
-                      style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(var(--kurso-primary-rgb), 0.12)', color: 'var(--kurso-primary-lightest)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.22)', fontSize: 12, fontWeight: 700 }}>
-                      💬 Q&amp;A
-                    </Link>
-                  )}
-                </div>
+                  </div>
               )}
 
               {/* Prev / Next */}

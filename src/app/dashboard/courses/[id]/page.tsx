@@ -1316,15 +1316,6 @@ function LessonWidget({
               {lesson.qa_enabled ? 'Q&A On' : 'Q&A Off'}
             </button>
 
-            <Link
-              href={`/resource/${lesson.id}?type=qa`}
-              target="_blank"
-              title="View and answer this lesson's Q&A"
-              className="flex items-center justify-center px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <ExternalLink className="w-3 h-3" />
-            </Link>
-
             <button onClick={() => { setExpanded(!expanded); setOperationError('') }}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold flex-shrink-0"
               style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)' }}>
