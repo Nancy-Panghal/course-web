@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Link2 } from 'lucide-react'
+import { PROVIDER_FIELDS } from '@/lib/payment-gateways'
 
 // ── OUTSIDE the page component — fixes input focus loss ──
 function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false, rightElement }: {
@@ -191,9 +192,9 @@ export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
   const [name, setName] = useState('')
   const [originalName, setOriginalName] = useState('')
-  
 
-  
+
+
   const [emailNotifications, setEmailNotifications] = useState({
     newLogin: true,
     paidSale: true,
@@ -212,75 +213,75 @@ export default function SettingsPage() {
   // ── Vyapar Gateway connection state ────────────────────────────────
   // Each creator connects their OWN Vyapar Gateway account so student
   // payments settle directly to them — Kurso never touches the money.
-  const [vyaparToken, setVyaparToken] = useState('')
-  const [vyaparLoading, setVyaparLoading] = useState(true)
-  const [vyaparStatus, setVyaparStatus] = useState('not_connected') // 'not_connected' | 'connected'
-  const [vyaparApiKeyInput, setVyaparApiKeyInput] = useState('')
-  const [vyaparWebhookSecretInput, setVyaparWebhookSecretInput] = useState('')
-  const [vyaparSaving, setVyaparSaving] = useState(false)
-  const [vyaparError, setVyaparError] = useState('')
+  const [gwToken, setGwToken] = useState('')
+  const [gwLoading, setGwLoading] = useState(true)
+  const [gwList, setGwList] = useState<any[]>([]) // rows from GET, one per connected provider
+  const [gwActiveTab, setGwActiveTab] = useState<'cashfree' | 'razorpay' | 'stripe'>('cashfree')
+  const [gwEnvironment, setGwEnvironment] = useState<'production' | 'sandbox'>('production')
+  const [gwCredentials, setGwCredentials] = useState<Record<string, string>>({})
+  const [gwWebhookSecret, setGwWebhookSecret] = useState('')
+  const [gwSaving, setGwSaving] = useState(false)
+  const [gwError, setGwError] = useState('')
   const hasChanges =
     name !== originalName
-    
 
 
-    useEffect(() => {
-      supabase.auth.getUser().then(async ({ data }) => {
-        const u = data.user
-        setUser(u)
-        const n = u?.user_metadata?.full_name || u?.user_metadata?.username || ''
-        setName(n); setOriginalName(n)
 
-        if (u) {
-          const { data: creator } = await supabase
-            .from('creators')
-            .select('whatsapp_number, telegram_bot_username, telegram_bot_token, scheduled_deletion_at')
-            .eq('id', u.id)
-            .limit(1)
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data }) => {
+      const u = data.user
+      setUser(u)
+      const n = u?.user_metadata?.full_name || u?.user_metadata?.username || ''
+      setName(n); setOriginalName(n)
 
-          
+      if (u) {
+        const { data: creator } = await supabase
+          .from('creators')
+          .select('whatsapp_number, telegram_bot_username, telegram_bot_token, scheduled_deletion_at')
+          .eq('id', u.id)
+          .limit(1)
 
-          // Restore scheduled deletion state if already scheduled
-          if (creator?.[0]?.scheduled_deletion_at) {
-            const scheduledDate = new Date(creator[0].scheduled_deletion_at)
-            if (scheduledDate > new Date()) {
-              setDeleteScheduledAt(scheduledDate)
-              setDeleteStep('scheduled')
-            }
+
+
+        // Restore scheduled deletion state if already scheduled
+        if (creator?.[0]?.scheduled_deletion_at) {
+          const scheduledDate = new Date(creator[0].scheduled_deletion_at)
+          if (scheduledDate > new Date()) {
+            setDeleteScheduledAt(scheduledDate)
+            setDeleteStep('scheduled')
           }
         }
+      }
 
 
-        
-        if (u?.user_metadata?.email_notifications) {
-          setEmailNotifications(current => ({ ...current, ...u.user_metadata.email_notifications }))
-        }
-      })
-    }, [])
+
+      if (u?.user_metadata?.email_notifications) {
+        setEmailNotifications(current => ({ ...current, ...u.user_metadata.email_notifications }))
+      }
+    })
+  }, [])
 
   // ── Load Vyapar Gateway connection status ──────────────────────
   useEffect(() => {
-    async function loadVyapar() {
+    async function loadGateways() {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) return
-      setVyaparToken(session.access_token)
+      if (!session) { setGwLoading(false); return }
+      setGwToken(session.access_token)
 
-      const res = await fetch('/api/creator/vyapar-connect', {
+      const res = await fetch('/api/creator/payment-gateway', {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
-      if (res.ok) {
-        const d = await res.json()
-        setVyaparStatus(d.status || 'not_connected')
-      }
-      setVyaparLoading(false)
+      const d = await res.json()
+      setGwList(d.gateways || [])
+      setGwLoading(false)
     }
-    loadVyapar()
+    loadGateways()
   }, [])
 
 
   async function handleSave() {
     setSaving(true)
-    
+
 
     const { error } = await supabase.auth.updateUser({
       data: {
@@ -296,13 +297,13 @@ export default function SettingsPage() {
         email: user.email,
         name,
         username: user.email?.split('@')[0],
-        
+
 
       })
 
     if (!error && !creatorError) {
       setOriginalName(name)
-      
+
 
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -310,7 +311,7 @@ export default function SettingsPage() {
     setSaving(false)
   }
 
-  
+
 
   async function updateEmailNotificationSetting(key: string, value: boolean) {
     const nextNotifications = { ...emailNotifications, [key]: value }
@@ -323,30 +324,39 @@ export default function SettingsPage() {
     })
   }
 
-  async function handleSaveVyapar() {
-    setVyaparError('')
-    setVyaparSaving(true)
+
+  async function handleSaveGateway() {
+    setGwError('')
+    setGwSaving(true)
     try {
-      const res = await fetch('/api/creator/vyapar-connect', {
+      const res = await fetch('/api/creator/payment-gateway', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${vyaparToken}` },
-        body: JSON.stringify({ apiKey: vyaparApiKeyInput, webhookSecret: vyaparWebhookSecretInput }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${gwToken}` },
+        body: JSON.stringify({
+          provider: gwActiveTab,
+          environment: gwEnvironment,
+          credentials: gwCredentials,
+          webhookSecret: gwWebhookSecret,
+          setDefault: gwList.length === 0, // first connected gateway becomes default
+        }),
       })
       const json = await res.json()
       if (!res.ok) {
-        setVyaparError(json.error || 'Could not save your Vyapar Gateway details.')
+        setGwError(json.error || 'Could not verify these credentials.')
         return
       }
-      setVyaparStatus('connected')
-      setVyaparApiKeyInput('')
-      setVyaparWebhookSecretInput('')
+      const listRes = await fetch('/api/creator/payment-gateway', {
+        headers: { Authorization: `Bearer ${gwToken}` },
+      })
+      setGwList((await listRes.json()).gateways || [])
+      setGwCredentials({})
+      setGwWebhookSecret('')
     } catch {
-      setVyaparError('Network error. Please try again.')
+      setGwError('Network error. Please try again.')
     } finally {
-      setVyaparSaving(false)
+      setGwSaving(false)
     }
   }
-
   async function handleScheduleDelete() {
     if (deleteInput !== 'DELETE') return
     setDeleting(true)
@@ -450,7 +460,7 @@ export default function SettingsPage() {
           </div>
         </SectionCard>
 
-        
+
         <SectionCard title="Email Notifications" icon={Bell}>
           <Toggle
             label="New login"
@@ -480,86 +490,105 @@ export default function SettingsPage() {
 
         <div className="mb-12" />
 
-        {/* ── Get Paid — Vyapar Gateway ── */}
-        <SectionCard title="Get Paid — Vyapar Gateway" icon={IndianRupee}>
-          {vyaparLoading ? (
+        {/* ── Get Paid — Payment Gateway (BYOK) ── */}
+        <SectionCard title="Get Paid — Payment Gateway" icon={IndianRupee}>
+          {gwLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <>
-              <div className="mb-5 flex items-center gap-3 p-3 rounded-xl"
-                style={{
-                  background: vyaparStatus === 'connected' ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.03)',
-                  border: vyaparStatus === 'connected' ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(255,255,255,0.08)',
-                }}>
-                {vyaparStatus === 'connected'
-                  ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
-                  : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#71717a' }} />
-                }
-                <div>
-                  <p className="text-sm font-medium text-white">
-                    {vyaparStatus === 'connected' ? 'Vyapar Gateway connected' : 'Not connected yet'}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
-                    {vyaparStatus === 'connected'
-                      ? 'Student payments settle directly to your own Vyapar Gateway account.'
-                      : 'Connect your own Vyapar Gateway account so student payments go straight to you.'}
-                  </p>
-                </div>
-              </div>
+              <p className="text-xs mb-4" style={{ color: '#a1a1aa' }}>
+                Connect your own payment account. Student payments settle directly to you —
+                Kurso never holds your money. Pick whichever provider you already have, or the
+                easiest to set up: Cashfree for domestic UPI/cards, Stripe or Razorpay for
+                international students.
+              </p>
 
-              <div className="mb-5 p-4 rounded-xl" style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
-                <p className="text-xs font-semibold mb-2" style={{ color: '#38bdf8' }}>How to set this up</p>
-                <ol className="text-xs space-y-1.5 list-decimal list-inside" style={{ color: '#a1a1aa' }}>
-                  <li>Sign up at <a href="https://vyapargateway.com" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#38bdf8' }}>vyapargateway.com</a> with your own name, PAN, and UPI ID — not Kurso's.</li>
-                  <li>For &quot;Website URL,&quot; use your Kurso storefront link (e.g. kurso.in/your-slug).</li>
-                  <li>If asked for a Merchant Category Code (MCC), use <strong>8299</strong> (Schools &amp; Educational Services).</li>
-                  <li>&quot;Merchant Code&quot; is generated by Vyapar after approval — nothing to fill in yourself.</li>
-                  <li>Once approved, copy your API key and webhook secret from your Vyapar dashboard and paste them below.</li>
-                </ol>
-              </div>
-
-              <div className="mb-2 p-3 rounded-xl flex items-start gap-2"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#a1a1aa' }} />
-                <p className="text-xs" style={{ color: '#a1a1aa' }}>
-                  Your key and secret are encrypted before we store them, and are never shown again after saving.
-                </p>
-              </div>
-
-              <InputField
-                label="Vyapar Gateway API key"
-                value={vyaparApiKeyInput}
-                onChange={setVyaparApiKeyInput}
-                placeholder={vyaparStatus === 'connected' ? 'Enter a new key to rotate it' : 'vg_live_...'}
-                type="password"
-              />
-              <InputField
-                label="Vyapar Gateway webhook secret"
-                value={vyaparWebhookSecretInput}
-                onChange={setVyaparWebhookSecretInput}
-                placeholder={vyaparStatus === 'connected' ? 'Enter a new secret to rotate it' : 'Paste your webhook secret'}
-                type="password"
-              />
-
-              {vyaparError && (
-                <div className="mb-3 p-3 rounded-xl flex items-start gap-2"
-                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
-                  <p className="text-xs" style={{ color: '#fca5a5' }}>{vyaparError}</p>
+              {gwList.length > 0 && (
+                <div className="mb-5 space-y-2">
+                  {gwList.map((g) => (
+                    <div key={g.provider} className="flex items-center gap-3 p-3 rounded-xl"
+                      style={{
+                        background: g.status === 'verified' ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.08)',
+                        border: g.status === 'verified' ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(239,68,68,0.2)',
+                      }}>
+                      {g.status === 'verified'
+                        ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
+                        : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#ef4444' }} />
+                      }
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white capitalize">
+                          {g.provider} {g.is_default && <span className="text-xs" style={{ color: '#a1a1aa' }}>(default)</span>}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
+                          {g.status === 'verified' ? `Connected · ${g.environment}` : g.last_verification_error || 'Verification failed'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
-              <button onClick={handleSaveVyapar}
-                disabled={vyaparSaving || !vyaparApiKeyInput.trim() || !vyaparWebhookSecretInput.trim()}
+              <div className="flex gap-2 mb-4">
+                {(['cashfree', 'razorpay', 'stripe'] as const).map((p) => (
+                  <button key={p} onClick={() => { setGwActiveTab(p); setGwCredentials({}); setGwError('') }}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold capitalize"
+                    style={{
+                      background: gwActiveTab === p ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.03)',
+                      border: gwActiveTab === p ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                      color: gwActiveTab === p ? '#c4b5fd' : '#a1a1aa',
+                    }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mb-4 flex items-center justify-between p-3 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="text-xs" style={{ color: '#a1a1aa' }}>Use test/sandbox keys first, switch to live when ready</span>
+                <button onClick={() => setGwEnvironment(gwEnvironment === 'production' ? 'sandbox' : 'production')}
+                  className="text-xs font-semibold px-3 py-1 rounded-lg"
+                  style={{ background: 'rgba(139,92,246,0.15)', color: '#c4b5fd' }}>
+                  {gwEnvironment === 'production' ? 'Live' : 'Sandbox'}
+                </button>
+              </div>
+
+              {PROVIDER_FIELDS[gwActiveTab].map((field) => (
+                <InputField key={field.key} label={field.label}
+                  value={gwCredentials[field.key] || ''}
+                  onChange={(v: string) => setGwCredentials({ ...gwCredentials, [field.key]: v })}
+                  placeholder={field.placeholder} type="password" />
+              ))}
+              <InputField label="Webhook signing secret (optional, recommended)"
+                value={gwWebhookSecret} onChange={setGwWebhookSecret}
+                placeholder="Paste from your provider's webhook settings" type="password" />
+
+              <div className="mb-2 mt-1 p-3 rounded-xl flex items-start gap-2"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#a1a1aa' }} />
+                <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                  We verify these against {gwActiveTab}'s live API before saving — if they're wrong,
+                  you'll know immediately, not after your first student tries to pay.
+                </p>
+              </div>
+
+              {gwError && (
+                <div className="mb-3 p-3 rounded-xl flex items-start gap-2"
+                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
+                  <p className="text-xs" style={{ color: '#fca5a5' }}>{gwError}</p>
+                </div>
+              )}
+
+              <button onClick={handleSaveGateway}
+                disabled={gwSaving || PROVIDER_FIELDS[gwActiveTab].some((f) => !gwCredentials[f.key]?.trim())}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-                {vyaparSaving ? 'Saving...' : vyaparStatus === 'connected' ? 'Update Credentials' : 'Save & Connect'}
+                {gwSaving ? 'Verifying & saving...' : 'Verify & Connect'}
               </button>
             </>
           )}
         </SectionCard>
-
         <div className="mb-12" />
 
         {/* Danger Zone */}

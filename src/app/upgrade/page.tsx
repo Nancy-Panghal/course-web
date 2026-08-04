@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { Shield, Check, ArrowLeft, Zap, AlertTriangle, Award, FileText, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getCreatorProfile, getTrialStatus } from '@/lib/creator'
-import VyaparPayWidget from '@/components/VyaparPayWidget'
 
 
 
@@ -68,7 +67,7 @@ export default function UpgradePage() {
   const [trialStatus, setTrialStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [payingPlan, setPayingPlan] = useState<string | null>(null)
-  const [vyaparOrder, setVyaparOrder] = useState<any>(null)
+  const [checkingStatus, setCheckingStatus] = useState(false)
   const [fetchingInvoiceFor, setFetchingInvoiceFor] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -99,6 +98,33 @@ export default function UpgradePage() {
     load()
   }, [])
 
+  // Loads Cashfree's checkout SDK once and caches the instance on window.
+  async function loadCashfreeSdk(): Promise<any> {
+    if ((window as any).__cashfreeInstance) return (window as any).__cashfreeInstance
+    await new Promise<void>((resolve, reject) => {
+      if (document.getElementById('cashfree-sdk-script')) return resolve()
+      const script = document.createElement('script')
+      script.id = 'cashfree-sdk-script'
+      script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js'
+      script.onload = () => resolve()
+      script.onerror = () => reject(new Error('Could not load the payment SDK. Check your connection and try again.'))
+      document.body.appendChild(script)
+    })
+    const mode = process.env.NEXT_PUBLIC_KURSO_CASHFREE_ENV === 'sandbox' ? 'sandbox' : 'production'
+    const instance = (window as any).Cashfree({ mode })
+    ;(window as any).__cashfreeInstance = instance
+    return instance
+  }
+
+  async function pollOrderStatus(clientTxnId: string, attemptsLeft = 8): Promise<string | null> {
+    if (attemptsLeft <= 0) return null
+    const res = await fetch(`/api/order-status?clientTxnId=${clientTxnId}`)
+    const data = await res.json().catch(() => null)
+    if (data?.status === 'active' || data?.status === 'success') return data.status
+    await new Promise((r) => setTimeout(r, 2000))
+    return pollOrderStatus(clientTxnId, attemptsLeft - 1)
+  }
+
   async function handleUpgrade(plan: typeof plans[0]) {
     if (payingPlan) return
     setPayingPlan(plan.id)
@@ -108,43 +134,47 @@ export default function UpgradePage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) throw new Error('Please log in before upgrading.')
 
-      const orderRes = await fetch('/api/vyapar/create-subscription-order', {
+      const orderRes = await fetch('/api/kurso/create-subscription-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ planId: plan.id }),
       })
       const data = await orderRes.json()
       if (data.error) throw new Error(data.error)
-      setVyaparOrder(data)
+
+      const cashfree = await loadCashfreeSdk()
+      await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_modal' })
+
+      // The modal promise resolves as soon as it closes — which can be
+      // before Cashfree's webhook reaches us. Poll our own order status
+      // rather than trusting the modal close event as "paid".
+      setCheckingStatus(true)
+      const status = await pollOrderStatus(data.clientTxnId)
+      setCheckingStatus(false)
+
+      if (status === 'active' || status === 'success') {
+        const profile = await getCreatorProfile()
+        setCreator(profile)
+        setTrialStatus(getTrialStatus(profile))
+        setSuccess('Successfully upgraded! Your academy is now fully active.')
+        if (profile?.id) {
+          const { data: paymentRows } = await supabase
+            .from('kurso_subscription_payments')
+            .select('id, plan_name, amount, paid_at')
+            .eq('creator_id', profile.id)
+            .order('paid_at', { ascending: false })
+            .limit(10)
+          setPayments(paymentRows || [])
+        }
+      } else {
+        setError('We could not confirm this payment yet. If money was deducted, it will reflect within a few minutes — refresh this page, or contact support if it does not.')
+      }
+      setPayingPlan(null)
     } catch (err: any) {
       setError(err.message)
       setPayingPlan(null)
+      setCheckingStatus(false)
     }
-  }
-
-  async function handleVyaparSubActivated() {
-    const profile = await getCreatorProfile()
-    setCreator(profile)
-    setTrialStatus(getTrialStatus(profile))
-    setSuccess(`Successfully upgraded! Your academy is now fully active.`)
-
-    if (profile?.id) {
-      const { data: paymentRows } = await supabase
-        .from('kurso_subscription_payments')
-        .select('id, plan_name, amount, paid_at')
-        .eq('creator_id', profile.id)
-        .order('paid_at', { ascending: false })
-        .limit(10)
-      setPayments(paymentRows || [])
-    }
-    setVyaparOrder(null)
-    setPayingPlan(null)
-  }
-
-  function handleVyaparSubExpired() {
-    setVyaparOrder(null)
-    setPayingPlan(null)
-    setError('This payment window expired or failed. Please try again.')
   }
 
   // One call does everything: finds-or-creates the invoice row server-side
@@ -370,16 +400,6 @@ export default function UpgradePage() {
                     style={{background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.2)'}}>
                     ✓ Active Plan
                   </div>
-                ) : payingPlan === plan.id && vyaparOrder ? (
-                  <VyaparPayWidget
-                    qrCode={vyaparOrder.qrCode}
-                    upiIntent={vyaparOrder.upiIntent}
-                    expiresAt={vyaparOrder.expiresAt}
-                    clientTxnId={vyaparOrder.clientTxnId}
-                    amount={plan.price}
-                    onSuccess={handleVyaparSubActivated}
-                    onExpired={handleVyaparSubExpired}
-                  />
                 ) : (
                   <button
                     onClick={() => handleUpgrade(plan)}
@@ -389,7 +409,7 @@ export default function UpgradePage() {
                       background: plan.highlighted ? '#fff' : 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))',
                       color: plan.highlighted ? 'var(--kurso-primary)' : '#fff',
                     }}>
-                    {payingPlan === plan.id ? 'Opening payment...' : `Upgrade to ${plan.name}`}
+                    {payingPlan === plan.id ? (checkingStatus ? 'Confirming payment...' : 'Opening payment...') : `Upgrade to ${plan.name}`}
                   </button>
                 )}
               </div>
