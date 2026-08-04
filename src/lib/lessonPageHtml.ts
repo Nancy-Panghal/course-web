@@ -48,6 +48,7 @@ export interface RenderLessonPageParams {
   summaryUrl: string | null
   notesUrl: string | null
   quizUrl: string | null
+  qaUrl: string | null
   quizResult: { score: number; total: number } | null
   isCompleted: boolean
   ctaUrl: string | null
@@ -100,6 +101,7 @@ export function renderLessonPage({
   summaryUrl,
   notesUrl,
   quizUrl,
+  qaUrl,
   quizResult,
   isCompleted,
   ctaUrl,
@@ -552,7 +554,7 @@ export function renderLessonPage({
     ` : ''}
 
     <!-- Lesson Resources -->
-    ${(summaryUrl || notesUrl || quizUrl) ? `
+    ${(summaryUrl || notesUrl || quizUrl || qaUrl) ? `
     <div class="resources-section">
       <h2 class="resources-title">Lesson Resources</h2>
       <div class="resources-grid">
@@ -563,6 +565,7 @@ export function renderLessonPage({
             🧠 ${quizResult ? `Quiz: ${quizResult.score}/${quizResult.total}` : 'Take Quiz'}
           </a>
         ` : ''}
+        ${qaUrl ? `<a href="${qaUrl}" target="_blank" class="resource-link">💬 Q&amp;A</a>` : ''}
       </div>
     </div>
     ` : ''}

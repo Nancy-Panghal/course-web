@@ -180,7 +180,7 @@ export function verifyLessonPageUrl(params: URLSearchParams): {
 
 export function signLessonResourceUrl(
   lessonId: string,
-  type: 'summary' | 'notes' | 'quiz',
+  type: 'summary' | 'notes' | 'quiz' | 'qa',
   identity: string,
   ttl = TTL.RESOURCE
 ): string {
@@ -194,9 +194,9 @@ export function signLessonResourceUrl(
 export function verifyLessonResourceUrl(
   lessonId: string,
   params: URLSearchParams
-): { valid: boolean; lessonId: string; type: 'summary' | 'notes' | 'quiz'; identity: string } {
+): { valid: boolean; lessonId: string; type: 'summary' | 'notes' | 'quiz' | 'qa'; identity: string } {
   const rawType = params.get('type') || ''
-  const type = (['summary', 'notes', 'quiz'].includes(rawType) ? rawType : 'summary') as 'summary' | 'notes' | 'quiz'
+  const type = (['summary', 'notes', 'quiz', 'qa'].includes(rawType) ? rawType : 'summary') as 'summary' | 'notes' | 'quiz' | 'qa'
   const identity = params.get('identity') || ''
   const exp = params.get('exp') || ''
   const sig = params.get('sig') || ''

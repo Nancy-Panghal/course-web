@@ -11,8 +11,9 @@ import Link from 'next/link'
 import { ArrowLeft, CheckCircle, FileText, HelpCircle, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment } from '@/lib/enrollments'
+import LessonQA from '@/components/LessonQA'
 
-type ResourceType = 'summary' | 'notes' | 'quiz'
+type ResourceType = 'summary' | 'notes' | 'quiz' | 'qa'
 
 interface QuizQuestion {
   question: string
@@ -141,7 +142,7 @@ export default function LessonResourcePage({
       const l = data?.[0] || null
       setLesson(l)
 
-      if (l && type === 'quiz') {
+      if (l && (type === 'quiz' || type === 'qa')) {
         if (cameFromSignedLink) {
           // WhatsApp path — verify the signed link server-side (this page
           // can't hold the signing secret) and resolve the enrollment by
@@ -248,10 +249,10 @@ export default function LessonResourcePage({
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-6">
           <p className="text-xs uppercase tracking-widest text-violet-400 font-bold">
-            {type === 'quiz' ? 'Quiz' : type === 'summary' ? 'Summary' : 'Notes'}
+            {type === 'quiz' ? 'Quiz' : type === 'qa' ? 'Q&A' : type === 'summary' ? 'Summary' : 'Notes'}
           </p>
           <h1 className="text-2xl font-bold mt-1">{lesson.title}</h1>
-          {resourceName && type !== 'quiz' && (
+          {resourceName && type !== 'quiz' && type !== 'qa' && (
             <p className="text-sm text-zinc-500 mt-1 flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5" />{resourceName}
             </p>
@@ -335,8 +336,19 @@ export default function LessonResourcePage({
           )
         )}
 
+        {/* ── Q&A ── */}
+        {type === 'qa' && (
+          linkInvalid ? (
+            <div className="p-8 rounded-xl border border-red-500/20 bg-red-500/5 text-center text-red-400">
+              This link has expired or is invalid. Go back to WhatsApp/Telegram and tap the lesson again to get a fresh link.
+            </div>
+          ) : (
+            <LessonQA lessonId={lessonId} enrollmentId={enrollmentId} />
+          )
+        )}
+
         {/* ── NOTES / SUMMARY ── */}
-        {type !== 'quiz' && (
+        {type !== 'quiz' && type !== 'qa' && (
           resourceUrl ? (
             (ext === 'md' || ext === 'txt')
               ? <TextRenderer url={resourceUrl} name={resourceName} />

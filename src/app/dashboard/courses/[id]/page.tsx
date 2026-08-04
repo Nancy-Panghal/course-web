@@ -76,6 +76,7 @@ interface Lesson {
   order_num: number
   is_published: boolean
   is_free: boolean
+  qa_enabled: boolean
   duration: string
   module_id?: string | null
   summary_url?: string | null
@@ -1122,6 +1123,7 @@ function LessonWidget({
   onDelete,
   onTogglePublish,
   onToggleFree,
+  onToggleQA,
   onRefresh,
   onRenumber,
 }: {
@@ -1129,6 +1131,7 @@ function LessonWidget({
   onDelete: (id: string) => void
   onTogglePublish: (id: string, current: boolean) => void
   onToggleFree: (id: string, current: boolean) => void
+  onToggleQA: (id: string, current: boolean) => void
   onRefresh: () => void
   onRenumber: (lesson: Lesson, newNumber: string) => Promise<{ ok: boolean; error?: string }>
 }) {
@@ -1299,6 +1302,28 @@ function LessonWidget({
               <Gift className="w-3 h-3" />
               {lesson.is_free ? 'Free' : 'Paid'}
             </button>
+
+            <button
+              onClick={() => onToggleQA(lesson.id, lesson.qa_enabled)}
+              title={lesson.qa_enabled ? 'Close Q&A for this lesson' : 'Open Q&A for this lesson'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: lesson.qa_enabled ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.05)',
+                color: lesson.qa_enabled ? '#a78bfa' : '#8f8f91',
+                border: lesson.qa_enabled ? '1px solid rgba(167,139,250,0.2)' : '1px solid rgba(255,255,255,0.08)',
+              }}>
+              <MessageCircle className="w-3 h-3" />
+              {lesson.qa_enabled ? 'Q&A On' : 'Q&A Off'}
+            </button>
+
+            <Link
+              href={`/resource/${lesson.id}?type=qa`}
+              target="_blank"
+              title="View and answer this lesson's Q&A"
+              className="flex items-center justify-center px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
 
             <button onClick={() => { setExpanded(!expanded); setOperationError('') }}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold flex-shrink-0"
@@ -2611,6 +2636,14 @@ export default function CourseManagePage({
     await fetchLessons()
   }
 
+  async function toggleLessonQA(lessonId: string, current: boolean) {
+    await supabase
+      .from('lessons')
+      .update({ qa_enabled: !current })
+      .eq('id', lessonId)
+    await fetchLessons()
+  }
+
   async function publishAllLessons() {
     if (publishingRef.current) return
 
@@ -2995,6 +3028,7 @@ export default function CourseManagePage({
                                 onDelete={deleteLesson}
                                 onTogglePublish={toggleLessonPublish}
                                 onToggleFree={toggleLessonFree}
+                                onToggleQA={toggleLessonQA}
                                 onRefresh={fetchLessons}
                                 onRenumber={moveLessonToNumber}
                               />
@@ -3012,6 +3046,7 @@ export default function CourseManagePage({
                           onDelete={deleteLesson}
                           onTogglePublish={toggleLessonPublish}
                           onToggleFree={toggleLessonFree}
+                          onToggleQA={toggleLessonQA}
                           onRefresh={fetchLessons}
                           onRenumber={moveLessonToNumber}
                         />
