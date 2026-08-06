@@ -616,6 +616,9 @@ export default async function AboutCoursePage({
     show('videos') && promoVideos.length > 0 && (
       <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
         <div className="max-w-5xl mx-auto">
+          {course.promo_video_heading && (
+            <h2 className="ak-section-title text-center mb-10">{course.promo_video_heading}</h2>
+          )}
           <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${promoVideos.length === 1 ? 480 : 280}px, 1fr))` }}>
             {promoVideos.map((url, i) => {
               const embedUrl = getVideoEmbedUrl(url)
@@ -1046,6 +1049,19 @@ export default async function AboutCoursePage({
                 ? course.refund_policy_text
                 : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
             </p>
+          )}
+          {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path) && (
+            <div className="mb-4 flex items-center justify-center flex-wrap gap-x-5 gap-y-1.5">
+              {course.refund_policy_storage_path && (
+                <a href={`/course/${course.id}/policy/refund`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Refund Policy</a>
+              )}
+              {course.terms_storage_path && (
+                <a href={`/course/${course.id}/policy/terms`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Terms &amp; Conditions</a>
+              )}
+              {course.privacy_storage_path && (
+                <a href={`/course/${course.id}/policy/privacy`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Privacy Policy</a>
+              )}
+            </div>
           )}
           {creatorProfile?.creator_slug && (
             <div className="mb-4 text-center">

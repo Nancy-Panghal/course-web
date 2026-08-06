@@ -12,6 +12,7 @@ import {
   type LandingConfig, type LandingSectionEntry, type LandingCustomSection,
 } from '@/lib/landing-config'
 import { MAX_CUSTOM_SECTIONS_PER_COURSE, MAX_CUSTOM_HEADING_LENGTH, MAX_CUSTOM_BODY_LENGTH } from '@/lib/customSectionText'
+import { MAX_POLICY_FILE_BYTES, type PolicyDocType } from '@/lib/policyDocs'
 import { CERT_PALETTES, getCertLayoutPalette } from '@/lib/certPalettes'
 import { Gift, AlertTriangle as AlertTriangleIcon, FileText as FileTextIcon, Timer as TimerIcon, X as XIcon, Image as ImageIconLucide } from 'lucide-react'
 
@@ -46,6 +47,10 @@ interface Course {
   is_free_course?: boolean
   refund_window_days?: number
   refund_policy_text?: string
+  refund_policy_storage_path?: string
+  terms_storage_path?: string
+  privacy_storage_path?: string
+  promo_video_heading?: string
   scheduled_deletion_at?: string
   next_lesson_date?: string
   course_end_date?: string
@@ -2161,7 +2166,11 @@ export default function CourseManagePage({
   const [editPrice, setEditPrice] = useState('')
   const [editOriginalPrice, setEditOriginalPrice] = useState('')
   const [editRefundWindowDays, setEditRefundWindowDays] = useState('7')
-  const [editRefundPolicyText, setEditRefundPolicyText] = useState('')
+  const [editRefundPolicyPath, setEditRefundPolicyPath] = useState('')
+  const [editTermsPath, setEditTermsPath] = useState('')
+  const [editPrivacyPath, setEditPrivacyPath] = useState('')
+  const [uploadingPolicyDoc, setUploadingPolicyDoc] = useState<PolicyDocType | null>(null)
+  const [editPromoVideoHeading, setEditPromoVideoHeading] = useState('')
   const [editHostName, setEditHostName] = useState('')
   const [editAbout, setEditAbout] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
@@ -2232,7 +2241,10 @@ export default function CourseManagePage({
       setEditPrice(courseData.price.toString())
       setEditOriginalPrice(courseData.original_price?.toString() || '')
       setEditRefundWindowDays(courseData.refund_window_days?.toString() ?? '7')
-      setEditRefundPolicyText(courseData.refund_policy_text || '')
+      setEditRefundPolicyPath(courseData.refund_policy_storage_path || '')
+      setEditTermsPath(courseData.terms_storage_path || '')
+      setEditPrivacyPath(courseData.privacy_storage_path || '')
+      setEditPromoVideoHeading(courseData.promo_video_heading || '')
       setEditHostName(courseData.host_name || '')
       setEditAbout(courseData.about_creator || '')
       setEditStartDate(courseData.start_date || '')
@@ -2301,6 +2313,30 @@ export default function CourseManagePage({
       alert(err.message)
     } finally {
       setUploadingImage(false)
+    }
+  }
+
+  async function handleLegalDocUpload(e: React.ChangeEvent<HTMLInputElement>, docType: PolicyDocType) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!/\.(md|txt)$/i.test(file.name)) {
+      alert('Please upload a .txt or .md file.')
+      return
+    }
+    if (file.size > MAX_POLICY_FILE_BYTES) {
+      alert(`File must be ${MAX_POLICY_FILE_BYTES / 1024}KB or smaller.`)
+      return
+    }
+    setUploadingPolicyDoc(docType)
+    try {
+      const { publicUrl } = await uploadToSupabase(file, `policies/${id}`)
+      if (docType === 'refund') setEditRefundPolicyPath(publicUrl)
+      else if (docType === 'terms') setEditTermsPath(publicUrl)
+      else setEditPrivacyPath(publicUrl)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setUploadingPolicyDoc(null)
     }
   }
 
@@ -2415,7 +2451,9 @@ export default function CourseManagePage({
           ? editSkills.split(',').map(s => s.trim()).filter(Boolean)
           : null,
         refund_window_days: editRefundWindowDays === '' ? 0 : parseInt(editRefundWindowDays),
-        refund_policy_text: editRefundPolicyText.trim() || null,
+        refund_policy_storage_path: editRefundPolicyPath || null,
+        terms_storage_path: editTermsPath || null,
+        privacy_storage_path: editPrivacyPath || null,
         brand_name: editBrandName.trim() || null,
         instructor_title: editInstructorTitle.trim() || null,
         co_instructors: editCoInstructors
@@ -2424,6 +2462,7 @@ export default function CourseManagePage({
         promo_video_urls: editPromoVideoUrls.map(v => v.trim()).filter(Boolean).slice(0, 3),
         // Kept in sync for anything that still reads the old single column.
         promo_video_url: editPromoVideoUrls.find(v => v.trim()) || null,
+        promo_video_heading: editPromoVideoHeading.trim() || null,
         target_audience: editTargetAudience.filter(t => t.trim()),
         testimonials: editTestimonials.filter(t => t.name.trim() && t.text.trim()),
         level: editLevel || null,
@@ -2468,7 +2507,10 @@ export default function CourseManagePage({
         cert_template: editCertTemplate,
         cert_palette: editCertPalette,
         refund_window_days: editRefundWindowDays === '' ? 0 : parseInt(editRefundWindowDays),
-        refund_policy_text: editRefundPolicyText.trim() || undefined,
+        refund_policy_storage_path: editRefundPolicyPath || undefined,
+        terms_storage_path: editTermsPath || undefined,
+        privacy_storage_path: editPrivacyPath || undefined,
+        promo_video_heading: editPromoVideoHeading.trim() || undefined,
         co_instructors: editCoInstructors.filter(ci => ci.name.trim()),
       })
     }
@@ -2477,12 +2519,13 @@ export default function CourseManagePage({
   }
 
   const settingsSnapshot = JSON.stringify({
-    editName, editDesc, editPrice, editOriginalPrice, editRefundWindowDays, editRefundPolicyText,
+    editName, editDesc, editPrice, editOriginalPrice, editRefundWindowDays,
+    editRefundPolicyPath, editTermsPath, editPrivacyPath,
     editHostName, editAbout, editStartDate, editStartTime, editDuration, editPlannedLessons,
     editNextLessonDate, editCourseEndDate, editStudentMessage, editLearn, editFaq, editHostImage,
     editIsFreeCourse, editCertEnabled, editCertTemplate, editCertPalette, editCertCustomMessage,
     editSkills, editCertLogoUrl, editCertSignatureUrl, editUseLogoOnCertificate, editBrandName,
-    editInstructorTitle, editCoInstructors, editPromoVideoUrls, editTargetAudience, editTestimonials,
+    editInstructorTitle, editCoInstructors, editPromoVideoUrls, editPromoVideoHeading, editTargetAudience, editTestimonials,
     editLevel, editCategory, editRequirements, settingsLandingConfig,
   })
 
@@ -3205,11 +3248,43 @@ export default function CourseManagePage({
                     </div>
 
                     <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Refund Policy (shown to students)</label>
-                      <textarea value={editRefundPolicyText} onChange={e => setEditRefundPolicyText(e.target.value)}
-                        placeholder="Describe your refund terms in your own words..."
-                        rows={3}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Legal Pages</label>
+                      <p className="text-sm mb-4" style={{ color: '#a5a5a8', lineHeight: 1.6 }}>
+                        Upload a Refund Policy, Terms &amp; Conditions, and Privacy Policy as a .txt or .md file (max 20KB each).
+                        Don't paste one long paragraph — write it as a heading, then a short paragraph, then another heading, and so on. For example:
+                      </p>
+                      <pre className="text-xs mb-4 p-3 rounded-xl whitespace-pre-wrap" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
+{`## Eligibility
+Refunds are accepted within 7 days of purchase if you have not accessed more than 2 lessons.
+
+## How to request a refund
+Message us on WhatsApp with your order email and we'll process it within 5 business days.`}
+                      </pre>
+
+                      <div className="flex flex-col gap-4">
+                        {([
+                          { type: 'refund' as PolicyDocType, label: 'Refund Policy', path: editRefundPolicyPath },
+                          { type: 'terms' as PolicyDocType, label: 'Terms & Conditions', path: editTermsPath },
+                          { type: 'privacy' as PolicyDocType, label: 'Privacy Policy', path: editPrivacyPath },
+                        ]).map(doc => (
+                          <div key={doc.type} className="flex items-center justify-between gap-3 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div>
+                              <p className="text-sm font-semibold text-white">{doc.label}</p>
+                              {doc.path ? (
+                                <a href={doc.path} target="_blank" rel="noreferrer" className="text-xs text-violet-400 hover:text-violet-300">View uploaded file</a>
+                              ) : (
+                                <p className="text-xs" style={{ color: '#71717a' }}>No file uploaded yet</p>
+                              )}
+                            </div>
+                            <label className="text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer text-white" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                              {uploadingPolicyDoc === doc.type ? 'Uploading...' : doc.path ? 'Replace' : 'Upload'}
+                              <input type="file" accept=".txt,.md" className="hidden"
+                                disabled={uploadingPolicyDoc !== null}
+                                onChange={e => handleLegalDocUpload(e, doc.type)} />
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Make this entire course free toggle */}
@@ -3387,6 +3462,13 @@ export default function CourseManagePage({
                     {/* Promo videos */}
                     <SectionDivider label="Promo Videos" />
                     <div>
+                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                        Section Heading
+                        <span className="text-zinc-400 font-normal ml-1">— shown above the videos on your landing page (optional)</span>
+                      </label>
+                      <input value={editPromoVideoHeading} onChange={e => setEditPromoVideoHeading(e.target.value)}
+                        placeholder="e.g. See what you'll be learning"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 mb-4" />
                       <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                         Promo / Preview Videos
                         <span className="text-zinc-400 font-normal ml-1">— up to 3, YouTube or Vimeo links</span>
