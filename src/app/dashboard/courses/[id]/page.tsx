@@ -12,7 +12,7 @@ import {
   type LandingConfig, type LandingSectionEntry, type LandingCustomSection,
 } from '@/lib/landing-config'
 import { MAX_CUSTOM_SECTIONS_PER_COURSE, MAX_CUSTOM_HEADING_LENGTH, MAX_CUSTOM_BODY_LENGTH } from '@/lib/customSectionText'
-import { MAX_POLICY_FILE_BYTES, type PolicyDocType } from '@/lib/policyDocs'
+import { MAX_POLICY_FILE_BYTES, POLICY_DOC_LABELS, type PolicyDocType } from '@/lib/policyDocs'
 import { CERT_PALETTES, getCertLayoutPalette } from '@/lib/certPalettes'
 import { Gift, AlertTriangle as AlertTriangleIcon, FileText as FileTextIcon, Timer as TimerIcon, X as XIcon, Image as ImageIconLucide } from 'lucide-react'
 
@@ -2340,6 +2340,27 @@ export default function CourseManagePage({
     }
   }
 
+  async function handleRemoveLegalDoc(docType: PolicyDocType) {
+    const currentPath = docType === 'refund' ? editRefundPolicyPath : docType === 'terms' ? editTermsPath : editPrivacyPath
+    if (!currentPath) return
+    if (!confirm(`Remove the uploaded ${POLICY_DOC_LABELS[docType]}? You can upload a new one anytime.`)) return
+
+    try {
+      const marker = '/lessons/'
+      const idx = currentPath.indexOf(marker)
+      if (idx !== -1) {
+        await supabase.storage.from('lessons').remove([currentPath.slice(idx + marker.length)])
+      }
+    } catch {
+      // Non-fatal — clearing the path below is what actually removes it
+      // from the course page even if storage cleanup fails.
+    }
+
+    if (docType === 'refund') setEditRefundPolicyPath('')
+    else if (docType === 'terms') setEditTermsPath('')
+    else setEditPrivacyPath('')
+  }
+
   function updateBonus(index: number, field: 'title' | 'description', value: string) {
     setSettingsLandingConfig(prev => ({ ...prev, bonuses: prev.bonuses.map((b, i) => i === index ? { ...b, [field]: value } : b) }))
   }
@@ -3276,12 +3297,21 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                 <p className="text-xs" style={{ color: '#71717a' }}>No file uploaded yet</p>
                               )}
                             </div>
-                            <label className="text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer text-white" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                              {uploadingPolicyDoc === doc.type ? 'Uploading...' : doc.path ? 'Replace' : 'Upload'}
-                              <input type="file" accept=".txt,.md" className="hidden"
-                                disabled={uploadingPolicyDoc !== null}
-                                onChange={e => handleLegalDocUpload(e, doc.type)} />
-                            </label>
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer text-white" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                                {uploadingPolicyDoc === doc.type ? 'Uploading...' : doc.path ? 'Replace' : 'Upload'}
+                                <input type="file" accept=".txt,.md" className="hidden"
+                                  disabled={uploadingPolicyDoc !== null}
+                                  onChange={e => handleLegalDocUpload(e, doc.type)} />
+                              </label>
+                              {doc.path && (
+                                <button type="button" onClick={() => handleRemoveLegalDoc(doc.type)}
+                                  disabled={uploadingPolicyDoc !== null}
+                                  className="text-xs font-semibold px-3 py-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-colors">
+                                  Remove
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -3423,8 +3453,17 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             htmlFor="host-image"
                             className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
                           >
-                            {uploadingImage ? 'Uploading...' : 'Change Photo'}
+                            {uploadingImage ? 'Uploading...' : editHostImage ? 'Change Photo' : 'Upload Photo'}
                           </label>
+                          {editHostImage && (
+                            <button
+                              type="button"
+                              onClick={() => setEditHostImage('')}
+                              className="ml-2 text-xs text-zinc-500 hover:text-red-500"
+                            >
+                              Remove
+                            </button>
+                          )}
                           <p className="text-[14px] text-zinc-400 mt-1.5"> JPG/PNG (max 2MB)</p>
                         </div>
                       </div>

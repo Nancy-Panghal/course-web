@@ -128,7 +128,6 @@ export default function CreateCoursePage() {
   const [price, setPrice] = useState('')
   const [originalPrice, setOriginalPrice] = useState('')
   const [refundWindowDays, setRefundWindowDays] = useState('7')
-  const [refundPolicyText, setRefundPolicyText] = useState('')
   const [hostName, setHostName] = useState('')
   const [aboutCreator, setAboutCreator] = useState('')
   const [delivery, setDelivery] = useState('both')
@@ -274,7 +273,6 @@ export default function CreateCoursePage() {
           .filter(ci => ci.name.trim())
           .map(ci => ({ name: ci.name.trim(), title: ci.title.trim(), image: ci.image, bio: ci.bio.trim() })),
         refund_window_days: refundWindowDays === '' ? 0 : parseInt(refundWindowDays),
-        refund_policy_text: refundPolicyText.trim() || null,
       })
       .select()
       .single()
@@ -427,17 +425,8 @@ export default function CreateCoursePage() {
                 <Input value={refundWindowDays} onChange={setRefundWindowDays} placeholder="7" type="number" />
               </Field>
 
-              <Field label="Refund Policy (shown to students before purchase)" hint="Optional — e.g. 'Full refund within 7 days, no questions asked.' Leave blank to just show the refund window.">
-                <textarea
-                  value={refundPolicyText}
-                  onChange={e => setRefundPolicyText(e.target.value)}
-                  placeholder="Describe your refund terms in your own words..."
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
-                  style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
+              <Field label="Refund Policy, Terms & Privacy" hint="Upload these as files once your course is created — go to the course's Settings tab after saving.">
+                <p className="text-xs text-zinc-500">You'll be able to upload a Refund Policy, Terms & Conditions, and Privacy Policy file from the Settings tab of this course once it's created.</p>
               </Field>
 
               <div className="grid grid-cols-2 gap-4">

@@ -18,12 +18,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const KURSO_EQUIVALENT: Record<PolicyDocType, string> = {
-  refund: '/refund-policy',
-  terms: '/terms',
-  privacy: '/privacy',
-}
-
 function getDocPath(course: any, t: PolicyDocType): string | null {
   if (t === 'refund') return course.refund_policy_storage_path || null
   if (t === 'terms') return course.terms_storage_path || null
@@ -121,15 +115,6 @@ export default async function CoursePolicyPage({
             ))}
           </div>
         )}
-
-        <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2">
-          <p className="w-full text-xs mb-1" style={{ color: c.textFaint }}>Kurso's own platform policies:</p>
-          {(['refund', 'terms', 'privacy'] as PolicyDocType[]).map(t => (
-            <a key={t} href={KURSO_EQUIVALENT[t]} className="text-xs" style={{ color: c.textMuted }}>
-              Kurso {POLICY_DOC_LABELS[t]}
-            </a>
-          ))}
-        </div>
       </div>
     </div>
   )
