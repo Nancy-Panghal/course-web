@@ -23,35 +23,82 @@ export default function StudentsPage() {
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [refundingId, setRefundingId] = useState('')
   const [refundMessage, setRefundMessage] = useState<{ id: string; text: string; ok: boolean } | null>(null)
 
-  async function handleRefund(studentId: string) {
-    if (!confirm('Refund this student? This will send the money back to their original payment method and revoke their course access.')) return
+  const [refundModalStudent, setRefundModalStudent] = useState<Student | null>(null)
+  const [refundDetails, setRefundDetails] = useState<{ provider: string; netAmount: number; alreadyRefunded: number; refundable: number } | null>(null)
+  const [refundDetailsLoading, setRefundDetailsLoading] = useState(false)
+  const [refundDetailsError, setRefundDetailsError] = useState('')
+  const [refundMode, setRefundMode] = useState<'full' | 'partial'>('full')
+  const [refundAmountInput, setRefundAmountInput] = useState('')
+  const [refundReason, setRefundReason] = useState('')
+  const [refundSubmitting, setRefundSubmitting] = useState(false)
+  const [refundSubmitError, setRefundSubmitError] = useState('')
 
-    setRefundingId(studentId)
-    setRefundMessage(null)
+  async function openRefundModal(student: Student) {
+    setRefundModalStudent(student)
+    setRefundMode('full')
+    setRefundAmountInput('')
+    setRefundReason('')
+    setRefundSubmitError('')
+    setRefundDetails(null)
+    setRefundDetailsError('')
+    setRefundDetailsLoading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        setRefundMessage({ id: studentId, text: 'Not signed in.', ok: false })
-        return
-      }
+      if (!session?.access_token) { setRefundDetailsError('Not signed in.'); return }
+      const res = await fetch(`/api/creator/refund?enrollmentId=${student.id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const d = await res.json()
+      if (!res.ok) { setRefundDetailsError(d.error || 'Could not load refund details.'); return }
+      setRefundDetails(d)
+    } catch {
+      setRefundDetailsError('Network error. Please try again.')
+    } finally {
+      setRefundDetailsLoading(false)
+    }
+  }
+
+  function closeRefundModal() {
+    setRefundModalStudent(null)
+  }
+
+  async function submitRefund() {
+    if (!refundModalStudent || !refundDetails) return
+    const amount = refundMode === 'full' ? refundDetails.refundable : Number(refundAmountInput)
+
+    if (refundMode === 'partial') {
+      if (!Number.isFinite(amount) || amount <= 0) { setRefundSubmitError('Enter a valid amount.'); return }
+      if (amount > refundDetails.refundable) { setRefundSubmitError(`Cannot exceed ₹${refundDetails.refundable.toLocaleString('en-IN')}.`); return }
+    }
+
+    setRefundSubmitting(true)
+    setRefundSubmitError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { setRefundSubmitError('Not signed in.'); return }
       const res = await fetch('/api/creator/refund', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ enrollmentId: studentId }),
+        body: JSON.stringify({
+          enrollmentId: refundModalStudent.id,
+          amount: refundMode === 'full' ? 'full' : amount,
+          reason: refundReason || undefined,
+        }),
       })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setRefundMessage({ id: studentId, text: d.error || 'Could not process refund.', ok: false })
-        return
+      const d = await res.json()
+      if (!res.ok) { setRefundSubmitError(d.error || 'Could not process refund.'); return }
+
+      if (d.revokedAccess) {
+        setStudents(prev => prev.map(s => s.id === refundModalStudent.id ? { ...s, payment_status: 'refunded' } : s))
       }
-      setRefundMessage({ id: studentId, text: 'Refund initiated.', ok: true })
+      setRefundMessage({ id: refundModalStudent.id, text: d.message, ok: true })
+      closeRefundModal()
     } catch {
-      setRefundMessage({ id: studentId, text: 'Network error. Please try again.', ok: false })
+      setRefundSubmitError('Network error. Please try again.')
     } finally {
-      setRefundingId('')
+      setRefundSubmitting(false)
     }
   }
 
@@ -242,18 +289,16 @@ export default function StudentsPage() {
                     ) : (
                       <>
                         <button
-                          onClick={() => handleRefund(student.id)}
-                          disabled={refundingId === student.id}
+                          onClick={() => openRefundModal(student)}
                           className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all"
                           style={{
                             background: 'rgba(248,113,113,0.08)',
                             color: '#f87171',
                             border: '1px solid rgba(248,113,113,0.2)',
-                            opacity: refundingId === student.id ? 0.6 : 1,
                           }}
                         >
                           <RotateCcw className="w-3 h-3" />
-                          {refundingId === student.id ? 'Processing…' : 'Refund'}
+                          Refund
                         </button>
                         {refundMessage?.id === student.id && (
                           <p className="text-[10px] mt-1" style={{ color: refundMessage.ok ? '#4ade80' : '#fca5a5' }}>
@@ -269,6 +314,119 @@ export default function StudentsPage() {
           </div>
         )}
       </main>
+
+      {refundModalStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden"
+            style={{ background: '#0a0a0a', border: '1px solid rgba(248,113,113,0.25)' }}>
+            <div className="p-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+              <h3 className="font-semibold text-white">Refund student</h3>
+              <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>Phone: {refundModalStudent.phone}</p>
+            </div>
+
+            <div className="p-5">
+              {refundDetailsLoading ? (
+                <p className="text-sm text-center py-6" style={{ color: '#52525b' }}>Loading payment details...</p>
+              ) : refundDetailsError ? (
+                <p className="text-sm" style={{ color: '#f87171' }}>{refundDetailsError}</p>
+              ) : refundDetails ? (
+                <>
+                  <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span style={{ color: '#71717a' }}>Paid via</span>
+                      <span className="text-white capitalize">{refundDetails.provider}</span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span style={{ color: '#71717a' }}>Total paid</span>
+                      <span className="text-white">₹{refundDetails.netAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                    {refundDetails.alreadyRefunded > 0 && (
+                      <div className="flex justify-between text-xs mb-1">
+                        <span style={{ color: '#71717a' }}>Already refunded</span>
+                        <span style={{ color: '#f87171' }}>₹{refundDetails.alreadyRefunded.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs font-semibold pt-1 mt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span style={{ color: '#a1a1aa' }}>Available to refund</span>
+                      <span className="text-white">₹{refundDetails.refundable.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+
+                  {refundDetails.refundable <= 0 ? (
+                    <p className="text-sm text-center py-2" style={{ color: '#52525b' }}>Nothing left to refund on this payment.</p>
+                  ) : (
+                    <>
+                      <div className="flex rounded-xl p-1 mb-4" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        {(['full', 'partial'] as const).map(m => (
+                          <button key={m} onClick={() => setRefundMode(m)}
+                            className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+                            style={{
+                              background: refundMode === m ? 'rgba(248,113,113,0.18)' : 'transparent',
+                              color: refundMode === m ? '#fff' : '#a1a1aa',
+                            }}>
+                            {m === 'full' ? `Full — ₹${refundDetails.refundable.toLocaleString('en-IN')}` : 'Partial amount'}
+                          </button>
+                        ))}
+                      </div>
+
+                      {refundMode === 'partial' && (
+                        <div className="mb-4">
+                          <label className="text-xs mb-1.5 block" style={{ color: '#a1a1aa' }}>
+                            Amount to refund — e.g. if the student watched some lessons and you don't want to refund in full
+                          </label>
+                          <input type="number" min={1} max={refundDetails.refundable} value={refundAmountInput}
+                            onChange={e => setRefundAmountInput(e.target.value)}
+                            placeholder={`Up to ₹${refundDetails.refundable.toLocaleString('en-IN')}`}
+                            className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+                        </div>
+                      )}
+
+                      <div className="mb-4">
+                        <label className="text-xs mb-1.5 block" style={{ color: '#a1a1aa' }}>Reason (optional, kept for your records)</label>
+                        <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} rows={2}
+                          className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none resize-none"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+                      </div>
+
+                      <div className="mb-4 p-3 rounded-xl flex items-start gap-2"
+                        style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                        <RotateCcw className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#f87171' }} />
+                        <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                          Any refund — full or partial — ends this student's access to the course. A partial refund
+                          just means you're giving back less than the full amount, e.g. because they'd already
+                          watched some lessons.
+                        </p>
+                      </div>
+
+                      {refundSubmitError && (
+                        <p className="text-xs mb-3" style={{ color: '#f87171' }}>{refundSubmitError}</p>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button onClick={closeRefundModal}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                          style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                          Cancel
+                        </button>
+                        <button onClick={submitRefund} disabled={refundSubmitting}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                          style={{ background: '#dc2626' }}>
+                          {refundSubmitting ? 'Processing...' : 'Issue refund'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-center mt-3" style={{ color: '#3f3f46' }}>
+                        This calls your {refundDetails.provider} account directly — the money moves immediately and cannot be undone from here.
+                      </p>
+                    </>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

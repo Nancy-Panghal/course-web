@@ -24,6 +24,28 @@ export type CreatorGateway = {
 // uses ONE of them: their default, or their only verified one. Letting
 // students pick between the creator's several gateways is a later
 // refinement, not needed for launch.
+// Refunds must go back through the SAME provider the original payment
+// used — never "whichever gateway is default now" (a creator could have
+// switched providers since). Look up by provider explicitly.
+export async function getCreatorGatewayByProvider(creatorId: string, provider: 'cashfree' | 'razorpay' | 'stripe'): Promise<CreatorGateway | null> {
+  const { data, error } = await supabase
+    .from('creator_payment_gateways')
+    .select('provider, environment, credentials_encrypted')
+    .eq('creator_id', creatorId)
+    .eq('provider', provider)
+    .eq('status', 'verified')
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  return {
+    provider: data.provider,
+    environment: data.environment,
+    credentials: decryptCredentials(data.credentials_encrypted),
+  }
+}
+
 export async function getCreatorCheckoutGateway(creatorId: string): Promise<CreatorGateway | null> {
   const { data, error } = await supabase
     .from('creator_payment_gateways')

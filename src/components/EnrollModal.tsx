@@ -234,7 +234,6 @@ function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: 
 }
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, findPaidEnrollmentByPhone } from '@/lib/enrollments'
-import VyaparPayWidget from '@/components/VyaparPayWidget'
 
 
 
@@ -326,7 +325,8 @@ export default function EnrollModal({ onClose, course }: Props) {
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [vyaparOrder, setVyaparOrder] = useState<any>(null)
+  const [checkoutOrder, setCheckoutOrder] = useState<any>(null)
+  const [checkingStatus, setCheckingStatus] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
   // Auth fields
@@ -543,6 +543,24 @@ export default function EnrollModal({ onClose, course }: Props) {
     checkSession()
   }, [course.id])
 
+  // Handles the Stripe redirect-back case — the student lands back on this
+  // page after paying on Stripe's hosted checkout. We confirm via our own
+  // order status, never by trusting the return URL itself.
+  useEffect(() => {
+    if (!studentData) return
+    const params = new URLSearchParams(window.location.search)
+    const orderId = params.get('order_id')
+    const status = params.get('status')
+    if (!orderId || status !== 'success') return
+    setStep('payment')
+    setCheckingStatus(true)
+    pollOrderStatus(orderId).then(async (result) => {
+      setCheckingStatus(false)
+      if (result === 'success') await handlePaymentConfirmed(orderId)
+      else setError('We could not confirm this payment yet. If money was deducted, it will reflect within a few minutes — refresh this page, or contact support if it does not.')
+    })
+  }, [studentData])
+
   // ── Auth handlers ────────────────────────────────────────────────
   async function handleGoogleLogin() {
     await supabase.auth.signInWithOAuth({
@@ -737,12 +755,70 @@ export default function EnrollModal({ onClose, course }: Props) {
     }
   }
 
+  // ── Payment SDK helpers ──────────────────────────────────────────
+  async function loadCashfreeSdk(): Promise<any> {
+    if ((window as any).__cashfreeInstance) return (window as any).__cashfreeInstance
+    await new Promise<void>((resolve, reject) => {
+      if (document.getElementById('cashfree-sdk-script')) return resolve()
+      const script = document.createElement('script')
+      script.id = 'cashfree-sdk-script'
+      script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js'
+      script.onload = () => resolve()
+      script.onerror = () => reject(new Error('Could not load the payment SDK. Check your connection and try again.'))
+      document.body.appendChild(script)
+    })
+    const instance = (window as any).Cashfree({ mode: 'production' })
+    ;(window as any).__cashfreeInstance = instance
+    return instance
+  }
+
+  async function loadRazorpaySdk(): Promise<void> {
+    if ((window as any).Razorpay) return
+    await new Promise<void>((resolve, reject) => {
+      if (document.getElementById('razorpay-sdk-script')) return resolve()
+      const script = document.createElement('script')
+      script.id = 'razorpay-sdk-script'
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.onload = () => resolve()
+      script.onerror = () => reject(new Error('Could not load the payment SDK. Check your connection and try again.'))
+      document.body.appendChild(script)
+    })
+  }
+
+  async function pollOrderStatus(clientTxnId: string, attemptsLeft = 8): Promise<string | null> {
+    if (attemptsLeft <= 0) return null
+    const res = await fetch(`/api/order-status?clientTxnId=${clientTxnId}`)
+    const data = await res.json().catch(() => null)
+    if (data?.status === 'success') return data.status
+    await new Promise((r) => setTimeout(r, 2000))
+    return pollOrderStatus(clientTxnId, attemptsLeft - 1)
+  }
+
+  // Called once our own DB confirms the payment succeeded — never called
+  // directly off a gateway's client-side "success" callback, since that
+  // only means the modal closed, not that the webhook has landed yet.
+  async function handlePaymentConfirmed(clientTxnId: string) {
+    const confirmedEnrollment = await findPaidEnrollment({
+      courseId: course.id,
+      user: (await supabase.auth.getUser()).data.user,
+      phone: studentData?.phone,
+      select: 'id',
+    })
+    const enrollmentId = confirmedEnrollment?.id || null
+    if (!enrollmentId) {
+      setError('Payment received but enrollment not found yet. Please refresh in a moment or contact support.')
+      return
+    }
+    setStep('success')
+    generatePaidTokens(studentData, clientTxnId, enrollmentId)
+  }
+
   // ── Payment ──────────────────────────────────────────────────────
   async function handlePayment() {
     setLoading(true)
     setError('')
     try {
-      const orderRes = await fetch('/api/vyapar/create-order', {
+      const orderRes = await fetch('/api/checkout/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -751,6 +827,7 @@ export default function EnrollModal({ onClose, course }: Props) {
           studentName: studentData?.name,
           studentEmail: studentData?.email,
           studentPhone: studentData?.phone,
+          returnUrl: window.location.href,
         }),
       })
       const data = await orderRes.json()
@@ -768,35 +845,54 @@ export default function EnrollModal({ onClose, course }: Props) {
           final_amount: data.pricing.finalAmount,
         })
       }
-      setVyaparOrder(data)
+      setCheckoutOrder(data)
+
+      const { clientTxnId, order } = data
+
+      if (order.provider === 'cashfree') {
+        const cashfree = await loadCashfreeSdk()
+        await cashfree.checkout({ paymentSessionId: order.paymentSessionId, redirectTarget: '_modal' })
+        setCheckingStatus(true)
+        const status = await pollOrderStatus(clientTxnId)
+        setCheckingStatus(false)
+        if (status === 'success') await handlePaymentConfirmed(clientTxnId)
+        else setError('We could not confirm this payment yet. If money was deducted, it will reflect within a few minutes — refresh this page, or contact support if it does not.')
+        setLoading(false)
+        return
+      }
+
+      if (order.provider === 'razorpay') {
+        await loadRazorpaySdk()
+        const rzp = new (window as any).Razorpay({
+          key: order.keyId,
+          amount: order.amountPaise,
+          currency: order.currency,
+          order_id: order.orderId,
+          name: course.name,
+          prefill: { name: studentData?.name, email: studentData?.email, contact: studentData?.phone },
+          handler: async () => {
+            setCheckingStatus(true)
+            const status = await pollOrderStatus(clientTxnId)
+            setCheckingStatus(false)
+            if (status === 'success') await handlePaymentConfirmed(clientTxnId)
+            else setError('Payment received but not yet confirmed — refresh this page in a moment.')
+          },
+          modal: { ondismiss: () => setLoading(false) },
+        })
+        rzp.open()
+        return
+      }
+
+      if (order.provider === 'stripe') {
+        window.location.href = order.checkoutUrl
+        return
+      }
+
+      throw new Error('Unsupported payment method.')
     } catch (err: any) {
       setError(err.message)
-    } finally {
       setLoading(false)
     }
-  }
-
-  async function handleVyaparSuccess(enrollmentId: string | null) {
-    if (!enrollmentId) {
-      const confirmedEnrollment = await findPaidEnrollment({
-        courseId: course.id,
-        user: (await supabase.auth.getUser()).data.user,
-        phone: studentData?.phone,
-        select: 'id',
-      })
-      enrollmentId = confirmedEnrollment?.id || null
-    }
-    if (!enrollmentId) {
-      setError('Payment received but enrollment not found yet. Please refresh in a moment or contact support.')
-      return
-    }
-    setStep('success')
-    generatePaidTokens(studentData, vyaparOrder?.clientTxnId, enrollmentId)
-  }
-
-  function handleVyaparExpired() {
-    setVyaparOrder(null)
-    setError('This payment window expired or failed. Please try again.')
   }
 
   // ── Loading ──────────────────────────────────────────────────────
@@ -1199,16 +1295,10 @@ export default function EnrollModal({ onClose, course }: Props) {
               </div>
             )}
 
-            {payableAmount > 0 && vyaparOrder ? (
-              <VyaparPayWidget
-                qrCode={vyaparOrder.qrCode}
-                upiIntent={vyaparOrder.upiIntent}
-                expiresAt={vyaparOrder.expiresAt}
-                clientTxnId={vyaparOrder.clientTxnId}
-                amount={payableAmount}
-                onSuccess={handleVyaparSuccess}
-                onExpired={handleVyaparExpired}
-              />
+            {checkingStatus ? (
+              <div className="w-full py-4 rounded-xl text-sm text-center" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                Confirming your payment...
+              </div>
             ) : payableAmount > 0 ? (
               <button onClick={handlePayment} disabled={loading}
                 className="w-full py-4 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow-strong disabled:opacity-50 text-lg">
@@ -1221,11 +1311,11 @@ export default function EnrollModal({ onClose, course }: Props) {
               </button>
             )}
             {payableAmount > 0 ? (
-              <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Secured by UPI · 256-bit SSL</p>
+              <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Secured payment · 256-bit SSL</p>
             ) : (
               <p className="text-center text-xs mt-3" style={{ color: '#3f3f46' }}>Free enrollment · Instantly access your course</p>
             )}
-            {!vyaparOrder && (
+            {!checkingStatus && (
               <button onClick={() => setStep(isCompletelyFree ? 'auth' : (isNothingFree ? 'auth' : 'demo'))}
                 className="w-full text-center text-xs mt-2" style={{ color: '#52525b' }}>
                 ← Back

@@ -11,7 +11,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { courseId, couponCode, studentName, studentEmail, studentPhone } = await req.json()
+    const { courseId, couponCode, studentName, studentEmail, studentPhone, returnUrl: clientReturnUrl } = await req.json()
     if (!courseId) {
       return NextResponse.json({ error: 'Missing course ID' }, { status: 400 })
     }
@@ -110,10 +110,15 @@ export async function POST(req: NextRequest) {
         customerName: studentName,
         customerEmail: studentEmail,
         customerPhone: studentPhone,
-        returnUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/course/${courseId}?order_id=${transactionId}`,
+        returnUrl: clientReturnUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/course/${courseId}?order_id=${transactionId}`,
       })
 
-      await supabase.from('transactions').update({ gateway_order_id: order.orderId }).eq('id', transactionId)
+      // Stripe's CheckoutResult has no orderId — it's correlated by
+      // client_reference_id (= our transactionId) instead, handled in
+      // the webhook. Only Cashfree/Razorpay have a real gateway order id
+      // to store here.
+      const gatewayOrderId = 'orderId' in order ? order.orderId : null
+      await supabase.from('transactions').update({ gateway_order_id: gatewayOrderId }).eq('id', transactionId)
 
       return NextResponse.json({
         clientTxnId: transactionId,

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Link2 } from 'lucide-react'
+import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Link2, Copy } from 'lucide-react'
 import { PROVIDER_FIELDS } from '@/lib/payment-gateways'
 
 // ── OUTSIDE the page component — fixes input focus loss ──
@@ -217,6 +217,7 @@ export default function SettingsPage() {
   const [gwLoading, setGwLoading] = useState(true)
   const [gwList, setGwList] = useState<any[]>([]) // rows from GET, one per connected provider
   const [gwActiveTab, setGwActiveTab] = useState<'cashfree' | 'razorpay' | 'stripe'>('cashfree')
+  const [gwUrlCopied, setGwUrlCopied] = useState(false)
   const [gwEnvironment, setGwEnvironment] = useState<'production' | 'sandbox'>('production')
   const [gwCredentials, setGwCredentials] = useState<Record<string, string>>({})
   const [gwWebhookSecret, setGwWebhookSecret] = useState('')
@@ -324,6 +325,17 @@ export default function SettingsPage() {
     })
   }
 
+
+  async function handleCopyWebhookUrl() {
+    const url = `${window.location.origin}/api/webhooks/${gwActiveTab}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setGwUrlCopied(true)
+      setTimeout(() => setGwUrlCopied(false), 5000)
+    } catch {
+      setGwError('Could not copy automatically — please select and copy the URL manually.')
+    }
+  }
 
   async function handleSaveGateway() {
     setGwError('')
@@ -544,6 +556,27 @@ export default function SettingsPage() {
                 ))}
               </div>
 
+              {/* Webhook URL to paste into the provider's own dashboard */}
+              <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-xs mb-2" style={{ color: '#a1a1aa' }}>
+                  Add this as a webhook endpoint in your {gwActiveTab} dashboard, then paste the signing secret it gives you below:
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs px-3 py-2 rounded-lg truncate"
+                    style={{ background: 'rgba(0,0,0,0.3)', color: '#c4b5fd', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/${gwActiveTab}` : `/api/webhooks/${gwActiveTab}`}
+                  </code>
+                  <button onClick={handleCopyWebhookUrl} type="button"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0"
+                    style={{
+                      background: gwUrlCopied ? 'rgba(74,222,128,0.15)' : 'rgba(139,92,246,0.15)',
+                      color: gwUrlCopied ? '#4ade80' : '#c4b5fd',
+                    }}>
+                    {gwUrlCopied ? <><CheckCircle2 className="w-3.5 h-3.5" />Copied</> : <><Copy className="w-3.5 h-3.5" />Copy</>}
+                  </button>
+                </div>
+              </div>
+
               <div className="mb-4 flex items-center justify-between p-3 rounded-xl"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <span className="text-xs" style={{ color: '#a1a1aa' }}>Use test/sandbox keys first, switch to live when ready</span>
@@ -560,7 +593,7 @@ export default function SettingsPage() {
                   onChange={(v: string) => setGwCredentials({ ...gwCredentials, [field.key]: v })}
                   placeholder={field.placeholder} type="password" />
               ))}
-              <InputField label="Webhook signing secret (optional, recommended)"
+              <InputField label="Webhook signing secret (required)"
                 value={gwWebhookSecret} onChange={setGwWebhookSecret}
                 placeholder="Paste from your provider's webhook settings" type="password" />
 
@@ -582,7 +615,7 @@ export default function SettingsPage() {
               )}
 
               <button onClick={handleSaveGateway}
-                disabled={gwSaving || PROVIDER_FIELDS[gwActiveTab].some((f) => !gwCredentials[f.key]?.trim())}
+                disabled={gwSaving || !gwWebhookSecret.trim() || PROVIDER_FIELDS[gwActiveTab].some((f) => !gwCredentials[f.key]?.trim())}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
                 {gwSaving ? 'Verifying & saving...' : 'Verify & Connect'}
               </button>
