@@ -21,7 +21,7 @@ import {
   Eye, EyeOff, ExternalLink, Copy, Check,
   Trash2, CheckCircle, AlertCircle,
   MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle,
-  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X, ChevronRight
+  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X, ChevronRight, Code2
 } from 'lucide-react'
 
 interface Course {
@@ -2155,6 +2155,7 @@ export default function CourseManagePage({
   const [creatorId, setCreatorId] = useState('')
   const [copied, setCopied] = useState(false)
   const [copiedCheckout, setCopiedCheckout] = useState(false)
+  const [copiedEmbed, setCopiedEmbed] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
   const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>('lessons')
@@ -2826,6 +2827,22 @@ export default function CourseManagePage({
     setTimeout(() => setCopiedCheckout(false), 2500)
   }
 
+  function embedSnippet() {
+    if (!course) return ''
+    const label = course.is_free_course ? 'Enroll Free' : `Enroll Now — ₹${Number(course.price).toLocaleString('en-IN')}`
+    return `<button data-kurso-course="${course.id}" style="background:#7c3aed;color:#fff;border:none;padding:14px 28px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;">
+  ${label}
+</button>
+<script src="${window.location.origin}/kurso-embed.js" defer></script>`
+  }
+
+  function copyEmbedSnippet() {
+    if (!course) return
+    navigator.clipboard.writeText(embedSnippet())
+    setCopiedEmbed(true)
+    setTimeout(() => setCopiedEmbed(false), 2500)
+  }
+
   const publishedCount = lessons.filter(l => l.is_published).length
   const allPublished = lessons.length > 0 && publishedCount === lessons.length
   const plannedTotal = Math.max(course?.total_lessons || 0, lessons.length)
@@ -2941,7 +2958,9 @@ export default function CourseManagePage({
                   color: course.is_published ? '#4ade80' : '#52525b',
                   border: course.is_published ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(255,255,255,0.08)',
                 }}>
-                {course.is_published ? '● Live' : '○ Draft'}
+                {course.uses_external_landing_page
+                  ? (course.is_published ? '● Checkout On' : '○ Checkout Off')
+                  : (course.is_published ? '● Live' : '○ Draft')}
               </span>
             </div>
             <div className="flex items-center gap-4 mt-4 border-b border-white/5">
@@ -4051,8 +4070,21 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   </div>
                 </div>
               </div>
-            ) : activeTab === 'landing' ? (
-              <LandingPageDesigner courseId={course.id} />
+                        ) : activeTab === 'landing' ? (
+              course.uses_external_landing_page ? (
+                <div className="rounded-2xl p-8 glass text-center" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-sm font-semibold text-white mb-2">You're using your own landing page</p>
+                  <p className="text-sm mb-5" style={{ color: '#a1a1aa' }}>
+                    Nobody will see this Kurso page, so there's nothing to design here — use the Checkout Link or Embed Button in Settings instead. Price, refund policy, and other course details are still edited from the Settings tab.
+                  </p>
+                  <button onClick={toggleUsesExternalLandingPage}
+                    className="text-xs underline" style={{ color: '#71717a' }}>
+                    Want to use Kurso's course page after all? Switch mode
+                  </button>
+                </div>
+              ) : (
+                <LandingPageDesigner courseId={course.id} />
+              )
             ) : null}
           </div>
 
@@ -4142,6 +4174,32 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
               </button>
             </div>
 
+            {/* Embed Button — for creators who want to keep their own page's exact look, only the button is Kurso's */}
+            <div className="rounded-2xl p-5 glass"
+              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+                <Code2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                Embed Button
+              </h3>
+              <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
+                Want your page to look exactly as it does today? Paste this snippet where you want the button — it opens Kurso checkout in a popup, everything else on your page stays untouched. Restyle the button however you like; only the <code>data-kurso-course</code> attribute matters.
+              </p>
+              <pre className="text-xs mb-3 p-3 rounded-xl whitespace-pre-wrap break-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
+                {embedSnippet()}
+              </pre>
+              <button onClick={copyEmbedSnippet}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {copiedEmbed
+                  ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
+                  : <><Copy className="w-4 h-4" />Copy Embed Code</>
+                }
+              </button>
+              <p className="text-[11px] mt-2" style={{ color: '#71717a' }}>
+                Note: the price shown is baked in at copy time — if you change your course price later, re-copy and re-paste this snippet.
+              </p>
+            </div>
+
             {/* Student Update / Delay Broadcast */}
             <div className="rounded-2xl p-5"
               style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.2)' }}>
@@ -4175,39 +4233,39 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
               </button>
             </div>
 
-            {/* Share section */}
-            <div className="rounded-2xl p-5"
-              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
-              <h3 className="font-semibold text-white mb-1 flex items-center gap-2">
-                <Share2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
-                Share Course
-              </h3>
-              <p className="text-xs mb-4" style={{ color: '#adadb0' }}>
-                Share this link with your students to enroll.
-              </p>
+            {/* Share section — the Kurso course page link, irrelevant if the creator uses their own page instead */}
+            {!course.uses_external_landing_page && (
+              <div className="rounded-2xl p-5"
+                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                <h3 className="font-semibold text-white mb-1 flex items-center gap-2">
+                  <Share2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                  Share Course
+                </h3>
+                <p className="text-xs mb-4" style={{ color: '#adadb0' }}>
+                  Share this link with your students to enroll.
+                </p>
 
+                {/* Copy link */}
+                <button onClick={copyCourseLink}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all mb-2"
+                  style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  {copied
+                    ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
+                    : <><Copy className="w-4 h-4" />Copy Course Link</>
+                  }
+                </button>
 
-
-              {/* Copy link */}
-              <button onClick={copyCourseLink}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all mb-2"
-                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {copied
-                  ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
-                  : <><Copy className="w-4 h-4" />Copy Course Link</>
-                }
-              </button>
-
-              {/* Share on WhatsApp */}
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Hey! Enroll in my course "${course.name}" here: ${courseUrl}`)}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
-                style={{ background: '#25d366', color: '#fff' }}>
-                <MessageCircle className="w-4 h-4" />
-                Share on WhatsApp
-              </a>
-            </div>
+                {/* Share on WhatsApp */}
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`Hey! Enroll in my course "${course.name}" here: ${courseUrl}`)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                  style={{ background: '#25d366', color: '#fff' }}>
+                  <MessageCircle className="w-4 h-4" />
+                  Share on WhatsApp
+                </a>
+              </div>
+            )}
 
           </div>
         </div>

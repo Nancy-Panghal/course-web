@@ -142,6 +142,7 @@ export default function CreateCoursePage() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English'])
   const [langDropdown, setLangDropdown] = useState(false)
   const [isFreeCourse, setIsFreeCourse] = useState(false)
+  const [usesExternalLandingPage, setUsesExternalLandingPage] = useState(false)
   // Step 3 — new fields
   const [level, setLevel] = useState('')
   const [category, setCategory] = useState('')
@@ -262,6 +263,7 @@ export default function CreateCoursePage() {
         what_you_will_learn: whatYouWillLearn.filter(item => item.trim() !== ''),
         faq: faqs.filter(f => f.question.trim() !== '' && f.answer.trim() !== ''),
         is_free_course: isFreeCourse,
+        uses_external_landing_page: usesExternalLandingPage,
         // Step 3 fields
         level: level || null,
         category: category || null,
@@ -305,6 +307,25 @@ export default function CreateCoursePage() {
         </div>
 
         <div className="flex flex-col gap-6">
+
+          {/* Landing page mode */}
+          <div className="rounded-2xl p-5 glass"
+            style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-white">I already have my own landing page</p>
+                <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
+                  Turn this on if you'll send students to your own page (Instagram, Framer, WordPress, etc.) and only want Kurso for checkout, lesson delivery, and payments. This hides the fields below that only matter for Kurso's own course page — you can still fill them in later if you change your mind.
+                </p>
+              </div>
+              <button type="button" onClick={() => setUsesExternalLandingPage(v => !v)}
+                className="relative w-12 h-6 rounded-full transition-all flex-shrink-0"
+                style={{ background: usesExternalLandingPage ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
+                <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                  style={{ left: usesExternalLandingPage ? '28px' : '4px' }} />
+              </button>
+            </div>
+          </div>
 
           {/* Basic Info */}
           <div className="rounded-2xl p-6 glass"
