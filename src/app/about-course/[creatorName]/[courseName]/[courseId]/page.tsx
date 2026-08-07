@@ -1053,13 +1053,13 @@ export default async function AboutCoursePage({
           {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path) && (
             <div className="mb-4 flex items-center justify-center flex-wrap gap-x-5 gap-y-1.5">
               {course.refund_policy_storage_path && (
-                <a href={`/course/${course.id}/policy/refund`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Refund Policy</a>
+                <a href={`/policy/${course.id}/refund`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Refund Policy</a>
               )}
               {course.terms_storage_path && (
-                <a href={`/course/${course.id}/policy/terms`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Terms &amp; Conditions</a>
+                <a href={`/policy/${course.id}/terms`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Terms &amp; Conditions</a>
               )}
               {course.privacy_storage_path && (
-                <a href={`/course/${course.id}/policy/privacy`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Privacy Policy</a>
+                <a href={`/policy/${course.id}/privacy`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Privacy Policy</a>
               )}
             </div>
           )}

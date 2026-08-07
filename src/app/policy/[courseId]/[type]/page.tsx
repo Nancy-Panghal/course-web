@@ -1,4 +1,4 @@
-// src/app/course/[courseId]/policy/[type]/page.tsx
+// src/app/policy/[courseId]/[type]/page.tsx
 //
 // Public, theme-matched renderer for a creator's uploaded Refund Policy /
 // Terms & Conditions / Privacy Policy. Linked from the course landing page
@@ -109,7 +109,7 @@ export default async function CoursePolicyPage({
         {siblingDocs.length > 0 && (
           <div className="mt-16 pt-8 flex flex-wrap gap-x-6 gap-y-2" style={{ borderTop: `1px solid ${c.border}` }}>
             {siblingDocs.map(t => (
-              <Link key={t} href={`/course/${courseId}/policy/${t}`} className="text-sm font-medium" style={{ color: c.accentText }}>
+              <Link key={t} href={`/policy/${courseId}/${t}`} className="text-sm font-medium" style={{ color: c.accentText }}>
                 {POLICY_DOC_LABELS[t]}
               </Link>
             ))}

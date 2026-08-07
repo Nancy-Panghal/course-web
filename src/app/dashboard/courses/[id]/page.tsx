@@ -51,6 +51,7 @@ interface Course {
   terms_storage_path?: string
   privacy_storage_path?: string
   promo_video_heading?: string
+  uses_external_landing_page?: boolean
   scheduled_deletion_at?: string
   next_lesson_date?: string
   course_end_date?: string
@@ -2751,6 +2752,16 @@ export default function CourseManagePage({
     setCourse({ ...course, is_published: newState })
   }
 
+  async function toggleUsesExternalLandingPage() {
+    if (!course) return
+    const newState = !course.uses_external_landing_page
+    await supabase
+      .from('courses')
+      .update({ uses_external_landing_page: newState })
+      .eq('id', id)
+    setCourse({ ...course, uses_external_landing_page: newState })
+  }
+
   // Moving a lesson between modules by dragging was removed — it left
   // order_num out of sync with what students actually received. Instead,
   // creators change a lesson's number directly, and the whole course gets
@@ -4101,12 +4112,18 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-sm font-semibold text-white">
-                    {course.is_published ? 'Course is Live' : 'Course is Draft'}
+                    {course.uses_external_landing_page
+                      ? (course.is_published ? 'Checkout is Enabled' : 'Checkout is Disabled')
+                      : (course.is_published ? 'Course is Live' : 'Course is Draft')}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: '#cfcfd4' }}>
-                    {course.is_published
-                      ? 'Students can find and enroll'
-                      : 'Course page hidden · enrollment blocked · enrolled students unaffected'}
+                    {course.uses_external_landing_page
+                      ? (course.is_published
+                          ? 'Your Checkout Link and Embed Button will accept payments. Your Kurso course page stays hidden either way.'
+                          : 'Your Checkout Link and Embed Button are blocked until this is on — even though you use your own page.')
+                      : (course.is_published
+                          ? 'Students can find and enroll'
+                          : 'Course page hidden · enrollment blocked · enrolled students unaffected')}
                   </p>
                 </div>
                 <button onClick={toggleCoursePublish}
@@ -4125,6 +4142,13 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   </p>
                 </div>
               )}
+              <button onClick={toggleUsesExternalLandingPage}
+                className="text-[11px] mt-2 underline"
+                style={{ color: '#71717a' }}>
+                {course.uses_external_landing_page
+                  ? "Using Kurso's course page instead? Switch mode"
+                  : 'Using your own landing page instead? Switch mode'}
+              </button>
             </div>
 
             {/* Course page preview */}
