@@ -39,7 +39,7 @@ async function askGemini(question: string): Promise<string | null> {
   }
   try {
     const res = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
       {
         method: 'POST',
         headers: {
