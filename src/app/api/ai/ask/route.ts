@@ -33,7 +33,10 @@ function wordCount(text: string): number {
 
 async function askGemini(question: string): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return null
+  if (!apiKey) {
+    console.error('[askGemini] GEMINI_API_KEY is not set')
+    return null
+  }
   try {
     const res = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
@@ -49,18 +52,26 @@ async function askGemini(question: string): Promise<string | null> {
         }),
       }
     )
-    if (!res.ok) return null
+    if (!res.ok) {
+      const body = await res.text()
+      console.error('[askGemini] Gemini returned', res.status, body)
+      return null
+    }
     const data = await res.json()
     const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join(' ').trim()
     return text || null
-  } catch {
+  } catch (err: any) {
+    console.error('[askGemini] threw', err.message)
     return null
   }
 }
 
 async function askDeepSeek(question: string): Promise<string | null> {
   const apiKey = process.env.DEEPSEEK_API_KEY
-  if (!apiKey) return null
+  if (!apiKey) {
+    console.error('[askDeepSeek] DEEPSEEK_API_KEY is not set')
+    return null
+  }
   try {
     const res = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
@@ -77,10 +88,15 @@ async function askDeepSeek(question: string): Promise<string | null> {
         ],
       }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      const body = await res.text()
+      console.error('[askDeepSeek] DeepSeek returned', res.status, body)
+      return null
+    }
     const data = await res.json()
     return data?.choices?.[0]?.message?.content?.trim() || null
-  } catch {
+  } catch (err: any) {
+    console.error('[askDeepSeek] threw', err.message)
     return null
   }
 }
