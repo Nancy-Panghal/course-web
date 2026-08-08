@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     const { data: lesson } = await supabaseAdmin
       .from('lessons')
-      .select('id, course_id, qa_enabled')
+      .select('id, course_id, qa_enabled, is_free')
       .eq('id', lessonId)
       .single()
 
@@ -50,6 +50,22 @@ export async function GET(req: NextRequest) {
     if (!lesson.qa_enabled) return NextResponse.json({ qaEnabled: false, comments: [] })
 
     const identity = await resolveQaIdentity(req, lesson.course_id, bodyEnrollmentId)
+
+    // Not enrolled and not a creator — only allow through if this is a
+    // genuinely free-preview lesson on a published course. Otherwise a
+    // locked/unpublished lesson's Q&A could be read by anyone who knew
+    // the lessonId, enrolled or not.
+    if (!identity) {
+      const { data: course } = await supabaseAdmin
+        .from('courses')
+        .select('is_published, is_free_course')
+        .eq('id', lesson.course_id)
+        .single()
+      const isFreePreview = course?.is_published !== false && (course?.is_free_course || lesson.is_free)
+      if (!isFreePreview) {
+        return NextResponse.json({ error: 'Not enrolled in this course.' }, { status: 403 })
+      }
+    }
 
     // Visible to everyone, plus the viewer's own pending-review comments
     // (so they see "awaiting review" instead of the comment vanishing).

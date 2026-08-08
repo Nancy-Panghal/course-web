@@ -28,6 +28,8 @@ import AssignmentSubmit from '@/components/AssignmentSubmit'
 import WatermarkedPlayer from '@/components/WatermarkedPlayer'
 import { isLessonFree } from '@/lib/freeLesson'
 import LessonQA from '@/components/LessonQA'
+import LessonAI from '@/components/LessonAI'
+
 
 interface Lesson {
   id: string
@@ -678,8 +680,11 @@ export default function CourseLearnPage() {
 
   return (
     <div className="min-h-screen flex flex-col text-white" style={{ background: '#080808' }}>
-      {currentLesson && currentLesson.qa_enabled !== false && (
-        <LessonQA lessonId={currentLesson.id} />
+      {currentLesson && currentLesson.qa_enabled !== false && canAccess && (
+        <LessonQA lessonId={currentLesson.id} enrollmentId={enrollment?.id} />
+      )}
+      {currentLesson && canAccess && (
+        <LessonAI lessonId={currentLesson.id} enrollmentId={enrollment?.id} />
       )}
       {showEnroll && (
         <EnrollModal
