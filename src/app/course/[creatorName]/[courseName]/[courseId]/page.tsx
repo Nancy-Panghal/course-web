@@ -1143,6 +1143,110 @@ export default function CourseLearnPage() {
                 )}
               </div>
 
+              {/* Assignment as an activity attached to a video/pdf/live lesson —
+                  separate from a lesson whose content_type IS 'assignment', which
+                  renders its assignment content in the main content slot above. */}
+              {currentLesson?.content_type !== 'assignment' && (currentLesson?.assignment_prompt || currentLesson?.assignment_file_url) && isEnrolled && (
+                <div style={{
+                  marginBottom: 18, padding: 16, borderRadius: 12,
+                  background: 'rgba(245,158,11,0.06)',
+                  border: '1px solid rgba(245,158,11,0.2)',
+                }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--kurso-accent)', marginBottom: 6 }}>
+                    📝 Assignment{currentLesson.assignment_required ? ' (Required)' : ' (Optional)'}
+                  </p>
+
+                  {currentLesson.assignment_prompt && (
+                    <p style={{ fontSize: 13, color: '#e4e4e7', marginBottom: 12, lineHeight: 1.6 }}>
+                      {currentLesson.assignment_prompt}
+                    </p>
+                  )}
+
+                  {currentLesson.assignment_file_url && (
+                    /\.(jpe?g|png|gif|webp)$/i.test(currentLesson.assignment_file_name || currentLesson.assignment_file_url) ? (
+                      <a href={currentLesson.assignment_file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginBottom: 12 }}>
+                        <img
+                          src={currentLesson.assignment_file_url}
+                          alt={currentLesson.assignment_file_name || 'Assignment attachment'}
+                          style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={currentLesson.assignment_file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontSize: 12,
+                          color: 'var(--kurso-primary-lightest)',
+                          marginBottom: 12,
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          background: 'rgba(var(--kurso-primary-rgb), 0.12)',
+                          border: '1px solid rgba(var(--kurso-primary-rgb), 0.22)',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        {currentLesson.assignment_file_name || 'Download Assignment File'}
+                      </a>
+                    )
+                  )}
+
+                  {assignmentSubmission ? (
+                    <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#4ade80', marginBottom: 4 }}>
+                        ✅ Submitted {new Date(assignmentSubmission.submitted_at).toLocaleDateString('en-IN')}
+                      </p>
+                      {assignmentSubmission.submission_text && (
+                        <p style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 8 }}>
+                          {assignmentSubmission.submission_text.slice(0, 200)}
+                          {assignmentSubmission.submission_text.length > 200 ? '…' : ''}
+                        </p>
+                      )}
+                      {assignmentSubmission.submission_url && (
+                        <a
+                          href={assignmentSubmission.submission_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: 12, color: 'var(--kurso-primary-lighter)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <Download className="w-3.5 h-3.5" /> View attached file
+                        </a>
+                      )}
+                      {assignmentSubmission.status === 'reviewed' && (
+                        <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--kurso-primary-lighter)', marginBottom: 4 }}>
+                            Instructor Feedback:
+                          </p>
+                          <p style={{ fontSize: 12, color: '#e4e4e7' }}>{assignmentSubmission.creator_feedback}</p>
+                          {assignmentSubmission.score !== null && assignmentSubmission.score !== undefined && (
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--kurso-primary-lighter)', marginTop: 6 }}>
+                              Score: {assignmentSubmission.score}/10
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {assignmentSubmission.status === 'pending' && (
+                        <p style={{ fontSize: 11, color: '#71717a' }}>Awaiting instructor review…</p>
+                      )}
+                    </div>
+                  ) : currentLesson && enrollment?.id && course?.id && sessionToken ? (
+                    <AssignmentSubmit
+                      key={currentLesson.id}
+                      sessionToken={sessionToken}
+                      lessonId={currentLesson.id}
+                      courseId={course.id}
+                      enrollmentId={enrollment.id}
+                      onSubmitted={setAssignmentSubmission}
+                    />
+                  ) : null}
+                </div>
+              )}
+
               {/* Telegram + WhatsApp CTAs for all users (enrolled or previewing) */}
               {creatorProfile?.telegram_bot_username && (
                 isEnrolled ? (
