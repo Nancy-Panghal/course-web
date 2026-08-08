@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Shield, LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList, Undo, Library, MessageSquareWarning } from 'lucide-react'
-
+import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList, Undo, Library, MessageSquareWarning } from 'lucide-react'
+import Logo from './Logo'
 import { supabase } from '@/lib/supabase'
 
 const navItems = [
@@ -35,10 +35,10 @@ export default function Sidebar() {
     <div className="flex flex-col h-full relative">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-6 border-b" style={{borderColor:'rgba(255,255,255,0.06)'}}>
-        <div className="w-8 h-8 violet-gradient rounded-lg flex items-center justify-center">
-          <Shield className="w-4 h-4 text-white" />
-        </div>
-        <span className="font-semibold text-white">Kurso</span>
+        
+          <Logo className="w-20 h-16" />
+        
+        
       </div>
 
       {/* Nav */}

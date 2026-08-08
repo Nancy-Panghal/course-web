@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Shield, Mail, ArrowLeft, Eye, EyeOff, User, CheckCircle } from 'lucide-react'
+import { Mail, ArrowLeft, Eye, EyeOff, User, CheckCircle } from 'lucide-react'
+import Logo from '@/components/Logo'
 import Link from 'next/link'
 
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -163,9 +164,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 violet-gradient rounded-2xl flex items-center justify-center mx-auto mb-4 glow-strong">
-            <Shield className="w-7 h-7 text-white" />
-          </div>
+          
+            <Logo className="w-7 h-7" />
+          
           <h1 className="text-2xl font-bold text-white mb-1">
             {headings[mode].title}
           </h1>

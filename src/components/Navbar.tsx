@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link' 
-import { Shield, Menu, X, LayoutDashboard, BookOpen } from 'lucide-react'
+import { Menu, X, LayoutDashboard, BookOpen } from 'lucide-react'
+import Logo from './Logo'
 import { supabase } from '@/lib/supabase'
 import { resolveAccountType } from '@/lib/account'
 
@@ -46,10 +47,10 @@ export default function Navbar() {
     }`}>
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href={logoHref} className="flex items-center gap-2 group">
-          <div className="w-8 h-8 violet-gradient rounded-lg flex items-center justify-center">
-            <Shield className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-semibold text-white text-lg">Kurso</span>
+          
+            <Logo className="w-20 h-20" />
+          
+          
         </Link>
 
         {/* Desktop nav */}
