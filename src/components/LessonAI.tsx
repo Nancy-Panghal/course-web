@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Loader2, X, Send } from 'lucide-react'
+import { Sparkles, Loader2, X, Send, ChevronLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 const MAX_WORDS = 500
@@ -42,11 +42,23 @@ function AnswerBubble({ text }: { text: string }) {
 export default function LessonAI({
   lessonId,
   enrollmentId,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   lessonId: string
   enrollmentId?: string | null
+  /** Pass to control the panel from a parent (e.g. a mobile CTA button). Uncontrolled if omitted. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof value === 'function' ? (value as (prev: boolean) => boolean)(open) : value
+    if (!isControlled) setInternalOpen(next)
+    onOpenChange?.(next)
+  }
   const [token, setToken] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -126,32 +138,6 @@ export default function LessonAI({
   return (
     <>
       <style>{`
-        .kurso-ai-tab {
-          position: fixed;
-          top: 96px;
-          bottom: 24px;
-          width: 40px;
-          left: 0;
-          z-index: 41;
-          border-radius: 0 12px 12px 0;
-          background: linear-gradient(135deg,var(--kurso-secondary),var(--kurso-primary));
-          color: #fff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          border: none;
-          transition: left 0.3s ease;
-          box-shadow: 2px 0 12px rgba(0,0,0,0.35);
-        }
-        .kurso-ai-tab.open { left: ${PANEL_WIDTH}px; }
-        .kurso-ai-tab span {
-          writing-mode: vertical-rl;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          white-space: nowrap;
-        }
         .kurso-ai-panel {
           position: fixed;
           top: 0;
@@ -178,24 +164,46 @@ export default function LessonAI({
           transition: opacity 0.3s ease;
         }
         .kurso-ai-backdrop.open { opacity: 1; pointer-events: auto; }
-        @media (max-width: 640px) {
-          .kurso-ai-panel { width: 92vw; }
-          .kurso-ai-tab.open { left: 92vw; }
-          .kurso-ai-tab { top: 72px; bottom: 16px; width: 34px; }
+        .kurso-ai-close-handle {
+          position: absolute;
+          top: 50%;
+          right: 6px;
+          transform: translateY(-50%);
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: linear-gradient(135deg,var(--kurso-secondary),var(--kurso-primary));
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #0a0a0a;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+          cursor: pointer;
+          z-index: 3;
+        }
+        @media (min-width: 768px) {
+          /* On wider screens the panel is a side drawer, not a full-width
+             takeover, so the handle can straddle the border like a tab. */
+          .kurso-ai-close-handle { right: -20px; width: 44px; height: 44px; }
+        }
+        @media (max-width: 767px) {
+          .kurso-ai-panel { width: 100vw; }
         }
       `}</style>
-
-      <button
-        className={`kurso-ai-tab ${open ? 'open' : ''}`}
-        onClick={() => setOpen(o => !o)}
-        title={open ? 'Close AI Doubt Assistant' : 'Ask AI'}
-      >
-        <span>✨ Ask AI</span>
-      </button>
 
       <div className={`kurso-ai-backdrop ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
 
       <div className={`kurso-ai-panel ${open ? 'open' : ''}`}>
+        <button
+          className="kurso-ai-close-handle"
+          onClick={() => setOpen(false)}
+          aria-label="Close AI Doubt Assistant"
+          title="Close"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
@@ -241,7 +249,7 @@ export default function LessonAI({
           )}
         </div>
 
-        <div className="px-4 pt-3 pb-3 border-t flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        <div className="px-4 pt-3 border-t flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.06)', paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
           {quotaReached ? (
             <p className="text-xs text-center" style={{ color: '#71717a' }}>
               You've reached the {TOTAL_QUESTIONS}-question limit for this lesson. Ask in Q&amp;A instead.

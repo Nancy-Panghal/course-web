@@ -390,7 +390,7 @@ function AddLessonModal({
           {/* Type selector */}
           <div>
             <label className="text-sm font-medium text-white mb-2 block">Content Type</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {(['video', 'pdf', 'live', 'quiz', 'assignment'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
                   className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-all"
@@ -1224,7 +1224,7 @@ function LessonWidget({
         }}>
 
         {/* Main row */}
-        <div className="flex items-center gap-3 p-4">
+        <div className="flex flex-wrap items-center gap-3 p-4">
           {editingNumber ? (
             <div className="flex items-center gap-1 flex-shrink-0">
               <input
@@ -1281,7 +1281,7 @@ function LessonWidget({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start ml-auto sm:ml-0">
             <button
               onClick={() => onTogglePublish(lesson.id, lesson.is_published)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
@@ -3013,8 +3013,7 @@ export default function CourseManagePage({
                       </p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Add Module */}
                     <button
                       onClick={() => setShowModuleModal(true)}

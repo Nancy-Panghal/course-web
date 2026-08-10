@@ -214,8 +214,9 @@ export default function StudentsPage() {
           <div className="rounded-2xl overflow-hidden"
             style={{border:'1px solid rgba(255,255,255,0.06)'}}>
 
+            <div className="overflow-x-auto">
             {/* Table header */}
-            <div className="grid grid-cols-12 gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wider"
+            <div className="grid grid-cols-12 gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wider min-w-[720px]"
               style={{background:'rgba(255,255,255,0.03)', color:'#52525b', borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
               <div className="col-span-3">Phone</div>
               <div className="col-span-2">Current Lesson</div>
@@ -231,7 +232,7 @@ export default function StudentsPage() {
               const status = getStatusColor(student.current_lesson)
               return (
                 <div key={student.id}
-                  className="grid grid-cols-12 gap-4 px-5 py-4 items-center transition-all"
+                  className="grid grid-cols-12 gap-4 px-5 py-4 items-center transition-all min-w-[720px]"
                   style={{
                     borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                     background: 'transparent',
@@ -311,6 +312,7 @@ export default function StudentsPage() {
                 </div>
               )
             })}
+            </div>
           </div>
         )}
       </main>

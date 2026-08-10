@@ -447,7 +447,8 @@ export default function CouponsPage() {
           </div>
         ) : (
           <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="grid grid-cols-12 gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wider"
+            <div className="overflow-x-auto">
+            <div className="grid grid-cols-12 gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wider min-w-[720px]"
               style={{ background: 'rgba(255,255,255,0.03)', color: '#71717a', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="col-span-3">Coupon</div>
               <div className="col-span-3">Course</div>
@@ -462,7 +463,7 @@ export default function CouponsPage() {
               const usagePercent = coupon.usage_limit ? Math.min((coupon.times_used / coupon.usage_limit) * 100, 100) : 0
               return (
                 <div key={coupon.id}
-                  className="grid grid-cols-12 gap-4 px-5 py-4 items-center"
+                  className="grid grid-cols-12 gap-4 px-5 py-4 items-center min-w-[720px]"
                   style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                   <div className="col-span-3 min-w-0">
                     <button
@@ -527,6 +528,7 @@ export default function CouponsPage() {
                 </div>
               )
             })}
+            </div>
           </div>
         )}
       </main>

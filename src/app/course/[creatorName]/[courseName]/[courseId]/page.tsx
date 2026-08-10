@@ -17,7 +17,7 @@ import Link from 'next/link'
 import {
   Shield, CheckCircle, ChevronRight, ChevronLeft,
   Award, Menu, Clock, Lock, FileText, Play, BookOpen,
-  HelpCircle, Download, ExternalLink
+  HelpCircle, Download, ExternalLink, Sparkles
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, linkStudentToEnrollment } from '@/lib/enrollments'
@@ -188,6 +188,8 @@ export default function CourseLearnPage() {
   const [completed, setCompleted] = useState<number[]>([])
   const [quizResults, setQuizResults] = useState<Enrollment['quiz_results']>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [qaPanelOpen, setQaPanelOpen] = useState(false)
   const [isEnrolled, setIsEnrolled] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [showEnroll, setShowEnroll] = useState(false)
@@ -681,10 +683,10 @@ export default function CourseLearnPage() {
   return (
     <div className="min-h-screen flex flex-col text-white" style={{ background: '#080808' }}>
       {currentLesson && currentLesson.qa_enabled !== false && canAccess && (
-        <LessonQA lessonId={currentLesson.id} enrollmentId={enrollment?.id} />
+        <LessonQA lessonId={currentLesson.id} enrollmentId={enrollment?.id} open={qaPanelOpen} onOpenChange={setQaPanelOpen} />
       )}
       {currentLesson && canAccess && (
-        <LessonAI lessonId={currentLesson.id} enrollmentId={enrollment?.id} />
+        <LessonAI lessonId={currentLesson.id} enrollmentId={enrollment?.id} open={aiPanelOpen} onOpenChange={setAiPanelOpen} />
       )}
       {showEnroll && (
         <EnrollModal
@@ -750,6 +752,15 @@ export default function CourseLearnPage() {
       </nav>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        {/* Mobile sidebar backdrop — tap outside to close the lesson list */}
+        {sidebarOpen && (
+          <div
+            className="md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            style={{ position: 'fixed', inset: 0, top: 52, background: 'rgba(0,0,0,0.6)', zIndex: 39 }}
+          />
+        )}
 
         {/* SIDEBAR */}
         <aside style={{
@@ -1033,6 +1044,44 @@ export default function CourseLearnPage() {
               ) : (
                 <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
                   <p style={{ color: '#52525b', fontSize: 14 }}>Content unavailable</p>
+                </div>
+              )}
+
+              {/* Ask AI / Q&A — sits right below the lesson, above Mark as Complete, on every device */}
+              {canAccess && (
+                <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => setAiPanelOpen(o => !o)}
+                    aria-expanded={aiPanelOpen}
+                    style={{
+                      flex: '1 1 200px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                      padding: '12px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: '#fff',
+                      background: 'linear-gradient(135deg,var(--kurso-secondary),var(--kurso-primary))',
+                      border: 'none', cursor: 'pointer',
+                    }}>
+                    <ChevronLeft className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5" style={{ transition: 'transform 0.25s ease', transform: aiPanelOpen ? 'rotate(180deg)' : 'none', opacity: 0.85, flexShrink: 0 }} />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Sparkles className="w-4 h-4 md:w-[18px] md:h-[18px] lg:w-5 lg:h-5" /> Ask AI
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5" style={{ transition: 'transform 0.25s ease', transform: aiPanelOpen ? 'rotate(180deg)' : 'none', opacity: 0.85, flexShrink: 0 }} />
+                  </button>
+                  {currentLesson && currentLesson.qa_enabled !== false && (
+                    <button
+                      onClick={() => setQaPanelOpen(o => !o)}
+                      aria-expanded={qaPanelOpen}
+                      style={{
+                        flex: '1 1 200px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                        padding: '12px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: '#fff',
+                        background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))',
+                        border: 'none', cursor: 'pointer',
+                      }}>
+                      <ChevronLeft className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5" style={{ transition: 'transform 0.25s ease', transform: qaPanelOpen ? 'rotate(180deg)' : 'none', opacity: 0.85, flexShrink: 0 }} />
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <HelpCircle className="w-4 h-4 md:w-[18px] md:h-[18px] lg:w-5 lg:h-5" /> Q&amp;A
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5" style={{ transition: 'transform 0.25s ease', transform: qaPanelOpen ? 'rotate(180deg)' : 'none', opacity: 0.85, flexShrink: 0 }} />
+                    </button>
+                  )}
                 </div>
               )}
 

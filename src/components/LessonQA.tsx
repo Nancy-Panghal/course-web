@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { MessageCircle, ThumbsUp, Flag, CornerDownRight, Loader2, X } from 'lucide-react'
+import { MessageCircle, ThumbsUp, Flag, CornerDownRight, Loader2, X, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCommentTime } from '@/lib/formatCommentTime'
 
@@ -141,12 +141,24 @@ export default function LessonQA({
   lessonId,
   enrollmentId,
   defaultOpen = false,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   lessonId: string
   enrollmentId?: string | null
   defaultOpen?: boolean
+  /** Pass to control the panel from a parent (e.g. a mobile CTA button). Uncontrolled if omitted. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [internalOpen, setInternalOpen] = useState(defaultOpen)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof value === 'function' ? (value as (prev: boolean) => boolean)(open) : value
+    if (!isControlled) setInternalOpen(next)
+    onOpenChange?.(next)
+  }
   const [token, setToken] = useState<string | null>(null)
   const [qaEnabled, setQaEnabled] = useState(true)
   const [comments, setComments] = useState<QaComment[]>([])
@@ -244,33 +256,6 @@ export default function LessonQA({
   return (
     <>
       <style>{`
-        .kurso-qa-tab {
-          position: fixed;
-          top: 96px;
-          bottom: 24px;
-          width: 40px;
-          right: 0;
-          z-index: 41;
-          border-radius: 12px 0 0 12px;
-          background: linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary));
-          color: #fff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          border: none;
-          transition: right 0.3s ease;
-          box-shadow: -2px 0 12px rgba(0,0,0,0.35);
-        }
-        .kurso-qa-tab.open { right: ${PANEL_WIDTH}px; }
-        .kurso-qa-tab span {
-          writing-mode: vertical-rl;
-          transform: rotate(180deg);
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          white-space: nowrap;
-        }
         .kurso-qa-panel {
           position: fixed;
           top: 0;
@@ -297,24 +282,44 @@ export default function LessonQA({
           transition: opacity 0.3s ease;
         }
         .kurso-qa-backdrop.open { opacity: 1; pointer-events: auto; }
-        @media (max-width: 640px) {
-          .kurso-qa-panel { width: 92vw; }
-          .kurso-qa-tab.open { right: 92vw; }
-          .kurso-qa-tab { top: 72px; bottom: 16px; width: 34px; }
+        .kurso-qa-close-handle {
+          position: absolute;
+          top: 50%;
+          left: 6px;
+          transform: translateY(-50%);
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary));
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #0a0a0a;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+          cursor: pointer;
+          z-index: 3;
+        }
+        @media (min-width: 768px) {
+          .kurso-qa-close-handle { left: -20px; width: 44px; height: 44px; }
+        }
+        @media (max-width: 767px) {
+          .kurso-qa-panel { width: 100vw; }
         }
       `}</style>
-
-      <button
-        className={`kurso-qa-tab ${open ? 'open' : ''}`}
-        onClick={() => setOpen(o => !o)}
-        title={open ? 'Close Q&A' : 'Open Q&A'}
-      >
-        <span>💬 Q&amp;A</span>
-      </button>
 
       <div className={`kurso-qa-backdrop ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
 
       <div className={`kurso-qa-panel ${open ? 'open' : ''}`}>
+        <button
+          className="kurso-qa-close-handle"
+          onClick={() => setOpen(false)}
+          aria-label="Close Q&A"
+          title="Close"
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           <div className="flex items-center gap-2">
             <MessageCircle className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
@@ -325,7 +330,6 @@ export default function LessonQA({
             <X className="w-4 h-4" />
           </button>
         </div>
-
         {!qaEnabled ? (
           <div className="p-6 text-center text-sm" style={{ color: '#71717a' }}>
             Q&amp;A is closed for this lesson.

@@ -400,8 +400,9 @@ export default function BroadcastPage() {
             </div>
           ) : (
             <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="overflow-x-auto">
               {/* Header */}
-              <div className="grid grid-cols-12 gap-3 px-5 py-3 text-xs font-semibold uppercase tracking-wider"
+              <div className="grid grid-cols-12 gap-3 px-5 py-3 text-xs font-semibold uppercase tracking-wider min-w-[640px]"
                 style={{ background: 'rgba(255,255,255,0.03)', color: '#52525b', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="col-span-5">Message</div>
                 <div className="col-span-2">Course</div>
@@ -416,7 +417,7 @@ export default function BroadcastPage() {
 
                 return (
                   <div key={b.id}
-                    className="grid grid-cols-12 gap-3 px-5 py-4 items-center"
+                    className="grid grid-cols-12 gap-3 px-5 py-4 items-center min-w-[640px]"
                     style={{ borderBottom: i < history.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                     {/* Message preview */}
                     <div className="col-span-5">
@@ -457,6 +458,7 @@ export default function BroadcastPage() {
                   </div>
                 )
               })}
+              </div>
             </div>
           )}
         </div>
