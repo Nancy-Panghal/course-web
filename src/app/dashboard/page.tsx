@@ -80,7 +80,7 @@ function CourseSelector({
   const label = selectedCourse ? selectedCourse.name : ''
 
   return (
-    <div ref={ref} className="relative" style={{ minWidth: 280 }}>
+    <div ref={ref} className="relative w-full sm:w-[280px]">
       <button
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all"
@@ -452,7 +452,7 @@ export default function DashboardPage() {
               {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
             <span className="text-xs font-semibold uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--kurso-text-muted)' }}>
               Select course
             </span>

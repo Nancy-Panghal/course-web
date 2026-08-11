@@ -451,7 +451,7 @@ function AddLessonModal({
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <label className="text-sm font-medium text-white mb-2 block">Date</label>
                   <input type="date" value={liveDate}
@@ -2974,7 +2974,7 @@ export default function CourseManagePage({
                   : (course.is_published ? '● Live' : '○ Draft')}
               </span>
             </div>
-            <div className="flex items-center gap-4 mt-4 border-b border-white/5">
+            <div className="flex items-center gap-4 mt-4 border-b border-white/5 overflow-x-auto">
               {([
                 { id: 'lessons' as const, label: 'Lessons' },
                 { id: 'settings' as const, label: 'Settings' },
@@ -2984,7 +2984,7 @@ export default function CourseManagePage({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className="px-4 py-2 text-sm font-medium transition-all relative"
+                  className="px-4 py-2 text-sm font-medium transition-all relative flex-shrink-0 whitespace-nowrap"
                   style={{ color: activeTab === tab.id ? 'var(--kurso-primary-light)' : '#b8b8bb' }}
                 >
                   {tab.label}

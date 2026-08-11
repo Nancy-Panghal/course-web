@@ -475,7 +475,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
               <p className="text-xs mb-4" style={{ color: '#71717a' }}>
                 Applies to every instructor on this course, including co-instructors.
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button type="button" onClick={() => setLandingConfig(prev => ({ ...prev, instructorLayout: 'square' }))}
                   className="p-4 rounded-xl text-left transition-all"
                   style={{
