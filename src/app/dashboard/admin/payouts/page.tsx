@@ -129,7 +129,7 @@ export default function AdminPayoutsPage() {
   return (
     <div className="flex min-h-screen" style={{ background: '#0a0a0b' }}>
       <Sidebar />
-      <main className="flex-1 p-8 max-w-3xl">
+      <main className="flex-1 p-8 pt-20 md:pt-8 max-w-3xl">
         <h1 className="text-xl font-semibold text-white mb-1">Log a Creator Payout</h1>
         <p className="text-xs mb-6" style={{ color: '#71717a' }}>
           Admin only. Pay creators the same day as each sale — no monthly batching, no buffer held back.

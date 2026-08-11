@@ -185,7 +185,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
     return (
       <div className="min-h-screen bg-black">
         <Sidebar />
-        <main className="md:ml-56 p-6 md:p-8 max-w-4xl">
+        <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8 max-w-4xl">
           <div className="w-32 h-6 rounded bg-white/5 animate-pulse" />
         </main>
       </div>
@@ -195,7 +195,7 @@ export default function LandingPageDesignPage({ params }: { params: Promise<{ id
   return (
     <div className="min-h-screen bg-black">
       <Sidebar />
-      <main className="md:ml-56 p-6 md:p-8 max-w-4xl">
+      <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8 max-w-4xl">
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

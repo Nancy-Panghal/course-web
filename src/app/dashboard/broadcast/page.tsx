@@ -160,7 +160,7 @@ export default function BroadcastPage() {
   return (
     <div className="min-h-screen bg-black">
       <Sidebar />
-      <main className="md:ml-56 p-6 md:p-8">
+      <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8">
 
         {/* Header */}
         <div className="mb-8">

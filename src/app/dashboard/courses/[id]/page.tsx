@@ -2908,7 +2908,7 @@ export default function CourseManagePage({
         />
       )}
 
-      <main className="md:ml-56 p-6 md:p-8">
+      <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8">
 
 
 

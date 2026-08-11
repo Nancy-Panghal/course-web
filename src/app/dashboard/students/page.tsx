@@ -144,7 +144,7 @@ export default function StudentsPage() {
   return (
     <div className="min-h-screen bg-black">
       <Sidebar />
-      <main className="md:ml-56 p-6 md:p-8">
+      <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">

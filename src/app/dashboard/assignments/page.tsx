@@ -112,7 +112,7 @@ export default function AssignmentsPage() {
   return (
     <div className="min-h-screen bg-black">
       <Sidebar />
-      <main className="md:ml-56 p-6 md:p-8">
+      <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white mb-1">Assignments</h1>
           <p className="text-sm" style={{ color: '#a1a1aa' }}>

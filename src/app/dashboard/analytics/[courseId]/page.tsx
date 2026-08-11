@@ -133,7 +133,7 @@ export default function AnalyticsPage({
     return (
       <div className="min-h-screen bg-black">
         <Sidebar />
-        <main className="md:ml-56 p-6 md:p-8">
+        <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8">
           <div className="rounded-2xl p-8 text-center glass" style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
             <AlertCircle className="w-10 h-10 mx-auto mb-3" style={{ color: '#ef4444' }} />
             <p className="text-white font-medium mb-1">{error || 'Course not found'}</p>
@@ -151,7 +151,7 @@ export default function AnalyticsPage({
   return (
     <div className="min-h-screen bg-black">
       <Sidebar />
-      <main className="md:ml-56 p-6 md:p-8">
+      <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8">
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

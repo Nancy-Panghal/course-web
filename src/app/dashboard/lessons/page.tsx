@@ -221,7 +221,7 @@ export default function LessonsPage() {
         />
       )}
 
-      <main className="md:ml-56 p-6 md:p-8">
+      <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

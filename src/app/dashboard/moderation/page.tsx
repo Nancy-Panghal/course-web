@@ -59,7 +59,7 @@ export default function ModerationPage() {
   return (
     <div className="min-h-screen flex" style={{ background: '#050505' }}>
       <Sidebar />
-      <main className="flex-1 p-8 max-w-3xl mx-auto w-full">
+      <main className="flex-1 p-8 pt-20 md:pt-8 max-w-3xl mx-auto w-full">
         <h1 className="text-2xl font-bold text-white mb-1">Q&amp;A Moderation</h1>
         <p className="text-sm mb-8" style={{ color: '#a1a1aa' }}>
           Comments held here were flagged by the automated check or reported by a student. Approve to publish them, or reject to keep them hidden — nothing is deleted, so you can always look back.

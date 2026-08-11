@@ -291,7 +291,7 @@ export default function CreateCoursePage() {
   return (
     <div className="min-h-screen bg-black">
       <Sidebar />
-      <main className="md:ml-56 p-6 md:p-8 max-w-3xl">
+      <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8 max-w-3xl">
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
