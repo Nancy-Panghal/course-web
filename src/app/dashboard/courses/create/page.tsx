@@ -1,39 +1,18 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 import { ArrowRight, ArrowLeft, Globe, MessageCircle, Send, Plus, X } from 'lucide-react'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
+import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
+import { getEffectivePlanId } from '@/lib/kurso-checkout'
+import { PLAN_ORDER, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 
 const LANGUAGES = [
   'English', 'Hindi', 'Tamil', 'Telugu', 'Marathi',
   'Bengali', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi',
   'Urdu', 'Arabic', 'Spanish', 'French', 'German',
-]
-
-const DELIVERY_OPTIONS = [
-  {
-    id: 'telegram',
-    label: 'Web + Telegram',
-    desc: 'Lessons delivered via your Telegram bot',
-    icon: Send,
-    recommended: false,
-  },
-  {
-    id: 'whatsapp',
-    label: 'Web + WhatsApp',
-    desc: 'Lessons delivered via WhatsApp messages',
-    icon: MessageCircle,
-    recommended: false,
-  },
-  {
-    id: 'both',
-    label: 'Web + WhatsApp + Telegram',
-    desc: 'Students can learn on either bot',
-    icon: Globe,
-    recommended: true,
-  },
 ]
 
 function slugify(text: string) {
@@ -130,7 +109,9 @@ export default function CreateCoursePage() {
   const [refundWindowDays, setRefundWindowDays] = useState('7')
   const [hostName, setHostName] = useState('')
   const [aboutCreator, setAboutCreator] = useState('')
-  const [delivery, setDelivery] = useState('both')
+  const [delivery, setDelivery] = useState<SubscriptionPlanId>('telegram')
+  const [effectivePlanId, setEffectivePlanId] = useState<SubscriptionPlanId | null>(null)
+  const [loadingPlan, setLoadingPlan] = useState(true)
   const [totalLessons, setTotalLessons] = useState('')
   const [startDate, setStartDate] = useState('')
   const [startTime, setStartTime] = useState('')
@@ -152,6 +133,26 @@ export default function CreateCoursePage() {
   const [targetAudience, setTargetAudience] = useState([''])
   const [coInstructors, setCoInstructors] = useState<CoInstructor[]>([])
   const slug = slugify(name)
+
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      const { data: creatorRow } = await supabase
+        .from('creators')
+        .select('trial_ends_at')
+        .eq('id', user.id)
+        .maybeSingle()
+      const plan = await getEffectivePlanId(user.id, creatorRow?.trial_ends_at)
+      setEffectivePlanId(plan)
+      // Default to whatever the creator already has covered (no locked
+      // padlock shown by default); fall back to the cheapest tier if
+      // they have nothing unlocked yet.
+      setDelivery(plan || 'telegram')
+      setLoadingPlan(false)
+    }
+    load()
+  }, [router])
 
   function toggleLanguage(lang: string) {
     setSelectedLanguages(prev =>
@@ -223,6 +224,21 @@ export default function CreateCoursePage() {
     if (selectedLanguages.length === 0) {
       setError('Select at least one language.')
       return
+    }
+    if (!delivery) {
+      setError('Please select a delivery method.')
+      return
+    }
+    // Defense-in-depth: re-confirm the picked delivery method is actually
+    // covered by the creator's plan before writing it, in case plan state
+    // changed since the picker loaded (e.g. a subscription lapsed mid-form).
+    {
+      const rank = PLAN_ORDER.indexOf(delivery)
+      const currentRank = effectivePlanId ? PLAN_ORDER.indexOf(effectivePlanId) : -1
+      if (rank > currentRank) {
+        setError('Your current plan does not cover this delivery method yet. Please select it again to unlock it.')
+        return
+      }
     }
 
     setLoading(true)
@@ -632,33 +648,21 @@ export default function CreateCoursePage() {
           <div className="rounded-2xl p-6 glass"
             style={{border:'1px solid rgba(255,255,255,0.06)'}}>
             <h2 className="font-semibold text-white mb-5">Delivery Method</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {DELIVERY_OPTIONS.map(opt => {
-                const Icon = opt.icon
-                const active = delivery === opt.id
-                return (
-                  <button key={opt.id}
-                    onClick={() => setDelivery(opt.id)}
-                    className="p-4 rounded-xl text-left transition-all relative"
-                    style={{
-                      background: active ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
-                      border: active ? '2px solid rgba(var(--kurso-primary-rgb), 0.5)' : '1px solid rgba(255,255,255,0.08)',
-                    }}>
-                    {opt.recommended && (
-                      <span className="absolute -top-2 right-3 text-xs px-2 py-0.5 rounded-full font-medium"
-                        style={{background:'var(--kurso-primary)', color:'#fff'}}>
-                        Recommended
-                      </span>
-                    )}
-                    <Icon className="w-5 h-5 mb-2" style={{color: active ? 'var(--kurso-primary-light)' : '#52525b'}} />
-                    <p className="text-sm font-medium" style={{color: active ? '#fff' : '#a1a1aa'}}>
-                      {opt.label}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{color:'#52525b'}}>{opt.desc}</p>
-                  </button>
-                )
-              })}
-            </div>
+            {loadingPlan ? (
+              <p className="text-sm" style={{ color: '#52525b' }}>Loading your plan…</p>
+            ) : (
+              <>
+                <DeliveryMethodPicker
+                  value={delivery}
+                  onChange={setDelivery}
+                  currentPlanId={effectivePlanId}
+                  onUpgraded={(newPlanId: SubscriptionPlanId) => setEffectivePlanId(newPlanId)}
+                />
+                <p className="text-xs mt-3" style={{ color: '#52525b' }}>
+                  Once this course is live, students who enroll will only see the channel(s) you picked here — you can change it anytime from the course's Settings tab.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Languages */}

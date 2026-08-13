@@ -31,6 +31,7 @@ interface EnrolledCourse {
   certificateUrl: string | null
   telegramBotUsername: string | null
   payment_status: string
+  deliveryMethod: string | null
 }
 
 async function downloadInvoice(enrollmentId: string) {
@@ -135,7 +136,7 @@ const displayEmail = user?.email || ''
             }
           }
         }
-        const baseSelect = 'id, course_uuid, current_lesson, completed_lessons, enrolled_at, telegram_start_token, telegram_start_token_expires_at, whatsapp_start_token, whatsapp_start_token_expires_at, payment_status, amount_paid, certificate_id, certificate_url'
+        const baseSelect = 'id, course_uuid, current_lesson, completed_lessons, enrolled_at, telegram_start_token, telegram_start_token_expires_at, whatsapp_start_token, whatsapp_start_token_expires_at, payment_status, amount_paid, certificate_id, certificate_url, delivery_method'
 
         function makeBase() {
           return supabase
@@ -178,7 +179,7 @@ const displayEmail = user?.email || ''
         const [{ data: courseData }, { data: lessonData }] = await Promise.all([
           supabase
             .from('courses')
-            .select('id, name, slug, host_name, creator_id, total_lessons')
+            .select('id, name, slug, host_name, creator_id, total_lessons, delivery')
             .in('id', courseIds),
           supabase
             .from('lessons')
@@ -220,6 +221,9 @@ const displayEmail = user?.email || ''
               certificateUrl: e.certificate_url || null,
               telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || null,
               payment_status: e.payment_status || 'free',
+              // No-leakage: prefer the enrollment's own snapshot; fall back to the
+              // course's current value for enrollments created before this column existed.
+              deliveryMethod: e.delivery_method || c.delivery || 'both',
             }
           })
           .filter(Boolean) as EnrolledCourse[]
@@ -598,7 +602,7 @@ const displayEmail = user?.email || ''
                   </div>
 
                   {/* Telegram strip */}
-                  {hasValidToken && botUsername && (
+                  {hasValidToken && botUsername && (c.deliveryMethod === 'telegram' || c.deliveryMethod === 'both') && (
                     <div style={{
                       padding: '9px 20px',
                       background: 'rgba(34,158,217,0.04)',
@@ -622,7 +626,8 @@ const displayEmail = user?.email || ''
                   {(() => {
                     const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
                     const hasWaToken = c.whatsappToken && c.whatsappTokenExpiresAt && new Date(c.whatsappTokenExpiresAt) > new Date()
-                    if (!waNumber || !hasWaToken) return null
+                    const waDeliveryAllowed = c.deliveryMethod === 'whatsapp' || c.deliveryMethod === 'both'
+                    if (!waNumber || !hasWaToken || !waDeliveryAllowed) return null
                     const waHref = `https://wa.me/${waNumber}?text=${encodeURIComponent('/start ' + c.whatsappToken)}`
                     return (
                       <div style={{

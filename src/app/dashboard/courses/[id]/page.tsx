@@ -7,6 +7,9 @@ import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextM
 import Link from 'next/link'
 import LandingPageDesigner from '@/components/LandingPageDesigner'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
+import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
+import { getEffectivePlanId } from '@/lib/kurso-checkout'
+import { PLAN_ORDER, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 import {
   DEFAULT_LANDING_CONFIG, normalizeLandingConfig, MAX_CUSTOM_SECTION_IMAGES,
   type LandingConfig, type LandingSectionEntry, type LandingCustomSection,
@@ -2154,6 +2157,12 @@ export default function CourseManagePage({
   const [broadcastSending, setBroadcastSending] = useState(false)
   const [broadcastSent, setBroadcastSent] = useState(false)
   const [creatorId, setCreatorId] = useState('')
+  const [effectivePlanId, setEffectivePlanId] = useState<SubscriptionPlanId | null>(null)
+  const [settingsDelivery, setSettingsDelivery] = useState<SubscriptionPlanId>('telegram')
+  const [applyDeliveryToEnrolled, setApplyDeliveryToEnrolled] = useState(false)
+  const [savingDelivery, setSavingDelivery] = useState(false)
+  const [deliveryError, setDeliveryError] = useState('')
+  const [deliverySuccess, setDeliverySuccess] = useState('')
   const [copied, setCopied] = useState(false)
   const [copiedCheckout, setCopiedCheckout] = useState(false)
   const [copiedEmbed, setCopiedEmbed] = useState(false)
@@ -2236,6 +2245,15 @@ export default function CourseManagePage({
 
       if (!courseData) { router.push('/dashboard/courses'); return }
       setCourse(courseData)
+      setSettingsDelivery((courseData.delivery as SubscriptionPlanId) || 'telegram')
+
+      const { data: creatorRow } = await supabase
+        .from('creators')
+        .select('trial_ends_at')
+        .eq('id', user.id)
+        .maybeSingle()
+      const plan = await getEffectivePlanId(user.id, creatorRow?.trial_ends_at)
+      setEffectivePlanId(plan)
 
       // Init settings state
       setEditName(courseData.name)
@@ -2539,6 +2557,54 @@ export default function CourseManagePage({
     }
     setSavingSettings(false)
     return !error
+  }
+
+  /**
+   * Delivery method has its own explicit save (not the settings autosave):
+   * changing it can cost real money (picking above-plan triggers inline
+   * payment in the picker itself) and the "apply to enrolled students"
+   * toggle needs a deliberate confirm, not a silent debounce.
+   */
+  async function saveDeliveryMethod() {
+    if (!course) return
+    setDeliveryError('')
+    setDeliverySuccess('')
+    const rank = PLAN_ORDER.indexOf(settingsDelivery)
+    const currentRank = effectivePlanId ? PLAN_ORDER.indexOf(effectivePlanId) : -1
+    if (rank > currentRank) {
+      setDeliveryError('Your current plan does not cover this delivery method yet. Please select it again to unlock it.')
+      return
+    }
+    setSavingDelivery(true)
+    const { error: courseErr } = await supabase
+      .from('courses')
+      .update({ delivery: settingsDelivery })
+      .eq('id', id)
+
+    if (courseErr) {
+      setDeliveryError('Could not save — please try again.')
+      setSavingDelivery(false)
+      return
+    }
+
+    setCourse({ ...course, delivery: settingsDelivery })
+
+    if (applyDeliveryToEnrolled) {
+      const { error: enrollErr } = await supabase
+        .from('enrollments')
+        .update({ delivery_method: settingsDelivery })
+        .eq('course_uuid', id)
+      if (enrollErr) {
+        setDeliveryError('Delivery method saved for new students, but updating already-enrolled students failed — please try the toggle again.')
+        setSavingDelivery(false)
+        return
+      }
+      setDeliverySuccess('Saved — applied to new enrollments and to already-enrolled students.')
+      setApplyDeliveryToEnrolled(false)
+    } else {
+      setDeliverySuccess('Saved — this applies to students who enroll from now on. Already-enrolled students keep the channel they joined under.')
+    }
+    setSavingDelivery(false)
   }
 
   const settingsSnapshot = JSON.stringify({
@@ -3186,6 +3252,47 @@ export default function CourseManagePage({
 
             ) : activeTab === 'settings' ? (
               <div className="flex flex-col gap-6">
+                <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex items-center justify-between gap-4 mb-5">
+                    <h2 className="font-semibold text-white">Delivery Method</h2>
+                    {savingDelivery && <span className="text-xs" style={{ color: 'var(--kurso-primary-light)' }}>Saving…</span>}
+                  </div>
+                  <DeliveryMethodPicker
+                    value={settingsDelivery}
+                    onChange={setSettingsDelivery}
+                    currentPlanId={effectivePlanId}
+                    onUpgraded={(newPlanId) => setEffectivePlanId(newPlanId)}
+                    disabled={savingDelivery}
+                  />
+
+                  <label className="flex items-start gap-3 mt-5 p-4 rounded-xl cursor-pointer"
+                    style={{ background: 'rgba(250,204,21,0.06)', border: '1px solid rgba(250,204,21,0.2)' }}>
+                    <input type="checkbox" checked={applyDeliveryToEnrolled}
+                      onChange={e => setApplyDeliveryToEnrolled(e.target.checked)}
+                      className="mt-0.5" />
+                    <span className="text-xs" style={{ color: '#fde68a' }}>
+                      <span className="font-semibold block mb-1">Also change this for already-enrolled students</span>
+                      By default, changing the delivery method only affects students who enroll from now on — existing students keep the channel they joined under. Checking this applies the change retroactively too.
+                      <span className="block mt-1.5" style={{ color: '#facc15' }}>
+                        ⚠️ Not recommended: this won't silently move a student to a new bot — a WhatsApp-enrolled student has no Telegram chat on file. It only changes which CTA/channel they're shown; if you're adding a channel they'll still need to tap and connect it themselves, and if you're removing one they may lose access to lessons they were reading there.
+                      </span>
+                    </span>
+                  </label>
+
+                  {deliveryError && (
+                    <p className="text-xs mt-3 px-3 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }}>{deliveryError}</p>
+                  )}
+                  {deliverySuccess && (
+                    <p className="text-xs mt-3 px-3 py-2 rounded-lg" style={{ color: '#4ade80', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>{deliverySuccess}</p>
+                  )}
+
+                  <button onClick={saveDeliveryMethod} disabled={savingDelivery}
+                    className="mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))' }}>
+                    {savingDelivery ? 'Saving…' : 'Save Delivery Method'}
+                  </button>
+                </div>
+
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div className="flex items-center justify-between gap-4 mb-5">
                     <h2 className="font-semibold text-white">Course Settings</h2>

@@ -66,6 +66,7 @@ interface Course {
   student_update_message?: string
   is_free_course?: boolean
   is_published?: boolean
+  delivery?: string
 }
 
 interface Enrollment {
@@ -79,6 +80,7 @@ interface Enrollment {
   telegram_start_token?: string | null
   telegram_start_token_expires_at?: string | null
   certificate_student_name?: string | null
+  delivery_method?: string | null
 }
 
 async function getSignedContentUrl(lessonId: string, type: 'video' | 'pdf'): Promise<{ url: string; expiresAt: string | null }> {
@@ -445,6 +447,14 @@ export default function CourseLearnPage() {
     { is_free_course: course?.is_free_course ?? false }
   )
   const canAccess = isEnrolled || isFree
+
+  // No-leakage: effective delivery method is the enrollment's snapshotted
+  // value if enrolled (falls back to the course's current value for older
+  // enrollments predating the delivery_method column), otherwise the
+  // course's current value for preview/demo visitors.
+  const effectiveDeliveryMethod = (isEnrolled ? (enrollment?.delivery_method || course?.delivery) : course?.delivery) || 'both'
+  const telegramDeliveryAllowed = effectiveDeliveryMethod === 'telegram' || effectiveDeliveryMethod === 'both'
+  const whatsappDeliveryAllowed = effectiveDeliveryMethod === 'whatsapp' || effectiveDeliveryMethod === 'both'
   const allDone = plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)
 
@@ -1296,8 +1306,13 @@ export default function CourseLearnPage() {
                 </div>
               )}
 
+              {/* No-leakage: only show CTAs for channels this course/enrollment actually
+                  covers. Enrolled students use their enrollment's snapshotted delivery
+                  method (so a later change to the course doesn't silently affect them
+                  unless the creator explicitly opts them in); everyone else uses the
+                  course's current delivery method. */}
               {/* Telegram + WhatsApp CTAs for all users (enrolled or previewing) */}
-              {creatorProfile?.telegram_bot_username && (
+              {creatorProfile?.telegram_bot_username && telegramDeliveryAllowed && (
                 isEnrolled ? (
                   <div style={{ padding: 16, borderRadius: 12, background: 'rgba(34,158,217,0.06)', border: '1px solid rgba(34,158,217,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
                     <div>
@@ -1352,7 +1367,7 @@ export default function CourseLearnPage() {
               
 
               {/* WhatsApp CTA — enrolled students get "Continue", preview visitors get "Start Free" */}
-              {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && (
+              {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && whatsappDeliveryAllowed && (
                 isEnrolled ? (
                   <div style={{ padding: 16, borderRadius: 12, background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
                     <div>
