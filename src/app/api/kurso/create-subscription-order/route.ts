@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { getAuthenticatedCreator } from '@/app/api/razorpay/subscription-auth'
-import { getSubscriptionPlan } from '@/app/api/razorpay/subscription-plans'
+import { getSubscriptionPlan, PLAN_ORDER } from '@/app/api/razorpay/subscription-plans'
 import { createKursoSubscriptionOrder, KursoCashfreeError } from '@/lib/kurso-cashfree'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
 
@@ -20,16 +20,61 @@ export async function POST(req: NextRequest) {
     const plan = getSubscriptionPlan(planId)
     if (!plan) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
 
+    // Look up the creator's current plan (if any) so we know whether this
+    // is a fresh subscribe (charge full price) or an upgrade (charge only
+    // the difference). A subscription only counts as "currently active"
+    // if its billing period hasn't actually lapsed yet — status can lag
+    // behind reality until the expiry cron runs.
+    const { data: existingSub } = await supabase
+      .from('subscriptions')
+      .select('plan_tier, status, current_period_end')
+      .eq('creator_id', creator.id)
+      .maybeSingle()
+
+    const hasActivePlan =
+      existingSub?.status === 'active' &&
+      existingSub.current_period_end &&
+      new Date(existingSub.current_period_end) > new Date()
+
+    const currentPlan = hasActivePlan ? getSubscriptionPlan(existingSub!.plan_tier) : null
+
+    let chargeAmount = plan.amount
+
+    if (currentPlan) {
+      const currentRank = PLAN_ORDER.indexOf(currentPlan.id)
+      const targetRank = PLAN_ORDER.indexOf(plan.id)
+
+      if (targetRank <= currentRank) {
+        const daysRemaining = Math.max(
+          0,
+          Math.ceil((new Date(existingSub!.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        )
+        return NextResponse.json({
+          error: 'downgrade_blocked',
+          message:
+            targetRank === currentRank
+              ? `You're already on the ${currentPlan.name} plan.`
+              : `You can switch to ${plan.name} once your current ${currentPlan.name} plan ends.`,
+          currentPlanName: currentPlan.name,
+          daysRemaining,
+          periodEnd: existingSub!.current_period_end,
+        }, { status: 400 })
+      }
+
+      // Upgrade — charge only the difference, never the full sticker price.
+      chargeAmount = plan.amount - currentPlan.amount
+    }
+
     const subscriptionId = randomUUID()
     await supabase.from('subscriptions').upsert(
-      { id: subscriptionId, creator_id: creator.id, plan_tier: plan.id, amount: plan.amount, status: 'inactive', client_txn_id: subscriptionId },
+      { id: subscriptionId, creator_id: creator.id, plan_tier: plan.id, amount: chargeAmount, status: 'inactive', client_txn_id: subscriptionId },
       { onConflict: 'creator_id' }
     )
 
     try {
       const order = await createKursoSubscriptionOrder({
         orderId: subscriptionId,
-        amount: plan.amount,
+        amount: chargeAmount,
         customerName: creator.name || creator.email || 'Creator',
         customerEmail: creator.email,
         returnUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/upgrade?order_id=${subscriptionId}`,
@@ -41,8 +86,9 @@ export async function POST(req: NextRequest) {
         clientTxnId: subscriptionId,
         orderId: order.order_id,
         paymentSessionId: order.payment_session_id,
-        amount: plan.amount,
+        amount: chargeAmount,
         plan,
+        isUpgrade: !!currentPlan,
       })
     } catch (err: any) {
       const msg = err instanceof KursoCashfreeError ? err.message : 'Could not start the subscription payment.'

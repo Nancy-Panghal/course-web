@@ -1,68 +1,65 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Shield, Check, ArrowLeft, Zap, AlertTriangle, Award, FileText, Download } from 'lucide-react'
+import { Shield, Check, ArrowLeft, Zap, AlertTriangle, Award, FileText, Download, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getCreatorProfile, getTrialStatus } from '@/lib/creator'
+import { SUBSCRIPTION_PLANS, PLAN_ORDER, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 
 
 
-const plans = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 1999,
-    period: '/month',
-    desc: 'For creators just getting started',
+const PLAN_DISPLAY: Record<SubscriptionPlanId, { desc: string; features: string[]; highlighted: boolean }> = {
+  telegram: {
+    desc: 'Deliver your course through your dashboard and the Telegram bot.',
     features: [
-      'Up to 200 enrolled students',
-      'Unlimited lessons',
-      'WhatsApp delivery bot',
-      'Basic piracy scanning (daily)',
-      'Auto certificates',
-      'Email support',
+      'Web dashboard for creators',
+      'Telegram bot lesson delivery',
+      'Quizzes, notes & assignments',
+      'Auto certificates on completion',
+      'Live class link sharing',
+      'Razorpay payments, direct payout',
     ],
     highlighted: false,
   },
-  {
-    id: 'growth',
-    name: 'Growth',
-    price: 4999,
-    period: '/month',
-    desc: 'For serious creators with active launches',
+  whatsapp: {
+    desc: 'Deliver your course through your dashboard and the WhatsApp bot.',
     features: [
-      'Up to 1,000 students',
-      'Automated 3-hour takedowns',
-      'Live piracy dashboard',
-      'Razorpay integration',
-      'Hindi/regional WA templates',
-      'Web + WhatsApp delivery',
-      'Priority support',
+      'Web dashboard for creators',
+      'WhatsApp bot lesson delivery',
+      'Quizzes, notes & assignments',
+      'Auto certificates on completion',
+      'Live class link sharing',
+      'Razorpay payments, direct payout',
     ],
     highlighted: true,
   },
-  {
-    id: 'agency',
-    name: 'Agency',
-    price: 12999,
-    period: '/month',
-    desc: 'For agencies managing multiple creators',
+  both: {
+    desc: 'Full reach — deliver on both bots plus your dashboard.',
     features: [
-      'Unlimited students',
-      'Multi-creator management',
-      'ISP-level escalation',
-      'White-label portal',
-      'Custom domain per creator',
-      'Dedicated account manager',
+      'Web dashboard for creators',
+      'WhatsApp + Telegram bot delivery',
+      'Quizzes, notes & assignments',
+      'Auto certificates on completion',
+      'Live class link sharing',
+      'Razorpay payments, direct payout',
     ],
     highlighted: false,
   },
-]
+}
+
+const plans = PLAN_ORDER.map(id => ({
+  id,
+  name: SUBSCRIPTION_PLANS[id].name,
+  price: SUBSCRIPTION_PLANS[id].amount,
+  period: '/month',
+  ...PLAN_DISPLAY[id],
+}))
 
 
 
 export default function UpgradePage() {
   const [creator, setCreator] = useState<any>(null)
+  const [subscription, setSubscription] = useState<any>(null)
   const [payments, setPayments] = useState<any[]>([])
   const [trialStatus, setTrialStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -74,6 +71,39 @@ export default function UpgradePage() {
   const [refundRequesting, setRefundRequesting] = useState(false)
   const [refundMessage, setRefundMessage] = useState('')
 
+  async function loadPaymentsAndSubscription(creatorId: string) {
+    const { data: paymentRows } = await supabase
+      .from('kurso_subscription_payments')
+      .select('id, plan_name, amount, paid_at')
+      .eq('creator_id', creatorId)
+      .order('paid_at', { ascending: false })
+      .limit(10)
+    setPayments(paymentRows || [])
+
+    const { data: subRow } = await supabase
+      .from('subscriptions')
+      .select('plan_tier, status, current_period_end')
+      .eq('creator_id', creatorId)
+      .maybeSingle()
+    setSubscription(subRow)
+  }
+
+  // The creator's plan only counts as "currently active" if the billing
+  // period genuinely hasn't lapsed — status can lag behind reality until
+  // the expiry cron runs, so we check the date ourselves too.
+  const activeSub =
+    subscription?.status === 'active' &&
+    subscription.current_period_end &&
+    new Date(subscription.current_period_end) > new Date()
+      ? subscription
+      : null
+
+  const currentPlanId = activeSub?.plan_tier as SubscriptionPlanId | undefined
+  const currentRank = currentPlanId ? PLAN_ORDER.indexOf(currentPlanId) : -1
+  const daysRemaining = activeSub
+    ? Math.max(0, Math.ceil((new Date(activeSub.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0
+
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
@@ -84,13 +114,7 @@ export default function UpgradePage() {
       const profile = await getCreatorProfile()
       setCreator(profile)
       if (profile?.id) {
-        const { data: paymentRows } = await supabase
-          .from('kurso_subscription_payments')
-          .select('id, plan_name, amount, paid_at')
-          .eq('creator_id', profile.id)
-          .order('paid_at', { ascending: false })
-          .limit(10)
-        setPayments(paymentRows || [])
+        await loadPaymentsAndSubscription(profile.id)
       }
       setTrialStatus(getTrialStatus(profile))
       setLoading(false)
@@ -127,6 +151,11 @@ export default function UpgradePage() {
 
   async function handleUpgrade(plan: typeof plans[0]) {
     if (payingPlan) return
+    const targetRank = PLAN_ORDER.indexOf(plan.id as SubscriptionPlanId)
+    if (activeSub && targetRank <= currentRank) {
+      setError(`You can switch to this plan once your current plan ends (${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} left).`)
+      return
+    }
     setPayingPlan(plan.id)
     setError('')
     setSuccess('')
@@ -140,7 +169,10 @@ export default function UpgradePage() {
         body: JSON.stringify({ planId: plan.id }),
       })
       const data = await orderRes.json()
-      if (data.error) throw new Error(data.error)
+      if (data.error) {
+        if (data.error === 'downgrade_blocked') throw new Error(data.message)
+        throw new Error(data.error)
+      }
 
       const cashfree = await loadCashfreeSdk()
       await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_modal' })
@@ -156,15 +188,11 @@ export default function UpgradePage() {
         const profile = await getCreatorProfile()
         setCreator(profile)
         setTrialStatus(getTrialStatus(profile))
-        setSuccess('Successfully upgraded! Your academy is now fully active.')
+        setSuccess(data.isUpgrade
+          ? `Upgraded to ${plan.name}! You paid only the ₹${Number(data.amount).toLocaleString()} difference — your billing period restarts today for 30 days.`
+          : 'Successfully upgraded! Your academy is now fully active.')
         if (profile?.id) {
-          const { data: paymentRows } = await supabase
-            .from('kurso_subscription_payments')
-            .select('id, plan_name, amount, paid_at')
-            .eq('creator_id', profile.id)
-            .order('paid_at', { ascending: false })
-            .limit(10)
-          setPayments(paymentRows || [])
+          await loadPaymentsAndSubscription(profile.id)
         }
       } else {
         setError('We could not confirm this payment yet. If money was deducted, it will reflect within a few minutes — refresh this page, or contact support if it does not.')
@@ -341,7 +369,12 @@ export default function UpgradePage() {
         {/* Plans */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {plans.map(plan => {
-            const isCurrent = creator?.plan === plan.id
+            const targetRank = PLAN_ORDER.indexOf(plan.id as SubscriptionPlanId)
+            const isCurrent = activeSub?.plan_tier === plan.id
+            const isBlocked = !!activeSub && targetRank < currentRank
+            const isUpgrade = !!activeSub && targetRank > currentRank
+            const currentPlanPrice = currentPlanId ? SUBSCRIPTION_PLANS[currentPlanId].amount : 0
+            const upgradeDelta = isUpgrade ? plan.price - currentPlanPrice : plan.price
             return (
               <div key={plan.id}
                 className="rounded-2xl p-8 flex flex-col transition-all"
@@ -353,6 +386,7 @@ export default function UpgradePage() {
                     ? '1px solid var(--kurso-primary-light)'
                     : '1px solid rgba(255,255,255,0.08)',
                   position: 'relative',
+                  opacity: isBlocked ? 0.6 : 1,
                 }}>
 
                 {plan.highlighted && (
@@ -383,6 +417,11 @@ export default function UpgradePage() {
                   <p className="text-sm" style={{color: plan.highlighted ? 'rgba(255,255,255,0.7)' : '#a1a1aa'}}>
                     {plan.desc}
                   </p>
+                  {isCurrent && (
+                    <p className="text-xs mt-2 flex items-center gap-1.5" style={{color: plan.highlighted ? 'rgba(255,255,255,0.7)' : '#4ade80'}}>
+                      <Clock className="w-3 h-3" /> Renews in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}
+                    </p>
+                  )}
                 </div>
 
                 <ul className="flex flex-col gap-3 mb-8 flex-1">
@@ -400,6 +439,12 @@ export default function UpgradePage() {
                     style={{background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.2)'}}>
                     ✓ Active Plan
                   </div>
+                ) : isBlocked ? (
+                  <div className="w-full py-3 rounded-xl text-xs font-medium text-center leading-relaxed"
+                    style={{background:'rgba(255,255,255,0.04)', color:'#71717a', border:'1px solid rgba(255,255,255,0.08)'}}>
+                    Available after your current plan ends
+                    <br />({daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining)
+                  </div>
                 ) : (
                   <button
                     onClick={() => handleUpgrade(plan)}
@@ -409,7 +454,11 @@ export default function UpgradePage() {
                       background: plan.highlighted ? '#fff' : 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))',
                       color: plan.highlighted ? 'var(--kurso-primary)' : '#fff',
                     }}>
-                    {payingPlan === plan.id ? (checkingStatus ? 'Confirming payment...' : 'Opening payment...') : `Upgrade to ${plan.name}`}
+                    {payingPlan === plan.id
+                      ? (checkingStatus ? 'Confirming payment...' : 'Opening payment...')
+                      : isUpgrade
+                      ? `Upgrade for ₹${upgradeDelta.toLocaleString()}`
+                      : `Upgrade to ${plan.name}`}
                   </button>
                 )}
               </div>

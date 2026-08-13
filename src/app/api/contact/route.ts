@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({
           from: 'onboarding@resend.dev',
-          to: ['nancypanghal13@gmail.com'],
+          to: ['info@kurso.in'],
           subject: `[Kurso Contact] ${subjectLabel} — from ${name.trim()}`,
           html,
         }),

@@ -82,10 +82,10 @@ export default function ContactPage() {
               <p className="text-sm mb-3" style={{color:'#a1a1aa'}}>
                 For general enquiries and support
               </p>
-              <a href="mailto:nancypanghal13@gmail.com"
+              <a href="mailto:info@kurso.in"
                 className="text-sm font-medium transition-colors"
                 style={{color:'var(--kurso-primary-light)'}}>
-                nancypanghal13@gmail.com
+                info@kurso.in
               </a>
             </div>
 

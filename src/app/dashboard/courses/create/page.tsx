@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { ArrowRight, ArrowLeft, Globe, MessageCircle, Monitor, Plus, X } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Globe, MessageCircle, Send, Plus, X } from 'lucide-react'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 
 const LANGUAGES = [
@@ -14,25 +14,25 @@ const LANGUAGES = [
 
 const DELIVERY_OPTIONS = [
   {
-    id: 'both',
-    label: 'Web + WhatsApp',
-    desc: 'Students can learn on both platforms',
-    icon: Globe,
-    recommended: true,
-  },
-  {
-    id: 'web',
-    label: 'Web Only',
-    desc: 'Students access via browser portal',
-    icon: Monitor,
+    id: 'telegram',
+    label: 'Web + Telegram',
+    desc: 'Lessons delivered via your Telegram bot',
+    icon: Send,
     recommended: false,
   },
   {
     id: 'whatsapp',
-    label: 'WhatsApp Only',
+    label: 'Web + WhatsApp',
     desc: 'Lessons delivered via WhatsApp messages',
     icon: MessageCircle,
     recommended: false,
+  },
+  {
+    id: 'both',
+    label: 'Web + WhatsApp + Telegram',
+    desc: 'Students can learn on either bot',
+    icon: Globe,
+    recommended: true,
   },
 ]
 
