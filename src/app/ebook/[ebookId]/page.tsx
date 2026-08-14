@@ -20,13 +20,14 @@ export default function EbookStorefrontPage({ params }: { params: Promise<{ eboo
       .then(({ data }) => { setEbook(data); setLoading(false) })
   }, [ebookId])
 
-  // Handles the Stripe redirect-back case — the buyer lands back on this
-  // page after paying on Stripe's hosted checkout.
+  // Handles the redirect-back case — the buyer lands back on this page after
+  // paying on Cashfree's or Stripe's hosted checkout. Cashfree's redirect
+  // only appends ?order_id= (no status flag), so we poll whenever an
+  // order_id shows up — not only when status=success is also present.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const orderId = params.get('order_id')
-    const status = params.get('status')
-    if (!orderId || status !== 'success') return
+    if (!orderId) return
     setCheckingStatus(true)
     pollOrderStatus(orderId).then((result) => {
       setCheckingStatus(false)
@@ -91,13 +92,11 @@ export default function EbookStorefrontPage({ params }: { params: Promise<{ eboo
 
       if (order.provider === 'cashfree') {
         const cashfree = await loadCashfreeSdk()
-        await cashfree.checkout({ paymentSessionId: order.paymentSessionId, redirectTarget: '_modal' })
-        setCheckingStatus(true)
-        const status = await pollOrderStatus(clientTxnId)
-        setCheckingStatus(false)
-        if (status === 'success') setPurchased(true)
-        else setError('We could not confirm this payment yet. If money was deducted, it will reflect within a few minutes — refresh this page, or contact the creator if it does not.')
-        setSubmitting(false)
+        // Redirect mode — the browser navigates to Cashfree's hosted page and
+        // back to our return_url (with ?order_id= guaranteed by the server).
+        // Nothing after this line runs; confirmation happens in the
+        // redirect-return effect above when the buyer lands back here.
+        await cashfree.checkout({ paymentSessionId: order.paymentSessionId, redirectTarget: '_self' })
         return
       }
 

@@ -195,6 +195,14 @@ export default function CourseLearnPage() {
   const [isEnrolled, setIsEnrolled] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [showEnroll, setShowEnroll] = useState(false)
+
+  // Redirect-mode payment return: if the student lands back here with
+  // ?order_id= in the URL (from Cashfree's hosted checkout), reopen the
+  // enroll modal so its own return-handling effect can confirm the payment.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('order_id')) setShowEnroll(true)
+  }, [])
   const [creatorProfile, setCreatorProfile] = useState<any>(null)
   const [contentUrl, setContentUrl] = useState<string | null>(null)
   const [loadingContent, setLoadingContent] = useState(false)

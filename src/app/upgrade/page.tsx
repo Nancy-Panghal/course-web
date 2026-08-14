@@ -70,6 +70,9 @@ export default function UpgradePage() {
   const [success, setSuccess] = useState('')
   const [refundRequesting, setRefundRequesting] = useState(false)
   const [refundMessage, setRefundMessage] = useState('')
+  const [extRequests, setExtRequests] = useState<any[]>([])
+  const [extRequesting, setExtRequesting] = useState(false)
+  const [extMessage, setExtMessage] = useState<{ text: string; isError: boolean } | null>(null)
 
   async function loadPaymentsAndSubscription(creatorId: string) {
     const { data: paymentRows } = await supabase
@@ -86,6 +89,17 @@ export default function UpgradePage() {
       .eq('creator_id', creatorId)
       .maybeSingle()
     setSubscription(subRow)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      const res = await fetch('/api/creator/subscription-extension-request', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.ok) {
+        const d = await res.json()
+        setExtRequests(d.requests || [])
+      }
+    }
   }
 
   // The creator's plan only counts as "currently active" if the billing
@@ -103,6 +117,37 @@ export default function UpgradePage() {
   const daysRemaining = activeSub
     ? Math.max(0, Math.ceil((new Date(activeSub.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0
+
+  // Extension eligibility uses the raw subscription row, not activeSub — a
+  // creator whose plan has already lapsed (activeSub is null by then) should
+  // still be able to request an extension, not just one who's cutting it close.
+  const rawDaysLeft = subscription?.current_period_end
+    ? (new Date(subscription.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    : null
+  const eligibleForExtension = rawDaysLeft !== null && rawDaysLeft <= 2
+  const pendingExtRequest = extRequests.find(r => r.status === 'pending')
+
+  async function requestExtension(days: number) {
+    setExtRequesting(true)
+    setExtMessage(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Please log in again.')
+      const res = await fetch('/api/creator/subscription-extension-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ requestedDays: days }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Could not submit the request.')
+      setExtMessage({ text: 'Request sent — we review these manually and usually respond quickly.', isError: false })
+      if (creator?.id) await loadPaymentsAndSubscription(creator.id)
+    } catch (err: any) {
+      setExtMessage({ text: err.message, isError: true })
+    } finally {
+      setExtRequesting(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -175,35 +220,45 @@ export default function UpgradePage() {
       }
 
       const cashfree = await loadCashfreeSdk()
-      await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_modal' })
-
-      // The modal promise resolves as soon as it closes — which can be
-      // before Cashfree's webhook reaches us. Poll our own order status
-      // rather than trusting the modal close event as "paid".
-      setCheckingStatus(true)
-      const status = await pollOrderStatus(data.clientTxnId)
-      setCheckingStatus(false)
-
-      if (status === 'active' || status === 'success') {
-        const profile = await getCreatorProfile()
-        setCreator(profile)
-        setTrialStatus(getTrialStatus(profile))
-        setSuccess(data.isUpgrade
-          ? `Upgraded to ${plan.name}! You paid only the ₹${Number(data.amount).toLocaleString()} difference — your billing period restarts today for 30 days.`
-          : 'Successfully upgraded! Your academy is now fully active.')
-        if (profile?.id) {
-          await loadPaymentsAndSubscription(profile.id)
-        }
-      } else {
-        setError('We could not confirm this payment yet. If money was deducted, it will reflect within a few minutes — refresh this page, or contact support if it does not.')
-      }
-      setPayingPlan(null)
+      // Redirect mode — the browser navigates to Cashfree's hosted page and
+      // back to our return_url (?order_id= is guaranteed server-side).
+      // Nothing after this line runs in this call; confirmation happens in
+      // the redirect-return effect below when the creator lands back here.
+      await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_self' })
     } catch (err: any) {
       setError(err.message)
       setPayingPlan(null)
       setCheckingStatus(false)
     }
   }
+
+  // Handles the redirect-back case — the creator lands back on this page
+  // after paying on Cashfree's hosted checkout. Cashfree's redirect only
+  // appends ?order_id= (no status flag), so we poll whenever an order_id
+  // shows up, not only on an explicit success flag.
+  useEffect(() => {
+    if (loading) return
+    const params = new URLSearchParams(window.location.search)
+    const orderId = params.get('order_id')
+    if (!orderId) return
+    setCheckingStatus(true)
+    pollOrderStatus(orderId).then(async (status) => {
+      setCheckingStatus(false)
+      if (status === 'active' || status === 'success') {
+        const profile = await getCreatorProfile()
+        setCreator(profile)
+        setTrialStatus(getTrialStatus(profile))
+        setSuccess('Successfully upgraded! Your academy is now fully active.')
+        if (profile?.id) await loadPaymentsAndSubscription(profile.id)
+      } else {
+        setError('We could not confirm this payment yet. If money was deducted, it will reflect within a few minutes — refresh this page, or contact support if it does not.')
+      }
+      // Strip order_id from the URL so a manual refresh doesn't re-poll a
+      // already-handled (or stale) order.
+      window.history.replaceState({}, '', window.location.pathname)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   // One call does everything: finds-or-creates the invoice row server-side
   // (same invoice number every time for this payment) and returns a fresh
@@ -363,6 +418,37 @@ export default function UpgradePage() {
           <div className="mb-8 p-4 rounded-xl text-sm"
             style={{background:'rgba(239,68,68,0.08)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>
             {error}
+          </div>
+        )}
+
+        {/* Extension request — only shown within 2 days of (or already past) expiry */}
+        {eligibleForExtension && (
+          <div className="rounded-2xl p-6 mb-8" style={{ background: 'rgba(250,204,21,0.06)', border: '1px solid rgba(250,204,21,0.2)' }}>
+            <h2 className="font-semibold text-white mb-1">Need a bit more time?</h2>
+            <p className="text-sm mb-4" style={{ color: '#fde68a' }}>
+              {rawDaysLeft !== null && rawDaysLeft > 0
+                ? `Your plan ends in ${Math.ceil(rawDaysLeft)} day${Math.ceil(rawDaysLeft) !== 1 ? 's' : ''}. `
+                : 'Your plan has ended. '}
+              If you can't renew right now, request a short extension — we review these manually, your course stays live, and you won't be penalized while we get back to you.
+            </p>
+            {pendingExtRequest ? (
+              <p className="text-sm px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', color: '#a1a1aa' }}>
+                You have a pending request for {pendingExtRequest.requested_days === 30 ? '1 month' : pendingExtRequest.requested_days === 15 ? '15 days' : pendingExtRequest.requested_days === 7 ? '1 week' : `${pendingExtRequest.requested_days} days`} — we'll follow up soon.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {[{ days: 3, label: '3 days' }, { days: 7, label: '1 week' }, { days: 15, label: '15 days' }, { days: 30, label: '1 month' }].map(opt => (
+                  <button key={opt.days} onClick={() => requestExtension(opt.days)} disabled={extRequesting}
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(250,204,21,0.12)', border: '1px solid rgba(250,204,21,0.3)', color: '#facc15' }}>
+                    {extRequesting ? '...' : `Request ${opt.label}`}
+                  </button>
+                ))}
+              </div>
+            )}
+            {extMessage && (
+              <p className="text-xs mt-3" style={{ color: extMessage.isError ? '#f87171' : '#4ade80' }}>{extMessage.text}</p>
+            )}
           </div>
         )}
 

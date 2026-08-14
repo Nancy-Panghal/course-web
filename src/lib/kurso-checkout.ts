@@ -76,6 +76,14 @@ export type PayForPlanResult =
  * in create-subscription-order — this never trusts client-side math).
  * Resolves only once payment is independently confirmed via polling, never
  * on the checkout modal's close event alone.
+ *
+ * Deliberately kept on Popup ('_modal'), not Redirect: this is the inline
+ * "pay to unlock" flow inside DeliveryMethodPicker, called from the middle
+ * of the create-course draft form and the course settings page. A full-page
+ * redirect away and back would either lose the unsaved draft or require
+ * persisting/restoring the whole form — not worth it for a same-page inline
+ * upgrade. The standalone checkout pages (/upgrade, ebook purchase, course
+ * enrollment) use Redirect instead — see their own files.
  */
 export async function payForPlan(planId: SubscriptionPlanId): Promise<PayForPlanResult> {
   const { data: { session } } = await supabase.auth.getSession()

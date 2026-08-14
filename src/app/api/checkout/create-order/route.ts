@@ -101,6 +101,15 @@ export async function POST(req: NextRequest) {
     })
     if (txnError) throw txnError
 
+    // Guarantee order_id is present on the return URL ourselves — never
+    // depend on Cashfree/Razorpay's own return-URL templating, and never
+    // trust the client-supplied URL to already have it (EnrollModal passes
+    // window.location.href as-is, which doesn't include it).
+    const baseReturnUrl = clientReturnUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/course/${courseId}`
+    const returnUrlWithOrderId = baseReturnUrl.includes('order_id=')
+      ? baseReturnUrl
+      : `${baseReturnUrl}${baseReturnUrl.includes('?') ? '&' : '?'}order_id=${transactionId}`
+
     try {
       const order = await createCheckoutOrder({
         gateway,
@@ -110,7 +119,7 @@ export async function POST(req: NextRequest) {
         customerName: studentName,
         customerEmail: studentEmail,
         customerPhone: studentPhone,
-        returnUrl: clientReturnUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/course/${courseId}?order_id=${transactionId}`,
+        returnUrl: returnUrlWithOrderId,
       })
 
       // Stripe's CheckoutResult has no orderId — it's correlated by
