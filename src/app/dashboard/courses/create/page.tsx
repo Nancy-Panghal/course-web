@@ -7,7 +7,7 @@ import { ArrowRight, ArrowLeft, Globe, MessageCircle, Send, Plus, X } from 'luci
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
 import { getEffectivePlanId } from '@/lib/kurso-checkout'
-import { PLAN_ORDER, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
+import { PLAN_ORDER, planCoversDeliveryMethod, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 
 const LANGUAGES = [
   'English', 'Hindi', 'Tamil', 'Telugu', 'Marathi',
@@ -232,13 +232,11 @@ export default function CreateCoursePage() {
     // Defense-in-depth: re-confirm the picked delivery method is actually
     // covered by the creator's plan before writing it, in case plan state
     // changed since the picker loaded (e.g. a subscription lapsed mid-form).
-    {
-      const rank = PLAN_ORDER.indexOf(delivery)
-      const currentRank = effectivePlanId ? PLAN_ORDER.indexOf(effectivePlanId) : -1
-      if (rank > currentRank) {
-        setError('Your current plan does not cover this delivery method yet. Please select it again to unlock it.')
-        return
-      }
+    // Exact-match check, not price comparison — telegram and whatsapp are
+    // separate channels, not tiers of each other.
+    if (!planCoversDeliveryMethod(effectivePlanId, delivery)) {
+      setError('Your current plan does not cover this delivery method. Please select it again to unlock it.')
+      return
     }
 
     setLoading(true)

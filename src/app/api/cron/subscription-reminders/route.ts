@@ -10,13 +10,22 @@ const supabase = createClient(
 
 /**
  * Runs once a day (Vercel free plan supports a single daily cron — see
- * vercel.json). Finds active subscriptions expiring in exactly 7 days or
- * exactly 1 day and emails the creator, guarded by reminder_*_sent_at so a
- * manual re-trigger on the same day never double-sends.
+ * vercel.json). Does two things in one pass, since only one daily cron
+ * job is available:
  *
- * This only sends reminders — it does not touch subscription status or
- * course visibility. Extension requests (separate feature) are how a
- * creator avoids losing access if they can't pay in time.
+ * 1. Reminders — finds active subscriptions expiring in exactly 7 days or
+ *    exactly 1 day and emails the creator, guarded by reminder_*_sent_at so
+ *    a manual re-trigger on the same day never double-sends.
+ *
+ * 2. Auto-expiry — a subscription whose period has fully lapsed (past
+ *    current_period_end) with no extension request pending gets marked
+ *    'expired', and that creator's currently-published courses get
+ *    unpublished (stops new enrollments/sales). This deliberately does NOT
+ *    touch existing enrollments — students who already enrolled keep their
+ *    access; "their course stays live" for people who already paid, only
+ *    new signups stop. A pending extension request gives one full grace
+ *    period so a creator awaiting your review is never auto-expired out
+ *    from under them.
  */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -24,7 +33,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const results = { checked: 0, sent7d: 0, sent1d: 0, errors: [] as string[] }
+  const results = { checked: 0, sent7d: 0, sent1d: 0, expired: 0, errors: [] as string[] }
 
   try {
     const { data: subs, error } = await supabase
@@ -82,10 +91,73 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 2. Auto-expiry sweep — subscriptions that have fully lapsed with no
+    // extension pending. Re-query rather than reuse `subs` above: a
+    // subscription with daysLeft <= 0 wasn't in the 7d/1d reminder set
+    // anyway (that loop only matched daysLeft === 7 or 1), so this needs
+    // its own pass covering "already past current_period_end".
+    const { data: lapsedSubs, error: lapsedErr } = await supabase
+      .from('subscriptions')
+      .select('id, creator_id, plan_tier, current_period_end, creators(name, email)')
+      .eq('status', 'active')
+      .lt('current_period_end', now.toISOString())
+
+    if (lapsedErr) throw lapsedErr
+
+    for (const sub of lapsedSubs || []) {
+      try {
+        const { data: pendingExt } = await supabase
+          .from('subscription_extension_requests')
+          .select('id')
+          .eq('creator_id', sub.creator_id)
+          .eq('status', 'pending')
+          .maybeSingle()
+        // Grace: a request awaiting your review never gets auto-expired
+        // out from under the creator while they're waiting on you.
+        if (pendingExt) continue
+
+        await supabase.from('subscriptions').update({ status: 'expired' }).eq('id', sub.id)
+
+        // Unpublish only currently-published courses — stops new
+        // enrollments/sales, but never touches existing enrollments; those
+        // students keep the access they already paid for.
+        await supabase.from('courses').update({ is_published: false }).eq('creator_id', sub.creator_id).eq('is_published', true)
+
+        results.expired++
+
+        const creator = (sub as any).creators
+        if (creator?.email) {
+          await sendLoggedEmail({
+            supabase,
+            emailType: 'subscription_expired',
+            to: creator.email,
+            subject: 'Your Kurso plan has expired — new enrollments paused',
+            html: expiredEmailHtml({ name: creator.name }),
+            creatorId: sub.creator_id,
+          })
+        }
+      } catch (e: any) {
+        results.errors.push(`expire sub ${sub.id}: ${e.message}`)
+      }
+    }
+
     return NextResponse.json({ ok: true, ...results })
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err.message, ...results }, { status: 500 })
   }
+}
+
+function expiredEmailHtml({ name }: { name: string }) {
+  const safeName = escapeHtml(name || 'there')
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #18181b;">
+      <p>Hi ${safeName},</p>
+      <p>Your Kurso plan has expired. Your published courses have been paused for <strong>new</strong> enrollments — students who already enrolled keep full access, nothing changes for them.</p>
+      <p>Renew any time to make your courses live again:</p>
+      <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Renew now</a></p>
+      <p style="font-size: 13px; color: #71717a;">— Team Kurso</p>
+    </div>
+  `
 }
 
 function reminderEmailHtml({ name, planName, daysLeft, periodEnd }: { name: string; planName: string; daysLeft: number; periodEnd: Date }) {

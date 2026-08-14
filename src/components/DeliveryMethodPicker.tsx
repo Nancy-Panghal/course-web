@@ -5,9 +5,20 @@
  * Plan-aware delivery-method selector, shared by create-course and
  * the course settings "Delivery" section.
  *
- * - Options at or below the creator's current plan: free to pick.
- * - Options above it: shows "Pay ₹X to unlock" — clicking pays the
- *   plan delta inline via Cashfree, then selects it on success.
+ * IMPORTANT: telegram (₹2,500) and whatsapp (₹3,500) are separate
+ * single-channel plans, NOT nested tiers — a whatsapp-plan creator
+ * has not paid for Telegram just because it happens to cost less.
+ * Only 'both' is a superset of the other two. Coverage is therefore
+ * checked with planCoversDeliveryMethod() (exact match, or 'both'),
+ * never by comparing price/rank.
+ *
+ * - The option matching the creator's exact plan, or any option if
+ *   they're on 'both': free to pick.
+ * - A pricier option not covered by the current plan: shows "Pay ₹X
+ *   to unlock" — pays the delta inline via Cashfree, selects on success.
+ * - A cheaper-but-different, uncovered option (e.g. on 'whatsapp',
+ *   picking 'telegram'): not a valid inline purchase — blocked with
+ *   an explanation, same as a plan downgrade on /upgrade.
  * - Never charges based on client-side math — the amount shown is
  *   read from SUBSCRIPTION_PLANS and re-verified server-side in
  *   create-subscription-order.
@@ -16,7 +27,7 @@
 import { useState } from 'react'
 import { Send, MessageCircle, Globe, Loader2 } from 'lucide-react'
 import {
-  SUBSCRIPTION_PLANS, PLAN_ORDER, type SubscriptionPlanId,
+  SUBSCRIPTION_PLANS, PLAN_ORDER, planCoversDeliveryMethod, type SubscriptionPlanId,
 } from '@/app/api/razorpay/subscription-plans'
 import { payForPlan } from '@/lib/kurso-checkout'
 
@@ -44,17 +55,24 @@ export default function DeliveryMethodPicker({
   const [payingFor, setPayingFor] = useState<SubscriptionPlanId | null>(null)
   const [error, setError] = useState('')
 
-  const currentRank = currentPlanId ? PLAN_ORDER.indexOf(currentPlanId) : -1
-
   async function handlePick(optId: SubscriptionPlanId) {
     if (disabled || payingFor) return
-    const rank = PLAN_ORDER.indexOf(optId)
-    if (rank <= currentRank) {
+    if (planCoversDeliveryMethod(currentPlanId, optId)) {
       onChange(optId)
       return
     }
-    // Above current plan — pay the difference before selecting it.
     setError('')
+    const delta = currentPlanId ? SUBSCRIPTION_PLANS[optId].amount - SUBSCRIPTION_PLANS[currentPlanId].amount : SUBSCRIPTION_PLANS[optId].amount
+    if (currentPlanId && delta <= 0) {
+      // A cheaper-but-different channel (e.g. whatsapp plan → telegram) —
+      // not something you can buy your way into inline, since there's no
+      // sensible "top-up" price for switching to something that costs
+      // less. Same rule as a plan downgrade: wait for renewal or contact
+      // support to change channels outright.
+      setError(`Your current plan doesn't cover ${OPTION_META[optId].label}. Switching between single-channel plans isn't an inline top-up — contact support, or wait until your plan renews and choose ${OPTION_META[optId].label} then.`)
+      return
+    }
+    // A genuinely pricier option — pay the difference before selecting it.
     setPayingFor(optId)
     const result = await payForPlan(optId)
     setPayingFor(null)
@@ -73,11 +91,12 @@ export default function DeliveryMethodPicker({
           const meta = OPTION_META[optId]
           const Icon = meta.icon
           const active = value === optId
-          const rank = PLAN_ORDER.indexOf(optId)
-          const locked = rank > currentRank
+          const covered = planCoversDeliveryMethod(currentPlanId, optId)
+          const locked = !covered
           const delta = currentPlanId
             ? SUBSCRIPTION_PLANS[optId].amount - SUBSCRIPTION_PLANS[currentPlanId].amount
             : SUBSCRIPTION_PLANS[optId].amount
+          const isBuyable = locked && delta > 0
           const isPaying = payingFor === optId
           return (
             <button key={optId} type="button"
@@ -92,14 +111,16 @@ export default function DeliveryMethodPicker({
               <p className="text-sm font-medium" style={{ color: active ? '#fff' : '#a1a1aa' }}>{meta.label}</p>
               <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>{meta.desc}</p>
               {locked && (
-                <p className="text-xs mt-2 font-semibold flex items-center gap-1.5" style={{ color: '#facc15' }}>
+                <p className="text-xs mt-2 font-semibold flex items-center gap-1.5" style={{ color: isBuyable ? '#facc15' : '#71717a' }}>
                   {isPaying ? (
                     <>
                       <Loader2 className="w-3 h-3 animate-spin" />
-                      {payingFor === optId ? 'Confirming payment…' : ''}
+                      Confirming payment…
                     </>
-                  ) : (
+                  ) : isBuyable ? (
                     `🔒 Pay ₹${delta.toLocaleString()} to unlock`
+                  ) : (
+                    '🔒 Switch after renewal'
                   )}
                 </p>
               )}
