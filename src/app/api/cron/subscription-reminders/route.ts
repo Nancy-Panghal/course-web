@@ -8,6 +8,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// A pending extension request holds off auto-expiry, but only for this many
+// days from when it was submitted — an unreviewed request can't stall a
+// lapsed plan open indefinitely. The request itself stays "pending" either
+// way; approving it later still re-extends the period and re-publishes
+// whatever this sweep paused.
+const EXTENSION_REQUEST_GRACE_DAYS = 5
+
 /**
  * Runs once a day (Vercel free plan supports a single daily cron — see
  * vercel.json). Does two things in one pass, since only one daily cron
@@ -108,20 +115,33 @@ export async function GET(req: NextRequest) {
       try {
         const { data: pendingExt } = await supabase
           .from('subscription_extension_requests')
-          .select('id')
+          .select('id, requested_at')
           .eq('creator_id', sub.creator_id)
           .eq('status', 'pending')
           .maybeSingle()
-        // Grace: a request awaiting your review never gets auto-expired
-        // out from under the creator while they're waiting on you.
-        if (pendingExt) continue
+        // Grace: a request awaiting your review holds off auto-expiry — but
+        // only for EXTENSION_REQUEST_GRACE_DAYS from when it was submitted,
+        // so an unreviewed request can't hold a lapsed plan open forever.
+        // Still shows as "pending" for you to decide later — approving it
+        // afterward re-extends the period and re-publishes the course(s)
+        // it paused (see the admin extension-requests route).
+        if (pendingExt) {
+          const requestAgeDays = (now.getTime() - new Date(pendingExt.requested_at).getTime()) / (1000 * 60 * 60 * 24)
+          if (requestAgeDays < EXTENSION_REQUEST_GRACE_DAYS) continue
+        }
 
         await supabase.from('subscriptions').update({ status: 'expired' }).eq('id', sub.id)
 
         // Unpublish only currently-published courses — stops new
         // enrollments/sales, but never touches existing enrollments; those
-        // students keep the access they already paid for.
-        await supabase.from('courses').update({ is_published: false }).eq('creator_id', sub.creator_id).eq('is_published', true)
+        // students keep the access they already paid for. Mark
+        // auto_unpublished_at so a later renewal (webhook) or extension
+        // approval knows it's safe to republish these specifically —
+        // never a course the creator chose to draft themselves.
+        await supabase.from('courses')
+          .update({ is_published: false, auto_unpublished_at: now.toISOString() })
+          .eq('creator_id', sub.creator_id)
+          .eq('is_published', true)
 
         results.expired++
 

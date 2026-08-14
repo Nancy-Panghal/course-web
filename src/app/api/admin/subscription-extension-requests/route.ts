@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     const { data: reqRow, error: reqErr } = await supabase
       .from('subscription_extension_requests')
-      .select('id, subscription_id, requested_days, status')
+      .select('id, creator_id, subscription_id, requested_days, status')
       .eq('id', requestId)
       .maybeSingle()
     if (reqErr) throw reqErr
@@ -77,6 +77,15 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', reqRow.subscription_id)
       if (updateErr) throw updateErr
+
+      // Approving effectively un-lapses the plan, even if the auto-expiry
+      // cron already paused courses while this request sat unreviewed past
+      // its grace window — re-publish only what that sweep paused (never a
+      // course the creator drafted themselves), same as a normal renewal.
+      await supabase.from('courses')
+        .update({ is_published: true, auto_unpublished_at: null })
+        .eq('creator_id', reqRow.creator_id)
+        .not('auto_unpublished_at', 'is', null)
     }
 
     const { error: decideErr } = await supabase

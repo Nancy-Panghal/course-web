@@ -95,6 +95,14 @@ export async function POST(req: NextRequest) {
       current_period_end: periodEnd.toISOString(),
     }).eq('id', subscription.id)
 
+    // Auto-republish courses that were paused by the auto-expiry cron
+    // (never a course the creator chose to draft themselves — that's the
+    // whole reason auto_unpublished_at exists, to tell the two apart).
+    await supabaseAdmin.from('courses')
+      .update({ is_published: true, auto_unpublished_at: null })
+      .eq('creator_id', subscription.creator_id)
+      .not('auto_unpublished_at', 'is', null)
+
     await supabaseAdmin.from('creators').update({ plan: subscription.plan_tier }).eq('id', subscription.creator_id)
 
     const plan = getSubscriptionPlan(subscription.plan_tier)
