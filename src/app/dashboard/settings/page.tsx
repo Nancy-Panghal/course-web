@@ -503,6 +503,7 @@ export default function SettingsPage() {
         <div className="mb-12" />
 
         {/* ── Get Paid — Payment Gateway (BYOK) ── */}
+        <div id="payment-gateway">
         <SectionCard title="Get Paid — Payment Gateway" icon={IndianRupee}>
           {gwLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -622,6 +623,7 @@ export default function SettingsPage() {
             </>
           )}
         </SectionCard>
+        </div>
         <div className="mb-12" />
 
         {/* Danger Zone */}

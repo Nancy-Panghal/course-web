@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   GraduationCap, MessageCircle, Send, ListChecks, LayoutDashboard,
-  Award, Lock, Wallet, Video, CheckCircle, ArrowRight, Play, Sparkles
+  Award, Lock, Wallet, Video, CheckCircle, ArrowRight, Play, Sparkles,
+  ChevronDown, Terminal, RefreshCw, ShieldCheck, Smartphone
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { supabase } from '@/lib/supabase'
@@ -55,8 +56,8 @@ const features = [
   },
   {
     icon: Wallet,
-    title: 'Direct Payouts',
-    desc: "We run on a split-payment setup, so your earnings land straight in your bank account or UPI ID.",
+    title: 'Payments, Straight To You',
+    desc: "Connect your own Razorpay, Stripe, or Cashfree account with your API keys. Payments go directly to you — we simply verify each transaction and unlock access automatically.",
     tag: 'Payments',
   },
   {
@@ -75,6 +76,64 @@ const steps = [
   { num: '05', title: 'Go live anytime', desc: 'Drop in a Zoom or Google Meet link for a live class — we share it with every enrolled student automatically.' },
 ]
 
+const embedSteps = [
+  { icon: Terminal, title: 'Drop in the checkout code block', desc: 'Swap your current enrollment button for our lightweight code snippet — a few lines, no rebuild needed.' },
+  { icon: LayoutDashboard, title: 'Upload lessons & course details', desc: 'Add your videos, notes, assignments and pricing on your Kurso dashboard, same as always.' },
+  { icon: MessageCircle, title: 'Go live on WhatsApp, Telegram, or both', desc: 'Pick however you want lessons delivered — your landing page stays exactly as you built it.' },
+]
+
+// TODO(Nancy): replace src with real screenshot paths, e.g. '/showcase/embed-1.jpg'
+const embedShowcaseImages = [
+  { src: '', alt: 'Creator landing page with Kurso checkout embedded' },
+  { src: '', alt: 'Enrollment code block snippet' },
+  { src: '', alt: 'Course details and lesson upload screen' },
+  { src: '', alt: 'Checkout popup on a creator-branded landing page' },
+]
+
+const engagementPoints = [
+  { icon: Smartphone, text: 'No app to install — lessons arrive where students already are' },
+  { icon: MessageCircle, text: 'Bot sends the lesson straight into the WhatsApp or Telegram chat' },
+  { icon: ShieldCheck, text: 'Tapping it opens a secure, watermarked web player' },
+  { icon: Lock, text: 'Links expire after a short window, so a shared link goes dead fast' },
+]
+
+// TODO(Nancy): replace src with real screenshot paths, e.g. '/showcase/engagement-1.jpg'
+const engagementShowcaseImages = [
+  { src: '', alt: 'Lesson link arriving in a WhatsApp chat' },
+  { src: '', alt: 'Watermarked lesson player opened from the chat link' },
+]
+
+const faqs = [
+  {
+    q: 'Do my students need to download an app?',
+    a: 'No. Lessons are delivered straight into WhatsApp or Telegram — apps your students already have open. Tapping a lesson link opens it on a secure web page for that lesson only; nothing extra to install or log into.',
+  },
+  {
+    q: 'How do payments work — do you hold my money?',
+    a: "You connect your own Razorpay, Stripe, or Cashfree account using your API keys. Payments go directly to your account — we simply verify each transaction on our end and unlock the course automatically once it clears.",
+  },
+  {
+    q: 'Can I try Kurso before paying for a plan?',
+    a: "Yes. You can build your entire course, upload lessons, and test the full experience across the dashboard and bots for free. You only need a plan once you're ready to go live for real students.",
+  },
+  {
+    q: 'I already have a landing page for my course — do I need to switch?',
+    a: 'No. Keep your existing page and just swap in our lightweight enrollment code block for checkout. Upload your lessons and details on the Kurso dashboard, and delivery goes live on WhatsApp, Telegram, or both.',
+  },
+  {
+    q: 'How is my course content protected from piracy?',
+    a: "Every video and PDF is watermarked, and lesson links expire after a short window. Even if a link is shared once, it won't stay usable — so it can't quietly turn into a pirated copy.",
+  },
+  {
+    q: 'What if I use less than my plan allows in a month?',
+    a: "We roll it forward. If you use fewer resources than your plan covers, we automatically extend your plan into the next month at no extra cost — you don't lose what you didn't use.",
+  },
+  {
+    q: 'What if my student does not have Telegram installed?',
+    a: "If your plan delivers on Telegram only, they'll need to install it to receive lessons there — same as any Telegram-based delivery. This is exactly why we recommend WhatsApp as your primary channel: almost every student already has it, so there's no install step at all. You can also pick the WhatsApp + Telegram plan to cover both.",
+  },
+]
+
 const plans = [
   {
     name: 'Web + Telegram',
@@ -87,9 +146,9 @@ const plans = [
       'Quizzes, notes & assignments',
       'Auto certificates on completion',
       'Live class link sharing',
-      'Razorpay payments, direct payout',
+      'Connect Razorpay, Stripe, or Cashfree via API key',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Get Started',
     highlighted: false,
   },
   {
@@ -103,9 +162,9 @@ const plans = [
       'Quizzes, notes & assignments',
       'Auto certificates on completion',
       'Live class link sharing',
-      'Razorpay payments, direct payout',
+      'Connect Razorpay, Stripe, or Cashfree via API key',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Get Started',
     highlighted: true,
   },
   {
@@ -119,15 +178,15 @@ const plans = [
       'Quizzes, notes & assignments',
       'Auto certificates on completion',
       'Live class link sharing',
-      'Razorpay payments, direct payout',
+      'Connect Razorpay, Stripe, or Cashfree via API key',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Get Started',
     highlighted: false,
   },
 ]
 
 const stats = [
-  { num: '7 Days', label: 'Free trial' },
+  { num: 'Free', label: 'To build & test' },
   { num: '2', label: 'Delivery channels' },
   { num: '₹0', label: 'Setup cost' },
   { num: '10%', label: 'Or flat monthly fee' },
@@ -216,10 +275,48 @@ function PlanCard({ plan }: { plan: typeof plans[0] }) {
   )
 }
 
+function ImageGrid({ images, cols = 4 }: { images: { src: string; alt: string }[]; cols?: 2 | 4 }) {
+  return (
+    <div className={`grid grid-cols-2 ${cols === 4 ? 'md:grid-cols-4' : 'md:grid-cols-2 max-w-2xl mx-auto'} gap-4`}>
+      {images.map((img, i) => (
+        <div
+          key={i}
+          className="glass rounded-xl border border-border overflow-hidden aspect-video flex items-center justify-center"
+        >
+          {img.src ? (
+            <img src={img.src} alt={img.alt} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-text-3 text-xs px-3 text-center">{img.alt}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function FAQItem({ q, a, isOpen, onToggle }: { q: string; a: string; isOpen: boolean; onToggle: () => void }) {
+  return (
+    <div className="glass rounded-2xl border border-border overflow-hidden">
+      <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 p-6 text-left">
+        <span className="font-semibold text-white">{q}</span>
+        <ChevronDown
+          className={`w-5 h-5 text-violet-light flex-shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {isOpen && (
+        <div className="px-6 pb-6">
+          <p className="text-text-2 text-sm leading-relaxed">{a}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── PAGE ───
 export default function HomePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   useEffect(() => {
     async function checkUser(sessionUser: any | null) {
@@ -254,7 +351,7 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 glass border border-violet/20 rounded-full px-4 py-2 mb-8">
             <div className="w-2 h-2 bg-violet-light rounded-full animate-pulse" />
-            <span className="text-sm text-text-2">7-day free trial · No setup cost</span>
+            <span className="text-sm text-text-2">Free to build & test · No card required</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-6">
@@ -275,7 +372,7 @@ export default function HomePage() {
               href={user ? '/dashboard' : '/login?role=creator'}
               className="violet-gradient px-8 py-4 rounded-xl text-white font-semibold text-lg hover:opacity-90 transition-all glow-strong flex items-center justify-center gap-2 group"
             >
-              {user ? 'Go to Dashboard' : 'Start Free — 7 Day Trial'}
+              {user ? 'Go to Dashboard' : 'Start Free'}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a
@@ -444,15 +541,97 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── BRING YOUR OWN LANDING PAGE ── */}
+      <section id="embed" className="py-24 px-6 border-b border-border">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 glass border border-violet/20 rounded-full px-4 py-2 mb-4">
+              <Terminal className="w-3 h-3 text-violet-light" />
+              <span className="text-sm text-text-2">Already have a landing page?</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Keep your page. <span className="gradient-text">Just plug in checkout.</span>
+            </h2>
+            <p className="text-text-2 text-lg max-w-2xl mx-auto font-light leading-relaxed">
+              Don't rebuild what already works. Swap in our enrollment code block, upload your lessons
+              and course details, and your course goes live — delivered on WhatsApp, Telegram, or both,
+              whichever your students actually use.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
+            {embedSteps.map((s, i) => (
+              <div key={i} className="glass rounded-2xl p-6 border border-border">
+                <div className="w-10 h-10 violet-gradient rounded-xl flex items-center justify-center mb-4">
+                  <s.icon className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="font-semibold text-white mb-2">{s.title}</h3>
+                <p className="text-text-2 text-sm leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <ImageGrid images={embedShowcaseImages} cols={4} />
+        </div>
+      </section>
+
+      {/* ── NO APPS TO DOWNLOAD ── */}
+      <section className="py-24 px-6 border-b border-border">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 glass border border-violet/20 rounded-full px-4 py-2 mb-4">
+              <Smartphone className="w-3 h-3 text-violet-light" />
+              <span className="text-sm text-text-2">Zero app-download friction</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              No apps to download. <span className="gradient-text">Just the chats they already open.</span>
+            </h2>
+            <p className="text-text-2 text-lg max-w-2xl mx-auto font-light leading-relaxed">
+              WhatsApp and Telegram are already open on your students' phones all day — that's where they
+              stay engaged, so that's where we meet them. The moment a lesson is ready, our bot sends it
+              straight into the chat. They tap the link, it opens on a secure Kurso web player — video,
+              notes, quiz, everything — then they head right back to the conversation they were already in.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
+            {engagementPoints.map((p, i) => (
+              <div key={i} className="glass rounded-2xl p-5 border border-border text-center">
+                <div className="w-10 h-10 violet-gradient rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <p.icon className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-text-2 text-sm leading-relaxed">{p.text}</p>
+              </div>
+            ))}
+          </div>
+
+          <ImageGrid images={engagementShowcaseImages} cols={2} />
+        </div>
+      </section>
+
       {/* ── PRICING ── */}
       <section id="pricing" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Simple <span className="gradient-text">pricing</span>
             </h2>
-            <p className="text-text-2 font-light">7-day free trial on every plan. Cancel anytime.</p>
+            <p className="text-text-2 font-light max-w-xl mx-auto">
+              Start free — build your course and test it across every platform. No cost, and no plan
+              required, until you're ready to go live.
+            </p>
           </div>
+
+          <div className="max-w-2xl mx-auto mb-16">
+            <div className="glass rounded-2xl border border-violet/20 px-6 py-4 flex flex-col sm:flex-row items-center justify-center gap-3 text-center sm:text-left">
+              <RefreshCw className="w-5 h-5 text-violet-light flex-shrink-0" />
+              <span className="text-sm text-text-2">
+                Used less than your plan allows this month? We'll extend it into the next month
+                automatically — no extra payment needed.
+              </span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start mb-10">
             {plans.map((p, i) => <PlanCard key={i} plan={p} />)}
           </div>
@@ -491,16 +670,40 @@ export default function HomePage() {
                 <span className="gradient-text">to WhatsApp & Telegram?</span>
               </h2>
               <p className="text-text-2 mb-8 font-light text-lg">
-                Setup takes less than a day. Try it free for 7 days — no card required.
+                Setup takes less than a day. Build and test your entire course for free — pay only
+                when you're ready to go live.
               </p>
               <Link
                 href={user ? '/dashboard' : '/login?role=creator'}
                 className="violet-gradient px-10 py-4 rounded-xl text-white font-semibold text-lg hover:opacity-90 transition-all glow-strong inline-flex items-center gap-2 group"
               >
-                {user ? 'Go to Dashboard' : 'Start Free Trial'}
+                {user ? 'Go to Dashboard' : 'Start Free'}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section id="faq" className="py-24 px-6 border-t border-border">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-14">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Questions <span className="gradient-text">creators ask</span>
+            </h2>
+            <p className="text-text-2 font-light">Still deciding? Here's what usually comes up.</p>
+          </div>
+          <div className="flex flex-col gap-4">
+            {faqs.map((f, i) => (
+              <FAQItem
+                key={i}
+                q={f.q}
+                a={f.a}
+                isOpen={openFaq === i}
+                onToggle={() => setOpenFaq(openFaq === i ? null : i)}
+              />
+            ))}
           </div>
         </div>
       </section>

@@ -112,6 +112,7 @@ export default function StudentsPage() {
           .from('enrollments')
           .select('*')
           .eq('creator_id', user.id)
+          .eq('is_test', false)
           .order('enrolled_at', { ascending: false }),
         supabase.from('lessons').select('order_num, title').order('order_num'),
       ])

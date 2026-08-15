@@ -284,6 +284,7 @@ export default function DashboardPage() {
         .from('enrollments')
         .select('amount_paid, payment_status')
         .eq('creator_id', currentUser.id)
+        .eq('is_test', false)
       const paid = (enrolls || []).filter(e => e.payment_status === 'paid')
       const total = paid.reduce((acc, e) => acc + (e.amount_paid || 0), 0)
       setTotalAllRevenue(total)
@@ -293,7 +294,16 @@ export default function DashboardPage() {
 
   // Re-fetch stats whenever selected course changes
   useEffect(() => {
-    if (courses.length === 0 || !selectedCourseId) return
+    if (courses.length === 0) {
+      // No courses yet — stop showing the loading skeleton and fall
+      // through to the normal card grid with zeroed-out stats, instead of
+      // returning early and leaving `loading` stuck true forever (which
+      // is what was rendering as permanently-blank grey boxes).
+      setStats(emptyStats)
+      setLoading(false)
+      return
+    }
+    if (!selectedCourseId) return
     loadStats()
   }, [selectedCourseId, courses])
 
@@ -329,6 +339,7 @@ export default function DashboardPage() {
         .select('id, amount_paid, completed_lessons, current_lesson, last_accessed, payment_status, enrolled_at')
         .eq('creator_id', currentUser.id)
         .eq('course_uuid', selectedCourseId)
+        .eq('is_test', false)
 
       const { data: enrolls } = await enrollQ
       const paid = (enrolls || []).filter(e => e.payment_status === 'paid')
@@ -504,6 +515,20 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
+            {courses.length === 0 && (
+              <div className="rounded-2xl p-5 mb-4 flex items-center justify-between gap-4 flex-wrap"
+                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                <div>
+                  <p className="text-sm font-semibold text-white">No courses yet</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>The cards below will fill in once you create your first course.</p>
+                </div>
+                <Link href="/dashboard/courses/create"
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-white flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))' }}>
+                  Create your first course
+                </Link>
+              </div>
+            )}
             {/* ── ROW 1: Top-line numbers ── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 
@@ -513,7 +538,7 @@ export default function DashboardPage() {
                 subtitle="Content library"
                 value={stats.uploadedLessons}
                 accent="var(--kurso-primary-lighter)"
-                href={`/dashboard/courses/${selectedCourseId}`}
+                href={selectedCourseId ? `/dashboard/courses/${selectedCourseId}` : '/dashboard/courses/create'}
                 badge={
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0"

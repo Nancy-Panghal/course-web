@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment } from '@/lib/enrollments'
 import EnrollModal from '@/components/EnrollModal'
+import TestCourseModal from '@/components/TestCourseModal'
+import { FlaskConical } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 
 interface CourseData {
@@ -16,6 +18,7 @@ interface CourseData {
   creatorId: string
   telegramBotUsername?: string
   is_free_course?: boolean
+  isPublished?: boolean
 }
 
 interface Props {
@@ -25,6 +28,7 @@ interface Props {
 
 export default function CoursePageClient({ course, variant }: Props) {
   const [showModal, setShowModal] = useState(false)
+  const [showTestModal, setShowTestModal] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
   const [isEnrolled, setIsEnrolled] = useState(false)
   const [checking, setChecking] = useState(true)
@@ -78,11 +82,58 @@ export default function CoursePageClient({ course, variant }: Props) {
     setTimeout(() => setCopied(false), 2500)
   }
 
-  // REPLACE WITH:
   // ── OWNER VIEW ──
-  // The course creator should never see an enroll button on their own course.
-  // We show a friendly badge for card/cta variants and nothing for nav.
+  // The course creator should never see a real enroll button on their own
+  // course. If it isn't live yet, show "Test This Course" instead — the
+  // one place a not-yet-published course would otherwise offer nothing
+  // actionable at all. Once published, just the quiet "you're the
+  // creator" badge, same as before.
   if (isCreator) {
+    if (!course.isPublished) {
+      if (variant === 'nav') {
+        return (
+          <>
+            <button onClick={() => setShowTestModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15', border: '1px solid rgba(250,204,21,0.25)' }}>
+              <FlaskConical className="w-4 h-4" /> Test Course
+            </button>
+            {showTestModal && (
+              <TestCourseModal
+                courseId={course.id}
+                creatorId={course.creatorId}
+                telegramBotUsername={course.telegramBotUsername}
+                onClose={() => setShowTestModal(false)}
+              />
+            )}
+          </>
+        )
+      }
+      return (
+        <>
+          <button onClick={() => setShowTestModal(true)}
+            className={`flex items-center justify-center gap-2 rounded-xl font-semibold transition-all ${
+              variant === 'cta' ? 'px-8 py-4 text-lg' : 'w-full py-3 text-base'
+            }`}
+            style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15', border: '1px solid rgba(250,204,21,0.25)' }}>
+            <FlaskConical className={variant === 'cta' ? 'w-5 h-5' : 'w-4 h-4'} />
+            Test This Course
+          </button>
+          <p className="text-xs text-center mt-2" style={{ color: '#71717a' }}>
+            Not live yet — students can't enroll until you upgrade. Test the WhatsApp/Telegram delivery yourself first.
+          </p>
+          {showTestModal && (
+            <TestCourseModal
+              courseId={course.id}
+              creatorId={course.creatorId}
+              telegramBotUsername={course.telegramBotUsername}
+              onClose={() => setShowTestModal(false)}
+            />
+          )}
+        </>
+      )
+    }
+
     if (variant === 'nav') return null
 
     if (variant === 'card' || variant === 'cta') {

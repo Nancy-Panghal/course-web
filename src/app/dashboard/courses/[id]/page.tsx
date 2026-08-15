@@ -8,6 +8,7 @@ import Link from 'next/link'
 import LandingPageDesigner from '@/components/LandingPageDesigner'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
+import TestCourseModal from '@/components/TestCourseModal'
 import { getEffectivePlanId } from '@/lib/kurso-checkout'
 import { PLAN_ORDER, planCoversDeliveryMethod, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 import {
@@ -17,7 +18,7 @@ import {
 import { MAX_CUSTOM_SECTIONS_PER_COURSE, MAX_CUSTOM_HEADING_LENGTH, MAX_CUSTOM_BODY_LENGTH } from '@/lib/customSectionText'
 import { MAX_POLICY_FILE_BYTES, POLICY_DOC_LABELS, type PolicyDocType } from '@/lib/policyDocs'
 import { CERT_PALETTES, getCertLayoutPalette } from '@/lib/certPalettes'
-import { Gift, AlertTriangle as AlertTriangleIcon, FileText as FileTextIcon, Timer as TimerIcon, X as XIcon, Image as ImageIconLucide } from 'lucide-react'
+import { Gift, AlertTriangle as AlertTriangleIcon, FileText as FileTextIcon, Timer as TimerIcon, X as XIcon, Image as ImageIconLucide, FlaskConical } from 'lucide-react'
 
 import {
   ArrowLeft, Plus, Video, FileText, Globe,
@@ -2158,6 +2159,9 @@ export default function CourseManagePage({
   const [broadcastSent, setBroadcastSent] = useState(false)
   const [creatorId, setCreatorId] = useState('')
   const [effectivePlanId, setEffectivePlanId] = useState<SubscriptionPlanId | null>(null)
+  const [hasActivePaidPlan, setHasActivePaidPlan] = useState(false)
+  const [showTestModal, setShowTestModal] = useState(false)
+  const [creatorTelegramBotUsername, setCreatorTelegramBotUsername] = useState<string | null>(null)
   const [settingsDelivery, setSettingsDelivery] = useState<SubscriptionPlanId>('telegram')
   const [applyDeliveryToEnrolled, setApplyDeliveryToEnrolled] = useState(false)
   const [savingDelivery, setSavingDelivery] = useState(false)
@@ -2249,11 +2253,19 @@ export default function CourseManagePage({
 
       const { data: creatorRow } = await supabase
         .from('creators')
-        .select('trial_ends_at')
+        .select('trial_ends_at, telegram_bot_username')
         .eq('id', user.id)
         .maybeSingle()
+      setCreatorTelegramBotUsername(creatorRow?.telegram_bot_username || null)
       const plan = await getEffectivePlanId(user.id, creatorRow?.trial_ends_at)
       setEffectivePlanId(plan)
+      // Strict check for the "Go Live" gate — deliberately called WITHOUT
+      // trialEndsAt, so a trial never counts as a real plan for publishing.
+      // (effectivePlanId above still grants trial access for picking a
+      // delivery method on a draft — that's fine, since drafting is free;
+      // only actually going live requires a real active paid plan.)
+      const strictPlan = await getEffectivePlanId(user.id)
+      setHasActivePaidPlan(!!strictPlan)
 
       // Init settings state
       setEditName(courseData.name)
@@ -2769,6 +2781,11 @@ export default function CourseManagePage({
 
   async function publishAllLessons() {
     if (publishingRef.current) return
+    if (!hasActivePaidPlan) {
+      alert('You need an active plan before students can enroll. Your course and lessons stay saved as a draft — head to Upgrade to go live.')
+      router.push('/upgrade')
+      return
+    }
 
     publishingRef.current = true
     setPublishing(true)
@@ -2811,6 +2828,13 @@ export default function CourseManagePage({
   async function toggleCoursePublish() {
     if (!course) return
     const newState = !course.is_published
+    // Only going draft → live needs an active plan; taking a live course
+    // back to draft is always allowed, no gate needed.
+    if (newState && !hasActivePaidPlan) {
+      alert('You need an active plan before students can enroll. Your course stays saved as a draft — head to Upgrade to go live.')
+      router.push('/upgrade')
+      return
+    }
     await supabase
       .from('courses')
       .update({ is_published: newState })
@@ -4275,8 +4299,23 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                 <ExternalLink className="w-4 h-4" />
                 Preview Course Page
               </Link>
+              <button onClick={() => setShowTestModal(true)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
+                style={{ background: 'rgba(250,204,21,0.08)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)' }}>
+                <FlaskConical className="w-4 h-4" />
+                Test This Course (WhatsApp/Telegram)
+              </button>
 
             </div>
+
+            {showTestModal && (
+              <TestCourseModal
+                courseId={id}
+                creatorId={creatorId}
+                telegramBotUsername={creatorTelegramBotUsername}
+                onClose={() => setShowTestModal(false)}
+              />
+            )}
 
             {/* Checkout Link — for creators who already have their own landing page elsewhere */}
             <div className="rounded-2xl p-5 glass"

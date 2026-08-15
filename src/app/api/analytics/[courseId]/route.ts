@@ -54,6 +54,7 @@ export async function GET(
       .select('id, phone, current_lesson, completed_lessons, last_accessed, enrolled_at, amount_paid, payment_status, telegram_chat_id')
       .eq('course_uuid', courseId)
       .eq('payment_status', 'paid')
+      .eq('is_test', false)
       .order('enrolled_at', { ascending: false })
 
     // Fetch all published lessons

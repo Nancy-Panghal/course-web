@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { ArrowRight, ArrowLeft, Globe, MessageCircle, Send, Plus, X } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Globe, MessageCircle, Send, Plus, X, Code2, Wallet, HelpCircle, KeyRound } from 'lucide-react'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
 import { getEffectivePlanId } from '@/lib/kurso-checkout'
@@ -93,6 +94,32 @@ function Input({ value, onChange, placeholder, type = 'text' }: {
       onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
       onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
     />
+  )
+}
+
+function FreeCourseToggle({ isFreeCourse, onToggle }: { isFreeCourse: boolean; onToggle: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4 p-4 rounded-xl"
+      style={{ background: isFreeCourse ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)', border: isFreeCourse ? '1px solid rgba(74,222,128,0.25)' : '1px solid rgba(255,255,255,0.08)' }}>
+      <div>
+        <p className="text-sm font-semibold text-white">Make this entire course free</p>
+        <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+          All lessons will be accessible without payment. Price is forced to ₹0.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+        style={{ background: isFreeCourse ? '#4ade80' : 'rgba(255,255,255,0.12)' }}
+        aria-pressed={isFreeCourse}
+      >
+        <span
+          className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+          style={{ transform: isFreeCourse ? 'translateX(20px)' : 'translateX(0)' }}
+        />
+      </button>
+    </div>
   )
 }
 
@@ -212,8 +239,12 @@ export default function CreateCoursePage() {
   }
 
   async function handleCreate() {
-    if (!name || !description) {
-      setError('Course name and description are required.')
+    if (!name) {
+      setError('Course name is required.')
+      return
+    }
+    if (!usesExternalLandingPage && !description) {
+      setError('Course description is required.')
       return
     }
     // When is_free_course is ON, price must be 0; otherwise require a price
@@ -260,7 +291,7 @@ export default function CreateCoursePage() {
         creator_id: user.id,
         name,
         slug: finalSlug,
-        description,
+        description: description || (usesExternalLandingPage ? 'Delivered via the creator\'s own landing page.' : ''),
         // Server-side enforcement: if is_free_course is true, price is forced to 0
         // regardless of what the client may have in the price field.
         price: isFreeCourse ? 0 : parseInt(price),
@@ -356,6 +387,31 @@ export default function CreateCoursePage() {
                 )}
               </Field>
 
+              {usesExternalLandingPage && (
+                <>
+                  <FreeCourseToggle
+                    isFreeCourse={isFreeCourse}
+                    onToggle={() => {
+                      const next = !isFreeCourse
+                      setIsFreeCourse(next)
+                      if (next) {
+                        setPrice('0')
+                        setOriginalPrice('')
+                      } else {
+                        setPrice('')
+                      }
+                    }}
+                  />
+                  {!isFreeCourse && (
+                    <Field label="Price (₹) *" hint="Used for your checkout link and code block — set this even though it's not shown on a Kurso page.">
+                      <Input value={price} onChange={setPrice} placeholder="4999" type="number" />
+                    </Field>
+                  )}
+                </>
+              )}
+
+              {!usesExternalLandingPage && (
+              <>
               <Field label="Description *" hint="Tell students what they will learn">
                 <textarea
                   value={description}
@@ -425,36 +481,19 @@ export default function CreateCoursePage() {
               </div>
 
               {/* Make this entire course free toggle */}
-              <div className="flex items-center justify-between gap-4 p-4 rounded-xl"
-                style={{ background: isFreeCourse ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)', border: isFreeCourse ? '1px solid rgba(74,222,128,0.25)' : '1px solid rgba(255,255,255,0.08)' }}>
-                <div>
-                  <p className="text-sm font-semibold text-white">Make this entire course free</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
-                    All lessons will be accessible without payment. Price is forced to ₹0.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !isFreeCourse
-                    setIsFreeCourse(next)
-                    if (next) {
-                      setPrice('0')
-                      setOriginalPrice('')
-                    } else {
-                      setPrice('')
-                    }
-                  }}
-                  className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
-                  style={{ background: isFreeCourse ? '#4ade80' : 'rgba(255,255,255,0.12)' }}
-                  aria-pressed={isFreeCourse}
-                >
-                  <span
-                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                    style={{ transform: isFreeCourse ? 'translateX(20px)' : 'translateX(0)' }}
-                  />
-                </button>
-              </div>
+              <FreeCourseToggle
+                isFreeCourse={isFreeCourse}
+                onToggle={() => {
+                  const next = !isFreeCourse
+                  setIsFreeCourse(next)
+                  if (next) {
+                    setPrice('0')
+                    setOriginalPrice('')
+                  } else {
+                    setPrice('')
+                  }
+                }}
+              />
 
               <Field label="Refund Window (days)" hint="How many days after purchase a student can request a refund. Set to 0 for no refunds.">
                 <Input value={refundWindowDays} onChange={setRefundWindowDays} placeholder="7" type="number" />
@@ -639,8 +678,84 @@ export default function CreateCoursePage() {
                   </button>
                 </div>
               </Field>
+              </>
+              )}
             </div>
           </div>
+
+          {/* Bring-your-own-landing-page guidance — shown instead of the fields above */}
+          {usesExternalLandingPage && (
+            <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+              <div className="flex items-center gap-2 mb-5">
+                <Globe className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                <h2 className="font-semibold text-white">Setting Up On Your Own Page</h2>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)' }}>
+                    <Code2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>
+                    Once you create this course, we'll generate your enrollment code block on the
+                    course's page — paste it in place of your current buy button. Style it however
+                    you like; only the <code className="text-xs px-1 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.08)', color: '#e4e4e7' }}>data-kurso-course</code> attribute
+                    needs to stay untouched. There's also a plain checkout link if your page builder
+                    doesn't allow custom code.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)' }}>
+                    <MessageCircle className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>
+                    Important: your own page's copy should mention that lessons are delivered on{' '}
+                    <span className="text-white font-medium">WhatsApp</span> and/or{' '}
+                    <span className="text-white font-medium">Telegram</span>{' '}
+                    <Send className="w-3 h-3 inline" style={{ color: 'var(--kurso-primary-light)' }} />{' '}
+                    — students coming from your page won't see Kurso's course page explaining this,
+                    so it's on your copy to set that expectation.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)' }}>
+                    <Wallet className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>
+                    After setup, upload your lessons on the next screen, and connect your Razorpay,
+                    Stripe, or Cashfree account with your API keys so payments can be verified and
+                    settled directly to you.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                  <Link
+                    href="/contact"
+                    className="flex-1 flex items-center justify-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <HelpCircle className="w-4 h-4" />
+                    Need Help? Contact Us
+                  </Link>
+                  <Link
+                    href="/dashboard/settings#payment-gateway"
+                    className="flex-1 flex items-center justify-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <KeyRound className="w-4 h-4" />
+                    Add Payment API Keys
+                  </Link>
+                </div>
+                <p className="text-xs" style={{ color: '#52525b' }}>
+                  Both of these can wait — finish creating the course first, then handle them from
+                  the course's Settings tab whenever you're ready.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Delivery */}
           <div className="rounded-2xl p-6 glass"
@@ -664,6 +779,7 @@ export default function CreateCoursePage() {
           </div>
 
           {/* Languages */}
+          {!usesExternalLandingPage && (
           <div className="rounded-2xl p-6 glass"
             style={{border:'1px solid rgba(255,255,255,0.06)'}}>
             <h2 className="font-semibold text-white mb-5">Course Language(s)</h2>
@@ -714,6 +830,7 @@ export default function CreateCoursePage() {
               </div>
             )}
           </div>
+          )}
 
           {error && (
             <div className="p-4 rounded-xl text-sm"
