@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextModuleOrder, applyLessonReorder } from '@/lib/utils'
@@ -2143,6 +2143,7 @@ export default function CourseManagePage({
 }) {
   const { id } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [course, setCourse] = useState<Course | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -2172,7 +2173,9 @@ export default function CourseManagePage({
   const [copiedEmbed, setCopiedEmbed] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>('lessons')
+  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>(
+    searchParams.get('tab') === 'settings' ? 'settings' : 'lessons'
+  )
   const [token, setToken] = useState('')
 
   // Settings state
