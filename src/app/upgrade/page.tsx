@@ -1,9 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Shield, Check, ArrowLeft, Zap, AlertTriangle, Award, FileText, Download, Clock } from 'lucide-react'
+import { Shield, Check, ArrowLeft, Zap, Award, FileText, Download, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { getCreatorProfile, getTrialStatus } from '@/lib/creator'
+import { getCreatorProfile } from '@/lib/creator'
 import { SUBSCRIPTION_PLANS, PLAN_ORDER, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 
 
@@ -61,7 +61,6 @@ export default function UpgradePage() {
   const [creator, setCreator] = useState<any>(null)
   const [subscription, setSubscription] = useState<any>(null)
   const [payments, setPayments] = useState<any[]>([])
-  const [trialStatus, setTrialStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [payingPlan, setPayingPlan] = useState<string | null>(null)
   const [checkingStatus, setCheckingStatus] = useState(false)
@@ -161,7 +160,6 @@ export default function UpgradePage() {
       if (profile?.id) {
         await loadPaymentsAndSubscription(profile.id)
       }
-      setTrialStatus(getTrialStatus(profile))
       setLoading(false)
     }
     load()
@@ -247,7 +245,6 @@ export default function UpgradePage() {
       if (status === 'active' || status === 'success') {
         const profile = await getCreatorProfile()
         setCreator(profile)
-        setTrialStatus(getTrialStatus(profile))
         setSuccess('Successfully upgraded! Your academy is now fully active.')
         if (profile?.id) await loadPaymentsAndSubscription(profile.id)
       } else {
@@ -352,44 +349,6 @@ export default function UpgradePage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-16">
-
-        {/* Trial status banner */}
-        {trialStatus && trialStatus.plan === 'trial' && (
-          <div className="mb-10 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-            style={{
-              background: trialStatus.expired
-                ? 'rgba(239,68,68,0.08)'
-                : 'rgba(245,158,11,0.08)',
-              border: `1px solid ${trialStatus.expired
-                ? 'rgba(239,68,68,0.2)'
-                : 'rgba(245,158,11,0.2)'}`
-            }}>
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5"
-                style={{color: trialStatus.expired ? '#ef4444' : 'var(--kurso-accent)'}} />
-              <div>
-                <p className="font-semibold text-white">
-                  {trialStatus.expired
-                    ? 'Your free trial has ended'
-                    : `${trialStatus.daysLeft} day${trialStatus.daysLeft !== 1 ? 's' : ''} left in your free trial`
-                  }
-                </p>
-                <p className="text-sm mt-0.5" style={{color:'#a1a1aa'}}>
-                  {trialStatus.expired
-                    ? 'Your academy is paused. Upgrade to restore access for your students.'
-                    : 'Upgrade now to keep your academy running after the trial ends.'
-                  }
-                </p>
-              </div>
-            </div>
-            {!trialStatus.expired && (
-              <span className="text-xs px-3 py-1.5 rounded-full flex-shrink-0 font-medium"
-                style={{background:'rgba(245,158,11,0.15)', color:'var(--kurso-accent)', border:'1px solid rgba(245,158,11,0.2)'}}>
-                Trial active
-              </span>
-            )}
-          </div>
-        )}
 
         {/* Header */}
         <div className="text-center mb-12">
