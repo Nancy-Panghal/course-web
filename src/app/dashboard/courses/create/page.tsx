@@ -167,7 +167,7 @@ export default function CreateCoursePage() {
       if (!user) { router.push('/login'); return }
       const { data: creatorRow } = await supabase
         .from('creators')
-        .select('trial_ends_at')
+        .select('trial_ends_at, default_uses_external_landing_page')
         .eq('id', user.id)
         .maybeSingle()
       const plan = await getEffectivePlanId(user.id, creatorRow?.trial_ends_at)
@@ -176,6 +176,9 @@ export default function CreateCoursePage() {
       // padlock shown by default); fall back to the cheapest tier if
       // they have nothing unlocked yet.
       setDelivery(plan || 'telegram')
+      // Remember whether this creator generally uses their own landing
+      // page, so they don't have to re-toggle it on every new course.
+      setUsesExternalLandingPage(!!creatorRow?.default_uses_external_landing_page)
       setLoadingPlan(false)
     }
     load()
@@ -215,6 +218,23 @@ export default function CreateCoursePage() {
     const next = [...faqs]
     next[index][field] = value
     setFaqs(next)
+  }
+
+  function toggleExternalLandingPage() {
+    setUsesExternalLandingPage(prev => {
+      const next = !prev
+      // Fire-and-forget: remember this as the creator's default for next
+      // time, so they don't have to re-toggle it on every new course.
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return
+        supabase
+          .from('creators')
+          .update({ default_uses_external_landing_page: next })
+          .eq('id', user.id)
+          .then(() => {})
+      })
+      return next
+    })
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -330,7 +350,11 @@ export default function CreateCoursePage() {
       return
     }
 
-    router.push(`/dashboard/courses/${course.id}`)
+    router.push(
+      usesExternalLandingPage
+        ? `/dashboard/courses/${course.id}?tab=settings`
+        : `/dashboard/courses/${course.id}`
+    )
   }
 
   return (
@@ -363,7 +387,7 @@ export default function CreateCoursePage() {
                   Turn this on if you'll send students to your own page (Instagram, Framer, WordPress, etc.) and only want Kurso for checkout, lesson delivery, and payments. This hides the fields below that only matter for Kurso's own course page — you can still fill them in later if you change your mind.
                 </p>
               </div>
-              <button type="button" onClick={() => setUsesExternalLandingPage(v => !v)}
+              <button type="button" onClick={toggleExternalLandingPage}
                 className="relative w-12 h-6 rounded-full transition-all flex-shrink-0"
                 style={{ background: usesExternalLandingPage ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
                 <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
