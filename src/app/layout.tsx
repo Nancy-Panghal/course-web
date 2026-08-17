@@ -1,9 +1,36 @@
 import type { Metadata } from 'next'
 import './globals.css'
 
+// metadataBase turns every relative image/URL used in page-level metadata
+// (course pages, creator profiles, etc.) into a correct absolute URL —
+// without it, Open Graph previews can silently break on some platforms.
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://kurso.in').replace(/\/$/, '')
+
 export const metadata: Metadata = {
-  title: 'Kurso — Anti-Piracy WhatsApp Course Platform',
-  description: 'Deliver courses through WhatsApp with automatic piracy protection. Higher completion rates, zero revenue leakage.',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'Kurso — Sell Courses Through WhatsApp & Telegram, Piracy-Protected',
+    template: '%s | Kurso',
+  },
+  description: 'Deliver courses through WhatsApp and Telegram — no app to download. Watermarked video, anti-piracy protection, and your own branded landing page.',
+  openGraph: {
+    type: 'website',
+    siteName: 'Kurso',
+    title: 'Kurso — Sell Courses Through WhatsApp & Telegram, Piracy-Protected',
+    description: 'Deliver courses through WhatsApp and Telegram — no app to download. Watermarked video, anti-piracy protection, and your own branded landing page.',
+    url: siteUrl,
+    images: [{ url: '/icon.jpg', width: 1024, height: 468, alt: 'Kurso' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Kurso — Sell Courses Through WhatsApp & Telegram, Piracy-Protected',
+    description: 'Deliver courses through WhatsApp and Telegram — no app to download. Watermarked video, anti-piracy protection, and your own branded landing page.',
+    images: ['/icon.jpg'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 }
 
 export default function RootLayout({

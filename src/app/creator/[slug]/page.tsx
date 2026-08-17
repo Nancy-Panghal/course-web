@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { ArrowRight, Shield } from 'lucide-react'
+import type { Metadata } from 'next'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,6 +11,37 @@ const supabase = createClient(
 
 function slugify(input: string): string {
   return input.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-')
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}): Promise<Metadata> {
+  const { slug } = await params
+
+  const { data: creator } = await supabase
+    .from('creators')
+    .select('name, creator_bio, creator_photo_url')
+    .eq('creator_slug', slug)
+    .maybeSingle()
+
+  if (!creator) {
+    return { title: 'Creator not found' }
+  }
+
+  const title = `${creator.name} on Kurso`
+  const description = creator.creator_bio
+    ? creator.creator_bio.replace(/\s+/g, ' ').trim().slice(0, 155)
+    : `Courses by ${creator.name}, delivered through WhatsApp and Telegram.`
+  const image = creator.creator_photo_url || '/icon.jpg'
+
+  return {
+    title,
+    description,
+    openGraph: { type: 'profile', title, description, images: [{ url: image }] },
+    twitter: { card: 'summary_large_image', title, description, images: [image] },
+  }
 }
 
 export default async function CreatorStorefrontPage({ params }: { params: Promise<{ slug: string }> }) {

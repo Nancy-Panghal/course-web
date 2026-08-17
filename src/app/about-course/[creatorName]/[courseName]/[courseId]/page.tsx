@@ -1,5 +1,6 @@
 import { Shield, CheckCircle, Lock, BookOpen, Play, Zap, Globe, Calendar, Timer, Send, Star, Users, Award, ChevronRight, Target, Gift, AlertTriangle } from 'lucide-react'
 import { Fragment, type ReactNode } from 'react'
+import type { Metadata } from 'next'
 import { normalizeLandingConfig, getRenderableSectionEntries, hasUrgencyContent, getVideoEmbedUrl, type LandingSectionType, type LandingCustomSection } from '@/lib/landing-config'
 import CountdownTimer from '@/components/CountdownTimer'
 import Link from 'next/link'
@@ -21,6 +22,63 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+// Strips HTML/markdown-ish characters and clamps length — course
+// descriptions are free text a creator wrote for the page body, not
+// written with a search-result snippet's ~155-char limit in mind.
+function toMetaDescription(raw: string | null | undefined, fallback: string): string {
+  const text = (raw || '').replace(/\s+/g, ' ').trim()
+  if (!text) return fallback
+  return text.length > 155 ? `${text.slice(0, 152)}...` : text
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ creatorName: string; courseName: string; courseId: string }>
+}): Promise<Metadata> {
+  const { courseId } = await params
+
+  const { data: course } = await supabase
+    .from('courses')
+    .select('name, description, host_name, host_image, brand_logo_url, is_published, price, category')
+    .eq('id', courseId)
+    .single()
+
+  if (!course) {
+    return { title: 'Course not found' }
+  }
+
+  const title = course.host_name ? `${course.name} by ${course.host_name}` : course.name
+  const description = toMetaDescription(
+    course.description,
+    `Learn ${course.name} on Kurso — delivered straight to your WhatsApp or Telegram, no app to download.`
+  )
+  // Courses have no dedicated cover-image field yet — falls back to the
+  // creator's brand logo, then their profile photo, then the site default.
+  const image = course.brand_logo_url || course.host_image || '/icon.jpg'
+
+  return {
+    title,
+    description,
+    // Draft/unpublished courses can still be reached by a guessed or old
+    // URL even though they're excluded from the sitemap — this keeps
+    // Google from indexing them if that happens.
+    robots: course.is_published ? { index: true, follow: true } : { index: false, follow: false },
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      images: [{ url: image }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [image],
+    },
+  }
+}
 
 export default async function AboutCoursePage({
   params,
@@ -670,8 +728,39 @@ export default async function AboutCoursePage({
     disclaimer: disclaimerNode,
   }
 
+  // Structured data (JSON-LD) — tells Google this page is specifically a
+  // "Course" with a real price and provider, which is what makes rich
+  // search results (price, rating stars, etc.) possible. Doesn't help
+  // ranking directly, but improves how the listing can look once it does
+  // rank. Escaping "<" prevents a creator's own description text from
+  // ever being able to break out of the script tag.
+  const courseJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Course',
+    name: course.name,
+    description: (course.description || `Learn ${course.name} on Kurso.`).slice(0, 500),
+    provider: {
+      '@type': 'Organization',
+      name: creatorProfile?.name || course.host_name || 'Kurso',
+    },
+    ...(course.price
+      ? {
+          offers: {
+            '@type': 'Offer',
+            price: course.price,
+            priceCurrency: 'INR',
+            availability: 'https://schema.org/InStock',
+          },
+        }
+      : {}),
+  }
+
   return (
     <DraftGate isPublished={course.is_published} courseData={courseData}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(courseJsonLd).replace(/</g, '\\u003c') }}
+      />
       <div className="min-h-screen" style={{ background: c.bg, color: c.textPrimary, fontFamily: fonts.body }}>
         <style>{`
         @import url('${fonts.googleFontsImportUrl}');
