@@ -15,7 +15,7 @@ const SECRET = process.env.LESSON_LINK_SECRET
   || process.env.WHATSAPP_LINK_SECRET
   || ''
 
-const BASE = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+const BASE = (process.env.NEXT_PUBLIC_SITE_URL || 'https://kurso.in').replace(/\/$/, '')
 
 if (!SECRET && process.env.NODE_ENV === 'production') {
   console.error('[signer] LESSON_LINK_SECRET is not set — all signed URLs will fail verification')

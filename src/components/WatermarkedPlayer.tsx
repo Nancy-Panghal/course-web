@@ -39,6 +39,7 @@ export default function WatermarkedPlayer({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<number>(0)
   const tRef = useRef<number>(0)
   const playPromiseRef = useRef<Promise<void> | null>(null)
@@ -50,6 +51,12 @@ export default function WatermarkedPlayer({
   const [duration, setDuration] = useState(0)
   const [muted, setMuted] = useState(false)
   const [volume, setVolume] = useState(1)
+  // "Fullscreen" here is a CSS-only pseudo-fullscreen (fixed, full-viewport
+  // div) — deliberately NOT the browser Fullscreen API. The real Fullscreen
+  // API on <video> hands the video off to a native OS-level surface on
+  // mobile, which the watermark canvas (a normal DOM element) can't draw on
+  // top of. Staying inside normal DOM stacking keeps the canvas composited
+  // no matter what.
   const [fullscreen, setFS] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const hasRetriedRef = useRef(false)
@@ -198,6 +205,60 @@ export default function WatermarkedPlayer({
     return () => cancelAnimationFrame(animRef.current)
   }, [draw])
 
+  // ── Block native fullscreen, redirect into our own pseudo-fullscreen ─────
+  // Two different native paths can pull the video onto a surface the
+  // watermark canvas can't reach:
+  //  1. Standard Fullscreen API firing on the <video> element itself
+  //     (desktop browsers, some Android WebViews that inject their own
+  //     fullscreen affordance regardless of the `controls` attribute).
+  //  2. iOS Safari's video-specific native fullscreen player, entered via
+  //     `webkitbeginfullscreen` — this is a separate, older API that
+  //     predates and bypasses the standard Fullscreen API entirely, and is
+  //     the one case we can't fully guarantee blocking in JS alone; we exit
+  //     it immediately when detected and swap to our own pseudo-fullscreen,
+  //     but this needs verifying on a real iPhone (including via a link
+  //     opened from inside WhatsApp/Telegram, not just Safari directly).
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+
+    const onWebkitBeginFullscreen = () => {
+      try { (v as any).webkitExitFullscreen?.() } catch { /* no-op */ }
+      setFS(true)
+    }
+    v.addEventListener('webkitbeginfullscreen', onWebkitBeginFullscreen)
+
+    const onFullscreenChange = () => {
+      const fsEl = document.fullscreenElement as HTMLElement | null
+      if (fsEl && fsEl === v) {
+        // Something (native double-tap, an injected control, etc.) put the
+        // bare <video> into real fullscreen. Back out and use our own.
+        document.exitFullscreen?.().catch(() => { })
+        setFS(true)
+      }
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+
+    return () => {
+      v.removeEventListener('webkitbeginfullscreen', onWebkitBeginFullscreen)
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+    }
+  }, [])
+
+  // Lock page scroll while our pseudo-fullscreen is open, and let Escape
+  // close it (real fullscreen gets this for free; ours doesn't).
+  useEffect(() => {
+    if (!fullscreen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFS(false) }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [fullscreen])
+
   // ── Anti-piracy event blockers ──────────────────────────────────
   useEffect(() => {
     const block = (e: Event) => e.preventDefault()
@@ -283,8 +344,6 @@ export default function WatermarkedPlayer({
     setError(null)
   }, [src])
 
-  
-
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current
     if (!v) return
@@ -301,11 +360,19 @@ export default function WatermarkedPlayer({
   return (
     <div
       id="ak-wm-player"
+      ref={containerRef}
       onContextMenu={e => e.preventDefault()}
       style={{
-        background: '#000', borderRadius: 12, overflow: 'hidden',
+        background: '#000', borderRadius: fullscreen ? 0 : 12, overflow: 'hidden',
         userSelect: 'none', WebkitUserSelect: 'none',
-        border: '1px solid rgba(255,255,255,0.07)',
+        border: fullscreen ? 'none' : '1px solid rgba(255,255,255,0.07)',
+        ...(fullscreen
+          ? {
+              position: 'fixed', inset: 0, zIndex: 9999,
+              width: '100vw', height: '100dvh',
+              display: 'flex', flexDirection: 'column',
+            }
+          : {}),
       }}
     >
       {/* Title bar */}
@@ -327,7 +394,10 @@ export default function WatermarkedPlayer({
       )}
 
       {/* Video + Canvas */}
-      <div style={{ position: 'relative', aspectRatio: '16/9', background: '#000' }}>
+      <div style={fullscreen
+        ? { position: 'relative', flex: 1, minHeight: 0, background: '#000' }
+        : { position: 'relative', aspectRatio: '16/9', background: '#000' }
+      }>
         <video
           ref={videoRef}
           src={src}
@@ -335,11 +405,18 @@ export default function WatermarkedPlayer({
           onTimeUpdate={onTimeUpdate}
           onEnded={() => { setPlaying(false); onEnded?.() }}
           onError={onError}
-          onLoadedMetadata={e => setDuration((e.target as HTMLVideoElement).duration)}
           onClick={toggle}
+          onDoubleClick={e => e.preventDefault()}
+          onLoadedMetadata={e => setDuration((e.target as HTMLVideoElement).duration)}
           controlsList="nodownload nofullscreen noremoteplayback"
           disablePictureInPicture
+          disableRemotePlayback
           playsInline
+          // Older iOS Safari versions look for this non-standard, lowercase
+          // attribute specifically (camelCase webkitPlaysInline is not
+          // reliably recognized) — belt-and-suspenders alongside playsInline
+          // to keep playback inline instead of native-fullscreen on old iOS.
+          {...{ 'webkit-playsinline': 'true' }}
           preload="metadata"
         />
         <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
@@ -425,6 +502,13 @@ export default function WatermarkedPlayer({
           <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
             {fmt(videoRef.current?.currentTime ?? 0)} / {fmt(duration)}
           </span>
+          <button
+            onClick={() => setFS(f => !f)}
+            aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 16, cursor: 'pointer', marginLeft: 'auto' }}
+          >
+            {fullscreen ? '⤡' : '⤢'}
+          </button>
         </div>
       </div>
 

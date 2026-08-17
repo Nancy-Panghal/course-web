@@ -763,7 +763,7 @@ export async function issueCertificate(
     skills:         params.skills,
     logoUrl:        params.logoUrl,
     signatureUrl:   params.signatureUrl,
-    verificationUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://kurso.in'}/certificate/${certId}`,
+    verificationUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://kurso.in'}/certificate/${certId}`,
   })
 
   // ── Upload to Supabase Storage ────────────────────────────────────────────

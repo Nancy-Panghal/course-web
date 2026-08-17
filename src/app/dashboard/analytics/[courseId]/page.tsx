@@ -96,7 +96,7 @@ export default function AnalyticsPage({
     setSendingReminder(student.id)
 
     try {
-      const message = `Hey! You left off at *Lesson ${student.currentLesson}: ${student.currentLessonTitle}* in *${data?.courseName}*. Continue learning: ${process.env.NEXT_PUBLIC_APP_URL || ''}/my-courses`
+      const message = `Hey! You left off at *Lesson ${student.currentLesson}: ${student.currentLessonTitle}* in *${data?.courseName}*. Continue learning: ${process.env.NEXT_PUBLIC_SITE_URL || ''}/my-courses`
       const res = await fetch('/api/broadcast', {
         method: 'POST',
         headers: {

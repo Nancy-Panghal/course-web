@@ -40,7 +40,7 @@ export default function CertificateVerifyPage({ params }: Props) {
   // Fetch certificate data
   useEffect(() => {
     if (!certId) return
-    const BASE = (process.env.BASE_URL || '/').replace(/\/$/, '')
+    const BASE = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '')
     fetch(`${BASE}/api/certificate/${encodeURIComponent(certId)}`)
       .then(r => {
         if (!r.ok) { setNotFound(true); setLoading(false); return null }
