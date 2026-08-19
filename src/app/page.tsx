@@ -84,10 +84,10 @@ const embedSteps = [
 
 // TODO(Nancy): replace src with real screenshot paths, e.g. '/showcase/embed-1.jpg'
 const embedShowcaseImages = [
-  { src: 'academykit\\public\\showcase\\createCourse.png', alt: 'Creator landing page with Kurso checkout embedded' },
-  { src: 'academykit\\public\\showcase\\createLesson.png', alt: 'Enrollment code block snippet' },
-  { src: 'academykit\\public\\showcase\\addLesson.png', alt: 'Course details and lesson upload screen' },
-  { src: 'academykit\\public\\showcase\\embedCode.png', alt: 'Checkout popup on a creator-branded landing page' },
+    { src: '/showcase/createCourse.png', alt: 'Creator landing page with Kurso checkout embedded' },
+  { src: '/showcase/createLesson.png', alt: 'Enrollment code block snippet' },
+  { src: '/showcase/addLesson.png', alt: 'Course details and lesson upload screen' },
+  { src: '/showcase/embedCode.png', alt: 'Checkout popup on a creator-branded landing page' },
 ]
 
 const engagementPoints = [
