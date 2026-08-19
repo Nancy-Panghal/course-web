@@ -1622,8 +1622,9 @@ interface LiveSessionItem {
 
 function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, studentId }: { courseId: string; sessionToken: string | null; studentName: string; studentId: string }) {
   const [sessions, setSessions] = useState<LiveSessionItem[]>([])
-  const [playingSessionId, setPlayingSessionId] = useState<string | null>(null)
+    const [playingSessionId, setPlayingSessionId] = useState<string | null>(null)
   const [playerUrl, setPlayerUrl] = useState<string | null>(null)
+  const [playerIsExternal, setPlayerIsExternal] = useState(false)
   const [loadingPlayback, setLoadingPlayback] = useState(false)
   const [playbackError, setPlaybackError] = useState('')
 
@@ -1641,10 +1642,11 @@ function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, stude
       setPlaybackError('Please log in again to watch this recording.')
       return
     }
-    setPlayingSessionId(sessionId)
+        setPlayingSessionId(sessionId)
     setLoadingPlayback(true)
     setPlaybackError('')
     setPlayerUrl(null)
+    setPlayerIsExternal(false)
     try {
       const res = await fetch(`/api/live-sessions/${sessionId}/sign-recording`, {
         method: 'POST',
@@ -1653,6 +1655,7 @@ function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, stude
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Could not load recording')
       setPlayerUrl(json.url)
+      setPlayerIsExternal(!!json.external)
     } catch (err: any) {
       setPlaybackError(err.message || 'Could not load recording')
     } finally {
@@ -1709,6 +1712,16 @@ function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, stude
             ) : playbackError ? (
               <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
                 <p style={{ color: '#ef4444', fontSize: 13 }}>{playbackError}</p>
+              </div>
+                        ) : playerUrl && playerIsExternal ? (
+              <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', gap: 12 }}>
+                <p style={{ color: '#a1a1aa', fontSize: 13, maxWidth: 420 }}>
+                  Your instructor shared this recording as an external link — it opens outside Kurso, so playback protection doesn't apply to it the way it does for uploaded recordings.
+                </p>
+                <a href={playerUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-block', padding: '10px 24px', borderRadius: 999, background: '#fff', color: '#000', fontWeight: 600, textDecoration: 'none', fontSize: 13 }}>
+                  Watch recording →
+                </a>
               </div>
             ) : playerUrl ? (
               <WatermarkedPlayer

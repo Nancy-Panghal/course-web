@@ -21,14 +21,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const { id: sessionId } = await params
 
-    const { data: session } = await supabase
+        const { data: session } = await supabase
       .from('live_sessions')
-      .select('id, course_id, creator_id, recording_storage_path')
+      .select('id, course_id, creator_id, recording_storage_path, recording_url')
       .eq('id', sessionId)
       .single()
 
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
-    if (!session.recording_storage_path) return NextResponse.json({ error: 'No recording available' }, { status: 404 })
+    if (!session.recording_storage_path && !session.recording_url) {
+      return NextResponse.json({ error: 'No recording available' }, { status: 404 })
+    }
 
     const authHeader = req.headers.get('authorization') || ''
     const token = authHeader.replace('Bearer ', '').trim()
@@ -75,8 +77,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!enrolled) return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })
     }
 
+        // An externally-hosted recording (Zoom/Drive/YouTube/etc.) has no
+    // bytes for Kurso to proxy or watermark — hand back the link itself,
+    // clearly marked, rather than trying to run it through the signed
+    // stream flow that only ever works for an uploaded file.
+    if (!session.recording_storage_path) {
+      return NextResponse.json({ url: session.recording_url, external: true })
+    }
+
     const url = signLiveSessionVideoUrl(sessionId, user.id)
-    return NextResponse.json({ url, expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() })
+    return NextResponse.json({ url, external: false, expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() })
   } catch (err: any) {
     console.error('[live-sessions/sign-recording]', err.message)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

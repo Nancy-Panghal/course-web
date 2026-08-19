@@ -25,6 +25,7 @@ if (!SECRET && process.env.NODE_ENV === 'production') {
 export const TTL = {
   VIDEO: 2 * 60 * 60 * 1000,      // 2 hours  — video stream
   LIVE_SESSION_VIDEO: 2 * 60 * 60 * 1000, // 2 hours — live session recording stream
+  LIVE_SESSION_RECORDING_PAGE: 90 * 24 * 60 * 60 * 1000, // 90 days — the link sent in the WhatsApp/Telegram message itself. Long-lived because a student may not open the message for days; the actual video-stream URL embedded inside the page is generated fresh, short-lived, at click time (see LIVE_SESSION_VIDEO above).
   PDF:   1 * 60 * 60 * 1000,      // 1 hour   — PDF view
   LESSON: 2 * 60 * 60 * 1000,     // 2 hours  — lesson page (from Telegram)
   RESOURCE: 2 * 60 * 60 * 1000,   // 2 hours  — notes, summary, quiz pages
@@ -101,6 +102,40 @@ export function verifyLiveSessionVideoUrl(params: URLSearchParams): { valid: boo
   return { valid: timingSafeEqual(sig, expected), sessionId, identity }
 }
 
+// ══════════════════════════════════════════════════════════════════
+// LIVE SESSION RECORDING PAGE URL
+// This is the link actually sent in the WhatsApp/Telegram notification
+// — long-lived (see TTL.LIVE_SESSION_RECORDING_PAGE above), points at a
+// no-login wrapper page that resolves the current recording state
+// (uploaded file / external link / not available yet) at click time,
+// same pattern as signLessonPageUrl below.
+// ══════════════════════════════════════════════════════════════════
+
+export function signLiveSessionRecordingPageUrl(
+  sessionId: string,
+  identity: string,
+  ttl = TTL.LIVE_SESSION_RECORDING_PAGE
+): string {
+  const exp = Date.now() + ttl
+  const payload = `lsrecpage.${sessionId}.${identity}.${exp}`
+  const sig = hmac(payload)
+  const p = new URLSearchParams({ sessionId, identity, exp: String(exp), sig })
+  return `${BASE}/api/live-session-recording?${p}`
+}
+
+export function verifyLiveSessionRecordingPageUrl(params: URLSearchParams): { valid: boolean; sessionId: string; identity: string } {
+  const sessionId = params.get('sessionId') || ''
+  const identity = params.get('identity') || ''
+  const exp = params.get('exp') || ''
+  const sig = params.get('sig') || ''
+
+  if (!sessionId || !identity || !exp || !sig) return { valid: false, sessionId, identity }
+  if (Date.now() > parseInt(exp, 10)) return { valid: false, sessionId, identity }
+
+  const payload = `lsrecpage.${sessionId}.${identity}.${exp}`
+  const expected = hmac(payload)
+  return { valid: timingSafeEqual(sig, expected), sessionId, identity }
+}
 // ══════════════════════════════════════════════════════════════════
 // PDF VIEW URL
 // ══════════════════════════════════════════════════════════════════

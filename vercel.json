@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/subscription-reminders",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/live-session-reminders",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/live-session-recording-notify",
+      "schedule": "0 6 * * *"
     }
   ]
 }

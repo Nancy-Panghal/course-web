@@ -77,9 +77,9 @@ export async function GET(req: NextRequest) {
 
   const { data: lesson } = await supabase
     .from('lessons')
-    .select(`
+        .select(`
       id, title, content_type, order_num, duration, is_published, course_id,
-      summary_url, notes_url, quiz_questions,
+      summary_url, notes_url, quiz_questions, qa_enabled,
       assignment_prompt, assignment_required, assignment_file_url, assignment_file_name,
       content_url, live_scheduled_at, live_recording_url, live_duration_minutes, video_storage_path
     `)
@@ -122,9 +122,10 @@ export async function GET(req: NextRequest) {
 
   const summaryUrl = lesson.summary_url ? signLessonResourceUrl(lesson.id, 'summary', identity) : null
   const notesUrl = lesson.notes_url ? signLessonResourceUrl(lesson.id, 'notes', identity) : null
-  const quizUrl = (Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0)
+    const quizUrl = (Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0)
     ? signLessonResourceUrl(lesson.id, 'quiz', identity)
     : null
+  const qaUrl = lesson.qa_enabled !== false ? signLessonResourceUrl(lesson.id, 'qa', identity) : null
 
   const quizResult = Array.isArray(enrollment?.quiz_results)
     ? enrollment.quiz_results.find((r: any) => r.lessonId === lesson.id)
@@ -161,9 +162,10 @@ export async function GET(req: NextRequest) {
     identity,
     contentUrl,
     fingerprint,
-    summaryUrl,
+        summaryUrl,
     notesUrl,
     quizUrl,
+    qaUrl,
     quizResult: quizResult || null,
     isCompleted,
     ctaUrl: telegramBotUsername ? `https://t.me/${telegramBotUsername}?start=done_${lesson.order_num}` : null,
