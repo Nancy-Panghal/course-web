@@ -99,8 +99,8 @@ const engagementPoints = [
 
 // TODO(Nancy): replace src with real screenshot paths, e.g. '/showcase/engagement-1.jpg'
 const engagementShowcaseImages = [
-  { src: '', alt: 'Lesson link arriving in a WhatsApp chat' },
-  { src: '', alt: 'Watermarked lesson player opened from the chat link' },
+  { src: '/showcase/telegramChat.png', alt: 'Telegram chat in our bot' },
+  { src: '/showcase/whatsappChat.png', alt: 'Whatsapp chat in our kurso bot' },
 ]
 
 const faqs = [
@@ -281,7 +281,7 @@ function ImageGrid({ images, cols = 4 }: { images: { src: string; alt: string }[
       {images.map((img, i) => (
         <div
           key={i}
-          className="glass rounded-xl border border-border overflow-hidden aspect-video flex items-center justify-center"
+          className="glass rounded-xl border border-border overflow-hidden aspect-[4/3] flex items-center justify-center"
         >
           {img.src ? (
             <img src={img.src} alt={img.alt} className="w-full h-full object-cover" />
