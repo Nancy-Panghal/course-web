@@ -2648,8 +2648,8 @@ export default function CourseManagePage({
     }, 1000)
 
     return () => window.clearTimeout(timer)
-  // The snapshot deliberately groups every settings control into one debounced save.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The snapshot deliberately groups every settings control into one debounced save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsSnapshot, course])
 
   async function handleDeleteCourse() {
@@ -2785,8 +2785,6 @@ export default function CourseManagePage({
   async function publishAllLessons() {
     if (publishingRef.current) return
     if (!hasActivePaidPlan) {
-      alert('You need an active plan before students can enroll. Your course and lessons stay saved as a draft — head to Upgrade to go live.')
-      router.push('/upgrade')
       return
     }
 
@@ -2832,10 +2830,10 @@ export default function CourseManagePage({
     if (!course) return
     const newState = !course.is_published
     // Only going draft → live needs an active plan; taking a live course
-    // back to draft is always allowed, no gate needed.
+    // back to draft is always allowed, no gate needed. No alert()/forced
+    // redirect here — the card above the toggle already explains this
+    // and links to /upgrade before the creator even tries to click.
     if (newState && !hasActivePaidPlan) {
-      alert('You need an active plan before students can enroll. Your course stays saved as a draft — head to Upgrade to go live.')
-      router.push('/upgrade')
       return
     }
     await supabase
@@ -3199,7 +3197,7 @@ export default function CourseManagePage({
                             {moduleLessons.length === 0 ? (
                               <p className="text-xs py-3" style={{ color: '#52525b' }}>No lessons in this module yet.</p>
                             ) : moduleLessons.map(lesson => (
-                       <LessonWidget
+                              <LessonWidget
                                 key={lesson.id}
                                 lesson={lesson}
                                 onDelete={deleteLesson}
@@ -3228,7 +3226,7 @@ export default function CourseManagePage({
                           onRenumber={moveLessonToNumber}
                         />
                       ))}
-                    </div>       
+                    </div>
 
                     {/* Add next lesson */}
                     <button onClick={() => setShowAddModal(true)}
@@ -3252,16 +3250,26 @@ export default function CourseManagePage({
 
                     {/* Publish all */}
                     {!allPublished && lessons.length > 0 && (
-                      <button onClick={publishAllLessons} disabled={publishing}
-                        className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all disabled:opacity-50"
-                        style={{
-                          background: 'rgba(74,222,128,0.08)',
-                          border: '1px solid rgba(74,222,128,0.2)',
-                          color: '#4ade80',
-                        }}>
-                        <CheckCircle className="w-4 h-4" />
-                        {publishing ? 'Publishing...' : `Publish All ${lessons.length} Lessons`}
-                      </button>
+                      hasActivePaidPlan ? (
+                        <button onClick={publishAllLessons} disabled={publishing}
+                          className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all disabled:opacity-50"
+                          style={{
+                            background: 'rgba(74,222,128,0.08)',
+                            border: '1px solid rgba(74,222,128,0.2)',
+                            color: '#4ade80',
+                          }}>
+                          <CheckCircle className="w-4 h-4" />
+                          {publishing ? 'Publishing...' : `Publish All ${lessons.length} Lessons`}
+                        </button>
+                      ) : (
+                        <div className="flex items-start gap-2 p-3 rounded-xl"
+                          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                          <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
+                            You need to pay for a Kurso plan before lessons can be published. <Link href="/upgrade" className="underline font-semibold">Go to upgrade page</Link>
+                          </p>
+                        </div>
+                      )
                     )}
 
                     {allPublished && (
@@ -3336,56 +3344,60 @@ export default function CourseManagePage({
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                     </div>
 
-                    <SectionDivider label="Course Description" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Description</label>
-                      <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
-                    </div>
+                    {!course.uses_external_landing_page && (
+                      <>
+                        <SectionDivider label="Course Description" />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Description</label>
+                          <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
+                        </div>
 
-                    <div className="mt-6">
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                        Brand / Business Name
-                        <span className="text-zinc-300 text-sm font-normal ml-1">
-                          — shown in your landing page nav instead of "Kurso"
-                        </span>
-                      </label>
-                      <input
-                        value={editBrandName}
-                        onChange={e => setEditBrandName(e.target.value)}
-                        placeholder="Your brand name (leave blank to use instructor name)"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
-                      />
-                      <p className="text-sm text-zinc-400 mt-1">
-                        If you have a registered business name, add it here. Otherwise it falls back to your instructor name.
-                      </p>
-                    </div>
+                        <div className="mt-6">
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Brand / Business Name
+                            <span className="text-zinc-300 text-sm font-normal ml-1">
+                              — shown in your landing page nav instead of "Kurso"
+                            </span>
+                          </label>
+                          <input
+                            value={editBrandName}
+                            onChange={e => setEditBrandName(e.target.value)}
+                            placeholder="Your brand name (leave blank to use instructor name)"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                          />
+                          <p className="text-sm text-zinc-400 mt-1">
+                            If you have a registered business name, add it here. Otherwise it falls back to your instructor name.
+                          </p>
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-4 mt-5">
-                      <div>
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Category</label>
-                        <input
-                          value={editCategory}
-                          onChange={e => setEditCategory(e.target.value)}
-                          placeholder="e.g. Digital Marketing, Coding, Finance"
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Difficulty Level</label>
-                        <select
-                          value={editLevel}
-                          onChange={e => setEditLevel(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none appearance-none cursor-pointer"
-                          style={{ background: '#050505', color: editLevel ? '#fff' : '#a9a9ae' }}
-                        >
-                          <option value="" style={{ background: '#050505', color: '#52525b' }}>Select level…</option>
-                          {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(l => (
-                            <option key={l} value={l} style={{ background: '#050505', color: '#fff' }}>{l}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                        <div className="grid grid-cols-2 gap-4 mt-5">
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Category</label>
+                            <input
+                              value={editCategory}
+                              onChange={e => setEditCategory(e.target.value)}
+                              placeholder="e.g. Digital Marketing, Coding, Finance"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Difficulty Level</label>
+                            <select
+                              value={editLevel}
+                              onChange={e => setEditLevel(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none appearance-none cursor-pointer"
+                              style={{ background: '#050505', color: editLevel ? '#fff' : '#a9a9ae' }}
+                            >
+                              <option value="" style={{ background: '#050505', color: '#52525b' }}>Select level…</option>
+                              {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(l => (
+                                <option key={l} value={l} style={{ background: '#050505', color: '#fff' }}>{l}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     <SectionDivider label="Course Price" />
                     <div className="grid grid-cols-2 gap-4">
@@ -3438,7 +3450,7 @@ export default function CourseManagePage({
                         Don't paste one long paragraph — write it as a heading, then a short paragraph, then another heading, and so on. For example:
                       </p>
                       <pre className="text-xs mb-4 p-3 rounded-xl whitespace-pre-wrap" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
-{`## Eligibility
+                        {`## Eligibility
 Refunds are accepted within 7 days of purchase if you have not accessed more than 2 lessons.
 
 ## How to request a refund
@@ -3520,676 +3532,701 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                       </button>
                     </div>
 
-                    <SectionDivider label="Course Schedule" />
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Start Date</label>
-                        <input value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Start Time</label>
-                        <input value={editStartTime} onChange={e => setEditStartTime(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Duration</label>
-                        <input value={editDuration} onChange={e => setEditDuration(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
-                      </div>
-                    </div>
-
-
-                    <SectionDivider label="Certificate Skills" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Skills Covered (comma separated, for certificate)</label>
-                      <input value={editSkills} onChange={e => setEditSkills(e.target.value)}
-                        placeholder="e.g. SEO, Content Marketing, Keyword Research"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 " />
-                    </div>
-
-                    <SectionDivider label="What You'll Walk Away With " />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">What You'll Walk Away With</label>
-                      <div className="flex flex-col gap-2">
-                        {editLearn.map((item, i) => (
-                          <div key={i} className="flex gap-2">
-                            <input value={item} onChange={e => {
-                              const next = [...editLearn]; next[i] = e.target.value; setEditLearn(next)
-                            }} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none" />
-                            <button onClick={() => setEditLearn(editLearn.filter((_, idx) => idx !== i))}
-                              className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        ))}
-                        <button onClick={() => setEditLearn([...editLearn, ''])}
-                          className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Point</button>
-                      </div>
-                    </div>
-
-                    <SectionDivider label="Requirements" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                        Requirements / Prerequisites
-                        <span className="text-zinc-400 font-normal ml-1">— shown on landing page</span>
-                      </label>
-                      <div className="flex flex-col gap-2">
-                        {editRequirements.map((item, i) => (
-                          <div key={i} className="flex gap-2">
-                            <input
-                              value={item}
-                              onChange={e => { const n = [...editRequirements]; n[i] = e.target.value; setEditRequirements(n) }}
-                              placeholder="e.g. Basic computer skills"
-                              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none"
-                            />
-                            <button onClick={() => setEditRequirements(editRequirements.filter((_, idx) => idx !== i))}
-                              className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        ))}
-                        <button onClick={() => setEditRequirements([...editRequirements, ''])}
-                          className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Requirement</button>
-                      </div>
-                    </div>
-
-                    <SectionDivider label="Instructor" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Photo</label>
-                      <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
-                          {editHostImage ? (
-                            <img src={editHostImage} alt="Instructor" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-2xl font-bold text-zinc-700">
-                              {editHostName ? editHostName.charAt(0).toUpperCase() : '?'}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <input
-                            type="file"
-                            id="host-image"
-                            className="hidden"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            disabled={uploadingImage}
-                          />
-                          <label
-                            htmlFor="host-image"
-                            className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
-                          >
-                            {uploadingImage ? 'Uploading...' : editHostImage ? 'Change Photo' : 'Upload Photo'}
-                          </label>
-                          {editHostImage && (
-                            <button
-                              type="button"
-                              onClick={() => setEditHostImage('')}
-                              className="ml-2 text-xs text-zinc-500 hover:text-red-500"
-                            >
-                              Remove
-                            </button>
-                          )}
-                          <p className="text-[14px] text-zinc-400 mt-1.5"> JPG/PNG (max 2MB)</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">About Instructor</label>
-                      <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2" />
-                      <input
-                        value={editInstructorTitle}
-                        onChange={e => setEditInstructorTitle(e.target.value)}
-                        placeholder="Title / Credentials (e.g. Certified Digital Marketer, 8+ Years)"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2"
-                      />
-                      <textarea value={editAbout} onChange={e => setEditAbout(e.target.value)} rows={2} placeholder="Bio"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none" />
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                        Additional Instructors
-                        <span className="text-zinc-400 font-normal ml-1">— optional, for co-taught courses</span>
-                      </label>
-                      <CoInstructorsEditor
-                        value={editCoInstructors}
-                        onChange={setEditCoInstructors}
-                        onUpload={async file => {
-                          const { publicUrl } = await uploadToSupabase(file, 'images')
-                          return publicUrl
-                        }}
-                      />
-                    </div>
-
-                    {/* Promo videos */}
-                    <SectionDivider label="Promo Videos" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                        Section Heading
-                        <span className="text-zinc-400 font-normal ml-1">— shown above the videos on your landing page (optional)</span>
-                      </label>
-                      <input value={editPromoVideoHeading} onChange={e => setEditPromoVideoHeading(e.target.value)}
-                        placeholder="e.g. See what you'll be learning"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 mb-4" />
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                        Promo / Preview Videos
-                        <span className="text-zinc-400 font-normal ml-1">— up to 3, YouTube or Vimeo links</span>
-                      </label>
-                      <div className="flex flex-col gap-2">
-                        {editPromoVideoUrls.map((url, i) => (
-                          <div key={i} className="flex gap-2">
-                            <input value={url}
-                              onChange={e => { const n = [...editPromoVideoUrls]; n[i] = e.target.value; setEditPromoVideoUrls(n) }}
-                              placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
-                              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
-                            <button onClick={() => setEditPromoVideoUrls(editPromoVideoUrls.filter((_, idx) => idx !== i))}
-                              className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        ))}
-                        {editPromoVideoUrls.length < 3 && (
-                          <button onClick={() => setEditPromoVideoUrls([...editPromoVideoUrls, ''])}
-                            className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add video</button>
-                        )}
-                      </div>
-                      
-                    </div>
-
-                    {/* Target audience */}
-                    <SectionDivider label="Who Is This Course For?" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                        Who Is This Course For?
-                        <span className="text-zinc-400 font-normal ml-1">— shown as a "Who this is for" section</span>
-                      </label>
-                      <div className="flex flex-col gap-2">
-                        {editTargetAudience.map((item, i) => (
-                          <div key={i} className="flex gap-2">
-                            <input value={item}
-                              onChange={e => { const n = [...editTargetAudience]; n[i] = e.target.value; setEditTargetAudience(n) }}
-                              placeholder="e.g. Beginners who want to start with digital marketing"
-                              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none" />
-                            <button onClick={() => setEditTargetAudience(editTargetAudience.filter((_, idx) => idx !== i))}
-                              className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        ))}
-                        <button onClick={() => setEditTargetAudience([...editTargetAudience, ''])}
-                          className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Audience</button>
-                      </div>
-                    </div>
-
-                    {/* Testimonials */}
-                    <SectionDivider label="What Students Say" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                        Student Testimonials
-                        
-                      </label>
-                      <div className="flex flex-col gap-3">
-                        {editTestimonials.map((t, i) => (
-                          <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
-                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <button onClick={() => setEditTestimonials(editTestimonials.filter((_, idx) => idx !== i))}
-                              className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                            <input value={t.name}
-                              onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], name: e.target.value }; setEditTestimonials(n) }}
-                              placeholder="Student name"
-                              className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8" />
-                            <textarea value={t.text}
-                              onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], text: e.target.value }; setEditTestimonials(n) }}
-                              placeholder="What they said about the course..."
-                              rows={2}
-                              className="w-full bg-transparent text-sm text-zinc-300 outline-none resize-none" />
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-zinc-300">Rating:</span>
-                              {[1, 2, 3, 4, 5].map(star => (
-                                <button key={star} type="button"
-                                  onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star }; setEditTestimonials(n) }}
-                                  style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
-                              ))}
-                              <span className="text-sm text-zinc-400 ml-2">({t.rating || 5}/5)</span>
-                            </div>
-                            <span className="text-sm text-zinc-400">Click on the stars to set rating </span>
-                          </div>
-                        ))}
-                        <button onClick={() => setEditTestimonials([...editTestimonials, { name: '', text: '', rating: 5 }])}
-                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Testimonial</button>
-                      </div>
-                    </div>
-
-                    <SectionDivider label="Frequently Asked Questions" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Frequently Asked Questions</label>
-                      <div className="flex flex-col gap-3">
-                        {editFaq.map((faq, i) => (
-                          <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
-                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <button onClick={() => setEditFaq(editFaq.filter((_, idx) => idx !== i))}
-                              className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                            <input
-                              value={faq.question}
-                              onChange={e => {
-                                const next = [...editFaq]; next[i].question = e.target.value; setEditFaq(next)
-                              }}
-                              placeholder="Question"
-                              className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8"
-                            />
-                            <textarea
-                              value={faq.answer}
-                              onChange={e => {
-                                const next = [...editFaq]; next[i].answer = e.target.value; setEditFaq(next)
-                              }}
-                              placeholder="Answer"
-                              rows={2}
-                              className="w-full bg-transparent text-sm text-zinc-400 outline-none resize-none"
-                            />
-                          </div>
-                        ))}
-                        <button onClick={() => setEditFaq([...editFaq, { question: '', answer: '' }])}
-                          className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add FAQ</button>
-                      </div>
-                    </div>
-
-                    <SectionDivider label="What's Included (Bonuses)" />
-                    <div className="flex flex-col gap-3">
-                      {settingsLandingConfig.bonuses.map((bonus, i) => (
-                        <div key={i} className="flex gap-2 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <div className="flex-1 flex flex-col gap-2">
-                            <input value={bonus.title} onChange={e => updateBonus(i, 'title', e.target.value)}
-                              placeholder="Bonus title (e.g. Private community access)"
-                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
-                            <input value={bonus.description} onChange={e => updateBonus(i, 'description', e.target.value)}
-                              placeholder="Short description (optional)"
-                              className="w-full px-3 py-2 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
-                          </div>
-                          <button type="button" onClick={() => removeBonus(i)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                            style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                      <button type="button" onClick={addBonus}
-                        className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
-                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                        <Plus className="w-3.5 h-3.5" /> Add bonus
-                      </button>
-                    </div>
-
-                    <SectionDivider label="Disclaimer" />
-                    <div className="flex flex-col gap-2">
-                      <input value={settingsLandingConfig.disclaimer.title} onChange={e => updateDisclaimer('title', e.target.value)}
-                        placeholder="Title (e.g. Important information)"
-                        className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                      <textarea value={settingsLandingConfig.disclaimer.text} onChange={e => updateDisclaimer('text', e.target.value)}
-                        placeholder="Disclaimer text shown on the live page..." rows={4}
-                        className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400 resize-none" />
-                    </div>
-                     
-                    <SectionDivider label="Custom Sections"   />
-                    <p className="text-sm -mt-3 mb-1" style={{ color: '#a1a1a4' }}>
-                      Create section according to your needs. Each section can have a heading, body text, and images. You can also customize the heading size, body text size, alignment, box style, and spacing. 
-                    </p>
-                    <div className="flex flex-col gap-4">
-                      {settingsLandingConfig.customSections.map((cs) => (
-                        <div key={cs.id} className="p-4 rounded-xl flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <input value={cs.heading} onChange={e => updateCustomSection(cs.id, { heading: e.target.value })}
-                            maxLength={MAX_CUSTOM_HEADING_LENGTH} placeholder="Heading"
-                            className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                          <textarea value={cs.body} onChange={e => updateCustomSection(cs.id, { body: e.target.value })}
-                            maxLength={MAX_CUSTOM_BODY_LENGTH} placeholder="Body text..." rows={4}
-                            className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600 resize-none" />
-                          <p className="text-[12px] -mt-1" style={{ color: '#8d8d91' }}>{cs.body.length} / {MAX_CUSTOM_BODY_LENGTH} characters</p>
-
-                          <div className="flex flex-col gap-2">
-                            <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Images ({cs.images.length} / {MAX_CUSTOM_SECTION_IMAGES})</span>
-                            {cs.images.length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {cs.images.map((img, imgI) => (
-                                  <div key={imgI} className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <img src={img} alt="" className="w-full h-full object-cover" />
-                                    <button type="button" onClick={() => removeCustomSectionImage(cs.id, img)}
-                                      className="absolute top-0.5 right-0.5 w-5 h-5 rounded flex items-center justify-center"
-                                      style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}>
-                                      <XIcon className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {cs.images.length < MAX_CUSTOM_SECTION_IMAGES && (
-                              <label className="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium cursor-pointer"
-                                style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                                <ImageIconLucide className="w-3.5 h-3.5" />
-                                {uploadingCustomImageId === cs.id ? 'Uploading...' : '1 image = full width · 2 side by side · 3+ scrolls — add images'}
-                                <input type="file" accept="image/*" multiple hidden disabled={uploadingCustomImageId === cs.id}
-                                  onChange={e => { if (e.target.files?.length) addCustomSectionImages(cs.id, e.target.files); e.target.value = '' }} />
-                              </label>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            <label className="flex flex-col gap-1">
-                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Heading size</span>
-                              <select value={cs.headingSize} onChange={e => updateCustomSection(cs.id, { headingSize: e.target.value as any })}
-                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
-                                <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
-                                <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
-                              </select>
-                            </label>
-                            <label className="flex flex-col gap-1">
-                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Body text size</span>
-                              <select value={cs.bodySize} onChange={e => updateCustomSection(cs.id, { bodySize: e.target.value as any })}
-                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
-                                <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
-                                <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
-                              </select>
-                            </label>
-                            <label className="flex flex-col gap-1">
-                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Alignment</span>
-                              <select value={cs.align} onChange={e => updateCustomSection(cs.id, { align: e.target.value as any })}
-                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                <option value="left" style={{ background: '#27272a', color: '#fff' }}>Left</option>
-                                <option value="center" style={{ background: '#27272a', color: '#fff' }}>Center</option>
-                              </select>
-                            </label>
-                            <label className="flex flex-col gap-1">
-                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Box style</span>
-                              <select value={cs.style} onChange={e => updateCustomSection(cs.id, { style: e.target.value as any })}
-                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                <option value="plain" style={{ background: '#27272a', color: '#fff' }}>Plain</option>
-                                <option value="card" style={{ background: '#27272a', color: '#fff' }}>Card</option>
-                              </select>
-                            </label>
-                            <label className="flex flex-col gap-1">
-                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Spacing</span>
-                              <select value={cs.spacing} onChange={e => updateCustomSection(cs.id, { spacing: e.target.value as any })}
-                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                <option value="compact" style={{ background: '#27272a', color: '#fff' }}>Compact</option>
-                                <option value="normal" style={{ background: '#27272a', color: '#fff' }}>Normal</option>
-                                <option value="roomy" style={{ background: '#27272a', color: '#fff' }}>Roomy</option>
-                              </select>
-                            </label>
-                            <label className="flex flex-col gap-1">
-                              <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Background</span>
-                              <select value={cs.background} onChange={e => updateCustomSection(cs.id, { background: e.target.value as any })}
-                                className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                <option value="theme" style={{ background: '#27272a', color: '#fff' }}>Match theme (recommended)</option>
-                                <option value="custom" style={{ background: '#27272a', color: '#fff' }}>Custom color</option>
-                              </select>
-                            </label>
-                          </div>
-
-                          {cs.background === 'custom' && (
-                            <label className="flex items-center gap-2">
-                              <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Background color</span>
-                              <input type="color" value={cs.backgroundColor} onChange={e => updateCustomSection(cs.id, { backgroundColor: e.target.value })}
-                                className="w-8 h-8 rounded border border-white/10 bg-transparent" />
-                            </label>
-                          )}
-
-                          <div className="flex justify-end">
-                            <button type="button" onClick={() => removeCustomSection(cs.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                              style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
-                              <Trash2 className="w-3.5 h-3.5" /> Remove section
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      <button type="button" onClick={addCustomSection}
-                        disabled={settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE}
-                        className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40"
-                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                        <Plus className="w-3.5 h-3.5" />
-                        {settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE ? `Limit of ${MAX_CUSTOM_SECTIONS_PER_COURSE} reached` : 'Add custom section'}
-                      </button>
-                    </div>
-
-                    <SectionDivider label="Countdown & Seats" />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown ends at</label>
-                        <input type="datetime-local" value={settingsLandingConfig.urgency.endAt}
-                          onChange={e => updateUrgency('endAt', e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white" />
-                      </div>
-                      <div>
-                        <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
-                        <input value={settingsLandingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
-                          placeholder="Enrollment closes in"
-                          className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                      </div>
-                      <div>
-                        <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
-                        <input type="number" min={0} value={settingsLandingConfig.urgency.seatsAvailable ?? ''}
-                          onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
-                          placeholder="Leave blank to hide"
-                          className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                      </div>
-                      <div>
-                        <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats label</label>
-                        <input value={settingsLandingConfig.urgency.seatsLabel} onChange={e => updateUrgency('seatsLabel', e.target.value)}
-                          placeholder="seats left at this price"
-                          className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                      </div>
-                    </div>
-                    {settingsLandingConfig.urgency.endAt && new Date(settingsLandingConfig.urgency.endAt).getTime() <= Date.now() && (
-                      <p className="text-xs -mt-2" style={{ color: 'var(--kurso-accent)' }}>
-                        ⚠ This date is in the past — the countdown won't show on the live page until you set a future date.
-                      </p>
-                    )}
-
-                    <div className="flex flex-col gap-6">
-                      <SectionDivider label="Certificate" />
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
+                    {!course.uses_external_landing_page && (
+                      <>
+                        <SectionDivider label="Course Schedule" />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div>
-                            <p className="text-sm font-semibold text-white">Completion Certificates</p>
-                            <p className="text-xs mt-0.5" style={{ color: '#939397' }}>
-                              Auto-issued as PDF when a student completes all lessons
-                            </p>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Start Date</label>
+                            <input value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                           </div>
-                          <button
-                            onClick={() => setEditCertEnabled(v => !v)}
-                            className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
-                            style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
-                          >
-                            <div
-                              className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
-                              style={{ left: editCertEnabled ? '24px' : '4px' }}
-                            />
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Start Time</label>
+                            <input value={editStartTime} onChange={e => setEditStartTime(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Duration</label>
+                            <input value={editDuration} onChange={e => setEditDuration(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                          </div>
+                        </div>
+
+
+                        <SectionDivider label="Certificate Skills" />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Skills Covered (comma separated, for certificate)</label>
+                          <input value={editSkills} onChange={e => setEditSkills(e.target.value)}
+                            placeholder="e.g. SEO, Content Marketing, Keyword Research"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 " />
+                        </div>
+
+                        <SectionDivider label="What You'll Walk Away With " />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">What You'll Walk Away With</label>
+                          <div className="flex flex-col gap-2">
+                            {editLearn.map((item, i) => (
+                              <div key={i} className="flex gap-2">
+                                <input value={item} onChange={e => {
+                                  const next = [...editLearn]; next[i] = e.target.value; setEditLearn(next)
+                                }} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none" />
+                                <button onClick={() => setEditLearn(editLearn.filter((_, idx) => idx !== i))}
+                                  className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            ))}
+                            <button onClick={() => setEditLearn([...editLearn, ''])}
+                              className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Point</button>
+                          </div>
+                        </div>
+
+                        <SectionDivider label="Requirements" />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Requirements / Prerequisites
+                            <span className="text-zinc-400 font-normal ml-1">— shown on landing page</span>
+                          </label>
+                          <div className="flex flex-col gap-2">
+                            {editRequirements.map((item, i) => (
+                              <div key={i} className="flex gap-2">
+                                <input
+                                  value={item}
+                                  onChange={e => { const n = [...editRequirements]; n[i] = e.target.value; setEditRequirements(n) }}
+                                  placeholder="e.g. Basic computer skills"
+                                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none"
+                                />
+                                <button onClick={() => setEditRequirements(editRequirements.filter((_, idx) => idx !== i))}
+                                  className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            ))}
+                            <button onClick={() => setEditRequirements([...editRequirements, ''])}
+                              className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Requirement</button>
+                          </div>
+                        </div>
+
+                        <SectionDivider label="Instructor" />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Photo</label>
+                          <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                              {editHostImage ? (
+                                <img src={editHostImage} alt="Instructor" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-2xl font-bold text-zinc-700">
+                                  {editHostName ? editHostName.charAt(0).toUpperCase() : '?'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <input
+                                type="file"
+                                id="host-image"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                disabled={uploadingImage}
+                              />
+                              <label
+                                htmlFor="host-image"
+                                className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
+                              >
+                                {uploadingImage ? 'Uploading...' : editHostImage ? 'Change Photo' : 'Upload Photo'}
+                              </label>
+                              {editHostImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditHostImage('')}
+                                  className="ml-2 text-xs text-zinc-500 hover:text-red-500"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                              <p className="text-[14px] text-zinc-400 mt-1.5"> JPG/PNG (max 2MB)</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">About Instructor</label>
+                          <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2" />
+                          <input
+                            value={editInstructorTitle}
+                            onChange={e => setEditInstructorTitle(e.target.value)}
+                            placeholder="Title / Credentials (e.g. Certified Digital Marketer, 8+ Years)"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2"
+                          />
+                          <textarea value={editAbout} onChange={e => setEditAbout(e.target.value)} rows={2} placeholder="Bio"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none" />
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Additional Instructors
+                            <span className="text-zinc-400 font-normal ml-1">— optional, for co-taught courses</span>
+                          </label>
+                          <CoInstructorsEditor
+                            value={editCoInstructors}
+                            onChange={setEditCoInstructors}
+                            onUpload={async file => {
+                              const { publicUrl } = await uploadToSupabase(file, 'images')
+                              return publicUrl
+                            }}
+                          />
+                        </div>
+
+                        {/* Promo videos */}
+                        <SectionDivider label="Promo Videos" />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Section Heading
+                            <span className="text-zinc-400 font-normal ml-1">— shown above the videos on your landing page (optional)</span>
+                          </label>
+                          <input value={editPromoVideoHeading} onChange={e => setEditPromoVideoHeading(e.target.value)}
+                            placeholder="e.g. See what you'll be learning"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 mb-4" />
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Promo / Preview Videos
+                            <span className="text-zinc-400 font-normal ml-1">— up to 3, YouTube or Vimeo links</span>
+                          </label>
+                          <div className="flex flex-col gap-2">
+                            {editPromoVideoUrls.map((url, i) => (
+                              <div key={i} className="flex gap-2">
+                                <input value={url}
+                                  onChange={e => { const n = [...editPromoVideoUrls]; n[i] = e.target.value; setEditPromoVideoUrls(n) }}
+                                  placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
+                                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                                <button onClick={() => setEditPromoVideoUrls(editPromoVideoUrls.filter((_, idx) => idx !== i))}
+                                  className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            ))}
+                            {editPromoVideoUrls.length < 3 && (
+                              <button onClick={() => setEditPromoVideoUrls([...editPromoVideoUrls, ''])}
+                                className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add video</button>
+                            )}
+                          </div>
+
+                        </div>
+
+                        {/* Target audience */}
+                        <SectionDivider label="Who Is This Course For?" />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Who Is This Course For?
+                            <span className="text-zinc-400 font-normal ml-1">— shown as a "Who this is for" section</span>
+                          </label>
+                          <div className="flex flex-col gap-2">
+                            {editTargetAudience.map((item, i) => (
+                              <div key={i} className="flex gap-2">
+                                <input value={item}
+                                  onChange={e => { const n = [...editTargetAudience]; n[i] = e.target.value; setEditTargetAudience(n) }}
+                                  placeholder="e.g. Beginners who want to start with digital marketing"
+                                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none" />
+                                <button onClick={() => setEditTargetAudience(editTargetAudience.filter((_, idx) => idx !== i))}
+                                  className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            ))}
+                            <button onClick={() => setEditTargetAudience([...editTargetAudience, ''])}
+                              className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Audience</button>
+                          </div>
+                        </div>
+
+                        {/* Testimonials */}
+                        <SectionDivider label="What Students Say" />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Student Testimonials
+
+                          </label>
+                          <div className="flex flex-col gap-3">
+                            {editTestimonials.map((t, i) => (
+                              <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
+                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <button onClick={() => setEditTestimonials(editTestimonials.filter((_, idx) => idx !== i))}
+                                  className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <input value={t.name}
+                                  onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], name: e.target.value }; setEditTestimonials(n) }}
+                                  placeholder="Student name"
+                                  className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8" />
+                                <textarea value={t.text}
+                                  onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], text: e.target.value }; setEditTestimonials(n) }}
+                                  placeholder="What they said about the course..."
+                                  rows={2}
+                                  className="w-full bg-transparent text-sm text-zinc-300 outline-none resize-none" />
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-zinc-300">Rating:</span>
+                                  {[1, 2, 3, 4, 5].map(star => (
+                                    <button key={star} type="button"
+                                      onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star }; setEditTestimonials(n) }}
+                                      style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
+                                  ))}
+                                  <span className="text-sm text-zinc-400 ml-2">({t.rating || 5}/5)</span>
+                                </div>
+                                <span className="text-sm text-zinc-400">Click on the stars to set rating </span>
+                              </div>
+                            ))}
+                            <button onClick={() => setEditTestimonials([...editTestimonials, { name: '', text: '', rating: 5 }])}
+                              className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Testimonial</button>
+                          </div>
+                        </div>
+
+                        <SectionDivider label="Frequently Asked Questions" />
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Frequently Asked Questions</label>
+                          <div className="flex flex-col gap-3">
+                            {editFaq.map((faq, i) => (
+                              <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
+                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <button onClick={() => setEditFaq(editFaq.filter((_, idx) => idx !== i))}
+                                  className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <input
+                                  value={faq.question}
+                                  onChange={e => {
+                                    const next = [...editFaq]; next[i].question = e.target.value; setEditFaq(next)
+                                  }}
+                                  placeholder="Question"
+                                  className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8"
+                                />
+                                <textarea
+                                  value={faq.answer}
+                                  onChange={e => {
+                                    const next = [...editFaq]; next[i].answer = e.target.value; setEditFaq(next)
+                                  }}
+                                  placeholder="Answer"
+                                  rows={2}
+                                  className="w-full bg-transparent text-sm text-zinc-400 outline-none resize-none"
+                                />
+                              </div>
+                            ))}
+                            <button onClick={() => setEditFaq([...editFaq, { question: '', answer: '' }])}
+                              className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add FAQ</button>
+                          </div>
+                        </div>
+
+                        <SectionDivider label="What's Included (Bonuses)" />
+                        <div className="flex flex-col gap-3">
+                          {settingsLandingConfig.bonuses.map((bonus, i) => (
+                            <div key={i} className="flex gap-2 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                              <div className="flex-1 flex flex-col gap-2">
+                                <input value={bonus.title} onChange={e => updateBonus(i, 'title', e.target.value)}
+                                  placeholder="Bonus title (e.g. Private community access)"
+                                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
+                                <input value={bonus.description} onChange={e => updateBonus(i, 'description', e.target.value)}
+                                  placeholder="Short description (optional)"
+                                  className="w-full px-3 py-2 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
+                              </div>
+                              <button type="button" onClick={() => removeBonus(i)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                                style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={addBonus}
+                            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
+                            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                            <Plus className="w-3.5 h-3.5" /> Add bonus
                           </button>
                         </div>
 
-                        {editCertEnabled && (
-                          <div className="flex flex-col gap-4 mt-2">
-                            <div>
-                              <label className="text-sm font-medium text-zinc-400 mb-2 block">Choose a Color Palette</label>
-                              <p className="text-xs mb-2" style={{ color: '#71717a' }}>
-                                Choose any color palette, then select any layout you like below.
-                              </p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {CERT_PALETTES.map(palette => (
-                                  <button
-                                    key={palette.id}
-                                    type="button"
-                                    onClick={() => setEditCertPalette(palette.id)}
-                                    className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
-                                    style={{
-                                      background: editCertPalette === palette.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
-                                      border: editCertPalette === palette.id ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)' : '1px solid rgba(255,255,255,0.08)',
-                                    }}
-                                  >
-                                    <span className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.background}, ${palette.accent})`, border: `1px solid ${palette.divider}` }} />
-                                    <span className="text-sm font-semibold text-white">{palette.label}</span>
-                                    {editCertPalette === palette.id && <span className="ml-auto w-2 h-2 rounded-full" style={{ background: 'var(--kurso-primary)' }} />}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
+                        <SectionDivider label="Disclaimer" />
+                        <div className="flex flex-col gap-2">
+                          <input value={settingsLandingConfig.disclaimer.title} onChange={e => updateDisclaimer('title', e.target.value)}
+                            placeholder="Title (e.g. Important information)"
+                            className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                          <textarea value={settingsLandingConfig.disclaimer.text} onChange={e => updateDisclaimer('text', e.target.value)}
+                            placeholder="Disclaimer text shown on the live page..." rows={4}
+                            className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400 resize-none" />
+                        </div>
 
-                            <div>
-                              <label className="text-sm font-medium text-zinc-400 mb-2 block">Choose a Layout</label>
-                              <p className="text-xs mb-2" style={{ color: '#71717a' }}>
-                                After selecting a color palette, select any layout and then click Preview to have a glance. You can change the color palette and layout by selecting another option.
-                              </p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {([
-                                  { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
-                                  { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
-                                  { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
-                                  { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
-                                  { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
-                                ] as const).map(t => (
-                                  <div
-                                    key={t.id}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditCertTemplate(t.id)}
-                                      className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
-                                      style={{
-                                        background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
-                                        border: editCertTemplate === t.id
-                                          ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
-                                          : '1px solid rgba(255,255,255,0.08)',
-                                      }}
-                                    >
-                                      <div
-                                        className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
-                                        style={{
-                                          background:
-                                            t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
-                                              t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
-                                                t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
-                                                  t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
-                                                    'linear-gradient(135deg,#060d2e,#d4af37)',
-                                        }}
-                                      />
-                                      <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-white">{t.label}</p>
-                                        <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
+                        <SectionDivider label="Custom Sections" />
+                        <p className="text-sm -mt-3 mb-1" style={{ color: '#a1a1a4' }}>
+                          Create section according to your needs. Each section can have a heading, body text, and images. You can also customize the heading size, body text size, alignment, box style, and spacing.
+                        </p>
+                        <div className="flex flex-col gap-4">
+                          {settingsLandingConfig.customSections.map((cs) => (
+                            <div key={cs.id} className="p-4 rounded-xl flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                              <input value={cs.heading} onChange={e => updateCustomSection(cs.id, { heading: e.target.value })}
+                                maxLength={MAX_CUSTOM_HEADING_LENGTH} placeholder="Heading"
+                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                              <textarea value={cs.body} onChange={e => updateCustomSection(cs.id, { body: e.target.value })}
+                                maxLength={MAX_CUSTOM_BODY_LENGTH} placeholder="Body text..." rows={4}
+                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600 resize-none" />
+                              <p className="text-[12px] -mt-1" style={{ color: '#8d8d91' }}>{cs.body.length} / {MAX_CUSTOM_BODY_LENGTH} characters</p>
+
+                              <div className="flex flex-col gap-2">
+                                <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Images ({cs.images.length} / {MAX_CUSTOM_SECTION_IMAGES})</span>
+                                {cs.images.length > 0 && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {cs.images.map((img, imgI) => (
+                                      <div key={imgI} className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <img src={img} alt="" className="w-full h-full object-cover" />
+                                        <button type="button" onClick={() => removeCustomSectionImage(cs.id, img)}
+                                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded flex items-center justify-center"
+                                          style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}>
+                                          <XIcon className="w-3 h-3" />
+                                        </button>
                                       </div>
-                                      {editCertTemplate === t.id && (
-                                        <div
-                                          className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
-                                          style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
-                                        >
-                                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                            <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                          </svg>
-                                        </div>
-                                      )}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        setPreviewTemplate(t.id)
-                                        setShowCertPreview(true)
-                                      }}
-                                      className="px-3 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10 text-xs font-medium"
-                                      style={{
-                                        background: 'rgba(255,255,255,0.03)',
-                                        border: '1px solid rgba(255,255,255,0.08)',
-                                        color: '#a1a1aa',
-                                      }}
-                                      title={`Preview ${t.label} template`}
-                                    >
-                                      Preview
-                                    </button>
+                                    ))}
                                   </div>
-                                ))}
+                                )}
+                                {cs.images.length < MAX_CUSTOM_SECTION_IMAGES && (
+                                  <label className="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium cursor-pointer"
+                                    style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                                    <ImageIconLucide className="w-3.5 h-3.5" />
+                                    {uploadingCustomImageId === cs.id ? 'Uploading...' : '1 image = full width · 2 side by side · 3+ scrolls — add images'}
+                                    <input type="file" accept="image/*" multiple hidden disabled={uploadingCustomImageId === cs.id}
+                                      onChange={e => { if (e.target.files?.length) addCustomSectionImages(cs.id, e.target.files); e.target.value = '' }} />
+                                  </label>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <label className="flex flex-col gap-1">
+                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Heading size</span>
+                                  <select value={cs.headingSize} onChange={e => updateCustomSection(cs.id, { headingSize: e.target.value as any })}
+                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                    <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
+                                    <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
+                                    <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
+                                  </select>
+                                </label>
+                                <label className="flex flex-col gap-1">
+                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Body text size</span>
+                                  <select value={cs.bodySize} onChange={e => updateCustomSection(cs.id, { bodySize: e.target.value as any })}
+                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                    <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
+                                    <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
+                                    <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
+                                  </select>
+                                </label>
+                                <label className="flex flex-col gap-1">
+                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Alignment</span>
+                                  <select value={cs.align} onChange={e => updateCustomSection(cs.id, { align: e.target.value as any })}
+                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                    <option value="left" style={{ background: '#27272a', color: '#fff' }}>Left</option>
+                                    <option value="center" style={{ background: '#27272a', color: '#fff' }}>Center</option>
+                                  </select>
+                                </label>
+                                <label className="flex flex-col gap-1">
+                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Box style</span>
+                                  <select value={cs.style} onChange={e => updateCustomSection(cs.id, { style: e.target.value as any })}
+                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                    <option value="plain" style={{ background: '#27272a', color: '#fff' }}>Plain</option>
+                                    <option value="card" style={{ background: '#27272a', color: '#fff' }}>Card</option>
+                                  </select>
+                                </label>
+                                <label className="flex flex-col gap-1">
+                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Spacing</span>
+                                  <select value={cs.spacing} onChange={e => updateCustomSection(cs.id, { spacing: e.target.value as any })}
+                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                    <option value="compact" style={{ background: '#27272a', color: '#fff' }}>Compact</option>
+                                    <option value="normal" style={{ background: '#27272a', color: '#fff' }}>Normal</option>
+                                    <option value="roomy" style={{ background: '#27272a', color: '#fff' }}>Roomy</option>
+                                  </select>
+                                </label>
+                                <label className="flex flex-col gap-1">
+                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Background</span>
+                                  <select value={cs.background} onChange={e => updateCustomSection(cs.id, { background: e.target.value as any })}
+                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                    <option value="theme" style={{ background: '#27272a', color: '#fff' }}>Match theme (recommended)</option>
+                                    <option value="custom" style={{ background: '#27272a', color: '#fff' }}>Custom color</option>
+                                  </select>
+                                </label>
+                              </div>
+
+                              {cs.background === 'custom' && (
+                                <label className="flex items-center gap-2">
+                                  <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Background color</span>
+                                  <input type="color" value={cs.backgroundColor} onChange={e => updateCustomSection(cs.id, { backgroundColor: e.target.value })}
+                                    className="w-8 h-8 rounded border border-white/10 bg-transparent" />
+                                </label>
+                              )}
+
+                              <div className="flex justify-end">
+                                <button type="button" onClick={() => removeCustomSection(cs.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                                  style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
+                                  <Trash2 className="w-3.5 h-3.5" /> Remove section
+                                </button>
                               </div>
                             </div>
+                          ))}
+                          <button type="button" onClick={addCustomSection}
+                            disabled={settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE}
+                            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40"
+                            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                            <Plus className="w-3.5 h-3.5" />
+                            {settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE ? `Limit of ${MAX_CUSTOM_SECTIONS_PER_COURSE} reached` : 'Add custom section'}
+                          </button>
+                        </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <SectionDivider label="Countdown & Seats" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown ends at</label>
+                            <input type="datetime-local" value={settingsLandingConfig.urgency.endAt}
+                              onChange={e => updateUrgency('endAt', e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white" />
+                          </div>
+                          <div>
+                            <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
+                            <input value={settingsLandingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
+                              placeholder="Enrollment closes in"
+                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                          </div>
+                          <div>
+                            <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
+                            <input type="number" min={0} value={settingsLandingConfig.urgency.seatsAvailable ?? ''}
+                              onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
+                              placeholder="Leave blank to hide"
+                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                          </div>
+                          <div>
+                            <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats label</label>
+                            <input value={settingsLandingConfig.urgency.seatsLabel} onChange={e => updateUrgency('seatsLabel', e.target.value)}
+                              placeholder="seats left at this price"
+                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                          </div>
+                        </div>
+                        {settingsLandingConfig.urgency.endAt && new Date(settingsLandingConfig.urgency.endAt).getTime() <= Date.now() && (
+                          <p className="text-xs -mt-2" style={{ color: 'var(--kurso-accent)' }}>
+                            ⚠ This date is in the past — the countdown won't show on the live page until you set a future date.
+                          </p>
+                        )}
+
+                        <div className="flex flex-col gap-6">
+                          <SectionDivider label="Certificate" />
+                          <div>
+                            <div className="flex items-center justify-between mb-4">
                               <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <label className="text-xs font-medium text-zinc-400">Use Brand Logo on Certificate</label>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditUseLogoOnCertificate(v => !v)}
-                                    className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                                    style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
-                                  >
-                                    <div
-                                      className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-                                      style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
-                                    />
-                                  </button>
+                                <p className="text-sm font-semibold text-white">Completion Certificates</p>
+                                <p className="text-xs mt-0.5" style={{ color: '#939397' }}>
+                                  Auto-issued as PDF when a student completes all lessons
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => setEditCertEnabled(v => !v)}
+                                className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
+                                style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
+                              >
+                                <div
+                                  className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                                  style={{ left: editCertEnabled ? '24px' : '4px' }}
+                                />
+                              </button>
+                            </div>
+
+                            {editCertEnabled && (
+                              <div className="flex flex-col gap-4 mt-2">
+                                <div>
+                                  <label className="text-sm font-medium text-zinc-400 mb-2 block">Choose a Color Palette</label>
+                                  <p className="text-xs mb-2" style={{ color: '#71717a' }}>
+                                    Choose any color palette, then select any layout you like below.
+                                  </p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {CERT_PALETTES.map(palette => (
+                                      <button
+                                        key={palette.id}
+                                        type="button"
+                                        onClick={() => setEditCertPalette(palette.id)}
+                                        className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
+                                        style={{
+                                          background: editCertPalette === palette.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                                          border: editCertPalette === palette.id ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)' : '1px solid rgba(255,255,255,0.08)',
+                                        }}
+                                      >
+                                        <span className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.background}, ${palette.accent})`, border: `1px solid ${palette.divider}` }} />
+                                        <span className="text-sm font-semibold text-white">{palette.label}</span>
+                                        {editCertPalette === palette.id && <span className="ml-auto w-2 h-2 rounded-full" style={{ background: 'var(--kurso-primary)' }} />}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
 
-                                {editUseLogoOnCertificate && brandLogoUrl && (
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
-                                    <span className="text-xs text-zinc-500">Will print on the certificate</span>
-                                  </div>
-                                )}
-
-                                {editUseLogoOnCertificate && !brandLogoUrl && (
-                                  <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
-                                    style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
-                                    <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
-                                      Please provide the brand logo above —{' '}
-                                      <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
-                                        upload it in Design Landing Page
-                                      </Link>.
-                                    </p>
-                                  </div>
-                                )}
-
-                                {!editUseLogoOnCertificate && (
-                                  <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
-                                    Uses the same logo set in Design Landing Page.
+                                <div>
+                                  <label className="text-sm font-medium text-zinc-400 mb-2 block">Choose a Layout</label>
+                                  <p className="text-xs mb-2" style={{ color: '#71717a' }}>
+                                    After selecting a color palette, select any layout and then click Preview to have a glance. You can change the color palette and layout by selecting another option.
                                   </p>
-                                )}
-                              </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {([
+                                      { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
+                                      { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
+                                      { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
+                                      { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
+                                      { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
+                                    ] as const).map(t => (
+                                      <div
+                                        key={t.id}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditCertTemplate(t.id)}
+                                          className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
+                                          style={{
+                                            background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                                            border: editCertTemplate === t.id
+                                              ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
+                                              : '1px solid rgba(255,255,255,0.08)',
+                                          }}
+                                        >
+                                          <div
+                                            className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
+                                            style={{
+                                              background:
+                                                t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
+                                                  t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
+                                                    t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
+                                                      t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
+                                                        'linear-gradient(135deg,#060d2e,#d4af37)',
+                                            }}
+                                          />
+                                          <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-white">{t.label}</p>
+                                            <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
+                                          </div>
+                                          {editCertTemplate === t.id && (
+                                            <div
+                                              className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
+                                              style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
+                                            >
+                                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                                <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                              </svg>
+                                            </div>
+                                          )}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setPreviewTemplate(t.id)
+                                            setShowCertPreview(true)
+                                          }}
+                                          className="px-3 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10 text-xs font-medium"
+                                          style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            color: '#a1a1aa',
+                                          }}
+                                          title={`Preview ${t.label} template`}
+                                        >
+                                          Preview
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
 
-                              <div>
-                                <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Signature (optional)</label>
-                                <input type="file" accept="image/png,image/jpeg" id="cert-sig"
-                                  className="hidden"
-                                  onChange={async e => {
-                                    const file = e.target.files?.[0]
-                                    if (!file) return
-                                    const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
-                                    setEditCertSignatureUrl(publicUrl)
-                                  }} />
-                                <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
-                                  {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
-                                </label>
-                                {editCertSignatureUrl && <span className="text-xs text-zinc-500 ml-2">Uploaded</span>}
-                              </div>
-                            </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <label className="text-xs font-medium text-zinc-400">Use Brand Logo on Certificate</label>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditUseLogoOnCertificate(v => !v)}
+                                        className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                                        style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
+                                      >
+                                        <div
+                                          className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                                          style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
+                                        />
+                                      </button>
+                                    </div>
 
-                            <div>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <label className="text-sm font-medium text-zinc-400">Custom Message on Certificate</label>
-                                <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
+                                    {editUseLogoOnCertificate && brandLogoUrl && (
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
+                                        <span className="text-xs text-zinc-500">Will print on the certificate</span>
+                                      </div>
+                                    )}
+
+                                    {editUseLogoOnCertificate && !brandLogoUrl && (
+                                      <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
+                                        style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                                        <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
+                                          Please provide the brand logo above —{' '}
+                                          <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
+                                            upload it in Design Landing Page
+                                          </Link>.
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {!editUseLogoOnCertificate && (
+                                      <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
+                                        Uses the same logo set in Design Landing Page.
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Signature (optional)</label>
+                                    <input type="file" accept="image/png,image/jpeg" id="cert-sig"
+                                      className="hidden"
+                                      onChange={async e => {
+                                        const file = e.target.files?.[0]
+                                        if (!file) return
+                                        const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
+                                        setEditCertSignatureUrl(publicUrl)
+                                      }} />
+                                    <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
+                                      {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
+                                    </label>
+                                    {editCertSignatureUrl && <span className="text-xs text-zinc-500 ml-2">Uploaded</span>}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <label className="text-sm font-medium text-zinc-400">Custom Message on Certificate</label>
+                                    <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={editCertCustomMessage}
+                                    onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
+                                    placeholder="e.g. Keep building, keep shipping. — Your Name"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                                  />
+                                  <p className="text-[12px] mt-1" style={{ color: '#919193' }}>
+                                    Appears as a small line on the certificate. Leave blank to omit.
+                                  </p>
+                                </div>
                               </div>
-                              <input
-                                type="text"
-                                value={editCertCustomMessage}
-                                onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
-                                placeholder="e.g. Keep building, keep shipping. — Your Name"
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
-                              />
-                              <p className="text-[12px] mt-1" style={{ color: '#919193' }}>
-                                Appears as a small line on the certificate. Leave blank to omit.
-                              </p>
-                            </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      </>
+                    )}
+
+                    <SectionDivider label="Embed Button" />
+                    <div>
+                      <p className="text-sm mb-3" style={{ color: '#a5a5a8', lineHeight: 1.6 }}>
+                        Paste this code anywhere on your own website to add a working "Buy Now" button — it opens Kurso checkout in a popup, everything else on your page stays untouched. You can freely change its color, size, font, and anything else in your own CSS to match your site; the only thing that must stay exactly as-is is the <code className="text-xs px-1 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.08)', color: '#e4e4e7' }}>data-kurso-course</code> attribute.
+                      </p>
+                      <pre className="text-xs mb-3 p-3 rounded-xl whitespace-pre-wrap break-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
+                        {embedSnippet()}
+                      </pre>
+                      <button onClick={copyEmbedSnippet}
+                        className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl text-sm font-medium transition-all"
+                        style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        {copiedEmbed
+                          ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
+                          : <><Copy className="w-4 h-4" />Copy Embed Code</>
+                        }
+                      </button>
+                      <p className="text-[11px] mt-2" style={{ color: '#71717a' }}>
+                        Note: the price shown is baked in at copy time — if you change your course price later, re-copy and re-paste this snippet.
+                      </p>
                     </div>
 
                     {/* Danger Zone */}
@@ -4214,12 +4251,12 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   </div>
                 </div>
               </div>
-                        ) : activeTab === 'landing' ? (
+            ) : activeTab === 'landing' ? (
               course.uses_external_landing_page ? (
                 <div className="rounded-2xl p-8 glass text-center" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                   <p className="text-sm font-semibold text-white mb-2">You're using your own landing page</p>
                   <p className="text-sm mb-5" style={{ color: '#a1a1aa' }}>
-                    Nobody will see this Kurso page, so there's nothing to design here — use the Checkout Link or Embed Button in Settings instead. Price, refund policy, and other course details are still edited from the Settings tab.
+                    Nobody will see this Kurso page, so there's nothing to design here — use the Embed Button in Settings instead. Price, refund policy, and other course details are still edited from the Settings tab.
                   </p>
                   <button onClick={toggleUsesExternalLandingPage}
                     className="text-xs underline" style={{ color: '#71717a' }}>
@@ -4252,11 +4289,11 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   <p className="text-xs mt-0.5" style={{ color: '#cfcfd4' }}>
                     {course.uses_external_landing_page
                       ? (course.is_published
-                          ? 'Your Checkout Link and Embed Button will accept payments. Your Kurso course page stays hidden either way.'
-                          : 'Your Checkout Link and Embed Button are blocked until this is on — even though you use your own page.')
+                        ? 'Your Embed Button will accept payments. Your Kurso course page stays hidden either way.'
+                        : 'Your Embed Button will not accept payments until this is turned on.')
                       : (course.is_published
-                          ? 'Students can find and enroll'
-                          : 'Course page hidden · enrollment blocked · enrolled students unaffected')}
+                        ? 'Students can find and enroll'
+                        : 'Course page hidden · enrollment blocked · enrolled students unaffected')}
                   </p>
                 </div>
                 <button onClick={toggleCoursePublish}
@@ -4266,6 +4303,15 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                     style={{ left: course.is_published ? '28px' : '4px' }} />
                 </button>
               </div>
+              {!hasActivePaidPlan && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg mb-2"
+                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                  <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
+                    You need to pay for a Kurso plan before this can be turned on — this is separate from your Razorpay/Stripe/Cashfree account, which is what actually collects payment from students. <Link href="/upgrade" className="underline font-semibold">Go to upgrade page</Link>
+                  </p>
+                </div>
+              )}
               {!course.is_published && lessons.length === 0 && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg"
                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
@@ -4285,31 +4331,49 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
             </div>
 
             {/* Course page preview */}
-            <div className="rounded-2xl p-5 glass"
-              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                <span className="text-xs font-semibold" style={{ color: 'var(--kurso-primary-light)' }}>
-                  Preview
-                </span>
-                Course Page
-              </h3>
-              <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
-                This is what students see when they visit your course link.
-              </p>
-              <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all mb-2"
-                style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', color: 'var(--kurso-primary-light)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
-                <ExternalLink className="w-4 h-4" />
-                Preview Course Page
-              </Link>
-              <button onClick={() => setShowTestModal(true)}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
-                style={{ background: 'rgba(250,204,21,0.08)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)' }}>
-                <FlaskConical className="w-4 h-4" />
-                Test This Course (WhatsApp/Telegram)
-              </button>
-
-            </div>
+            {course.uses_external_landing_page ? (
+              <div className="rounded-2xl p-5 glass"
+                style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4" style={{ color: '#facc15' }} />
+                  Test This Course
+                </h3>
+                <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
+                  Since you're using your own landing page, there's no Kurso course page to preview. This instead enrolls you as a real student on WhatsApp or Telegram, so you can check the whole lesson-delivery experience before sending students there.
+                </p>
+                <button onClick={() => setShowTestModal(true)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
+                  style={{ background: 'rgba(250,204,21,0.08)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)' }}>
+                  <FlaskConical className="w-4 h-4" />
+                  Test This Course (WhatsApp/Telegram)
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-2xl p-5 glass"
+                style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+                  <span className="text-xs font-semibold" style={{ color: 'var(--kurso-primary-light)' }}>
+                    Preview
+                  </span>
+                  Course Page
+                </h3>
+                <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
+                  This is what students see when they visit your course link.
+                </p>
+                <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all mb-2"
+                  style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', color: 'var(--kurso-primary-light)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                  <ExternalLink className="w-4 h-4" />
+                  Preview Course Page
+                </Link>
+                <button onClick={() => setShowTestModal(true)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
+                  style={{ background: 'rgba(250,204,21,0.08)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)' }}>
+                  <FlaskConical className="w-4 h-4" />
+                  Test This Course (WhatsApp/Telegram)
+                </button>
+              </div>
+            )}
 
             {showTestModal && (
               <TestCourseModal
@@ -4320,95 +4384,11 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
               />
             )}
 
-            {/* Checkout Link — for creators who already have their own landing page elsewhere */}
-            <div className="rounded-2xl p-5 glass"
-              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                <LinkIcon className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
-                Checkout Link
-              </h3>
-              <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
-                Already have your own landing page? Use this link as your payment button instead — it skips straight to checkout, no Kurso page shown first.
-              </p>
-              <Link href={`/enroll/${course.id}`} target="_blank"
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all mb-2"
-                style={{ background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <ExternalLink className="w-4 h-4" />
-                Preview Checkout Link
-              </Link>
-              <button onClick={copyCheckoutLink}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all"
-                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {copiedCheckout
-                  ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
-                  : <><Copy className="w-4 h-4" />Copy Checkout Link</>
-                }
-              </button>
-            </div>
-
-            {/* Embed Button — for creators who want to keep their own page's exact look, only the button is Kurso's */}
-            <div className="rounded-2xl p-5 glass"
-              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                <Code2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
-                Embed Button
-              </h3>
-              <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
-                Want your page to look exactly as it does today? Paste this snippet where you want the button — it opens Kurso checkout in a popup, everything else on your page stays untouched. Restyle the button however you like; only the <code>data-kurso-course</code> attribute matters.
-              </p>
-              <pre className="text-xs mb-3 p-3 rounded-xl whitespace-pre-wrap break-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
-                {embedSnippet()}
-              </pre>
-              <button onClick={copyEmbedSnippet}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all"
-                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {copiedEmbed
-                  ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
-                  : <><Copy className="w-4 h-4" />Copy Embed Code</>
-                }
-              </button>
-              <p className="text-[11px] mt-2" style={{ color: '#71717a' }}>
-                Note: the price shown is baked in at copy time — if you change your course price later, re-copy and re-paste this snippet.
-              </p>
-            </div>
-
-            {/* Student Update / Delay Broadcast */}
-            <div className="rounded-2xl p-5"
-              style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.2)' }}>
-              <h3 className="font-semibold text-white mb-1">📢 Send Student Update</h3>
-              <p className="text-xs mb-3" style={{ color: '#c9c9d0' }}>
-                Notify all enrolled students about schedule changes, delays, or upcoming lessons.
-              </p>
-              <textarea
-                value={delayMessage}
-                onChange={e => setDelayMessage(e.target.value.slice(0, 500))}
-                placeholder="e.g. Lesson 5 is delayed by 1 day due to production. Dropping tomorrow at 7 PM!"
-                rows={3}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none mb-2"
-                style={{ borderColor: delayMessage ? 'rgba(245,158,11,0.4)' : undefined }}
-              />
-              <span className="text-xs" style={{ color: '#949499' }}>{delayMessage.length}/500</span>
-              <div className="flex items-center justify-between mb-3">
-
-                <span className="text-xs" style={{ color: '#949499' }}>Sends via Telegram & WhatsApp to all enrolled students</span>
-              </div>
-              <button
-                onClick={sendDelayBroadcast}
-                disabled={!delayMessage.trim() || broadcastSending}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
-                style={{
-                  background: broadcastSent
-                    ? 'rgba(74,222,128,0.8)'
-                    : 'rgba(245,158,11,0.75)',
-                }}>
-                {broadcastSending ? 'Sending…' : broadcastSent ? '✓ Message Sent!' : 'Send to All Students'}
-              </button>
-            </div>
-
             {/* Share section — the Kurso course page link, irrelevant if the creator uses their own page instead */}
             {!course.uses_external_landing_page && (
               <div className="rounded-2xl p-5"
                 style={{ background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+
                 <h3 className="font-semibold text-white mb-1 flex items-center gap-2">
                   <Share2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                   Share Course

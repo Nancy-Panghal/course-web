@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, Users, TrendingUp, Clock, BookOpen,
   AlertCircle, CheckCircle2, Send, IndianRupee,
-  BarChart3, Zap
+  BarChart3, Zap, Download
 } from 'lucide-react'
 
 interface LessonDropoff {
@@ -153,19 +153,46 @@ export default function AnalyticsPage({
       <Sidebar />
       <main className="md:ml-56 p-6 md:p-8 pt-20 md:pt-8">
 
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => router.back()}
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-white">{data.courseName}</h1>
-            <p className="text-sm" style={{ color: '#a1a1aa' }}>Student drop-off analytics</p>
+                {/* Header */}
+        <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">{data.courseName}</h1>
+              <p className="text-sm" style={{ color: '#a1a1aa' }}>Student drop-off analytics</p>
+            </div>
           </div>
+          <a
+            href={`/api/analytics/${courseId}/export`}
+            onClick={(e) => {
+              // A plain <a href> can't send an Authorization header, so
+              // this fetches the CSV with the token and triggers the
+              // download client-side instead of letting the browser
+              // navigate directly to the (auth-protected) API route.
+              e.preventDefault()
+              if (!token) return
+              fetch(`/api/analytics/${courseId}/export`, { headers: { Authorization: `Bearer ${token}` } })
+                .then(res => res.blob())
+                .then(blob => {
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `${data.courseName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-students.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                })
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold flex-shrink-0"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e4e4e7' }}
+          >
+            <Download className="w-4 h-4" /> Export students CSV
+          </a>
         </div>
 
         {/* ── Overview stat cards ── */}

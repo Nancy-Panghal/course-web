@@ -8,7 +8,7 @@ import {
   BarChart3, Shield, ClipboardList, Ticket,
   ChevronRight, ArrowUpRight, ChevronDown, Check,
   TrendingUp, AlertCircle, Play, Eye, EyeOff,
-  Zap, Clock, CheckCircle2, XCircle
+  Zap, Clock, CheckCircle2, XCircle, Download
 } from 'lucide-react'
 
 interface Course {
@@ -467,11 +467,32 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold uppercase tracking-wider flex-shrink-0" style={{ color: 'var(--kurso-text-muted)' }}>
               Select course
             </span>
-            <CourseSelector
+                        <CourseSelector
               courses={courses}
               selected={selectedCourseId}
               onSelect={setSelectedCourseId}
             />
+            <button
+              onClick={async () => {
+                const { data: { session } } = await supabase.auth.getSession()
+                if (!session) return
+                const res = await fetch('/api/creator/students/export', {
+                  headers: { Authorization: `Bearer ${session.access_token}` },
+                })
+                if (!res.ok) return
+                const blob = await res.blob()
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `all-students-${new Date().toISOString().slice(0, 10)}.csv`
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e4e4e7' }}
+            >
+              <Download className="w-3.5 h-3.5" /> Export all students
+            </button>
             <Link
               href="/contact"
               className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex-shrink-0"
