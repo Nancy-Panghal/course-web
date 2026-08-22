@@ -9,6 +9,8 @@ export default function RefundRequestsPage() {
   const [loading, setLoading] = useState(true)
   const [decidingId, setDecidingId] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [amounts, setAmounts] = useState<Record<string, string>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     async function load() {
@@ -29,17 +31,26 @@ export default function RefundRequestsPage() {
 
   async function decide(requestId: string, decision: 'approved' | 'denied') {
     setDecidingId(requestId)
+    setErrors(prev => ({ ...prev, [requestId]: '' }))
     try {
+      const amountEntered = amounts[requestId]
       const res = await fetch('/api/creator/refund-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ requestId, decision, note: notes[requestId] || '' }),
+        body: JSON.stringify({
+          requestId, decision, note: notes[requestId] || '',
+          amount: decision === 'approved' && amountEntered ? Number(amountEntered) : undefined,
+        }),
       })
       const json = await res.json()
       if (res.ok) {
         setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: decision === 'approved' ? 'completed' : 'denied' } : r))
       } else {
-        alert(json.error || 'Could not update this request.')
+        // Shown inline next to this specific request — a Cashfree/Razorpay/
+        // Stripe error (e.g. an issue on the creator's own gateway account)
+        // needs to be visible right where the creator is acting, not lost
+        // in a dismissible popup.
+        setErrors(prev => ({ ...prev, [requestId]: json.error || 'Could not process this refund.' }))
       }
     } finally {
       setDecidingId(null)
@@ -55,7 +66,7 @@ export default function RefundRequestsPage() {
       <main className="flex-1 p-8 pt-20 md:pt-8 max-w-3xl mx-auto w-full">
         <h1 className="text-2xl font-bold text-white mb-1">Refund Requests</h1>
         <p className="text-sm mb-8" style={{ color: '#a1a1aa' }}>
-          Approving marks the enrollment refunded and revokes access — only click Approve once you've actually sent the money back via UPI.
+          Approving sends the refund through your connected payment gateway automatically and revokes the student's access — no manual transfer needed. Leave the amount blank for a full refund, or enter a smaller amount for a partial one.
         </p>
 
         {loading ? (
@@ -74,6 +85,17 @@ export default function RefundRequestsPage() {
                 </div>
                 <p className="text-xs mb-1" style={{ color: '#a1a1aa' }}>{r.buyer_name || r.buyer_email || 'Student'}</p>
                 {r.reason && <p className="text-xs mb-3 italic" style={{ color: '#71717a' }}>&quot;{r.reason}&quot;</p>}
+                <label className="text-xs block mb-1" style={{ color: '#71717a' }}>
+                  Refund amount (₹) — leave blank for the full ₹{Number(r.amount || 0).toLocaleString('en-IN')}
+                </label>
+                <input
+                  type="number"
+                  placeholder={`Full amount: ${Number(r.amount || 0).toLocaleString('en-IN')}`}
+                  value={amounts[r.id] || ''}
+                  onChange={e => setAmounts(prev => ({ ...prev, [r.id]: e.target.value }))}
+                  className="w-full mb-3 px-3 py-2 rounded-lg text-xs text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                />
                 <input
                   placeholder="Optional note to yourself"
                   value={notes[r.id] || ''}
@@ -81,11 +103,16 @@ export default function RefundRequestsPage() {
                   className="w-full mb-3 px-3 py-2 rounded-lg text-xs text-white outline-none"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
+                {errors[r.id] && (
+                  <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }}>
+                    {errors[r.id]}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <button onClick={() => decide(r.id, 'approved')} disabled={decidingId === r.id}
                     className="flex-1 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
                     style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80' }}>
-                    Approve & Mark Refunded
+                    {decidingId === r.id ? 'Processing…' : 'Approve & Refund'}
                   </button>
                   <button onClick={() => decide(r.id, 'denied')} disabled={decidingId === r.id}
                     className="flex-1 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"

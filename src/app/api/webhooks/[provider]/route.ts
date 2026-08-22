@@ -65,8 +65,8 @@ type NormalizedEvent = {
   customer_mobile: string | null
 }
 
-export async function POST(req: NextRequest, { params }: { params: { provider: string } }) {
-  const provider = params.provider
+export async function POST(req: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
+  const { provider } = await params
   const rawBody = await req.text()
 
   if (provider === 'cashfree') return handleCashfree(rawBody, req)

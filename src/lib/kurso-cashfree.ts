@@ -100,3 +100,43 @@ export function verifyKursoCashfreeWebhookSignature(params: {
   const b = Buffer.from(params.signature)
   return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
+
+// Refunds a creator's Kurso subscription payment — this is Kurso's OWN
+// money going back to a creator, through Kurso's own Cashfree account
+// (never a creator's BYOK gateway; that's a completely separate flow
+// in gateway-refund.ts for student refunds).
+//
+// Whatever Cashfree's own error message says gets thrown through as-is
+// (json?.message), rather than a generic "refund failed" — that's what
+// lets a genuine cause like insufficient settled balance in Kurso's
+// Cashfree account surface clearly to the admin approving it, instead
+// of a vague failure with no actionable next step.
+export async function refundKursoSubscriptionPayment(params: {
+  orderId: string
+  amount: number // rupees
+  refundId: string // idempotency/reference — pass a stable id so a retry can't double-refund
+  reason?: string
+}): Promise<{ providerRefundId: string }> {
+  const { clientId, clientSecret } = credentials()
+
+  const res = await fetch(`${baseUrl()}/pg/orders/${params.orderId}/refunds`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-client-id': clientId,
+      'x-client-secret': clientSecret,
+      'x-api-version': CF_API_VERSION,
+    },
+    body: JSON.stringify({
+      refund_amount: params.amount,
+      refund_id: params.refundId,
+      refund_note: params.reason || 'Kurso subscription refund',
+    }),
+  })
+
+  const json = await res.json().catch(() => null)
+  if (!res.ok) {
+    throw new KursoCashfreeError(json?.message || `Cashfree refund failed (${res.status})`, res.status)
+  }
+  return { providerRefundId: json.refund_id || json.cf_refund_id || params.refundId }
+}

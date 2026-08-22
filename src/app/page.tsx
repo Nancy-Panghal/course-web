@@ -82,7 +82,7 @@ const embedSteps = [
   { icon: MessageCircle, title: 'Go live on WhatsApp, Telegram, or both', desc: 'Pick however you want lessons delivered — your landing page stays exactly as you built it.' },
 ]
 
-// TODO(Nancy): replace src with real screenshot paths, e.g. '/showcase/embed-1.jpg'
+
 const embedShowcaseImages = [
     { src: '/showcase/createCourse.png', alt: 'Creator landing page with Kurso checkout embedded' },
   { src: '/showcase/createLesson.png', alt: 'Enrollment code block snippet' },
@@ -97,10 +97,12 @@ const engagementPoints = [
   { icon: Lock, text: 'Links expire after a short window, so a shared link goes dead fast' },
 ]
 
-// TODO(Nancy): replace src with real screenshot paths, e.g. '/showcase/engagement-1.jpg'
+
 const engagementShowcaseImages = [
   { src: '/showcase/telegramChat.png', alt: 'Telegram chat in our bot' },
   { src: '/showcase/whatsappChat.png', alt: 'Whatsapp chat in our kurso bot' },
+  { src: '/showcase/studentProgress.png', alt: 'Student lesson progress and completion tracking' },
+  { src: '/showcase/certificateIssued.png', alt: 'Certificate issued to a student on course completion' },
 ]
 
 const faqs = [
@@ -605,7 +607,7 @@ export default function HomePage() {
             ))}
           </div>
 
-          <ImageGrid images={engagementShowcaseImages} cols={2} />
+                    <ImageGrid images={engagementShowcaseImages} cols={4} />
         </div>
       </section>
 

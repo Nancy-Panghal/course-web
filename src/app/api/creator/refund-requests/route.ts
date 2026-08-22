@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const creatorId = await getCreatorId(req)
     if (!creatorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { requestId, decision, note } = await req.json()
+    const { requestId, decision, note, amount } = await req.json()
     if (!requestId || !['approved', 'denied'].includes(decision)) {
       return NextResponse.json({ error: 'Missing or invalid fields' }, { status: 400 })
     }
@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
     if (!request) return NextResponse.json({ error: 'Request not found' }, { status: 404 })
 
     const result = request.type === 'ebook'
-      ? await decideEbookRefundRequest({ requestId, creatorId, decision, note })
-      : await decideCourseRefundRequest({ requestId, creatorId, decision, note })
+      ? await decideEbookRefundRequest({ requestId, creatorId, decision, note, amount })
+      : await decideCourseRefundRequest({ requestId, creatorId, decision, note, amount })
 
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
     return NextResponse.json({ success: true, message: result.message })

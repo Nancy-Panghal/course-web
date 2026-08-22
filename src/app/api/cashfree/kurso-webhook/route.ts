@@ -105,9 +105,11 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin.from('creators').update({ plan: subscription.plan_tier }).eq('id', subscription.creator_id)
 
-    const plan = getSubscriptionPlan(subscription.plan_tier)
+        const plan = getSubscriptionPlan(subscription.plan_tier)
     await supabaseAdmin.from('kurso_subscription_payments').insert({
       creator_id: subscription.creator_id,
+      subscription_id: subscription.id,
+      order_id: orderId,
       plan_name: plan?.name || subscription.plan_tier,
       amount: amount ?? plan?.amount,
       paid_at: new Date().toISOString(),
