@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 import { slugify } from '@/lib/utils'
-import { BookOpen, Upload, Users, IndianRupee, Download, Copy, Eye, EyeOff, Trash2, FileText, Image as ImageIcon, RotateCcw } from 'lucide-react'
+import { BookOpen, Upload, Users, IndianRupee, Download, Copy, Eye, EyeOff, Trash2, FileText, Image as ImageIcon, RotateCcw, X } from 'lucide-react'
 
 type Ebook = {
   id: string; title: string; description: string | null; price: number
@@ -25,6 +25,7 @@ export default function EbooksPage() {
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState('')
   const [resettingId, setResettingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Ebook | null>(null)
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -83,11 +84,11 @@ export default function EbooksPage() {
     fetchEbooks()
   }
 
-  async function deleteEbook(ebookId: string) {
-    if (!window.confirm('Delete this ebook? This cannot be undone.')) return
+    async function deleteEbook(ebookId: string) {
     await supabase.from('ebooks').delete().eq('id', ebookId)
     if (selectedId === ebookId) setSelectedId('')
     fetchEbooks()
+    setDeleteTarget(null)
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -131,7 +132,14 @@ export default function EbooksPage() {
 
   return (
     <div className="min-h-screen flex" style={{ background: '#050505' }}>
-      <Sidebar />
+            <Sidebar />
+      {deleteTarget && (
+        <DeleteEbookModal
+          ebook={deleteTarget}
+          onConfirm={() => deleteEbook(deleteTarget.id)}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
       <main className="md:ml-56 p-5 md:p-8 pt-20 md:pt-8 font-sans w-full flex flex-col items-center">
       <div className="w-full max-w-3xl">
         <div className="text-center mb-10 mt-4">
@@ -238,18 +246,27 @@ export default function EbooksPage() {
                         ₹{Number(eb.price).toLocaleString('en-IN')} · {eb.is_published ? 'Live' : 'Draft'}
                       </p>
                     </div>
-                    <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/ebook/${eb.id}`)} title="Copy link"
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
-                      <Copy className="w-4 h-4" />
+                                        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/ebook/${eb.id}`)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <Copy className="w-3 h-3" /> Copy link
                     </button>
-                    <button onClick={() => togglePublish(eb)} title={eb.is_published ? 'Unpublish' : 'Publish'}
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: eb.is_published ? 'rgba(239,68,68,0.1)' : 'rgba(74,222,128,0.1)', color: eb.is_published ? '#ef4444' : 'var(--kurso-success)' }}>
-                      {eb.is_published ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    <button onClick={() => togglePublish(eb)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
+                      style={{
+                        background: eb.is_published ? 'rgba(239,68,68,0.1)' : 'rgba(74,222,128,0.1)',
+                        color: eb.is_published ? '#ef4444' : '#4ade80',
+                        border: eb.is_published ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(74,222,128,0.2)',
+                      }}>
+                      {eb.is_published
+                        ? <><EyeOff className="w-3 h-3" />Unpublish</>
+                        : <><Eye className="w-3 h-3" />Publish</>
+                      }
                     </button>
-                    <button onClick={() => deleteEbook(eb.id)} title="Delete"
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
-                      <Trash2 className="w-4 h-4" />
+                    <button onClick={() => setDeleteTarget(eb)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
+                      style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                      <Trash2 className="w-3 h-3" /> Delete
                     </button>
                   </div>
                 ))}
@@ -292,6 +309,66 @@ export default function EbooksPage() {
         )}
       </div>
       </main>
+    </div>
+  )
+}
+
+function DeleteEbookModal({
+  ebook,
+  onConfirm,
+  onClose,
+}: {
+  ebook: Ebook
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const [confirmText, setConfirmText] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+      <div className="w-full max-w-md rounded-2xl p-6"
+        style={{ background: '#111', border: '1px solid rgba(239,68,68,0.3)' }}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-white">Delete Ebook</h2>
+          <button onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-zinc-400">
+            Delete <strong className="text-white">"{ebook.title}"</strong>? Buyers will lose access to
+            downloads. This cannot be undone.
+          </p>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-zinc-300">
+              Type <span className="text-white font-semibold">{ebook.title}</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={e => setConfirmText(e.target.value)}
+              placeholder="Type ebook title here"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose}
+              className="flex-1 py-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={confirmText.trim() !== ebook.title.trim()}
+              className="flex-1 py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+              style={{ background: '#ef4444' }}>
+              Delete Ebook
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
