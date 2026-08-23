@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
 import { slugify } from '@/lib/utils'
-import { BookOpen, Upload, Users, IndianRupee, Download, Copy, Eye, EyeOff, Trash2, FileText, Image as ImageIcon, RotateCcw, X } from 'lucide-react'
+import { BookOpen, Upload, Users, IndianRupee, Download, Copy, Eye, EyeOff, Trash2, FileText, Image as ImageIcon, RotateCcw, X, Check } from 'lucide-react'
 
 type Ebook = {
   id: string; title: string; description: string | null; price: number
@@ -26,6 +26,7 @@ export default function EbooksPage() {
   const [token, setToken] = useState('')
   const [resettingId, setResettingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Ebook | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -87,8 +88,14 @@ export default function EbooksPage() {
     async function deleteEbook(ebookId: string) {
     await supabase.from('ebooks').delete().eq('id', ebookId)
     if (selectedId === ebookId) setSelectedId('')
-    fetchEbooks()
+       fetchEbooks()
     setDeleteTarget(null)
+  }
+
+  function copyEbookLink(eb: Ebook) {
+    navigator.clipboard.writeText(`${window.location.origin}/ebook/${eb.id}`)
+    setCopiedId(eb.id)
+    setTimeout(() => setCopiedId(prev => (prev === eb.id ? null : prev)), 2000)
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -246,10 +253,14 @@ export default function EbooksPage() {
                         ₹{Number(eb.price).toLocaleString('en-IN')} · {eb.is_published ? 'Live' : 'Draft'}
                       </p>
                     </div>
-                                        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/ebook/${eb.id}`)}
+                                                            <button onClick={() => copyEbookLink(eb)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <Copy className="w-3 h-3" /> Copy link
+                      style={{
+                        background: copiedId === eb.id ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.05)',
+                        color: copiedId === eb.id ? '#4ade80' : '#a1a1aa',
+                        border: copiedId === eb.id ? '1px solid rgba(74,222,128,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                      }}>
+                      {copiedId === eb.id ? <><Check className="w-3 h-3" />Copied!</> : <><Copy className="w-3 h-3" />Copy link</>}
                     </button>
                     <button onClick={() => togglePublish(eb)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0"
