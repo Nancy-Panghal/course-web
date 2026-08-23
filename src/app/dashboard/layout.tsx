@@ -27,13 +27,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return
       }
 
-      if (accountType !== 'creator') {
-        router.push('/login?role=creator')
-        return
-      }
-
+      // accountType is 'creator' or 'unknown' at this point — resolveAccountType
+      // already rules out students above via role metadata, course ownership,
+      // enrollment records, phone, and email-as-phone checks, so 'unknown'
+      // here specifically means "no trace of this user anywhere" rather than
+      // "this is a student". Since /dashboard is an exclusively creator-facing
+      // route no legitimate student flow ever sends someone to, that's a
+      // brand-new signup — most commonly a first-time "Continue with Google"
+      // creator, since Google OAuth never carries a role in user_metadata the
+      // way email/password signup does. Provisioning them here, rather than
+      // bouncing back to login, is what actually lets a new Google-based
+      // creator ever reach their dashboard at all.
       let c = await ensureCreatorProfile()
-      if (!c && session.user.user_metadata?.role === 'creator') {
+      if (!c) {
         c = await createCreatorProfile()
       }
 

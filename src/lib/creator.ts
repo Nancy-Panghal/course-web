@@ -14,7 +14,11 @@ export async function ensureCreatorProfile() {
   return existing
 }
 
-/** Explicitly create a creator profile at creator signup. */
+/** Explicitly create a creator profile at creator signup. No free trial —
+ * creators start with no active plan and must pay before they can publish
+ * a course or accept real enrollments (see hasActivePaidPlan gating in the
+ * course settings page). This intentionally does NOT set plan/trial_*
+ * fields the way it used to. */
 export async function createCreatorProfile() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -29,9 +33,6 @@ export async function createCreatorProfile() {
       email: user.email,
       name: user.user_metadata?.full_name || user.user_metadata?.username || '',
       username: user.user_metadata?.username || user.email?.split('@')[0],
-      plan: 'trial',
-      trial_started_at: new Date().toISOString(),
-      trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     })
     .select()
     .single()
