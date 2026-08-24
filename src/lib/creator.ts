@@ -41,8 +41,15 @@ export async function createCreatorProfile() {
     console.error('[createCreatorProfile]', error.message)
     return null
   }
+    const { error: metaError } = await supabase.auth.updateUser({
+    data: { role: 'creator' },
+  })
+  if (metaError) {
+    console.error('[createCreatorProfile] failed to stamp role metadata:', metaError.message)
+  }
 
   return data
+  
 }
 
 export async function getCreatorProfile() {
