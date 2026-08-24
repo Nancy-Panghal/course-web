@@ -8,7 +8,7 @@ import {
   ChevronDown, Terminal, RefreshCw, ShieldCheck, Smartphone
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionOrRefresh } from '@/lib/supabase'
 import { resolveAccountType } from '@/lib/account'
 
 // TODO: paste your screen-recording link here (YouTube embed URL or hosted .mp4)
@@ -331,7 +331,7 @@ export default function HomePage() {
       }
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+        getSessionOrRefresh().then(({ session }) => {
       checkUser(session?.user ?? null)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {

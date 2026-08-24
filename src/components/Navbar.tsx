@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link' 
 import { Menu, X, LayoutDashboard, BookOpen } from 'lucide-react'
 import Logo from './Logo'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionOrRefresh } from '@/lib/supabase'
 import { resolveAccountType } from '@/lib/account'
 
 export default function Navbar() {
@@ -26,7 +26,7 @@ export default function Navbar() {
       setIsCreator(accountType === 'creator')
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+        getSessionOrRefresh().then(({ session }) => {
       syncUser(session?.user ?? null)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {

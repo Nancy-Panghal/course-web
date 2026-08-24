@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionOrRefresh } from '@/lib/supabase'
 import { resolveAccountType } from '@/lib/account'
 import { ensureCreatorProfile, createCreatorProfile } from '@/lib/creator'
 import Link from 'next/link'
@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession()
+            const { session } = await getSessionOrRefresh()
       if (!session) {
         router.push('/login')
         return

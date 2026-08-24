@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import AuthHashCleanup from '@/components/AuthHashCleanup'
 
 // metadataBase turns every relative image/URL used in page-level metadata
 // (course pages, creator profiles, etc.) into a correct absolute URL —
@@ -40,7 +41,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-black text-white antialiased">
+            <body className="bg-black text-white antialiased">
+        <AuthHashCleanup />
         {children}
       </body>
     </html>
