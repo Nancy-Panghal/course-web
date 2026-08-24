@@ -12,6 +12,14 @@ export async function resolveAccountType(user: User): Promise<AccountType> {
   if (role === 'creator') return 'creator'
   if (role === 'student') return 'student'
 
+  const { data: creatorRow } = await supabase
+    .from('creators')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (creatorRow) return 'creator'
+
   const { count: courseCount } = await supabase
     .from('courses')
     .select('*', { count: 'exact', head: true })
@@ -53,13 +61,7 @@ export async function resolveAccountType(user: User): Promise<AccountType> {
     if (count && count > 0) return 'student'
   }
 
-  const { data: creatorRow } = await supabase
-    .from('creators')
-    .select('id')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (creatorRow) return 'creator'
+  
 
   return 'unknown'
 }
