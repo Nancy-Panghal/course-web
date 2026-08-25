@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { ArrowRight, ArrowLeft, Globe, MessageCircle, Send, Plus, X, Code2, Wallet, HelpCircle, KeyRound } from 'lucide-react'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
+import SectionDivider from '@/components/SectionDivider'
 import { getEffectivePlanId } from '@/lib/kurso-checkout'
 import { PLAN_ORDER, planCoversDeliveryMethod, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 
@@ -41,7 +42,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<string> {
     if (uploadError) {
       // Provide specific error messages for common issues
       let errorMsg = uploadError.message
-      
+
       if (errorMsg?.includes('row-level security') || errorMsg?.includes('RLS')) {
         errorMsg = 'Storage policy error: Please contact admin to enable file uploads. See STORAGE_RLS_FIX.md for fix.'
       } else if (errorMsg?.includes('unauthorized') || errorMsg?.includes('auth')) {
@@ -49,7 +50,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<string> {
       } else if (errorMsg?.includes('not found')) {
         errorMsg = 'Storage bucket not found. Please check configuration.'
       }
-      
+
       console.error('Supabase upload error:', uploadError)
       throw new Error(`Upload failed: ${errorMsg}`)
     }
@@ -76,7 +77,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div>
       <label className="text-sm font-medium text-white mb-2 block">{label}</label>
       {children}
-      {hint && <p className="text-xs mt-1.5" style={{color:'#52525b'}}>{hint}</p>}
+      {hint && <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: 'rgba(196,181,253,0.65)' }}>{hint}</p>}
     </div>
   )
 }
@@ -90,7 +91,7 @@ function Input({ value, onChange, placeholder, type = 'text' }: {
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
-      style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
       onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
       onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
     />
@@ -139,9 +140,7 @@ export default function CreateCoursePage() {
   const [delivery, setDelivery] = useState<SubscriptionPlanId>('telegram')
   const [effectivePlanId, setEffectivePlanId] = useState<SubscriptionPlanId | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(true)
-  const [totalLessons, setTotalLessons] = useState('')
   const [startDate, setStartDate] = useState('')
-  const [startTime, setStartTime] = useState('')
   const [duration, setDuration] = useState('')
   const [whatYouWillLearn, setWhatYouWillLearn] = useState([''])
   const [faqs, setFaqs] = useState([{ question: '', answer: '' }])
@@ -155,7 +154,6 @@ export default function CreateCoursePage() {
   const [level, setLevel] = useState('')
   const [category, setCategory] = useState('')
   const [brandName, setBrandName] = useState('')
-  const [instructorTitle, setInstructorTitle] = useState('')
   const [requirements, setRequirements] = useState([''])
   const [targetAudience, setTargetAudience] = useState([''])
   const [coInstructors, setCoInstructors] = useState<CoInstructor[]>([])
@@ -231,7 +229,7 @@ export default function CreateCoursePage() {
           .from('creators')
           .update({ default_uses_external_landing_page: next })
           .eq('id', user.id)
-          .then(() => {})
+          .then(() => { })
       })
       return next
     })
@@ -265,6 +263,10 @@ export default function CreateCoursePage() {
     }
     if (!usesExternalLandingPage && !description) {
       setError('Course description is required.')
+      return
+    }
+    if (!usesExternalLandingPage && !brandName.trim()) {
+      setError('Brand / Business name is required.')
       return
     }
     // When is_free_course is ON, price must be 0; otherwise require a price
@@ -320,10 +322,9 @@ export default function CreateCoursePage() {
         about_creator: aboutCreator,
         host_image: hostImage,
         delivery,
-        total_lessons: totalLessons ? parseInt(totalLessons) : 0,
+        total_lessons: 0,
         language: selectedLanguages,
         start_date: startDate,
-        start_time: startTime,
         duration: duration,
         what_you_will_learn: whatYouWillLearn.filter(item => item.trim() !== ''),
         faq: faqs.filter(f => f.question.trim() !== '' && f.answer.trim() !== ''),
@@ -333,7 +334,6 @@ export default function CreateCoursePage() {
         level: level || null,
         category: category || null,
         brand_name: brandName.trim() || null,
-        instructor_title: instructorTitle.trim() || null,
         requirements: requirements.filter(r => r.trim()),
         target_audience: targetAudience.filter(t => t.trim()),
         co_instructors: coInstructors
@@ -366,16 +366,16 @@ export default function CreateCoursePage() {
         <div className="flex items-center gap-4 mb-8">
           <button onClick={() => router.back()}
             className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-            style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
+            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h1 className="text-2xl font-bold text-white">Create Course</h1>
-            <p className="text-sm" style={{color:'#a1a1aa'}}>Fill in the details to set up your course</p>
+            <p className="text-sm" style={{ color: '#a1a1aa' }}>Fill in the details to set up your course</p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 md:gap-8">
 
           {/* Landing page mode */}
           <div className="rounded-2xl p-5 glass"
@@ -397,16 +397,16 @@ export default function CreateCoursePage() {
           </div>
 
           {/* Basic Info */}
-          <div className="rounded-2xl p-6 glass"
-            style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+          <div className="rounded-2xl p-6 md:p-8 glass"
+            style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <h2 className="font-semibold text-white mb-5">Basic Information</h2>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-5">
 
               <Field label="Course Name *">
                 <Input value={name} onChange={setName} placeholder="e.g. SEO Masterclass 2026" />
                 {name && (
-                  <p className="text-xs mt-1.5" style={{color:'#52525b'}}>
-                    Course URL: <span style={{color:'var(--kurso-primary-light)'}}>/c/{slug}</span>
+                  <p className="text-xs mt-1.5" style={{ color: '#52525b' }}>
+                    Course URL: <span style={{ color: 'var(--kurso-primary-light)' }}>/c/{slug}</span>
                   </p>
                 )}
               </Field>
@@ -435,281 +435,278 @@ export default function CreateCoursePage() {
               )}
 
               {!usesExternalLandingPage && (
-              <>
-              <Field label="Description *" hint="Tell students what they will learn">
-                <textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder="Learn everything about SEO from scratch..."
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
-                  style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Category" hint="e.g. Digital Marketing, Coding, Finance">
-                  <Input value={category} onChange={setCategory} placeholder="e.g. Digital Marketing" />
-                </Field>
-                <Field label="Difficulty Level">
-                  <select
-                    value={level}
-                    onChange={e => setLevel(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none appearance-none cursor-pointer"
-                    style={{background:'#050505', color: level ? '#fff' : '#52525b', border:'1px solid rgba(255,255,255,0.1)'}}
-                  >
-                    <option value="" style={{background:'#050505',color:'#52525b'}}>Select level…</option>
-                    {['Beginner','Intermediate','Advanced','All Levels'].map(l => (
-                      <option key={l} value={l} style={{background:'#050505',color:'#fff'}}>{l}</option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-
-              <Field label="Brand / Business Name" hint="Shown in landing page nav. Leave blank to use instructor name.">
-                <Input value={brandName} onChange={setBrandName} placeholder="Your brand name (optional)" />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Price (₹) *">
-                  <div className="relative">
-                    <Input
-                      value={price}
-                      onChange={v => {
-                        if (isFreeCourse) return // blocked when free toggle is on
-                        setPrice(v)
-                      }}
-                      placeholder={isFreeCourse ? '0 (course is free)' : '4999'}
-                      type="number"
+                <>
+                  <SectionDivider label="Course Details" />
+                  <Field label="Description *" hint="Tell students what they will learn">
+                    <textarea
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
+                      placeholder="Learn everything about SEO from scratch..."
+                      rows={4}
+                      className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
+                      onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                     />
-                    {isFreeCourse && (
-                      <p className="text-xs mt-1.5" style={{ color: '#f97316' }}>
-                        This course is set to free. Turn off "Make this course free" below to set a price.
-                      </p>
-                    )}
-                  </div>
-                </Field>
-                <Field label="Original Price (₹)" hint="For showing discount">
-                  <Input
-                    value={isFreeCourse ? '' : originalPrice}
-                    onChange={v => {
-                      if (isFreeCourse) return
-                      setOriginalPrice(v)
-                    }}
-                    placeholder={isFreeCourse ? '—' : '9999'}
-                    type="number"
-                  />
-                </Field>
-              </div>
+                  </Field>
 
-              {/* Make this entire course free toggle */}
-              <FreeCourseToggle
-                isFreeCourse={isFreeCourse}
-                onToggle={() => {
-                  const next = !isFreeCourse
-                  setIsFreeCourse(next)
-                  if (next) {
-                    setPrice('0')
-                    setOriginalPrice('')
-                  } else {
-                    setPrice('')
-                  }
-                }}
-              />
-
-              <Field label="Refund Window (days)" hint="How many days after purchase a student can request a refund. Set to 0 for no refunds.">
-                <Input value={refundWindowDays} onChange={setRefundWindowDays} placeholder="7" type="number" />
-              </Field>
-
-              <Field label="Refund Policy, Terms & Privacy" hint="Upload these as files once your course is created — go to the course's Settings tab after saving.">
-                <p className="text-xs text-zinc-500">You'll be able to upload a Refund Policy, Terms & Conditions, and Privacy Policy file from the Settings tab of this course once it's created.</p>
-              </Field>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Instructor Name" hint="Shown on course page">
-                  <Input value={hostName} onChange={setHostName} placeholder="Your name" />
-                </Field>
-                <Field label="Planned Number of Lessons">
-                  <Input value={totalLessons} onChange={setTotalLessons} placeholder="24" type="number" />
-                </Field>
-              </div>
-
-              <Field label="Instructor Title / Credentials" hint="e.g. Certified SEO Expert · 8+ Years">
-                <Input value={instructorTitle} onChange={setInstructorTitle} placeholder="e.g. Certified Digital Marketer, 8+ Years Experience" />
-              </Field>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Field label="Start Date" hint="e.g. 15th May 2026">
-                  <Input value={startDate} onChange={setStartDate} placeholder="15th May 2026" />
-                </Field>
-                <Field label="Start Time" hint="e.g. 7:00 PM IST">
-                  <Input value={startTime} onChange={setStartTime} placeholder="7:00 PM IST" />
-                </Field>
-                <Field label="Total Duration" hint="e.g. 4 Weeks / 20 Hours">
-                  <Input value={duration} onChange={setDuration} placeholder="4 Weeks" />
-                </Field>
-              </div>
-
-              <Field label="What You Will Learn" hint="Add key takeaways for students">
-                <div className="flex flex-col gap-2">
-                  {whatYouWillLearn.map((item, i) => (
-                    <div key={i} className="flex gap-2">
-                      <Input value={item} onChange={v => updateWhatYouWillLearn(i, v)} placeholder={`Point ${i+1}`} />
-                      {whatYouWillLearn.length > 1 && (
-                        <button onClick={() => removeWhatYouWillLearn(i)}
-                          className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all">
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button onClick={addWhatYouWillLearn}
-                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit mt-1 transition-all"
-                    style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.1)'}}>
-                    <Plus className="w-3.5 h-3.5" />
-                    Add Point
-                  </button>
-                </div>
-              </Field>
-
-              <Field label="About You" hint="Shown on course page as instructor bio">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
-                    {hostImage ? (
-                      <img src={hostImage} alt="Instructor" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-2xl font-bold text-zinc-700">
-                        {hostName ? hostName.charAt(0).toUpperCase() : '?'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <input
-                      type="file"
-                      id="create-host-image"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={uploadingImage}
-                    />
-                    <label
-                      htmlFor="create-host-image"
-                      className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
-                    >
-                      {uploadingImage ? 'Uploading...' : hostImage ? 'Change Photo' : 'Upload Photo'}
-                    </label>
-                    {hostImage && (
-                      <button
-                        type="button"
-                        onClick={() => setHostImage('')}
-                        className="ml-2 text-xs text-zinc-500 hover:text-red-500"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Category (optional)" hint="e.g. Digital Marketing, Coding, Finance">
+                      <Input value={category} onChange={setCategory} placeholder="e.g. Digital Marketing" />
+                    </Field>
+                    <Field label="Difficulty Level">
+                      <select
+                        value={level}
+                        onChange={e => setLevel(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none appearance-none cursor-pointer"
+                        style={{ background: '#050505', color: level ? '#fff' : '#52525b', border: '1px solid rgba(255,255,255,0.1)' }}
                       >
-                        Remove
-                      </button>
-                    )}
-                    <p className="text-[10px] text-zinc-500 mt-1.5">Square JPG/PNG/WebP recommended, max 2MB.</p>
+                        <option value="" style={{ background: '#050505', color: '#52525b' }}>Select level…</option>
+                        {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(l => (
+                          <option key={l} value={l} style={{ background: '#050505', color: '#fff' }}>{l}</option>
+                        ))}
+                      </select>
+                    </Field>
                   </div>
-                </div>
-                <textarea
-                  value={aboutCreator}
-                  onChange={e => setAboutCreator(e.target.value)}
-                  placeholder="SEO expert with 8 years of experience..."
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
-                  style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
-              </Field>
 
-              <Field label="Additional Instructors" hint="Optional — for co-taught courses. Shown alongside you on the course page.">
-                <CoInstructorsEditor
-                  value={coInstructors}
-                  onChange={setCoInstructors}
-                  onUpload={file => uploadToSupabase(file, 'images')}
-                />
-              </Field>
+                  <Field label="Brand / Business Name *" hint="Shown in your landing page navigation bar.">
+                    <Input value={brandName} onChange={setBrandName} placeholder="Your brand name" />
+                  </Field>
 
-              <Field label="Requirements / Prerequisites" hint="What students need before starting (leave blank if none)">
-                <div className="flex flex-col gap-2">
-                  {requirements.map((item, i) => (
-                    <div key={i} className="flex gap-2">
-                      <Input value={item} onChange={v => { const n=[...requirements]; n[i]=v; setRequirements(n) }} placeholder={`e.g. Basic computer skills`} />
-                      {requirements.length > 1 && (
-                        <button onClick={() => setRequirements(requirements.filter((_,idx)=>idx!==i))}
-                          className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"><X className="w-4 h-4" /></button>
-                      )}
-                    </div>
-                  ))}
-                  <button onClick={() => setRequirements([...requirements, ''])}
-                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
-                    style={{background:'rgba(255,255,255,0.05)',color:'#a1a1aa',border:'1px solid rgba(255,255,255,0.1)'}}>
-                    <Plus className="w-3.5 h-3.5" />Add Requirement
-                  </button>
-                </div>
-              </Field>
+                  <SectionDivider label="Pricing" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Price (₹) *">
+                      <div className="relative">
+                        <Input
+                          value={price}
+                          onChange={v => {
+                            if (isFreeCourse) return // blocked when free toggle is on
+                            setPrice(v)
+                          }}
+                          placeholder={isFreeCourse ? '0 (course is free)' : '4999'}
+                          type="number"
+                        />
+                        {isFreeCourse && (
+                          <p className="text-xs mt-1.5" style={{ color: '#f97316' }}>
+                            This course is set to free. Turn off "Make this course free" below to set a price.
+                          </p>
+                        )}
+                      </div>
+                    </Field>
+                    <Field label="Original Price (₹)" hint="For showing discount">
+                      <Input
+                        value={isFreeCourse ? '' : originalPrice}
+                        onChange={v => {
+                          if (isFreeCourse) return
+                          setOriginalPrice(v)
+                        }}
+                        placeholder={isFreeCourse ? '—' : '9999'}
+                        type="number"
+                      />
+                    </Field>
+                  </div>
 
-              <Field label="Who Is This Course For?" hint="Describe your ideal student (shown on landing page)">
-                <div className="flex flex-col gap-2">
-                  {targetAudience.map((item, i) => (
-                    <div key={i} className="flex gap-2">
-                      <Input value={item} onChange={v => { const n=[...targetAudience]; n[i]=v; setTargetAudience(n) }} placeholder={`e.g. Beginners who want to start with digital marketing`} />
-                      {targetAudience.length > 1 && (
-                        <button onClick={() => setTargetAudience(targetAudience.filter((_,idx)=>idx!==i))}
-                          className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"><X className="w-4 h-4" /></button>
-                      )}
-                    </div>
-                  ))}
-                  <button onClick={() => setTargetAudience([...targetAudience, ''])}
-                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
-                    style={{background:'rgba(255,255,255,0.05)',color:'#a1a1aa',border:'1px solid rgba(255,255,255,0.1)'}}>
-                    <Plus className="w-3.5 h-3.5" />Add Audience
-                  </button>
-                </div>
-              </Field>
+                  {/* Make this entire course free toggle */}
+                  <FreeCourseToggle
+                    isFreeCourse={isFreeCourse}
+                    onToggle={() => {
+                      const next = !isFreeCourse
+                      setIsFreeCourse(next)
+                      if (next) {
+                        setPrice('0')
+                        setOriginalPrice('')
+                      } else {
+                        setPrice('')
+                      }
+                    }}
+                  />
 
-              <Field label="Frequently Asked Questions" hint="Address common student doubts">
-                <div className="flex flex-col gap-4">
-                  {faqs.map((faq, i) => (
-                    <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
-                      style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)'}}>
-                      <button onClick={() => removeFaq(i)}
-                        className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
-                        <X className="w-4 h-4" />
+                  <Field label="Refund Window (days)" hint="How many days after purchase a student can request a refund. Set to 0 for no refunds.">
+                    <Input value={refundWindowDays} onChange={setRefundWindowDays} placeholder="7" type="number" />
+                  </Field>
+
+                  <Field label="Refund Policy, Terms & Privacy" hint="Upload these as files once your course is created — go to the course's Settings tab after saving.">
+                    <p className="text-xs text-zinc-500">You'll be able to upload a Refund Policy, Terms & Conditions, and Privacy Policy file from the Settings tab of this course once it's created.</p>
+                  </Field>
+
+                  <SectionDivider label="Instructor" />
+                  <Field label="Instructor Name" hint="Shown on course page">
+                    <Input value={hostName} onChange={setHostName} placeholder="Your name" />
+                  </Field>
+
+                  <SectionDivider label="Course Schedule" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Course Launch Date" hint="When students can join the course. Don't know yet? You can set this later from the course's Settings tab.">
+                      <Input value={startDate} onChange={setStartDate} placeholder="15th May 2026" />
+                    </Field>
+                    <Field label="Course Duration" hint="e.g. 4 Weeks / 20 Hours">
+                      <Input value={duration} onChange={setDuration} placeholder="4 Weeks" />
+                    </Field>
+                  </div>
+
+                  <SectionDivider label="What You Will Learn" />
+                  <Field label="What You Will Learn" hint="Add key takeaways for students">
+                    <div className="flex flex-col gap-2">
+                      {whatYouWillLearn.map((item, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input value={item} onChange={v => updateWhatYouWillLearn(i, v)} placeholder={`Point ${i + 1}`} />
+                          {whatYouWillLearn.length > 1 && (
+                            <button onClick={() => removeWhatYouWillLearn(i)}
+                              className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all">
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={addWhatYouWillLearn}
+                        className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit mt-1 transition-all"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Point
                       </button>
-                      <input
-                        value={faq.question}
-                        onChange={e => updateFaq(i, 'question', e.target.value)}
-                        placeholder="Question"
-                        className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8"
-                      />
-                      <textarea
-                        value={faq.answer}
-                        onChange={e => updateFaq(i, 'answer', e.target.value)}
-                        placeholder="Answer"
-                        rows={2}
-                        className="w-full bg-transparent text-sm text-zinc-400 outline-none resize-none"
-                      />
                     </div>
-                  ))}
-                  <button onClick={addFaq}
-                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
-                    style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.1)'}}>
-                    <Plus className="w-3.5 h-3.5" />
-                    Add FAQ
-                  </button>
-                </div>
-              </Field>
-              </>
+                  </Field>
+
+                  <SectionDivider label="Instructor Bio" />
+                  <Field label="About You" hint="Shown on course page as instructor bio">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                        {hostImage ? (
+                          <img src={hostImage} alt="Instructor" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-2xl font-bold text-zinc-700">
+                            {hostName ? hostName.charAt(0).toUpperCase() : '?'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          id="create-host-image"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={uploadingImage}
+                        />
+                        <label
+                          htmlFor="create-host-image"
+                          className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
+                        >
+                          {uploadingImage ? 'Uploading...' : hostImage ? 'Change Photo' : 'Upload Photo'}
+                        </label>
+                        {hostImage && (
+                          <button
+                            type="button"
+                            onClick={() => setHostImage('')}
+                            className="ml-2 text-xs text-zinc-500 hover:text-red-500"
+                          >
+                            Remove
+                          </button>
+                        )}
+                        <p className="text-[10px] text-zinc-500 mt-1.5">Square JPG/PNG/WebP recommended, max 2MB.</p>
+                      </div>
+                    </div>
+                    <textarea
+                      value={aboutCreator}
+                      onChange={e => setAboutCreator(e.target.value)}
+                      placeholder="SEO expert with 8 years of experience..."
+                      rows={3}
+                      className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
+                      onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                    />
+                  </Field>
+
+                  <Field label="Additional Instructors" hint="Optional — for co-taught courses. Shown alongside you on the course page.">
+                    <CoInstructorsEditor
+                      value={coInstructors}
+                      onChange={setCoInstructors}
+                      onUpload={file => uploadToSupabase(file, 'images')}
+                    />
+                  </Field>
+
+                  <SectionDivider label="Requirements" />
+                  <Field label="Requirements / Prerequisites" hint="What students need before starting (leave blank if none)">
+                    <div className="flex flex-col gap-2">
+                      {requirements.map((item, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input value={item} onChange={v => { const n = [...requirements]; n[i] = v; setRequirements(n) }} placeholder={`e.g. Basic computer skills`} />
+                          {requirements.length > 1 && (
+                            <button onClick={() => setRequirements(requirements.filter((_, idx) => idx !== i))}
+                              className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"><X className="w-4 h-4" /></button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={() => setRequirements([...requirements, ''])}
+                        className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <Plus className="w-3.5 h-3.5" />Add Requirement
+                      </button>
+                    </div>
+                  </Field>
+
+                  <SectionDivider label="Who Is This Course For?" />
+                  <Field label="Who Is This Course For?" hint="Describe your ideal student (shown on landing page)">
+                    <div className="flex flex-col gap-2">
+                      {targetAudience.map((item, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input value={item} onChange={v => { const n = [...targetAudience]; n[i] = v; setTargetAudience(n) }} placeholder={`e.g. Beginners who want to start with digital marketing`} />
+                          {targetAudience.length > 1 && (
+                            <button onClick={() => setTargetAudience(targetAudience.filter((_, idx) => idx !== i))}
+                              className="px-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"><X className="w-4 h-4" /></button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={() => setTargetAudience([...targetAudience, ''])}
+                        className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <Plus className="w-3.5 h-3.5" />Add Audience
+                      </button>
+                    </div>
+                  </Field>
+
+                  <SectionDivider label="Frequently Asked Questions" />
+                  <Field label="Frequently Asked Questions" hint="Address common student doubts">
+                    <div className="flex flex-col gap-4">
+                      {faqs.map((faq, i) => (
+                        <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
+                          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <button onClick={() => removeFaq(i)}
+                            className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
+                            <X className="w-4 h-4" />
+                          </button>
+                          <input
+                            value={faq.question}
+                            onChange={e => updateFaq(i, 'question', e.target.value)}
+                            placeholder="Question"
+                            className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8"
+                          />
+                          <textarea
+                            value={faq.answer}
+                            onChange={e => updateFaq(i, 'answer', e.target.value)}
+                            placeholder="Answer"
+                            rows={2}
+                            className="w-full bg-transparent text-sm text-zinc-400 outline-none resize-none"
+                          />
+                        </div>
+                      ))}
+                      <button onClick={addFaq}
+                        className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl w-fit transition-all"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <Plus className="w-3.5 h-3.5" />
+                        Add FAQ
+                      </button>
+                    </div>
+                  </Field>
+                </>
               )}
             </div>
           </div>
 
           {/* Bring-your-own-landing-page guidance — shown instead of the fields above */}
           {usesExternalLandingPage && (
-            <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+            <div className="rounded-2xl p-6 md:p-8 glass" style={{ border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
               <div className="flex items-center gap-2 mb-5">
                 <Globe className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                 <h2 className="font-semibold text-white">Setting Up On Your Own Page</h2>
@@ -782,8 +779,8 @@ export default function CreateCoursePage() {
           )}
 
           {/* Delivery */}
-          <div className="rounded-2xl p-6 glass"
-            style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+          <div className="rounded-2xl p-6 md:p-8 glass"
+            style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <h2 className="font-semibold text-white mb-5">Delivery Method</h2>
             {loadingPlan ? (
               <p className="text-sm" style={{ color: '#52525b' }}>Loading your plan…</p>
@@ -804,61 +801,61 @@ export default function CreateCoursePage() {
 
           {/* Languages */}
           {!usesExternalLandingPage && (
-          <div className="rounded-2xl p-6 glass"
-            style={{border:'1px solid rgba(255,255,255,0.06)'}}>
-            <h2 className="font-semibold text-white mb-5">Course Language(s)</h2>
+            <div className="rounded-2xl p-6 md:p-8 glass"
+              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+              <h2 className="font-semibold text-white mb-5">Course Language(s)</h2>
 
-            {/* Selected tags */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {selectedLanguages.map(lang => (
-                <span key={lang}
-                  className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg"
-                  style={{background:'rgba(var(--kurso-primary-rgb), 0.15)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.3)'}}>
-                  {lang}
-                  <button onClick={() => toggleLanguage(lang)}>
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-              <button
-                onClick={() => setLangDropdown(!langDropdown)}
-                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-all"
-                style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.1)'}}>
-                <Plus className="w-3 h-3" />
-                Add Language
-              </button>
-            </div>
-
-            {/* Dropdown */}
-            {langDropdown && (
-              <div className="rounded-xl overflow-hidden"
-                style={{border:'1px solid rgba(255,255,255,0.1)', background:'#111'}}>
-                <div className="max-h-48 overflow-y-auto">
-                  {LANGUAGES.filter(l => !selectedLanguages.includes(l)).map(lang => (
-                    <button key={lang}
-                      onClick={() => { toggleLanguage(lang); setLangDropdown(false) }}
-                      className="w-full text-left px-4 py-2.5 text-sm transition-all"
-                      style={{color:'#a1a1aa'}}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.background = 'rgba(var(--kurso-primary-rgb), 0.1)'
-                        e.currentTarget.style.color = '#fff'
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = 'transparent'
-                        e.currentTarget.style.color = '#a1a1aa'
-                      }}>
-                      {lang}
+              {/* Selected tags */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {selectedLanguages.map(lang => (
+                  <span key={lang}
+                    className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg"
+                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
+                    {lang}
+                    <button onClick={() => toggleLanguage(lang)}>
+                      <X className="w-3 h-3" />
                     </button>
-                  ))}
-                </div>
+                  </span>
+                ))}
+                <button
+                  onClick={() => setLangDropdown(!langDropdown)}
+                  className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-all"
+                  style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <Plus className="w-3 h-3" />
+                  Add Language
+                </button>
               </div>
-            )}
-          </div>
+
+              {/* Dropdown */}
+              {langDropdown && (
+                <div className="rounded-xl overflow-hidden"
+                  style={{ border: '1px solid rgba(255,255,255,0.1)', background: '#111' }}>
+                  <div className="max-h-48 overflow-y-auto">
+                    {LANGUAGES.filter(l => !selectedLanguages.includes(l)).map(lang => (
+                      <button key={lang}
+                        onClick={() => { toggleLanguage(lang); setLangDropdown(false) }}
+                        className="w-full text-left px-4 py-2.5 text-sm transition-all"
+                        style={{ color: '#a1a1aa' }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = 'rgba(var(--kurso-primary-rgb), 0.1)'
+                          e.currentTarget.style.color = '#fff'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'transparent'
+                          e.currentTarget.style.color = '#a1a1aa'
+                        }}>
+                        {lang}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {error && (
             <div className="p-4 rounded-xl text-sm"
-              style={{background:'rgba(239,68,68,0.08)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>
+              style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
               {error}
             </div>
           )}
@@ -867,7 +864,7 @@ export default function CreateCoursePage() {
           <div className="flex gap-3">
             <button onClick={() => router.back()}
               className="px-6 py-3 rounded-xl text-sm font-medium transition-all"
-              style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
               Cancel
             </button>
             <button onClick={handleCreate} disabled={loading}

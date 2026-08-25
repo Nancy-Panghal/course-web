@@ -9,6 +9,7 @@ import LandingPageDesigner from '@/components/LandingPageDesigner'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
 import TestCourseModal from '@/components/TestCourseModal'
+import SectionDivider from '@/components/SectionDivider'
 import { getEffectivePlanId } from '@/lib/kurso-checkout'
 import { PLAN_ORDER, planCoversDeliveryMethod, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 import {
@@ -171,18 +172,6 @@ async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl
 
 // A labeled horizontal rule — "――――― Section Name ―――――" — used to visually
 // break the long settings form into scannable groups.
-function SectionDivider({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-4 mt-2 mb-1">
-      <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.12)' }} />
-      <span className="text-sm font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: '#d4d4d8' }}>
-        {label}
-      </span>
-      <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.12)' }} />
-    </div>
-  )
-}
-
 function AddModuleModal({
   onClose,
   onAdd,
@@ -2192,7 +2181,6 @@ export default function CourseManagePage({
   const [editHostName, setEditHostName] = useState('')
   const [editAbout, setEditAbout] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
-  const [editStartTime, setEditStartTime] = useState('')
   const [editDuration, setEditDuration] = useState('')
   const [editPlannedLessons, setEditPlannedLessons] = useState('')
   const [editNextLessonDate, setEditNextLessonDate] = useState('')
@@ -2283,7 +2271,6 @@ export default function CourseManagePage({
       setEditHostName(courseData.host_name || '')
       setEditAbout(courseData.about_creator || '')
       setEditStartDate(courseData.start_date || '')
-      setEditStartTime(courseData.start_time || '')
       setEditDuration(courseData.duration || '')
 
       setEditSkills(Array.isArray(courseData.skills) ? courseData.skills.join(', ') : '')
@@ -2308,7 +2295,6 @@ export default function CourseManagePage({
       setBrandLogoUrl(courseData.brand_logo_url || '')
       setEditUseLogoOnCertificate(courseData.use_logo_on_certificate || false)
       setEditBrandName(courseData.brand_name || '')
-      setEditInstructorTitle(courseData.instructor_title || '')
       setEditCoInstructors(Array.isArray(courseData.co_instructors) ? courseData.co_instructors : [])
       // promo_video_urls is the new source of truth; fall back to the old
       // single-video column so a course configured before this feature
@@ -2483,7 +2469,6 @@ export default function CourseManagePage({
         host_name: editHostName,
         about_creator: editAbout,
         start_date: editStartDate,
-        start_time: editStartTime,
         duration: editDuration,
         total_lessons: editPlannedLessons ? parseInt(editPlannedLessons) : lessons.length,
         next_lesson_date: editNextLessonDate || null,
@@ -2511,7 +2496,6 @@ export default function CourseManagePage({
         terms_storage_path: editTermsPath || null,
         privacy_storage_path: editPrivacyPath || null,
         brand_name: editBrandName.trim() || null,
-        instructor_title: editInstructorTitle.trim() || null,
         co_instructors: editCoInstructors
           .filter(ci => ci.name.trim())
           .map(ci => ({ name: ci.name.trim(), title: ci.title.trim(), image: ci.image, bio: ci.bio.trim() })),
@@ -2550,7 +2534,6 @@ export default function CourseManagePage({
         host_name: editHostName,
         about_creator: editAbout,
         start_date: editStartDate,
-        start_time: editStartTime,
         duration: editDuration,
         total_lessons: editPlannedLessons ? parseInt(editPlannedLessons) : lessons.length,
         next_lesson_date: editNextLessonDate || undefined,
@@ -2625,11 +2608,11 @@ export default function CourseManagePage({
   const settingsSnapshot = JSON.stringify({
     editName, editDesc, editPrice, editOriginalPrice, editRefundWindowDays,
     editRefundPolicyPath, editTermsPath, editPrivacyPath,
-    editHostName, editAbout, editStartDate, editStartTime, editDuration, editPlannedLessons,
+    editHostName, editAbout, editStartDate, editDuration, editPlannedLessons,
     editNextLessonDate, editCourseEndDate, editStudentMessage, editLearn, editFaq, editHostImage,
     editIsFreeCourse, editCertEnabled, editCertTemplate, editCertPalette, editCertCustomMessage,
     editSkills, editCertLogoUrl, editCertSignatureUrl, editUseLogoOnCertificate, editBrandName,
-    editInstructorTitle, editCoInstructors, editPromoVideoUrls, editPromoVideoHeading, editTargetAudience, editTestimonials,
+    editCoInstructors, editPromoVideoUrls, editPromoVideoHeading, editTargetAudience, editTestimonials,
     editLevel, editCategory, editRequirements, settingsLandingConfig,
   })
 
@@ -3353,27 +3336,26 @@ export default function CourseManagePage({
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
                         </div>
 
-                        <div className="mt-6">
+                                                <div className="mt-6">
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Brand / Business Name
-                            <span className="text-zinc-300 text-sm font-normal ml-1">
-                              — shown in your landing page nav instead of "Kurso"
-                            </span>
+                            Brand / Business Name <span style={{ color: '#f87171' }}>*</span>
                           </label>
                           <input
                             value={editBrandName}
                             onChange={e => setEditBrandName(e.target.value)}
-                            placeholder="Your brand name (leave blank to use instructor name)"
+                            placeholder="Your brand name"
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
                           />
-                          <p className="text-sm text-zinc-400 mt-1">
-                            If you have a registered business name, add it here. Otherwise it falls back to your instructor name.
+                          <p className="text-[13px] mt-1.5" style={{ color: 'rgba(196,181,253,0.65)' }}>
+                            Shown in your landing page navigation bar. Use your registered business name if you have one, otherwise your own name works fine.
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 mt-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
                           <div>
-                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Category</label>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                              Category <span className="text-zinc-500 font-normal">(optional)</span>
+                            </label>
                             <input
                               value={editCategory}
                               onChange={e => setEditCategory(e.target.value)}
@@ -3399,8 +3381,8 @@ export default function CourseManagePage({
                       </>
                     )}
 
-                    <SectionDivider label="Course Price" />
-                    <div className="grid grid-cols-2 gap-4">
+                                        <SectionDivider label="Course Price" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-semibold text-zinc-300 mb-2 block">Price (₹)</label>
                         <input
@@ -3433,7 +3415,7 @@ export default function CourseManagePage({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-semibold text-zinc-300 mb-2 block">Refund Window (days)</label>
                         <input value={editRefundWindowDays} onChange={e => setEditRefundWindowDays(e.target.value)} type="number"
@@ -3534,21 +3516,21 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                     {!course.uses_external_landing_page && (
                       <>
-                        <SectionDivider label="Course Schedule" />
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <SectionDivider label="Course Schedule" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Start Date</label>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Launch Date</label>
                             <input value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
+                              placeholder="15th May 2026"
                               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                            <p className="text-[13px] mt-1.5" style={{ color: 'rgba(196,181,253,0.65)' }}>
+                              When students can join the course.
+                            </p>
                           </div>
                           <div>
-                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Start Time</label>
-                            <input value={editStartTime} onChange={e => setEditStartTime(e.target.value)}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Duration</label>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Duration</label>
                             <input value={editDuration} onChange={e => setEditDuration(e.target.value)}
+                              placeholder="4 Weeks"
                               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
                           </div>
                         </div>
@@ -3648,14 +3630,8 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">About Instructor</label>
-                          <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
+                                                    <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2" />
-                          <input
-                            value={editInstructorTitle}
-                            onChange={e => setEditInstructorTitle(e.target.value)}
-                            placeholder="Title / Credentials (e.g. Certified Digital Marketer, 8+ Years)"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2"
-                          />
                           <textarea value={editAbout} onChange={e => setEditAbout(e.target.value)} rows={2} placeholder="Bio"
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none" />
                         </div>
