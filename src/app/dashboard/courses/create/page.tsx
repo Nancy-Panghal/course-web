@@ -72,7 +72,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<string> {
 }
 
 // Reusable input component defined outside
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+function Field({ label, children, hint }: { label: React.ReactNode; children: React.ReactNode; hint?: string }) {
   return (
     <div>
       <label className="text-sm font-medium text-white mb-2 block">{label}</label>
@@ -145,6 +145,7 @@ export default function CreateCoursePage() {
   const [whatYouWillLearn, setWhatYouWillLearn] = useState([''])
   const [faqs, setFaqs] = useState([{ question: '', answer: '' }])
   const [hostImage, setHostImage] = useState('')
+  const [instructorTitle, setInstructorTitle] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English'])
   const [langDropdown, setLangDropdown] = useState(false)
@@ -334,6 +335,7 @@ export default function CreateCoursePage() {
         level: level || null,
         category: category || null,
         brand_name: brandName.trim() || null,
+        instructor_title: instructorTitle.trim() || null,
         requirements: requirements.filter(r => r.trim()),
         target_audience: targetAudience.filter(t => t.trim()),
         co_instructors: coInstructors
@@ -529,11 +531,6 @@ export default function CreateCoursePage() {
                     <p className="text-xs text-zinc-500">You'll be able to upload a Refund Policy, Terms & Conditions, and Privacy Policy file from the Settings tab of this course once it's created.</p>
                   </Field>
 
-                  <SectionDivider label="Instructor" />
-                  <Field label="Instructor Name" hint="Shown on course page">
-                    <Input value={hostName} onChange={setHostName} placeholder="Your name" />
-                  </Field>
-
                   <SectionDivider label="Course Schedule" />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Course Launch Date" hint="When students can join the course. Don't know yet? You can set this later from the course's Settings tab.">
@@ -567,7 +564,24 @@ export default function CreateCoursePage() {
                     </div>
                   </Field>
 
-                  <SectionDivider label="Instructor Bio" />
+                                    <SectionDivider label="Instructor Bio" />
+
+                  <Field label="Instructor Name" hint="Shown on course page">
+                    <Input value={hostName} onChange={setHostName} placeholder="Your name" />
+                  </Field>
+
+                  <Field
+                    label={
+                      <>
+                        Instructor Title{' '}
+                        <span style={{ color: 'var(--kurso-primary)', fontWeight: 600 }}>(Optional)</span>
+                      </>
+                    }
+                    hint="e.g. Certified SEO Expert · 8+ Years"
+                  >
+                    <Input value={instructorTitle} onChange={setInstructorTitle} placeholder="e.g. Certified Digital Marketer, 8+ Years Experience" />
+                  </Field>
+
                   <Field label="About You" hint="Shown on course page as instructor bio">
                     <div className="flex items-center gap-4 mb-4">
                       <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
