@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
           <h2 style="margin:0 0 12px">New login</h2>
           <p style="margin:0 0 16px">Your Kurso creator account ${user.email ? `(${escapeHtml(user.email)})` : ''} just signed in.</p>
           <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
-            style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
+            style="display:inline-block;background:#f79514;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
             Open dashboard
           </a>
         </div>

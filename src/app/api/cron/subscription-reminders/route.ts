@@ -174,7 +174,7 @@ function expiredEmailHtml({ name }: { name: string }) {
       <p>Hi ${safeName},</p>
       <p>Your Kurso plan has expired. Your published courses have been paused for <strong>new</strong> enrollments — students who already enrolled keep full access, nothing changes for them.</p>
       <p>Renew any time to make your courses live again:</p>
-      <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Renew now</a></p>
+      <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#f79514;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Renew now</a></p>
       <p style="font-size: 13px; color: #71717a;">— Team Kurso</p>
     </div>
   `
@@ -191,7 +191,7 @@ function reminderEmailHtml({ name, planName, daysLeft, periodEnd }: { name: stri
       <p>Hi ${safeName},</p>
       <p>${urgency}</p>
       <p>To keep your courses live without interruption, renew from your dashboard:</p>
-      <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Renew now</a></p>
+      <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#f79514;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Renew now</a></p>
       ${daysLeft === 1 ? `<p style="font-size: 13px; color: #71717a;">Can't pay right now? You can request a short extension from the same page — we review these manually and usually respond quickly.</p>` : ''}
       <p style="font-size: 13px; color: #71717a;">— Team Kurso</p>
     </div>

@@ -432,7 +432,7 @@ async function handleFlowAEbook(transaction: any, body: NormalizedEvent, signatu
       await sendLoggedEmail({
         supabase: supabaseAdmin, emailType: 'ebook_purchase_download_link', to: email,
         subject: `Your download: ${ebook?.title || 'Your ebook'}`, creatorId: transaction.creator_id,
-        html: `<div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111"><h2>Thanks for your purchase!</h2><p>Your copy of <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> is ready.</p><a href="${downloadUrl}" style="display:inline-block;background:#7c3aed;color:white;padding:12px 18px;border-radius:10px;text-decoration:none">Download your ebook</a></div>`,
+        html: `<div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111"><h2>Thanks for your purchase!</h2><p>Your copy of <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> is ready.</p><a href="${downloadUrl}" style="display:inline-block;background:#f79514;color:white;padding:12px 18px;border-radius:10px;text-decoration:none">Download your ebook</a></div>`,
       }).catch(err => console.error('[webhook-email/ebook]', err))
     }
     return NextResponse.json({ received: true, message: 'Ebook purchase activated (invoice pending manual fix)' })
@@ -454,7 +454,7 @@ async function handleFlowAEbook(transaction: any, body: NormalizedEvent, signatu
           <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
             <h2 style="margin:0 0 12px">Thanks for your purchase!</h2>
             <p style="margin:0 0 16px">Your copy of <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> is ready — invoice ${invoiceRow.invoice_number} is attached.</p>
-            <a href="${downloadUrl}" style="display:inline-block;background:#7c3aed;color:white;padding:12px 18px;border-radius:10px;text-decoration:none">Download your ebook</a>
+            <a href="${downloadUrl}" style="display:inline-block;background:#f79514;color:white;padding:12px 18px;border-radius:10px;text-decoration:none">Download your ebook</a>
             <p style="margin:16px 0 0;font-size:12px;color:#666">This link is personal to you and limited to 5 downloads.</p>
           </div>
         `,
@@ -569,7 +569,7 @@ async function maybeSendCreatorEnrollmentEmail({
           <h2 style="margin:0 0 12px">New student enrolled</h2>
           <p style="margin:0 0 8px"><strong>${safeStudent}</strong> enrolled in <strong>${safeCourse}</strong>.</p>
           <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
-            style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
+            style="display:inline-block;background:#f79514;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
             Open dashboard
           </a>
         </div>

@@ -33,7 +33,7 @@ import { payForPlan } from '@/lib/kurso-checkout'
 
 const OPTION_META: Record<SubscriptionPlanId, { label: string; desc: string; icon: any }> = {
   telegram: { label: 'Web + Telegram', desc: 'Lessons delivered via your Telegram bot', icon: Send },
-  whatsapp: { label: 'Web + WhatsApp', desc: 'Lessons delivered via WhatsApp messages', icon: MessageCircle },
+  whatsapp: { label: 'Web + WhatsApp', desc: 'Lessons delivered via WhatsApp bot', icon: MessageCircle },
   both: { label: 'Web + WhatsApp + Telegram', desc: 'Students can learn on either bot', icon: Globe },
 }
 
@@ -107,9 +107,9 @@ export default function DeliveryMethodPicker({
                 background: active ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
                 border: active ? '2px solid rgba(var(--kurso-primary-rgb), 0.5)' : '1px solid rgba(255,255,255,0.08)',
               }}>
-              <Icon className="w-5 h-5 mb-2" style={{ color: active ? 'var(--kurso-primary-light)' : '#52525b' }} />
+              <Icon className="w-5 h-5 mb-2" style={{ color: active ? 'var(--kurso-primary-light)' : '#86868a' }} />
               <p className="text-sm font-medium" style={{ color: active ? '#fff' : '#a1a1aa' }}>{meta.label}</p>
-              <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>{meta.desc}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#a6a6a7' }}>{meta.desc}</p>
               {locked && (
                 <p className="text-xs mt-2 font-semibold flex items-center gap-1.5" style={{ color: isBuyable ? '#facc15' : '#71717a' }}>
                   {isPaying ? (

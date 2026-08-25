@@ -39,9 +39,13 @@
   --kurso-purple: #c084fc;   /* Coupons */
   --kurso-danger: #f87171;
 
-  /* Text tiers on dark backgrounds — use these instead of one-off greys */
+   /* Text tiers on dark backgrounds — use these instead of one-off greys */
   --kurso-text-secondary: #d4d4d8; /* dates, sub-headings — needs to actually read */
   --kurso-text-muted: #a1a1aa;     /* supporting/meta text, still legible */
+
+  /* Field hint / helper text under form inputs — reuse this everywhere
+   * instead of writing a one-off rgba() per component. */
+  --kurso-hint: rgba(247, 149, 20, 0.65);
 }
 
 .glow { box-shadow: 0 0 40px rgba(var(--kurso-accent-rgb), 0.15); }

@@ -58,7 +58,7 @@ export default function AdminSubscriptionRefundsPage() {
 
   if (loading) {
     return <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 24, height: 24, border: '2px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      <div style={{ width: 24, height: 24, border: '2px solid var(--kurso-primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
     </div>
   }
 

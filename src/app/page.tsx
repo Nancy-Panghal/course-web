@@ -206,12 +206,12 @@ function StatCard({ num, label }: { num: string; label: string }) {
 
 function FeatureCard({ icon: Icon, title, desc, tag }: typeof features[0]) {
   return (
-    <div className="glass rounded-2xl p-6 hover:border-violet/40 transition-all duration-300 group hover:glow cursor-default border border-border">
+    <div className="glass rounded-2xl p-6 hover:border-violet-500/40 transition-all duration-300 group hover:glow cursor-default border border-border">
       <div className="flex items-start justify-between mb-4">
         <div className="w-10 h-10 violet-gradient rounded-xl flex items-center justify-center group-hover:animate-pulse-glow">
           <Icon className="w-5 h-5 text-white" />
         </div>
-        <span className="text-xs font-medium text-violet-light bg-violet/10 border border-violet/20 px-2 py-1 rounded-full">
+        <span className="text-xs font-medium text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded-full">
           {tag}
         </span>
       </div>
@@ -240,11 +240,11 @@ function StepCard({ num, title, desc }: typeof steps[0]) {
 function PlanCard({ plan }: { plan: typeof plans[0] }) {
   return (
     <div className={`rounded-2xl p-8 border transition-all duration-300 flex flex-col ${plan.highlighted
-      ? 'violet-gradient border-violet glow-strong relative'
-      : 'glass border-border hover:border-violet/30 hover:glow'
+      ? 'violet-gradient border-violet-500 glow-strong relative'
+      : 'glass border-border hover:border-violet-500/30 hover:glow'
       }`}>
       {plan.highlighted && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-violet text-xs font-bold px-4 py-1 rounded-full">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-violet-500 text-xs font-bold px-4 py-1 rounded-full">
           MOST POPULAR
         </div>
       )}
@@ -259,7 +259,7 @@ function PlanCard({ plan }: { plan: typeof plans[0] }) {
       <ul className="flex flex-col gap-3 mb-8 flex-1">
         {plan.features.map((f, i) => (
           <li key={i} className="flex items-start gap-2 text-sm">
-            <CheckCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${plan.highlighted ? 'text-white' : 'text-violet-light'}`} />
+            <CheckCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${plan.highlighted ? 'text-white' : 'text-violet-400'}`} />
             <span className={plan.highlighted ? 'text-white/90' : 'text-text-2'}>{f}</span>
           </li>
         ))}
@@ -302,7 +302,7 @@ function FAQItem({ q, a, isOpen, onToggle }: { q: string; a: string; isOpen: boo
       <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 p-6 text-left">
         <span className="font-semibold text-white">{q}</span>
         <ChevronDown
-          className={`w-5 h-5 text-violet-light flex-shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 text-violet-400 flex-shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
       {isOpen && (
@@ -347,12 +347,12 @@ export default function HomePage() {
       {/* ── HERO ── */}
       <section className="pt-32 pb-24 px-6 relative overflow-hidden">
         {/* Glow orbs */}
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-violet/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-40 left-1/4 w-[300px] h-[300px] bg-violet/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-40 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-5xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 glass border border-violet/20 rounded-full px-4 py-2 mb-8">
-            <div className="w-2 h-2 bg-violet-light rounded-full animate-pulse" />
+          <div className="inline-flex items-center gap-2 glass border border-violet-500/20 rounded-full px-4 py-2 mb-8">
+            <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
             <span className="text-sm text-text-2">Free to build & test · No card required</span>
           </div>
 
@@ -379,9 +379,9 @@ export default function HomePage() {
             </Link>
             <a
               href="#demo"
-              className="glass border border-border px-8 py-4 rounded-xl text-white font-semibold text-lg hover:border-violet/40 transition-all flex items-center justify-center gap-2"
+              className="glass border border-border px-8 py-4 rounded-xl text-white font-semibold text-lg hover:border-violet-500/40 transition-all flex items-center justify-center gap-2"
             >
-              <Play className="w-5 h-5 text-violet-light" />
+              <Play className="w-5 h-5 text-violet-400" />
               Watch Demo
             </a>
           </div>
@@ -432,8 +432,8 @@ export default function HomePage() {
       <section id="features" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 glass border border-violet/20 rounded-full px-4 py-2 mb-4">
-              <Sparkles className="w-3 h-3 text-violet-light" />
+            <div className="inline-flex items-center gap-2 glass border border-violet-500/20 rounded-full px-4 py-2 mb-4">
+              <Sparkles className="w-3 h-3 text-violet-400" />
               <span className="text-sm text-text-2">What you actually get</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -455,7 +455,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <div className="inline-flex items-center gap-2 glass border border-violet/20 rounded-full px-4 py-2 mb-6">
+              <div className="inline-flex items-center gap-2 glass border border-violet-500/20 rounded-full px-4 py-2 mb-6">
                 <span className="text-sm text-text-2">Getting started is simple</span>
               </div>
               <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -547,8 +547,8 @@ export default function HomePage() {
       <section id="embed" className="py-24 px-6 border-b border-border">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <div className="inline-flex items-center gap-2 glass border border-violet/20 rounded-full px-4 py-2 mb-4">
-              <Terminal className="w-3 h-3 text-violet-light" />
+            <div className="inline-flex items-center gap-2 glass border border-violet-500/20 rounded-full px-4 py-2 mb-4">
+              <Terminal className="w-3 h-3 text-violet-400" />
               <span className="text-sm text-text-2">Already have a landing page?</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -581,8 +581,8 @@ export default function HomePage() {
       <section className="py-24 px-6 border-b border-border">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 glass border border-violet/20 rounded-full px-4 py-2 mb-4">
-              <Smartphone className="w-3 h-3 text-violet-light" />
+            <div className="inline-flex items-center gap-2 glass border border-violet-500/20 rounded-full px-4 py-2 mb-4">
+              <Smartphone className="w-3 h-3 text-violet-400" />
               <span className="text-sm text-text-2">Zero app-download friction</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -625,8 +625,8 @@ export default function HomePage() {
           </div>
 
           <div className="max-w-2xl mx-auto mb-16">
-            <div className="glass rounded-2xl border border-violet/20 px-6 py-4 flex flex-col sm:flex-row items-center justify-center gap-3 text-center sm:text-left">
-              <RefreshCw className="w-5 h-5 text-violet-light flex-shrink-0" />
+            <div className="glass rounded-2xl border border-violet-500/20 px-6 py-4 flex flex-col sm:flex-row items-center justify-center gap-3 text-center sm:text-left">
+              <RefreshCw className="w-5 h-5 text-violet-400 flex-shrink-0" />
               <span className="text-sm text-text-2">
                 Used less than your plan allows this month? We'll extend it into the next month
                 automatically — no extra payment needed.
@@ -639,8 +639,8 @@ export default function HomePage() {
           </div>
 
           {/* Commission alternative — kept highly visible, as requested */}
-          <div className="glass rounded-2xl border border-violet/30 p-8 glow-strong relative overflow-hidden">
-            <div className="absolute inset-0 bg-violet/5 pointer-events-none" />
+          <div className="glass rounded-2xl border border-violet-500/30 p-8 glow-strong relative overflow-hidden">
+            <div className="absolute inset-0 bg-violet-500/5 pointer-events-none" />
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
               <div>
                 <h3 className="text-xl font-bold text-white mb-2">Prefer to pay only when you earn?</h3>
@@ -664,8 +664,8 @@ export default function HomePage() {
       {/* ── CTA ── */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="glass rounded-3xl border border-violet/20 p-12 glow-strong relative overflow-hidden">
-            <div className="absolute inset-0 bg-violet/5 rounded-3xl" />
+          <div className="glass rounded-3xl border border-violet-500/20 p-12 glow-strong relative overflow-hidden">
+            <div className="absolute inset-0 bg-violet-500/5 rounded-3xl" />
             <div className="relative z-10">
               <h2 className="text-4xl md:text-5xl font-bold mb-4">
                 Ready to bring your course<br />

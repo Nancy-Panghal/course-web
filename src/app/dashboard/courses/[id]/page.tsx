@@ -516,7 +516,7 @@ function AddLessonModal({
           {type === 'quiz' && (
             <div className="p-3 rounded-xl"
               style={{ background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
-              <p className="text-xs text-violet-300">
+              <p className="text-xs text-[var(--kurso-primary-light)]">
                 A quiz lesson will be created. After adding, click <strong>Edit Quiz</strong> directly on the lesson card to add questions.
               </p>
             </div>
@@ -867,7 +867,7 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
                 <p className="text-xs opacity-80 line-clamp-2">{lesson.assignment_prompt}</p>
               )}
               {lesson.assignment_file_url && (
-                <Link href={lesson.assignment_file_url} target="_blank" className="text-xs text-violet-400 hover:text-violet-300 truncate">
+                <Link href={lesson.assignment_file_url} target="_blank" className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] truncate">
                   {lesson.assignment_file_name || 'View Assignment File'}
                 </Link>
               )}
@@ -930,7 +930,7 @@ function AssignmentEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh: ()
           <label className="text-xs font-medium text-white">Assignment File</label>
           {localFileUrl && (
             <div className="flex items-center gap-2">
-              <Link href={localFileUrl} target="_blank" className="text-xs text-violet-400 hover:text-violet-300 truncate max-w-[150px]">
+              <Link href={localFileUrl} target="_blank" className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] truncate max-w-[150px]">
                 {localFileName}
               </Link>
               <button
@@ -1439,7 +1439,7 @@ function LessonWidget({
                       </div>
                       {lesson.notes_url && (
                         <Link href={`/resource/${lesson.id}?type=notes`} target="_blank"
-                          className="text-[10px] text-violet-400 hover:text-violet-300">View</Link>
+                          className="text-[10px] text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)]">View</Link>
                       )}
                     </div>
                     <p className="text-[10px] truncate mb-2" style={{ color: '#52525b' }}>
@@ -1479,7 +1479,7 @@ function LessonWidget({
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <span className="text-xs text-violet-300">
+                    <span className="text-xs text-[var(--kurso-primary-light)]">
                       {Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
                         ? `${lesson.quiz_questions.length} questions`
                         : 'Optional'}
@@ -1763,39 +1763,39 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
               <label className="text-sm font-semibold text-zinc-300 mb-2 block">Session Title *</label>
               <input value={fTitle} onChange={e => setFTitle(e.target.value)}
                 placeholder="e.g. Live Q&A — Week 3"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
             </div>
             <div>
               <label className="text-sm font-semibold text-zinc-300 mb-2 block">Description (optional)</label>
               <textarea value={fDesc} onChange={e => setFDesc(e.target.value)}
                 rows={2} placeholder="What will be covered in this session?"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none focus:border-violet-500/50" />
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none focus:border-[var(--kurso-primary)]" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-semibold text-zinc-300 mb-2 block">Date *</label>
                 <input value={fDate} onChange={e => setFDate(e.target.value)}
                   type="date"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
               </div>
               <div>
                 <label className="text-sm font-semibold text-zinc-300 mb-2 block">Time *</label>
                 <input value={fTime} onChange={e => setFTime(e.target.value)}
                   type="time"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
               </div>
             </div>
             <div>
               <label className="text-sm font-semibold text-zinc-300 mb-2 block">Duration (minutes)</label>
               <input value={fDuration} onChange={e => setFDuration(e.target.value)}
                 type="number" min="15" max="480"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
             </div>
             <div>
               <label className="text-sm font-semibold text-zinc-300 mb-2 block">Zoom / Meet Join URL *</label>
               <input value={fJoinUrl} onChange={e => setFJoinUrl(e.target.value)}
                 type="url" placeholder="https://zoom.us/j/... or meet.google.com/..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
             </div>
             {error && (
               <p className="text-xs px-3 py-2 rounded-xl"
@@ -1821,7 +1821,7 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
       {/* Session list */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-[var(--kurso-primary)] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : sessions.length === 0 ? (
         <div className="rounded-2xl p-12 text-center glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1928,7 +1928,7 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
                         onChange={e => setRecordingUrlState(e.target.value)}
                         type="url"
                         placeholder="Or paste an external link..."
-                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-violet-500/50"
+                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
                       />
                       <button onClick={() => saveRecording(s.id)} disabled={savingRecording}
                         className="px-4 py-2 rounded-xl text-sm font-medium text-white violet-gradient disabled:opacity-50">
@@ -2915,7 +2915,7 @@ export default function CourseManagePage({
   function embedSnippet() {
     if (!course) return ''
     const label = course.is_free_course ? 'Enroll Free' : `Enroll Now — ₹${Number(course.price).toLocaleString('en-IN')}`
-    return `<button data-kurso-course="${course.id}" style="background:#7c3aed;color:#fff;border:none;padding:14px 28px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;">
+        return `<button data-kurso-course="${course.id}" style="background:#f79514;color:#fff;border:none;padding:14px 28px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;">
   ${label}
 </button>
 <script src="${window.location.origin}/kurso-embed.js" defer></script>`
@@ -3324,7 +3324,7 @@ export default function CourseManagePage({
                     <div>
                       <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Name</label>
                       <input value={editName} onChange={e => setEditName(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
                     </div>
 
                     {!course.uses_external_landing_page && (
@@ -3333,7 +3333,7 @@ export default function CourseManagePage({
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">Description</label>
                           <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] resize-none" />
                         </div>
 
                                                 <div className="mt-6">
@@ -3344,9 +3344,9 @@ export default function CourseManagePage({
                             value={editBrandName}
                             onChange={e => setEditBrandName(e.target.value)}
                             placeholder="Your brand name"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
                           />
-                          <p className="text-[13px] mt-1.5" style={{ color: 'rgba(196,181,253,0.65)' }}>
+                          <p className="text-[13px] mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
                             Shown in your landing page navigation bar. Use your registered business name if you have one, otherwise your own name works fine.
                           </p>
                         </div>
@@ -3360,7 +3360,7 @@ export default function CourseManagePage({
                               value={editCategory}
                               onChange={e => setEditCategory(e.target.value)}
                               placeholder="e.g. Digital Marketing, Coding, Finance"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
                             />
                           </div>
                           <div>
@@ -3390,7 +3390,7 @@ export default function CourseManagePage({
                           onChange={e => { if (!editIsFreeCourse) setEditPrice(e.target.value) }}
                           type="number"
                           disabled={editIsFreeCourse}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
                         />
                         {editIsFreeCourse && (
                           <p className="text-xs mt-1.5" style={{ color: '#f97316' }}>
@@ -3410,7 +3410,7 @@ export default function CourseManagePage({
                           onChange={e => { if (!editIsFreeCourse) setEditOriginalPrice(e.target.value) }}
                           type="number"
                           disabled={editIsFreeCourse}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -3420,7 +3420,7 @@ export default function CourseManagePage({
                         <label className="text-sm font-semibold text-zinc-300 mb-2 block">Refund Window (days)</label>
                         <input value={editRefundWindowDays} onChange={e => setEditRefundWindowDays(e.target.value)} type="number"
                           placeholder="7"
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
                         <p className="text-base mt-1" style={{ color: '#a5a5a8' }}>0 = no refunds accepted</p>
                       </div>
                     </div>
@@ -3449,7 +3449,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             <div>
                               <p className="text-sm font-semibold text-white">{doc.label}</p>
                               {doc.path ? (
-                                <a href={doc.path} target="_blank" rel="noreferrer" className="text-xs text-violet-400 hover:text-violet-300">View uploaded file</a>
+                                <a href={doc.path} target="_blank" rel="noreferrer" className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)]">View uploaded file</a>
                               ) : (
                                 <p className="text-xs" style={{ color: '#71717a' }}>No file uploaded yet</p>
                               )}
@@ -3522,8 +3522,8 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Launch Date</label>
                             <input value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
                               placeholder="15th May 2026"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
-                            <p className="text-[13px] mt-1.5" style={{ color: 'rgba(196,181,253,0.65)' }}>
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
+                            <p className="text-[13px] mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
                               When students can join the course.
                             </p>
                           </div>
@@ -3531,7 +3531,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Duration</label>
                             <input value={editDuration} onChange={e => setEditDuration(e.target.value)}
                               placeholder="4 Weeks"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
                           </div>
                         </div>
 
@@ -3541,7 +3541,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">Skills Covered (comma separated, for certificate)</label>
                           <input value={editSkills} onChange={e => setEditSkills(e.target.value)}
                             placeholder="e.g. SEO, Content Marketing, Keyword Research"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 " />
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] " />
                         </div>
 
                         <SectionDivider label="What You'll Walk Away With " />
@@ -3558,7 +3558,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               </div>
                             ))}
                             <button onClick={() => setEditLearn([...editLearn, ''])}
-                              className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Point</button>
+                              className="text-sm text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Point</button>
                           </div>
                         </div>
 
@@ -3582,7 +3582,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               </div>
                             ))}
                             <button onClick={() => setEditRequirements([...editRequirements, ''])}
-                              className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Requirement</button>
+                              className="text-sm text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Requirement</button>
                           </div>
                         </div>
 
@@ -3660,7 +3660,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                           </label>
                           <input value={editPromoVideoHeading} onChange={e => setEditPromoVideoHeading(e.target.value)}
                             placeholder="e.g. See what you'll be learning"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 mb-4" />
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] mb-4" />
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                             Promo / Preview Videos
                             <span className="text-zinc-400 font-normal ml-1">— up to 3, YouTube or Vimeo links</span>
@@ -3671,14 +3671,14 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                 <input value={url}
                                   onChange={e => { const n = [...editPromoVideoUrls]; n[i] = e.target.value; setEditPromoVideoUrls(n) }}
                                   placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
-                                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+                                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
                                 <button onClick={() => setEditPromoVideoUrls(editPromoVideoUrls.filter((_, idx) => idx !== i))}
                                   className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                               </div>
                             ))}
                             {editPromoVideoUrls.length < 3 && (
                               <button onClick={() => setEditPromoVideoUrls([...editPromoVideoUrls, ''])}
-                                className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add video</button>
+                                className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add video</button>
                             )}
                           </div>
 
@@ -3703,7 +3703,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               </div>
                             ))}
                             <button onClick={() => setEditTargetAudience([...editTargetAudience, ''])}
-                              className="text-sm text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Audience</button>
+                              className="text-sm text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Audience</button>
                           </div>
                         </div>
 
@@ -3744,7 +3744,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               </div>
                             ))}
                             <button onClick={() => setEditTestimonials([...editTestimonials, { name: '', text: '', rating: 5 }])}
-                              className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add Testimonial</button>
+                              className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Testimonial</button>
                           </div>
                         </div>
 
@@ -3779,7 +3779,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               </div>
                             ))}
                             <button onClick={() => setEditFaq([...editFaq, { question: '', answer: '' }])}
-                              className="text-xs text-violet-400 hover:text-violet-300 w-fit font-medium">+ Add FAQ</button>
+                              className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add FAQ</button>
                           </div>
                         </div>
 
@@ -4171,7 +4171,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                     value={editCertCustomMessage}
                                     onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
                                     placeholder="e.g. Keep building, keep shipping. — Your Name"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
                                   />
                                   <p className="text-[12px] mt-1" style={{ color: '#919193' }}>
                                     Appears as a small line on the certificate. Leave blank to omit.

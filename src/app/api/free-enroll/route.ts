@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
             <h2 style="margin:0 0 12px">New student enrolled (Free)</h2>
             <p style="margin:0 0 8px"><strong>${safeStudent}</strong> enrolled in <strong>${safeCourse}</strong>.</p>
             <a href="${process.env.NEXT_PUBLIC_SITE_URL || ''}/dashboard"
-              style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
+              style="display:inline-block;background:#f79514;color:white;padding:10px 14px;border-radius:10px;text-decoration:none">
               Open dashboard
             </a>
           </div>
@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
             <h2 style="margin:0 0 12px">Welcome to ${safeCourse}</h2>
             <p style="margin:0 0 12px">Hi ${safeName}, your course access is ready.</p>
             <a href="${courseUrl}"
-              style="display:inline-block;background:#7c3aed;color:white;padding:10px 14px;border-radius:10px;text-decoration:none;margin:0 0 16px">
+              style="display:inline-block;background:#f79514;color:white;padding:10px 14px;border-radius:10px;text-decoration:none;margin:0 0 16px">
               Start learning
             </a>
             ${cleanBot ? `

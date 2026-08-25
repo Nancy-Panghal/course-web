@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
       const html = `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#e4e4e7;border-radius:12px;overflow:hidden;border:1px solid #27272a;">
-          <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:24px 28px;">
+          <div style="background:linear-gradient(135deg,#f79514,#f8a537);padding:24px 28px;">
             <h2 style="margin:0;font-size:20px;color:#fff;">New Feedback Submission</h2>
             <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.7);">Kurso — Feedback Page</p>
           </div>

@@ -77,7 +77,7 @@ function Field({ label, children, hint }: { label: React.ReactNode; children: Re
     <div>
       <label className="text-sm font-medium text-white mb-2 block">{label}</label>
       {children}
-      {hint && <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: 'rgba(196,181,253,0.65)' }}>{hint}</p>}
+            {hint && <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: 'var(--kurso-hint)' }}>{hint}</p>}
     </div>
   )
 }
@@ -806,7 +806,7 @@ export default function CreateCoursePage() {
                   currentPlanId={effectivePlanId}
                   onUpgraded={(newPlanId: SubscriptionPlanId) => setEffectivePlanId(newPlanId)}
                 />
-                <p className="text-xs mt-3" style={{ color: '#52525b' }}>
+                <p className="text-xs mt-3" style={{ color: 'rgba(247, 149, 20, 0.65)' }}>
                   Once this course is live, students who enroll will only see the channel(s) you picked here — you can change it anytime from the course's Settings tab.
                 </p>
               </>
