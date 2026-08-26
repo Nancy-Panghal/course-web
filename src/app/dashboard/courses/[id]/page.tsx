@@ -2765,16 +2765,19 @@ export default function CourseManagePage({
     await fetchLessons()
   }
 
-  async function publishAllLessons() {
+    async function publishAllLessons() {
     if (publishingRef.current) return
-    if (!hasActivePaidPlan) {
-      return
-    }
 
     publishingRef.current = true
     setPublishing(true)
 
     try {
+      // Publishing lessons has never required a paid plan (per-lesson
+      // publish/unpublish has always worked without one) — this bulk
+      // action just does the same thing for every lesson at once. It
+      // does NOT publish the course itself: going live is a separate,
+      // deliberately-gated decision made with the Draft/Live toggle
+      // above, which already requires an active paid plan.
       const { error: lessonsError } = await supabase
         .from('lessons')
         .update({ is_published: true })
@@ -2782,15 +2785,6 @@ export default function CourseManagePage({
 
       if (lessonsError) throw lessonsError
 
-      // Also publish the course itself
-      const { error: courseError } = await supabase
-        .from('courses')
-        .update({ is_published: true })
-        .eq('id', id)
-
-      if (courseError) throw courseError
-
-      if (course) setCourse({ ...course, is_published: true })
       await fetchLessons()
     } catch (err: any) {
       console.error('Failed to publish all lessons:', err)
@@ -3231,28 +3225,18 @@ export default function CourseManagePage({
                       Add Lesson {lessons.length + 1}
                     </button>
 
-                    {/* Publish all */}
+                                        {/* Publish all */}
                     {!allPublished && lessons.length > 0 && (
-                      hasActivePaidPlan ? (
-                        <button onClick={publishAllLessons} disabled={publishing}
-                          className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all disabled:opacity-50"
-                          style={{
-                            background: 'rgba(74,222,128,0.08)',
-                            border: '1px solid rgba(74,222,128,0.2)',
-                            color: '#4ade80',
-                          }}>
-                          <CheckCircle className="w-4 h-4" />
-                          {publishing ? 'Publishing...' : `Publish All ${lessons.length} Lessons`}
-                        </button>
-                      ) : (
-                        <div className="flex items-start gap-2 p-3 rounded-xl"
-                          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
-                          <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
-                            You need to pay for a Kurso plan before lessons can be published. <Link href="/upgrade" className="underline font-semibold">Go to upgrade page</Link>
-                          </p>
-                        </div>
-                      )
+                      <button onClick={publishAllLessons} disabled={publishing}
+                        className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all disabled:opacity-50"
+                        style={{
+                          background: 'rgba(74,222,128,0.08)',
+                          border: '1px solid rgba(74,222,128,0.2)',
+                          color: '#4ade80',
+                        }}>
+                        <CheckCircle className="w-4 h-4" />
+                        {publishing ? 'Publishing...' : `Publish All ${lessons.length} Lessons`}
+                      </button>
                     )}
 
                     {allPublished && (

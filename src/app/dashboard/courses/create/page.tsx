@@ -582,7 +582,7 @@ export default function CreateCoursePage() {
                     <Input value={instructorTitle} onChange={setInstructorTitle} placeholder="e.g. Certified Digital Marketer, 8+ Years Experience" />
                   </Field>
 
-                  <Field label="About You" hint="Shown on course page as instructor bio">
+                  <Field label="Photo & Bio" hint="Shown on course page as instructor bio">
                     <div className="flex items-center gap-4 mb-4">
                       <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
                         {hostImage ? (
