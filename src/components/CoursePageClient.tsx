@@ -94,7 +94,7 @@ export default function CoursePageClient({ course, variant }: Props) {
         return (
           <>
             <button onClick={() => setShowTestModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              className="inline-flex min-h-10 shrink-0 whitespace-nowrap items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
               style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15', border: '1px solid rgba(250,204,21,0.25)' }}>
               <FlaskConical className="w-4 h-4" /> Test Course
             </button>
@@ -103,6 +103,7 @@ export default function CoursePageClient({ course, variant }: Props) {
                 courseId={course.id}
                 creatorId={course.creatorId}
                 telegramBotUsername={course.telegramBotUsername}
+                courseUrl={learnUrl}
                 onClose={() => setShowTestModal(false)}
               />
             )}
@@ -127,6 +128,7 @@ export default function CoursePageClient({ course, variant }: Props) {
               courseId={course.id}
               creatorId={course.creatorId}
               telegramBotUsername={course.telegramBotUsername}
+              courseUrl={learnUrl}
               onClose={() => setShowTestModal(false)}
             />
           )}
@@ -168,7 +170,7 @@ export default function CoursePageClient({ course, variant }: Props) {
     if (variant === 'nav') {
       return (
         <a href={learnUrl}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all violet-gradient text-white hover:opacity-90">
+          className="inline-flex min-h-10 shrink-0 whitespace-nowrap items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all violet-gradient text-white hover:opacity-90">
           Continue Learning →
         </a>
       )

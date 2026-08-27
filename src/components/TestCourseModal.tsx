@@ -16,6 +16,7 @@
  * ─────────────────────────────────────────────────────────────────
  */
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Send, MessageCircle, FlaskConical } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -23,11 +24,13 @@ export default function TestCourseModal({
   courseId,
   creatorId,
   telegramBotUsername,
+  courseUrl,
   onClose,
 }: {
   courseId: string
   creatorId: string
   telegramBotUsername?: string | null
+  courseUrl: string
   onClose: () => void
 }) {
   const [name, setName] = useState('')
@@ -37,6 +40,7 @@ export default function TestCourseModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<{ telegramToken?: string; whatsappToken?: string; courseDelivery: string } | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     async function loadExisting() {
@@ -58,6 +62,12 @@ export default function TestCourseModal({
     loadExisting()
   }, [])
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+
+
   async function handleSubmit() {
     if (!phone && !telegramUsername) {
       setError('Enter at least a phone number or Telegram username.')
@@ -78,8 +88,11 @@ export default function TestCourseModal({
       if (!res.ok) throw new Error(data.error || 'Could not start test mode.')
 
       const courseDelivery = data.courseDelivery || 'both'
-      const wantsTelegram = (courseDelivery === 'telegram' || courseDelivery === 'both') && telegramBotUsername
-      const wantsWhatsApp = (courseDelivery === 'whatsapp' || courseDelivery === 'both') && process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+
+      // Test mode deliberately offers every connected channel, even if this
+      // course currently delivers through only one of them.
+      const wantsTelegram = Boolean(telegramBotUsername)
+      const wantsWhatsApp = Boolean(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER)
 
       const out: { telegramToken?: string; whatsappToken?: string; courseDelivery: string } = { courseDelivery }
 
@@ -87,7 +100,14 @@ export default function TestCourseModal({
         const r = await fetch('/api/telegram/create-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentPhone: phone, studentName: name, creatorId, courseId, paymentId: 'TEST' }),
+          body: JSON.stringify({
+            studentId: data.studentId,
+            studentPhone: phone,
+            studentName: name,
+            creatorId,
+            courseId,
+            paymentId: 'TEST',
+          }),
         }).then(r => r.json())
         if (r.token) {
           out.telegramToken = r.token
@@ -95,7 +115,7 @@ export default function TestCourseModal({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enrollmentId: data.enrollmentId, token: r.token, expiresAt: r.expiresAt }),
-          }).catch(() => {})
+          }).catch(() => { })
         }
       }
 
@@ -103,7 +123,14 @@ export default function TestCourseModal({
         const r = await fetch('/api/whatsapp/create-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentPhone: phone, studentName: name, creatorId, courseId, paymentId: 'TEST' }),
+          body: JSON.stringify({
+            studentId: data.studentId,
+            studentPhone: phone,
+            studentName: name,
+            creatorId,
+            courseId,
+            paymentId: 'TEST',
+          }),
         }).then(r => r.json())
         if (r.token) {
           out.whatsappToken = r.token
@@ -111,7 +138,7 @@ export default function TestCourseModal({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enrollmentId: data.enrollmentId, token: r.token, expiresAt: r.expiresAt }),
-          }).catch(() => {})
+          }).catch(() => { })
         }
       }
 
@@ -123,9 +150,17 @@ export default function TestCourseModal({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-md rounded-2xl p-6" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)' }}>
+  if (!mounted) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4"
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
+    >
+      <div
+        className="w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl p-5 sm:p-6"
+        style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)' }}
+      >
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <FlaskConical className="w-5 h-5" style={{ color: '#facc15' }} />
@@ -159,33 +194,100 @@ export default function TestCourseModal({
             )}
           </>
         ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)' }}>
-              🧪 TEST MODE — tap below to open the real bot chat and see exactly what a student would.
+          <div className="flex flex-col gap-4">
+            <p
+              className="text-xs px-3 py-2.5 rounded-lg leading-5"
+              style={{
+                background: 'rgba(var(--kurso-primary-rgb), 0.10)',
+                color: 'var(--kurso-primary-lightest)',
+                border: '1px solid rgba(var(--kurso-primary-rgb), 0.25)',
+              }}
+            >
+              🧪 Test mode is ready. Open each available delivery method below to test the same experience your students receive.
             </p>
-            {result.telegramToken && telegramBotUsername && (
-              <a href={`https://t.me/${telegramBotUsername.replace('@', '')}?start=${result.telegramToken}`} target="_blank" rel="noreferrer"
-                className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white" style={{ background: '#229ED9' }}>
-                <Send className="w-4 h-4" /> Open Telegram
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {result.whatsappToken ? (
+                <a
+                  href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent(`/start ${result.whatsappToken}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-h-11 flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-white text-center"
+                  style={{ background: '#25D366' }}
+                >
+                  <MessageCircle className="w-4 h-4 flex-shrink-0" />
+                  WhatsApp
+                </a>
+              ) : (
+                <div
+                  className="min-h-11 flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-center"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#71717a',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <MessageCircle className="w-4 h-4 flex-shrink-0" />
+                  WhatsApp unavailable
+                </div>
+              )}
+
+              {result.telegramToken && telegramBotUsername ? (
+                <a
+                  href={`https://t.me/${telegramBotUsername.replace('@', '')}?start=${result.telegramToken}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-h-11 flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-white text-center"
+                  style={{ background: '#229ED9' }}
+                >
+                  <Send className="w-4 h-4 flex-shrink-0" />
+                  Telegram
+                </a>
+              ) : (
+                <div
+                  className="min-h-11 flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-center"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#71717a',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <Send className="w-4 h-4 flex-shrink-0" />
+                  Telegram unavailable
+                </div>
+              )}
+
+              <a
+                href={courseUrl}
+                className="min-h-11 flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-black text-center transition-opacity hover:opacity-90"
+                style={{ background: 'var(--kurso-primary)' }}
+              >
+                <FlaskConical className="w-4 h-4 flex-shrink-0" />
+                Test on Web
               </a>
-            )}
-            {result.whatsappToken && (
-              <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent(`/start ${result.whatsappToken}`)}`} target="_blank" rel="noreferrer"
-                className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white" style={{ background: '#25D366' }}>
-                <MessageCircle className="w-4 h-4" /> Open WhatsApp
-              </a>
-            )}
+            </div>
+
             {!result.telegramToken && !result.whatsappToken && (
-              <p className="text-xs" style={{ color: '#a1a1aa' }}>
-                This course's delivery method ({result.courseDelivery}) doesn't have a bot connected yet — set that up first, then test again.
+              <p className="text-xs text-center leading-5" style={{ color: '#a1a1aa' }}>
+                Messaging is not connected for this course yet. Web test access is ready.
               </p>
             )}
-            <button onClick={onClose} className="w-full py-2.5 rounded-xl text-sm font-medium" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-xl text-sm font-medium"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                color: '#a1a1aa',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
               Close
             </button>
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

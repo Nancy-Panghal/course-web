@@ -32,78 +32,85 @@ import type { LandingThemeColors } from '@/lib/landing-themes/types'
  */
 
 type FinalCtaCourse = {
-  id: string
-  name: string
-  price: number
-  creatorSlug: string
-  creatorName: string
-  creatorId: string
-  telegramBotUsername?: string
-  is_free_course?: boolean
-  isPublished?: boolean
+    id: string
+    name: string
+    price: number
+    creatorSlug: string
+    creatorName: string
+    creatorId: string
+    telegramBotUsername?: string
+    is_free_course?: boolean
+    isPublished?: boolean
 }
 
 export default function FinalCtaBar({
-  course,
-  originalPrice,
-  discount,
-  text,
-  colors,
+    course,
+    originalPrice,
+    discount,
+    text,
+    colors,
 }: {
-  course: FinalCtaCourse
-  originalPrice?: number
-  discount?: number
-  text: string
-  colors: Pick<LandingThemeColors, 'navBg' | 'navBorder' | 'textPrimary' | 'textMuted'>
+    course: FinalCtaCourse
+    originalPrice?: number
+    discount?: number
+    text: string
+    colors: Pick<LandingThemeColors, 'navBg' | 'navBorder' | 'textPrimary' | 'textMuted'>
 }) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 45,
-        // Safe-area padding so this never sits under a phone's home
-        // indicator/gesture bar on iOS.
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        background: colors.navBg,
-        backdropFilter: 'blur(16px)',
-        borderTop: `1px solid ${colors.navBorder}`,
-      }}
-    >
-      <div
-        className="mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5"
-        style={{ maxWidth: 720, padding: '10px 16px' }}
-      >
-        <span
-          className="font-semibold"
-          style={{ fontSize: '0.85rem', color: colors.textMuted, flex: '1 1 180px', minWidth: 0 }}
+    return (
+        <div
+            style={{
+                position: 'fixed',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 45,
+                // Safe-area padding so this never sits under a phone's home
+                // indicator/gesture bar on iOS.
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                background: colors.navBg,
+                backdropFilter: 'blur(16px)',
+                borderTop: `1px solid ${colors.navBorder}`,
+            }}
         >
-          {text}
-        </span>
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="flex items-baseline gap-2">
-            <span
-              className="font-extrabold whitespace-nowrap"
-              style={{ fontSize: '1.15rem', color: colors.textPrimary }}
+            <div
+                className="mx-auto flex flex-wrap items-center justify-center gap-x-10 gap-y-3"
+                style={{ maxWidth: 1080, padding: '16px 20px' }}
             >
-              {course.is_free_course ? 'Free' : `₹${course.price?.toLocaleString()}`}
-            </span>
-            {!course.is_free_course && !!discount && discount > 0 && !!originalPrice && (
-              <span
-                className="hidden sm:inline whitespace-nowrap"
-                style={{ fontSize: '0.8rem', color: colors.textMuted, textDecoration: 'line-through' }}
-              >
-                ₹{originalPrice.toLocaleString()}
-              </span>
-            )}
-          </div>
+                <span
+                    className="font-semibold"
+                    style={{
+                        fontSize: '1.25rem',
+                        lineHeight: 1.42,
+                        color: colors.textPrimary,
+                        flex: '1 1 440px',
+                        maxWidth: 620,
+                        minWidth: 0,
+                    }}
+                >
+                    {text}
+                </span>
 
-          <CoursePageClient course={course} variant="nav" />
+                <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-3 flex-shrink-0">
+                    <div className="flex items-baseline gap-2">
+                        <span
+                            className="font-extrabold whitespace-nowrap"
+                            style={{ fontSize: '1.15rem', color: colors.textPrimary }}
+                        >
+                            {course.is_free_course ? 'Free' : `₹${course.price?.toLocaleString()}`}
+                        </span>
+                        {!course.is_free_course && !!discount && discount > 0 && !!originalPrice && (
+                            <span
+                                className="hidden sm:inline whitespace-nowrap"
+                                style={{ fontSize: '0.8rem', color: colors.textMuted, textDecoration: 'line-through' }}
+                            >
+                                ₹{originalPrice.toLocaleString()}
+                            </span>
+                        )}
+                    </div>
+
+                    <CoursePageClient course={course} variant="nav" />
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  )
+    )
 }

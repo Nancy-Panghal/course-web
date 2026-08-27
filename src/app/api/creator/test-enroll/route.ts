@@ -42,15 +42,74 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'You can only test your own courses.' }, { status: 403 })
     }
 
-    // Save/overwrite the one test-student identity for this creator.
+    
+    // Save/overwrite the one reusable test identity for this creator.
     const { error: upsertErr } = await supabase
       .from('creator_test_students')
-      .upsert({ creator_id: creatorId, name: name || null, phone: phone || null, telegram_username: telegramUsername || null, updated_at: new Date().toISOString() }, { onConflict: 'creator_id' })
+      .upsert(
+        {
+          creator_id: creatorId,
+          name: name || null,
+          phone: phone || null,
+          telegram_username: telegramUsername || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'creator_id' }
+      )
+
     if (upsertErr) throw upsertErr
 
-    // Find or create the test enrollment for this specific course. Only
-    // ever one per course, matched on is_test=true, since a creator has
-    // exactly one test-student identity.
+    // Web access must be tied to the signed-in creator's own auth account.
+    // First reuse an existing student record, then create one only if needed.
+    let testStudent: { id: string } | null = null
+
+    const { data: studentByAuth, error: studentByAuthErr } = await supabase
+      .from('students')
+      .select('id')
+      .eq('auth_id', creatorId)
+      .maybeSingle()
+
+    if (studentByAuthErr) throw studentByAuthErr
+    testStudent = studentByAuth
+
+    if (!testStudent && userData.user.email) {
+      const { data: studentByEmail, error: studentByEmailErr } = await supabase
+        .from('students')
+        .select('id')
+        .eq('email', userData.user.email)
+        .maybeSingle()
+
+      if (studentByEmailErr) throw studentByEmailErr
+      testStudent = studentByEmail
+
+      if (testStudent) {
+        const { error: linkAuthErr } = await supabase
+          .from('students')
+          .update({ auth_id: creatorId })
+          .eq('id', testStudent.id)
+
+        if (linkAuthErr) throw linkAuthErr
+      }
+    }
+
+    if (!testStudent) {
+      const { data: createdStudent, error: createStudentErr } = await supabase
+        .from('students')
+        .insert({
+          auth_id: creatorId,
+          email: userData.user.email || null,
+          name: name || null,
+          phone: phone || null,
+        })
+        .select('id')
+        .single()
+
+      if (createStudentErr) throw createStudentErr
+      testStudent = createdStudent
+    }
+
+    // One test enrollment per owned course. It is linked to the creator's auth
+    // identity, so only this logged-in creator can receive web-course access.
     const { data: existing } = await supabase
       .from('enrollments')
       .select('id')
@@ -59,11 +118,17 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     let enrollmentId: string
+
     if (existing) {
       const { error: updateErr } = await supabase
         .from('enrollments')
-        .update({ phone: phone || null, certificate_student_name: name || null })
+        .update({
+          student_id: testStudent.id,
+          phone: phone || null,
+          certificate_student_name: name || null,
+        })
         .eq('id', existing.id)
+
       if (updateErr) throw updateErr
       enrollmentId = existing.id
     } else {
@@ -72,6 +137,7 @@ export async function POST(req: NextRequest) {
         .insert({
           course_uuid: courseId,
           creator_id: creatorId,
+          student_id: testStudent.id,
           phone: phone || null,
           certificate_student_name: name || null,
           current_lesson: 1,
@@ -84,12 +150,14 @@ export async function POST(req: NextRequest) {
         })
         .select('id')
         .single()
+
       if (insertErr) throw insertErr
       enrollmentId = inserted.id
     }
 
     return NextResponse.json({
       enrollmentId,
+      studentId: testStudent.id,
       courseDelivery: course.delivery || 'both',
     })
   } catch (err: any) {

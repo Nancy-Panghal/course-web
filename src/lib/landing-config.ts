@@ -57,7 +57,7 @@ export type LandingDisclaimerConfig = {
  *  unless `background` is set to 'custom'. */
 export const MAX_CUSTOM_SECTION_IMAGES = 10
 export const MAX_PROMO_VIDEOS = 3
-export const MAX_FINAL_CTA_TEXT_LENGTH = 100
+export const MAX_FINAL_CTA_WORDS = 50
 export const DEFAULT_FINAL_CTA_TEXT = 'Enroll to polish your skills!'
 
 export type LandingCustomSection = {
@@ -292,7 +292,12 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
     instructorLayout: pickEnum((input as any).instructorLayout, ['square', 'rectangle'] as const, 'square'),
     finalCtaText: (() => {
       const raw = typeof (input as any).finalCtaText === 'string' ? (input as any).finalCtaText : ''
-      const cleaned = sanitizeCustomSectionText(raw).replace(/\n/g, ' ').slice(0, MAX_FINAL_CTA_TEXT_LENGTH)
+      const cleaned = sanitizeCustomSectionText(raw)
+  .replace(/\n/g, ' ')
+  .trim()
+  .split(/\s+/)
+  .slice(0, MAX_FINAL_CTA_WORDS)
+  .join(' ')
       return cleaned || DEFAULT_FINAL_CTA_TEXT
     })(),
   }
