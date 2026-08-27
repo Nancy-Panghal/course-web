@@ -84,8 +84,8 @@ const embedSteps = [
 
 
 const embedShowcaseImages = [
-    { src: '/showcase/createCourse.png', alt: 'Creator landing page with Kurso checkout embedded' },
-  { src: '/showcase/createLesson.png', alt: 'Enrollment code block snippet' },
+    { src: '/showcase/createCourse.png', alt: 'Create a course' },
+  { src: '/showcase/createLesson.png', alt: 'How to create a lesson' },
   { src: '/showcase/addLesson.png', alt: 'Course details and lesson upload screen' },
   { src: '/showcase/embedCode.png', alt: 'Checkout popup on a creator-branded landing page' },
 ]
@@ -101,8 +101,8 @@ const engagementPoints = [
 const engagementShowcaseImages = [
   { src: '/showcase/telegramChat.png', alt: 'Telegram chat in our bot' },
   { src: '/showcase/whatsappChat.png', alt: 'Whatsapp chat in our kurso bot' },
-  { src: '/showcase/studentProgress.png', alt: 'Student lesson progress and completion tracking' },
-  { src: '/showcase/certificateIssued.png', alt: 'Certificate issued to a student on course completion' },
+  { src: '/showcase/videoLesson.png', alt: 'Video lesson preview and AI chatbot' },
+  { src: '/showcase/webLesson.png', alt: 'Lesson delivered via web player' },
 ]
 
 const faqs = [
