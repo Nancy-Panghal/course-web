@@ -1151,7 +1151,7 @@ export default async function AboutCoursePage({
                 : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
             </p>
           )}
-          {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path) && (
+                    {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path || (course.show_contact_on_landing && (course.contact_email || course.contact_phone))) && (
             <div className="mb-4 flex items-center justify-center flex-wrap gap-x-5 gap-y-1.5">
               {course.refund_policy_storage_path && (
                 <a href={`/policy/${course.id}/refund`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Refund Policy</a>
@@ -1161,6 +1161,9 @@ export default async function AboutCoursePage({
               )}
               {course.privacy_storage_path && (
                 <a href={`/policy/${course.id}/privacy`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Privacy Policy</a>
+              )}
+              {course.show_contact_on_landing && (course.contact_email || course.contact_phone) && (
+                <a href={`/contact/${course.id}`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Contact</a>
               )}
             </div>
           )}

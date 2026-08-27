@@ -55,6 +55,9 @@ interface Course {
   refund_policy_storage_path?: string
   terms_storage_path?: string
   privacy_storage_path?: string
+  contact_email?: string
+  contact_phone?: string
+  show_contact_on_landing?: boolean
   promo_video_heading?: string
   uses_external_landing_page?: boolean
   scheduled_deletion_at?: string
@@ -2177,6 +2180,9 @@ export default function CourseManagePage({
   const [editTermsPath, setEditTermsPath] = useState('')
   const [editPrivacyPath, setEditPrivacyPath] = useState('')
   const [uploadingPolicyDoc, setUploadingPolicyDoc] = useState<PolicyDocType | null>(null)
+  const [editContactEmail, setEditContactEmail] = useState('')
+  const [editContactPhone, setEditContactPhone] = useState('')
+  const [editShowContactOnLanding, setEditShowContactOnLanding] = useState(false)
   const [editPromoVideoHeading, setEditPromoVideoHeading] = useState('')
   const [editHostName, setEditHostName] = useState('')
   const [editAbout, setEditAbout] = useState('')
@@ -2267,6 +2273,9 @@ export default function CourseManagePage({
       setEditRefundPolicyPath(courseData.refund_policy_storage_path || '')
       setEditTermsPath(courseData.terms_storage_path || '')
       setEditPrivacyPath(courseData.privacy_storage_path || '')
+      setEditContactEmail(courseData.contact_email || '')
+      setEditContactPhone(courseData.contact_phone || '')
+      setEditShowContactOnLanding(!!courseData.show_contact_on_landing)
       setEditPromoVideoHeading(courseData.promo_video_heading || '')
       setEditHostName(courseData.host_name || '')
       setEditAbout(courseData.about_creator || '')
@@ -2492,9 +2501,12 @@ export default function CourseManagePage({
           ? editSkills.split(',').map(s => s.trim()).filter(Boolean)
           : null,
         refund_window_days: editRefundWindowDays === '' ? 0 : parseInt(editRefundWindowDays),
-        refund_policy_storage_path: editRefundPolicyPath || null,
+                refund_policy_storage_path: editRefundPolicyPath || null,
         terms_storage_path: editTermsPath || null,
         privacy_storage_path: editPrivacyPath || null,
+        contact_email: editContactEmail.trim() || null,
+        contact_phone: editContactPhone.trim() || null,
+        show_contact_on_landing: editShowContactOnLanding,
         brand_name: editBrandName.trim() || null,
         co_instructors: editCoInstructors
           .filter(ci => ci.name.trim())
@@ -2549,6 +2561,9 @@ export default function CourseManagePage({
         refund_policy_storage_path: editRefundPolicyPath || undefined,
         terms_storage_path: editTermsPath || undefined,
         privacy_storage_path: editPrivacyPath || undefined,
+        contact_email: editContactEmail.trim() || undefined,
+        contact_phone: editContactPhone.trim() || undefined,
+        show_contact_on_landing: editShowContactOnLanding,
         promo_video_heading: editPromoVideoHeading.trim() || undefined,
         co_instructors: editCoInstructors.filter(ci => ci.name.trim()),
       })
@@ -3789,9 +3804,36 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                           <button type="button" onClick={addBonus}
                             className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
                             style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                            <Plus className="w-3.5 h-3.5" /> Add bonus
+                                                        <Plus className="w-3.5 h-3.5" /> Add bonus
                           </button>
                         </div>
+
+                        <SectionDivider label="Contact" />
+                        <p className="text-sm -mt-3 mb-1" style={{ color: 'var(--kurso-text-muted)' }}>
+                          Add an email or phone students can reach you on. No verification needed — this is just for display.
+                        </p>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                          <input type="email" value={editContactEmail} onChange={e => setEditContactEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
+                          <input type="tel" value={editContactPhone} onChange={e => setEditContactPhone(e.target.value)}
+                            placeholder="+91 98765 43210"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
+                        </div>
+                        <label className="flex items-start gap-3 mt-1 p-3 rounded-xl cursor-pointer"
+                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <input type="checkbox" checked={editShowContactOnLanding}
+                            onChange={e => setEditShowContactOnLanding(e.target.checked)}
+                            className="mt-0.5" />
+                          <span className="text-xs text-zinc-300">
+                            <span className="font-semibold block mb-0.5 text-white">Show this on my landing page</span>
+                            <span style={{ color: 'var(--kurso-hint)' }}>
+                              {editShowContactOnLanding
+                                ? 'Students will see a Contact link in your footer, next to Privacy Policy and Refund Policy.'
+                                : "Off by default — turn this on whenever you're ready for students to see it."}
+                            </span>
+                          </span>
+                        </label>
 
                         <SectionDivider label="Disclaimer" />
                         <div className="flex flex-col gap-2">
