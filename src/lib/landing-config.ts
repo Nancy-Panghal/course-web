@@ -57,6 +57,8 @@ export type LandingDisclaimerConfig = {
  *  unless `background` is set to 'custom'. */
 export const MAX_CUSTOM_SECTION_IMAGES = 10
 export const MAX_PROMO_VIDEOS = 3
+export const MAX_FINAL_CTA_TEXT_LENGTH = 100
+export const DEFAULT_FINAL_CTA_TEXT = 'Enroll to polish your skills!'
 
 export type LandingCustomSection = {
   id: string
@@ -101,6 +103,11 @@ export type LandingConfig = {
   bonuses: LandingBonusItem[]
   disclaimer: LandingDisclaimerConfig
   urgency: LandingUrgencyConfig
+  /** One-line message shown on the sticky enroll bar (the 'finalCta'
+   *  section), above the price/button. Plain text only, same sanitizer as
+   *  custom sections. Defaults to a friendly nudge so a course that's never
+   *  touched this still shows something reasonable rather than a blank bar. */
+  finalCtaText: string
   customSections: LandingCustomSection[]
   /** 'square' = compact cards side by side (today's 2+ instructor look).
    *  'rectangle' = wide fixed-width card, height grows with bio text, one
@@ -148,8 +155,9 @@ export const DEFAULT_LANDING_CONFIG: LandingConfig = {
   bonuses: [],
   disclaimer: { title: 'Important information', text: '' },
   urgency: { endAt: '', label: 'Enrollment closes in', seatsAvailable: null, seatsLabel: 'seats left at this price' },
-  customSections: [],
+    customSections: [],
   instructorLayout: 'square',
+  finalCtaText: DEFAULT_FINAL_CTA_TEXT,
 }
 
 /**
@@ -280,8 +288,13 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
           : null,
       seatsLabel: (input.urgency?.seatsLabel || DEFAULT_LANDING_CONFIG.urgency.seatsLabel).toString(),
     },
-    customSections,
+        customSections,
     instructorLayout: pickEnum((input as any).instructorLayout, ['square', 'rectangle'] as const, 'square'),
+    finalCtaText: (() => {
+      const raw = typeof (input as any).finalCtaText === 'string' ? (input as any).finalCtaText : ''
+      const cleaned = sanitizeCustomSectionText(raw).replace(/\n/g, ' ').slice(0, MAX_FINAL_CTA_TEXT_LENGTH)
+      return cleaned || DEFAULT_FINAL_CTA_TEXT
+    })(),
   }
 }
 

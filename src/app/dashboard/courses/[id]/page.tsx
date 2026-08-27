@@ -14,6 +14,7 @@ import { getEffectivePlanId } from '@/lib/kurso-checkout'
 import { PLAN_ORDER, planCoversDeliveryMethod, type SubscriptionPlanId } from '@/app/api/razorpay/subscription-plans'
 import {
   DEFAULT_LANDING_CONFIG, normalizeLandingConfig, MAX_CUSTOM_SECTION_IMAGES,
+  MAX_FINAL_CTA_TEXT_LENGTH, DEFAULT_FINAL_CTA_TEXT,
   type LandingConfig, type LandingSectionEntry, type LandingCustomSection,
 } from '@/lib/landing-config'
 import { MAX_CUSTOM_SECTIONS_PER_COURSE, MAX_CUSTOM_HEADING_LENGTH, MAX_CUSTOM_BODY_LENGTH } from '@/lib/customSectionText'
@@ -316,11 +317,12 @@ function AddLessonModal({
       }
     }
 
-    if (type !== 'live' && type !== 'quiz' && type !== 'assignment' && !finalUrl) {
-      setError('Please provide a URL or upload a file.')
-      setLoading(false)
-      return
-    }
+        // Video/PDF lessons no longer require a URL or file up front — like
+    // quiz, assignment, and live lessons already worked, a creator can
+    // create the lesson shell now and attach the actual content later.
+    // Publishing still checks for real content (see hasLessonContent /
+    // toggleLessonPublish) so an empty lesson can never go live to a
+    // student by mistake.
 
     const lessonData: any = {
       course_id: courseId,
@@ -504,7 +506,7 @@ function AddLessonModal({
                   <span className="text-[10px] uppercase tracking-widest text-zinc-600">OR</span>
                   <div className="flex-1 h-px bg-white/5" />
                 </div>
-                <input type="url" value={url} onChange={e => { setUrl(e.target.value); if (e.target.value) setFile(null) }}
+                                <input type="url" value={url} onChange={e => { setUrl(e.target.value); if (e.target.value) setFile(null) }}
                   placeholder={type === 'video' ? 'Paste video link' : 'Paste PDF link'}
                   disabled={!!file}
                   className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none disabled:opacity-50"
@@ -513,6 +515,9 @@ function AddLessonModal({
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
+              <p className="text-xs mt-2" style={{ color: '#71717a' }}>
+                Don't have the {type} ready yet? Leave this blank — you can create the lesson now and add it later. Just remember to add it before publishing; students can't open an empty lesson.
+              </p>
             </div>
           )}
 
@@ -2756,7 +2761,39 @@ export default function CourseManagePage({
     await fetchLessons()
   }
 
+    // A lesson counts as "empty" — i.e. a student who opens it finds
+  // nothing — only for the content types where that's actually possible.
+  // 'live' is deliberately excluded: a live session legitimately might not
+  // have its join link until closer to the scheduled time.
+  function hasLessonContent(lesson: Lesson): boolean {
+    switch (lesson.content_type) {
+      case 'video':
+      case 'pdf':
+        return !!lesson.content_url
+      case 'quiz':
+        return Array.isArray(lesson.quiz_questions) && lesson.quiz_questions.length > 0
+      case 'assignment':
+        return !!(lesson.assignment_prompt && lesson.assignment_prompt.trim().length > 0)
+      default:
+        return true
+    }
+  }
+
   async function toggleLessonPublish(lessonId: string, current: boolean) {
+    // Only guard turning publish ON — unpublishing should always work.
+    if (!current) {
+      const lesson = lessons.find(l => l.id === lessonId)
+      if (lesson && !hasLessonContent(lesson)) {
+        alert(
+          lesson.content_type === 'quiz'
+            ? 'Add at least one question before publishing this quiz.'
+            : lesson.content_type === 'assignment'
+              ? 'Add assignment instructions before publishing this lesson.'
+              : 'Add a video or PDF before publishing this lesson — students would otherwise see an empty lesson.'
+        )
+        return
+      }
+    }
     await supabase
       .from('lessons')
       .update({ is_published: !current })
@@ -2780,7 +2817,7 @@ export default function CourseManagePage({
     await fetchLessons()
   }
 
-    async function publishAllLessons() {
+        async function publishAllLessons() {
     if (publishingRef.current) return
 
     publishingRef.current = true
@@ -2793,14 +2830,26 @@ export default function CourseManagePage({
       // does NOT publish the course itself: going live is a separate,
       // deliberately-gated decision made with the Draft/Live toggle
       // above, which already requires an active paid plan.
-      const { error: lessonsError } = await supabase
-        .from('lessons')
-        .update({ is_published: true })
-        .eq('course_id', id)
+      const emptyLessons = lessons.filter(l => !l.is_published && !hasLessonContent(l))
+      const publishableIds = lessons.filter(l => !l.is_published && hasLessonContent(l)).map(l => l.id)
 
-      if (lessonsError) throw lessonsError
+      if (publishableIds.length > 0) {
+        const { error: lessonsError } = await supabase
+          .from('lessons')
+          .update({ is_published: true })
+          .in('id', publishableIds)
+
+        if (lessonsError) throw lessonsError
+      }
 
       await fetchLessons()
+
+      if (emptyLessons.length > 0) {
+        alert(
+          `Published ${publishableIds.length} lesson${publishableIds.length === 1 ? '' : 's'}. ` +
+          `Skipped ${emptyLessons.length} that still need content: ${emptyLessons.map(l => l.title || 'Untitled').join(', ')}.`
+        )
+      }
     } catch (err: any) {
       console.error('Failed to publish all lessons:', err)
       alert(err?.message || 'Failed to publish all lessons. Please try again.')
@@ -3512,6 +3561,77 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                         />
                       </button>
                     </div>
+
+                                        {/* Sticky Enroll Bar (Final CTA) toggle — only relevant
+                        on Kurso's own hosted landing page; a creator using
+                        their own external landing page never sees this
+                        page at all, so the toggle would do nothing there. */}
+                    {!course.uses_external_landing_page && (
+                    <div
+                      className="flex items-center justify-between gap-4 p-4 rounded-xl"
+                      style={{
+                        background: settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled
+                          ? 'rgba(var(--kurso-primary-rgb), 0.06)'
+                          : 'rgba(255,255,255,0.03)',
+                        border: settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled
+                          ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
+                          : '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-white">Sticky enroll bar</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+                          Keeps the price and an Enroll button visible at the bottom of the screen the whole time a student scrolls your landing page.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettingsLandingConfig(prev => ({
+                            ...prev,
+                            sections: prev.sections.map(s =>
+                              s.type === 'finalCta' ? { ...s, enabled: !s.enabled } : s
+                            ),
+                          }))
+                        }}
+                        className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+                        style={{
+                          background: settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled
+                            ? 'var(--kurso-primary)'
+                            : 'rgba(255,255,255,0.12)',
+                        }}
+                        aria-pressed={!!settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled}
+                      >
+                        <span
+                          className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                          style={{
+                            transform: settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled
+                              ? 'translateX(20px)'
+                              : 'translateX(0)',
+                          }}
+                                                />
+                      </button>
+                    </div>
+                    )}
+
+                    {!course.uses_external_landing_page && settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled && (
+                      <div className="mt-3">
+                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Sticky bar message</label>
+                        <input
+                          value={settingsLandingConfig.finalCtaText}
+                          onChange={e => {
+                            const value = e.target.value.slice(0, MAX_FINAL_CTA_TEXT_LENGTH)
+                            setSettingsLandingConfig(prev => ({ ...prev, finalCtaText: value }))
+                          }}
+                          maxLength={MAX_FINAL_CTA_TEXT_LENGTH}
+                          placeholder={DEFAULT_FINAL_CTA_TEXT}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                        />
+                        <p className="text-xs mt-1.5" style={{ color: '#71717a' }}>
+                          Shown next to the price on the sticky bar — keep it short, it sits on one line. Leave blank to use the default: "{DEFAULT_FINAL_CTA_TEXT}"
+                        </p>
+                      </div>
+                    )}
 
                     {!course.uses_external_landing_page && (
                       <>

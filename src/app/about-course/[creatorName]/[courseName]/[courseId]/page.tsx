@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import CoursePageClient from '@/components/CoursePageClient'
+import FinalCtaBar from '@/components/FinalCtaBar'
 import CurriculumAccordion from './Curriculumaccordion'
 import DraftGate from '@/components/DraftGate'
 import { getLandingTheme } from '@/lib/landing-themes'
@@ -1126,6 +1127,22 @@ export default async function AboutCoursePage({
             </div>
           </div>
         </section>
+
+                  {show('finalCta') && (
+          <>
+            {/* Reserves space so the fixed bar below never overlaps footer
+                content/links. Sized generously since the bar can wrap to
+                two lines on narrow screens. */}
+            <div aria-hidden style={{ height: 92 }} />
+            <FinalCtaBar
+              course={courseData}
+              originalPrice={course.original_price}
+              discount={discount}
+              text={landingConfig.finalCtaText}
+              colors={{ navBg: c.navBg, navBorder: c.navBorder, textPrimary: c.textPrimary, textMuted: c.textMuted }}
+            />
+          </>
+        )}
 
         {/* ── FOOTER ── */}
         <footer style={{ borderTop: `1px solid ${c.border}`, padding: '40px 24px', textAlign: 'center' }}>
