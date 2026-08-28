@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { issueCertificate, type CertTemplate } from '@/lib/certificate'
+import { getWebAccessContext } from '@/lib/webAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,8 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
+    const webAccess = await getWebAccessContext(req)
+
     const body = await req.json()
     const { enrollmentId, courseId, studentName } = body
 
@@ -33,11 +36,24 @@ export async function POST(req: NextRequest) {
     console.log('[certificate/issue] Enrollment lookup:', { found: !!enrollment, error: enrollErr?.message })
 
     if (enrollErr || !enrollment) {
-      return NextResponse.json({ error: 'Enrollment not found' }, { status: 404 })
-    }
+  return NextResponse.json({ error: 'Enrollment not found' }, { status: 404 })
+}
 
-    // Verify the enrollment belongs to the given course (using course_uuid from enrollment)
-    const effectiveCourseId = enrollment.course_uuid || courseId
+if (enrollment.course_uuid !== courseId) {
+  return NextResponse.json({ error: 'Course mismatch' }, { status: 403 })
+}
+
+if (webAccess) {
+  if (
+    webAccess.courseId !== courseId ||
+    webAccess.enrollment.id !== enrollment.id ||
+    enrollment.payment_status !== 'paid'
+  ) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+  }
+}
+
+const effectiveCourseId = enrollment.course_uuid
 
     console.log('[certificate/issue] Using effectiveCourseId:', effectiveCourseId)
 

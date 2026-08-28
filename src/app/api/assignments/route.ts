@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getWebAccessContext } from '@/lib/webAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,10 +29,15 @@ async function getUser(req: NextRequest) {
 // ── POST — student submits ────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const user = await getUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const webAccess = await getWebAccessContext(req)
+    const user = webAccess ? null : await getUser(req)
+
+    if (!user && !webAccess) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await req.json()
+
     const { lessonId, courseId, enrollmentId, submissionText, submissionUrl } = body as {
       lessonId: string
       courseId: string
@@ -53,36 +59,47 @@ export async function POST(req: NextRequest) {
     // Verify the enrollment belongs to this user
     const { data: enrollment } = await supabase
       .from('enrollments')
-      .select('id, student_id, creator_id, phone')
+      .select('id, student_id, creator_id, phone, course_uuid, payment_status')
       .eq('id', enrollmentId)
       .eq('course_uuid', courseId)
+      .eq('payment_status', 'paid')
       .maybeSingle()
 
     if (!enrollment) {
       return NextResponse.json({ error: 'Enrollment not found' }, { status: 403 })
     }
 
-    // ── Actually verify ownership — the query above only confirmed the
-    // enrollment exists for this course, not that it belongs to the caller ──
-    if (enrollment.student_id) {
+    if (webAccess) {
+      if (
+        webAccess.courseId !== courseId ||
+        webAccess.enrollment.id !== enrollment.id ||
+        enrollment.payment_status !== 'paid'
+      ) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    } else if (enrollment.student_id) {
       const { data: student } = await supabase
         .from('students')
         .select('id')
-        .eq('auth_id', user.id)
+        .eq('auth_id', user!.id)
         .maybeSingle()
 
       if (!student || student.id !== enrollment.student_id) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     } else {
-      // Phone/email-only enrollment (telegram/bot-created, not yet linked to a students row)
-      const identifiers = [user.user_metadata?.phone, user.phone, user.email].filter(Boolean) as string[]
+      const identifiers = [
+        user!.user_metadata?.phone,
+        user!.phone,
+        user!.email,
+      ].filter(Boolean) as string[]
+
       if (!identifiers.includes(enrollment.phone)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 
-    
+
     // Check if student already submitted for this lesson — idempotent
     const { data: existing } = await supabase
       .from('assignments')
@@ -102,12 +119,13 @@ export async function POST(req: NextRequest) {
 
     // Get student_id from students table if not on enrollment
     let studentId = enrollment.student_id
-    if (!studentId) {
+    if (!studentId && user) {
       const { data: student } = await supabase
         .from('students')
         .select('id')
         .eq('auth_id', user.id)
         .maybeSingle()
+
       studentId = student?.id || null
     }
 

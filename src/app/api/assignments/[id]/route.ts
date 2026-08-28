@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getWebAccessContext } from '@/lib/webAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,6 +18,7 @@ const supabase = createClient(
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`
+
 
 async function getUser(req: NextRequest) {
   const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim()
@@ -32,8 +34,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const webAccess = await getWebAccessContext(req)
+    const user = webAccess ? null : await getUser(req)
+
+    if (!user && !webAccess) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { id } = await params
 
@@ -54,6 +60,7 @@ export async function GET(
     if (error) throw error
     if (!data) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
 
+
     // ── Check 1: caller is the course creator ─────────────────────
     const { data: course } = await supabase
       .from('courses')
@@ -61,13 +68,22 @@ export async function GET(
       .eq('id', data.course_id)
       .maybeSingle()
 
-    const isCreator = course?.creator_id === user.id
+    const isCreator = !!user && course?.creator_id === user.id
 
     // ── Check 2: caller is the student who submitted ──────────────
     // assignments.student_id → students.id (NOT auth.users.id).
     // We must resolve auth.users.id → students.id via students.auth_id.
     let isStudent = false
-    if (!isCreator) {
+
+    if (
+      webAccess &&
+      data.course_id === webAccess.courseId &&
+      data.enrollment_id === webAccess.enrollment.id
+    ) {
+      isStudent = true
+    }
+
+    if (!isCreator && !isStudent && user) {
       if (data.student_id) {
         // Primary path: look up the students row by auth_id and compare to
         // the stored student_id so we never mix up the two UUID spaces.

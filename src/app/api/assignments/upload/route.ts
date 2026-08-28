@@ -12,6 +12,8 @@ import {
   validateAssignmentFile,
 } from '@/lib/assignment-files'
 
+import { getWebAccessContext } from '@/lib/webAccess'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -27,8 +29,12 @@ async function getUser(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const webAccess = await getWebAccessContext(req)
+    const user = webAccess ? null : await getUser(req)
+
+    if (!user && !webAccess) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const form = await req.formData()
     const file = form.get('file')
@@ -46,17 +52,29 @@ export async function POST(req: NextRequest) {
 
     const { data: enrollment } = await supabase
       .from('enrollments')
-      .select('id, student_id')
+      .select('id, student_id, course_uuid, payment_status')
       .eq('id', enrollmentId)
       .eq('course_uuid', courseId)
+      .eq('payment_status', 'paid')
       .maybeSingle()
 
     if (!enrollment) {
       return NextResponse.json({ error: 'Enrollment not found' }, { status: 403 })
     }
 
-    // Verify this enrollment belongs to the signed-in student
-    if (enrollment.student_id) {
+    if (webAccess) {
+      if (
+        webAccess.courseId !== courseId ||
+        webAccess.enrollment.id !== enrollment.id ||
+        enrollment.payment_status !== 'paid'
+      ) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    } else if (enrollment.student_id) {
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
       const { data: student } = await supabase
         .from('students')
         .select('id')
@@ -67,7 +85,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     } else {
-      const phones = [user.user_metadata?.phone, user.phone, user.email].filter(Boolean) as string[]
+      const phones = [
+        user!.user_metadata?.phone,
+        user!.phone,
+        user!.email,
+      ].filter(Boolean) as string[]
       const { data: phoneEnrollment } = await supabase
         .from('enrollments')
         .select('id')

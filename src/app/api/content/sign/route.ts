@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { signVideoUrl, signPdfUrl, TTL } from '@/lib/signer'
 import { isLessonFree } from '@/lib/freeLesson'
+import { getWebAccessContext } from '@/lib/webAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const webAccess = await getWebAccessContext(req)
+
     // Verify lesson exists and is published
     const { data: lesson } = await supabase
       .from('lessons')
@@ -60,10 +63,17 @@ export async function POST(req: NextRequest) {
       { is_free_course: course?.is_free_course ?? false }
     )
 
-    if (!isFree && userId === 'web') {
-      return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })
-    }
+    if (!isFree && userId === 'web' && !webAccess) {
+  return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })
+}
 
+if (
+  !isFree &&
+  webAccess &&
+  webAccess.courseId !== lesson.course_id
+) {
+  return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })
+}
     if (!isFree && userId !== 'web') {
       // Single query — check enrollment by student auth_id join
       const { data: student } = await supabase

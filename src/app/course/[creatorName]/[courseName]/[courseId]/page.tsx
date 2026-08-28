@@ -227,7 +227,13 @@ export default function CourseLearnPage() {
 
   useEffect(() => {
     async function load() {
+      const webAccessResponse = await fetch('/api/web-access/session')
+      const webAccess = webAccessResponse.ok
+        ? await webAccessResponse.json()
+        : null
+
       const { data: { user: me } } = await supabase.auth.getUser()
+
       setUser(me)
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) setSessionToken(session.access_token)
@@ -270,8 +276,27 @@ export default function CourseLearnPage() {
       const lessonFromUrl = Number(initialSearchParams.get('lesson') || '')
       const fromUrl = fetchedLessons.find((l: Lesson) => l.order_num === lessonFromUrl)
 
-      if (me) {
-        const enrollData = await findPaidEnrollment({ courseId: courseData.id, user: me })
+      if (webAccess?.authenticated && webAccess.courseId === courseData.id) {
+        const enrollData = webAccess.enrollment
+
+        setIsEnrolled(true)
+        setEnrollment(enrollData)
+        setCompleted(enrollData.completed_lessons || [])
+        setQuizResults(enrollData.quiz_results || [])
+
+        const resume =
+          fromUrl ||
+          fetchedLessons.find(
+            (l: Lesson) => l.order_num === (enrollData.current_lesson || 1)
+          ) ||
+          fetchedLessons[0]
+
+        if (resume) setCurrentId(resume.id)
+      } else if (me) {
+        const enrollData = await findPaidEnrollment({
+          courseId: courseData.id,
+          user: me,
+        })
 
         if (enrollData) {
           setIsEnrolled(true)
@@ -439,7 +464,7 @@ export default function CourseLearnPage() {
       courseId: course.id,
     }).then(({ token }) => { if (token) setDemoWhatsappToken(token) })
   }, [user?.id, isEnrolled, course?.id, demoWhatsappToken])
-  
+
 
   const currentLesson = lessons.find(l => l.id === currentId) || lessons[0]
   const currentIndex = lessons.findIndex(l => l.id === currentId)
@@ -518,7 +543,7 @@ export default function CourseLearnPage() {
     const type = currentLesson.content_type === 'pdf' ? 'pdf' : 'video'
     getSignedContentUrl(currentLesson.id, type)
       .then(({ url }) => setContentUrl(url))
-      .catch(() => {})
+      .catch(() => { })
   }, [currentLesson])
 
   // Load assignment submission when lesson changes
@@ -851,8 +876,8 @@ export default function CourseLearnPage() {
                         { is_free: lesson.is_free ?? false },
                         { is_free_course: course.is_free_course ?? false }
                       ) && (
-                        <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'rgba(74,222,128,0.08)', color: '#4ade80', fontWeight: 700 }}>Free</span>
-                      )}
+                          <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'rgba(74,222,128,0.08)', color: '#4ade80', fontWeight: 700 }}>Free</span>
+                        )}
                     </div>
                   </div>
                 </button>
@@ -915,155 +940,155 @@ export default function CourseLearnPage() {
                 </div>
               ) : currentLesson?.content_type === 'assignment' ? (
                 (currentLesson?.assignment_prompt || currentLesson?.assignment_file_url || currentLesson?.content_type === 'assignment') && isEnrolled && (
-                <div style={{
-                  marginBottom: 24, padding: 16, borderRadius: 12,
-                  background: 'rgba(245,158,11,0.06)',
-                  border: '1px solid rgba(245,158,11,0.2)',
-                }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--kurso-accent)', marginBottom: 6 }}>
-                    📝 Assignment{currentLesson.assignment_required ? ' (Required)' : ' (Optional)'}
-                  </p>
-
-                  {!currentLesson.assignment_prompt && !currentLesson.assignment_file_url ? (
-                    <p style={{ fontSize: 13, color: '#71717a', marginBottom: 12 }}>
-                      This assignment hasn't been added yet. Check back soon.
+                  <div style={{
+                    marginBottom: 24, padding: 16, borderRadius: 12,
+                    background: 'rgba(245,158,11,0.06)',
+                    border: '1px solid rgba(245,158,11,0.2)',
+                  }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--kurso-accent)', marginBottom: 6 }}>
+                      📝 Assignment{currentLesson.assignment_required ? ' (Required)' : ' (Optional)'}
                     </p>
-                  ) : (
-                    <>
-                      {currentLesson.assignment_prompt && (
-                        <p style={{ fontSize: 13, color: '#e4e4e7', marginBottom: 12, lineHeight: 1.6 }}>
-                          {currentLesson.assignment_prompt}
-                        </p>
-                      )}
 
-                      {currentLesson.assignment_file_url && (
-                        /\.(jpe?g|png|gif|webp)$/i.test(currentLesson.assignment_file_name || currentLesson.assignment_file_url) ? (
-                          <a href={currentLesson.assignment_file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginBottom: 12 }}>
-                            <img
-                              src={currentLesson.assignment_file_url}
-                              alt={currentLesson.assignment_file_name || 'Assignment attachment'}
-                              style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}
-                            />
-                          </a>
-                        ) : (
+                    {!currentLesson.assignment_prompt && !currentLesson.assignment_file_url ? (
+                      <p style={{ fontSize: 13, color: '#71717a', marginBottom: 12 }}>
+                        This assignment hasn't been added yet. Check back soon.
+                      </p>
+                    ) : (
+                      <>
+                        {currentLesson.assignment_prompt && (
+                          <p style={{ fontSize: 13, color: '#e4e4e7', marginBottom: 12, lineHeight: 1.6 }}>
+                            {currentLesson.assignment_prompt}
+                          </p>
+                        )}
+
+                        {currentLesson.assignment_file_url && (
+                          /\.(jpe?g|png|gif|webp)$/i.test(currentLesson.assignment_file_name || currentLesson.assignment_file_url) ? (
+                            <a href={currentLesson.assignment_file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginBottom: 12 }}>
+                              <img
+                                src={currentLesson.assignment_file_url}
+                                alt={currentLesson.assignment_file_name || 'Assignment attachment'}
+                                style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}
+                              />
+                            </a>
+                          ) : (
+                            <a
+                              href={currentLesson.assignment_file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                fontSize: 12,
+                                color: 'var(--kurso-primary-lightest)',
+                                marginBottom: 12,
+                                padding: '6px 12px',
+                                borderRadius: 8,
+                                background: 'rgba(var(--kurso-primary-rgb), 0.12)',
+                                border: '1px solid rgba(var(--kurso-primary-rgb), 0.22)',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              {currentLesson.assignment_file_name || 'Download Assignment File'}
+                            </a>
+                          )
+                        )}
+                      </>
+                    )}
+
+                    {assignmentSubmission ? (
+                      <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: '#4ade80', marginBottom: 4 }}>
+                          ✅ Submitted {new Date(assignmentSubmission.submitted_at).toLocaleDateString('en-IN')}
+                        </p>
+                        {assignmentSubmission.submission_text && (
+                          <p style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 8 }}>
+                            {assignmentSubmission.submission_text.slice(0, 200)}
+                            {assignmentSubmission.submission_text.length > 200 ? '…' : ''}
+                          </p>
+                        )}
+                        {assignmentSubmission.submission_url && (
                           <a
-                            href={currentLesson.assignment_file_url}
+                            href={assignmentSubmission.submission_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              fontSize: 12,
-                              color: 'var(--kurso-primary-lightest)',
-                              marginBottom: 12,
-                              padding: '6px 12px',
-                              borderRadius: 8,
-                              background: 'rgba(var(--kurso-primary-rgb), 0.12)',
-                              border: '1px solid rgba(var(--kurso-primary-rgb), 0.22)',
-                              textDecoration: 'none',
-                            }}
+                            style={{ fontSize: 12, color: 'var(--kurso-primary-lighter)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                           >
-                            <FileText className="w-3.5 h-3.5" />
-                            {currentLesson.assignment_file_name || 'Download Assignment File'}
+                            <Download className="w-3.5 h-3.5" /> View attached file
                           </a>
-                        )
-                      )}
-                    </>
-                  )}
-
-                  {assignmentSubmission ? (
-                    <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: '#4ade80', marginBottom: 4 }}>
-                        ✅ Submitted {new Date(assignmentSubmission.submitted_at).toLocaleDateString('en-IN')}
-                      </p>
-                      {assignmentSubmission.submission_text && (
-                        <p style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 8 }}>
-                          {assignmentSubmission.submission_text.slice(0, 200)}
-                          {assignmentSubmission.submission_text.length > 200 ? '…' : ''}
-                        </p>
-                      )}
-                      {assignmentSubmission.submission_url && (
-                        <a
-                          href={assignmentSubmission.submission_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: 12, color: 'var(--kurso-primary-lighter)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          <Download className="w-3.5 h-3.5" /> View attached file
-                        </a>
-                      )}
-                      {assignmentSubmission.status === 'reviewed' && (
-                        <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--kurso-primary-lighter)', marginBottom: 4 }}>
-                            Instructor Feedback:
-                          </p>
-                          <p style={{ fontSize: 12, color: '#e4e4e7' }}>{assignmentSubmission.creator_feedback}</p>
-                          {assignmentSubmission.score !== null && assignmentSubmission.score !== undefined && (
-                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--kurso-primary-lighter)', marginTop: 6 }}>
-                              Score: {assignmentSubmission.score}/10
+                        )}
+                        {assignmentSubmission.status === 'reviewed' && (
+                          <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--kurso-primary-lighter)', marginBottom: 4 }}>
+                              Instructor Feedback:
                             </p>
-                          )}
-                        </div>
-                      )}
-                      {assignmentSubmission.status === 'pending' && (
-                        <p style={{ fontSize: 11, color: '#71717a' }}>Awaiting instructor review…</p>
-                      )}
-                    </div>
-                  ) : currentLesson && enrollment?.id && course?.id && sessionToken ? (
-                    <AssignmentSubmit
-                      key={currentLesson.id}
-                      sessionToken={sessionToken}
-                      lessonId={currentLesson.id}
-                      courseId={course.id}
-                      enrollmentId={enrollment.id}
-                      onSubmitted={setAssignmentSubmission}
-                    />
-                  ) : null}
-                </div>
+                            <p style={{ fontSize: 12, color: '#e4e4e7' }}>{assignmentSubmission.creator_feedback}</p>
+                            {assignmentSubmission.score !== null && assignmentSubmission.score !== undefined && (
+                              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--kurso-primary-lighter)', marginTop: 6 }}>
+                                Score: {assignmentSubmission.score}/10
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {assignmentSubmission.status === 'pending' && (
+                          <p style={{ fontSize: 11, color: '#71717a' }}>Awaiting instructor review…</p>
+                        )}
+                      </div>
+                    ) : currentLesson && enrollment?.id && course?.id && sessionToken ? (
+                      <AssignmentSubmit
+                        key={currentLesson.id}
+                        sessionToken={sessionToken}
+                        lessonId={currentLesson.id}
+                        courseId={course.id}
+                        enrollmentId={enrollment.id}
+                        onSubmitted={setAssignmentSubmission}
+                      />
+                    ) : null}
+                  </div>
                 )
               )
                 : currentLesson?.content_type === 'live' && !currentLesson?.video_storage_path ? (
-                <div style={{ aspectRatio: '16/9', background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24, padding: 24, textAlign: 'center' }}>
-                  {currentLesson.content_url ? (
-                    <>
-                      <p style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>🔴 This is a live class</p>
-                      <a href={currentLesson.content_url} target="_blank" rel="noopener noreferrer"
-                        style={{ padding: '10px 20px', borderRadius: 10, background: '#eab308', color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-                        Join Live Class
-                      </a>
-                    </>
-                  ) : (
-                    <p style={{ color: '#71717a', fontSize: 14 }}>Live class details haven't been added yet. Check back soon.</p>
-                  )}
-                </div>
-              ) : loadingContent ? (
-                <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', animation: 'pulse 1s infinite' }} />
-                </div>
-              ) : contentUrl ? (
-                <div style={{ marginBottom: 24 }}>
-                  {currentLesson?.content_type === 'live' && (
-                    <p style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>🎬 Class Recording</p>
-                  )}
-                  {currentLesson?.content_type === 'pdf' ? (
-                    <PdfViewer src={contentUrl} isMobile={isMobile} />
-                  ) : (
-                    <WatermarkedPlayer
-                      src={contentUrl}
-                      studentName={user?.email || 'Preview Student'}
-                      studentId={enrollment?.phone || user?.phone || user?.user_metadata?.phone || ''}
-                      lessonTitle={currentLesson?.title}
-                      onEnded={() => currentLesson && markComplete(currentLesson.order_num)}
-                      onExpired={refreshContentUrl}
-                    />
-                  )}
-                </div>
-              ) : (
-                <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p style={{ color: '#52525b', fontSize: 14 }}>Content unavailable</p>
-                </div>
-              )}
+                  <div style={{ aspectRatio: '16/9', background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24, padding: 24, textAlign: 'center' }}>
+                    {currentLesson.content_url ? (
+                      <>
+                        <p style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>🔴 This is a live class</p>
+                        <a href={currentLesson.content_url} target="_blank" rel="noopener noreferrer"
+                          style={{ padding: '10px 20px', borderRadius: 10, background: '#eab308', color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                          Join Live Class
+                        </a>
+                      </>
+                    ) : (
+                      <p style={{ color: '#71717a', fontSize: 14 }}>Live class details haven't been added yet. Check back soon.</p>
+                    )}
+                  </div>
+                ) : loadingContent ? (
+                  <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))', animation: 'pulse 1s infinite' }} />
+                  </div>
+                ) : contentUrl ? (
+                  <div style={{ marginBottom: 24 }}>
+                    {currentLesson?.content_type === 'live' && (
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>🎬 Class Recording</p>
+                    )}
+                    {currentLesson?.content_type === 'pdf' ? (
+                      <PdfViewer src={contentUrl} isMobile={isMobile} />
+                    ) : (
+                      <WatermarkedPlayer
+                        src={contentUrl}
+                        studentName={user?.email || 'Preview Student'}
+                        studentId={enrollment?.phone || user?.phone || user?.user_metadata?.phone || ''}
+                        lessonTitle={currentLesson?.title}
+                        onEnded={() => currentLesson && markComplete(currentLesson.order_num)}
+                        onExpired={refreshContentUrl}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p style={{ color: '#52525b', fontSize: 14 }}>Content unavailable</p>
+                  </div>
+                )}
 
               {/* Ask AI / Q&A — sits right below the lesson, above Mark as Complete, on every device */}
               {canAccess && (
@@ -1161,7 +1186,7 @@ export default function CourseLearnPage() {
                       🧠 {currentQuizResult ? `Quiz: ${currentQuizResult.score}/${currentQuizResult.total}` : 'Take Quiz'}
                     </Link>
                   )}
-                  </div>
+                </div>
               )}
 
               {/* Prev / Next */}
@@ -1372,7 +1397,7 @@ export default function CourseLearnPage() {
                   </div>
                 )
               )}
-              
+
 
               {/* WhatsApp CTA — enrolled students get "Continue", preview visitors get "Start Free" */}
               {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER && whatsappDeliveryAllowed && (
@@ -1622,7 +1647,7 @@ interface LiveSessionItem {
 
 function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, studentId }: { courseId: string; sessionToken: string | null; studentName: string; studentId: string }) {
   const [sessions, setSessions] = useState<LiveSessionItem[]>([])
-    const [playingSessionId, setPlayingSessionId] = useState<string | null>(null)
+  const [playingSessionId, setPlayingSessionId] = useState<string | null>(null)
   const [playerUrl, setPlayerUrl] = useState<string | null>(null)
   const [playerIsExternal, setPlayerIsExternal] = useState(false)
   const [loadingPlayback, setLoadingPlayback] = useState(false)
@@ -1633,7 +1658,7 @@ function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, stude
     fetch(`/api/live-sessions?courseId=${courseId}`)
       .then(res => res.json())
       .then(json => { if (!cancelled) setSessions(json.sessions || []) })
-      .catch(() => {})
+      .catch(() => { })
     return () => { cancelled = true }
   }, [courseId])
 
@@ -1642,7 +1667,7 @@ function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, stude
       setPlaybackError('Please log in again to watch this recording.')
       return
     }
-        setPlayingSessionId(sessionId)
+    setPlayingSessionId(sessionId)
     setLoadingPlayback(true)
     setPlaybackError('')
     setPlayerUrl(null)
@@ -1713,7 +1738,7 @@ function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, stude
               <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
                 <p style={{ color: '#ef4444', fontSize: 13 }}>{playbackError}</p>
               </div>
-                        ) : playerUrl && playerIsExternal ? (
+            ) : playerUrl && playerIsExternal ? (
               <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', gap: 12 }}>
                 <p style={{ color: '#a1a1aa', fontSize: 13, maxWidth: 420 }}>
                   Your instructor shared this recording as an external link — it opens outside Kurso, so playback protection doesn't apply to it the way it does for uploaded recordings.

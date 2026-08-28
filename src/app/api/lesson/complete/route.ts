@@ -16,6 +16,7 @@ import { createClient } from '@supabase/supabase-js'
 import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 import { issueCertificate, type CertTemplate } from '@/lib/certificate'
 import { normalizePhone } from '@/lib/phone'
+import { getWebAccessContext } from '@/lib/webAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,12 +44,22 @@ export async function POST(req: NextRequest) {
     if (!identity && !enrollmentId) {
       return NextResponse.json({ error: 'identity or enrollmentId required' }, { status: 400 })
     }
-    
+
+    const webAccess = await getWebAccessContext(req)
 
     // ── Find enrollment ───────────────────────────────────────────
     let query = supabase
       .from('enrollments')
-      .select('id, completed_lessons, current_lesson, quiz_results, student_id, creator_id')
+      .select(`
+    id,
+    course_uuid,
+    payment_status,
+    completed_lessons,
+    current_lesson,
+    quiz_results,
+    student_id,
+    creator_id
+  `)
       .eq('course_uuid', courseId)
       .order('enrolled_at', { ascending: false })
 
@@ -60,11 +71,23 @@ export async function POST(req: NextRequest) {
       query = query.eq('telegram_chat_id', String(identity))
     }
 
+
+
     const { data: rows, error } = await query.limit(1)
     const enrollment = rows?.[0]
 
     if (error || !enrollment) {
       return NextResponse.json({ error: 'Enrollment not found' }, { status: 404 })
+    }
+
+    if (webAccess) {
+      if (
+        webAccess.courseId !== courseId ||
+        webAccess.enrollment.id !== enrollment.id ||
+        enrollment.payment_status !== 'paid'
+      ) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+      }
     }
 
     // ── Update completed_lessons (idempotent) ─────────────────────
@@ -238,14 +261,14 @@ export async function POST(req: NextRequest) {
             }
           }
           certResult = await issueCertificate(supabase, {
-            enrollmentId:  enrollment.id,
+            enrollmentId: enrollment.id,
             courseId,
-            studentId:     enrollment.student_id ?? null,
-            studentName:   certStudentName,
-            courseName:    courseRow!.name,
-            creatorName:   courseRow!.host_name || 'Creator',
-            template:      (courseRow!.cert_template ?? 'classic') as CertTemplate,
-            paletteId:     courseRow!.cert_palette ?? 'classic-gold',
+            studentId: enrollment.student_id ?? null,
+            studentName: certStudentName,
+            courseName: courseRow!.name,
+            creatorName: courseRow!.host_name || 'Creator',
+            template: (courseRow!.cert_template ?? 'classic') as CertTemplate,
+            paletteId: courseRow!.cert_palette ?? 'classic-gold',
             customMessage: courseRow!.cert_custom_message ?? undefined,
             logoUrl: courseRow!.use_logo_on_certificate
               ? (courseRow!.brand_logo_url || undefined)
@@ -258,7 +281,7 @@ export async function POST(req: NextRequest) {
         console.error('[lesson/complete] certificate error:', certErr.message)
       }
     }
-    
+
 
 
     return NextResponse.json({
