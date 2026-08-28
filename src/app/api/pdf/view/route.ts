@@ -17,13 +17,18 @@ import { createClient } from '@supabase/supabase-js'
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 import { verifyPdfUrl } from '@/lib/signer'
 import { isLessonFree } from '@/lib/freeLesson'
+import { getWebAccessContext } from '@/lib/webAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function verifyEnrollment(lessonId: string, identity: string): Promise<boolean> {
+async function verifyEnrollment(
+  lessonId: string,
+  identity: string,
+  req?: NextRequest
+): Promise<boolean> {
   const { data: lesson } = await supabase
     .from('lessons')
     .select('course_id, order_num, is_free')
@@ -46,7 +51,10 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
   if (isFree) return true
 
   // 2. If it's guest 'web' access and not free, deny
-  if (identity === 'web') return false
+  if (identity === 'web') {
+  const webAccess = req ? await getWebAccessContext(req) : null
+  return webAccess?.courseId === lesson.course_id
+}
 
   // 3. Check if identity is a UUID (website user ID)
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identity)
@@ -251,7 +259,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. Enrollment check
-  const allowed = await verifyEnrollment(lessonId, identity)
+  const allowed = await verifyEnrollment(lessonId, identity, req)
   if (!allowed) {
     return new NextResponse('Not enrolled in this course.', { status: 403 })
   }

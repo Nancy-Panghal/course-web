@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyVideoUrl } from '@/lib/signer'
 import { isLessonFree } from '@/lib/freeLesson'
+import { getWebAccessContext } from '@/lib/webAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,7 +55,11 @@ function setCachedEnrollment(key: string, result: boolean) {
   enrollmentCache.set(key, { result, expiresAt: Date.now() + 5 * 60 * 1000 })
 }
 
-async function verifyEnrollment(lessonId: string, identity: string): Promise<boolean> {
+async function verifyEnrollment(
+  lessonId: string,
+  identity: string,
+  req?: NextRequest
+): Promise<boolean> {
   const cacheKey = `${lessonId}:${identity}`
   const cached = getCachedEnrollment(cacheKey)
   if (cached !== null) return cached
@@ -79,7 +84,14 @@ async function verifyEnrollment(lessonId: string, identity: string): Promise<boo
   )
   if (isFree) { setCachedEnrollment(cacheKey, true); return true }
 
-  if (identity === 'web') { setCachedEnrollment(cacheKey, false); return false }
+  if (identity === 'web') {
+  const webAccess = req ? await getWebAccessContext(req) : null
+
+  const allowed = webAccess?.courseId === lesson.course_id
+
+  setCachedEnrollment(cacheKey, allowed)
+  return allowed
+}
 
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identity)
 
@@ -235,7 +247,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 3. Enrollment check
-  const allowed = await verifyEnrollment(lessonId, identity)
+  const allowed = await verifyEnrollment(lessonId, identity, req)
   if (!allowed) {
     return new NextResponse('Not enrolled', { status: 403 })
   }
