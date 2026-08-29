@@ -66,7 +66,7 @@ export default function TestCourseModal({
     setMounted(true)
   }, [])
 
-
+  const telegramUsernameForLink = (telegramBotUsername || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || '').replace('@', '')
 
   async function handleSubmit() {
     if (!phone && !telegramUsername) {
@@ -91,7 +91,9 @@ export default function TestCourseModal({
 
       // Test mode deliberately offers every connected channel, even if this
       // course currently delivers through only one of them.
-      const wantsTelegram = Boolean(telegramBotUsername)
+      
+
+      const wantsTelegram = Boolean(telegramUsernameForLink)
       const wantsWhatsApp = Boolean(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER)
 
       const out: { telegramToken?: string; whatsappToken?: string; courseDelivery: string } = { courseDelivery }
@@ -106,7 +108,7 @@ export default function TestCourseModal({
             studentName: name,
             creatorId,
             courseId,
-            paymentId: 'TEST',
+            paymentId: `TEST:${creatorId}:${courseId}`,
           }),
         }).then(r => r.json())
         if (r.token) {
@@ -129,7 +131,7 @@ export default function TestCourseModal({
             studentName: name,
             creatorId,
             courseId,
-            paymentId: 'TEST',
+            paymentId: `TEST:${creatorId}:${courseId}`,
           }),
         }).then(r => r.json())
         if (r.token) {
@@ -234,7 +236,7 @@ export default function TestCourseModal({
 
               {result.telegramToken && telegramBotUsername ? (
                 <a
-                  href={`https://t.me/${telegramBotUsername.replace('@', '')}?start=${result.telegramToken}`}
+                  href={`https://t.me/${telegramUsernameForLink.replace('@', '')}?start=${result.telegramToken}`}
                   target="_blank"
                   rel="noreferrer"
                   className="min-h-11 flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold text-white text-center"

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'You can only test your own courses.' }, { status: 403 })
     }
 
-    
+
     // Save/overwrite the one reusable test identity for this creator.
     const { error: upsertErr } = await supabase
       .from('creator_test_students')
@@ -112,10 +112,12 @@ export async function POST(req: NextRequest) {
     // identity, so only this logged-in creator can receive web-course access.
     const { data: existing } = await supabase
       .from('enrollments')
-      .select('id')
+      .select('id, payment_id, delivery_method')
       .eq('course_uuid', courseId)
       .eq('is_test', true)
       .maybeSingle()
+
+    const testPaymentId = `TEST:${creatorId}:${courseId}`
 
     let enrollmentId: string
 
@@ -123,10 +125,15 @@ export async function POST(req: NextRequest) {
       const { error: updateErr } = await supabase
         .from('enrollments')
         .update({
-          student_id: testStudent.id,
-          phone: phone || null,
-          certificate_student_name: name || null,
-        })
+  student_id: testStudent.id,
+  phone: phone || null,
+  certificate_student_name: name || null,
+  payment_id: existing.payment_id === 'TEST'
+    ? testPaymentId
+    : existing.payment_id,
+  delivery_method:
+    existing.delivery_method || course.delivery || 'both',
+})
         .eq('id', existing.id)
 
       if (updateErr) throw updateErr
@@ -144,8 +151,9 @@ export async function POST(req: NextRequest) {
           completed_lessons: [],
           quiz_results: [],
           payment_status: 'paid',
-          payment_id: 'TEST',
+          payment_id: testPaymentId,
           amount_paid: 0,
+          delivery_method: course.delivery || 'both',
           is_test: true,
         })
         .select('id')

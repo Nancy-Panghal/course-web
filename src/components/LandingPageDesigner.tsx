@@ -5,8 +5,8 @@ import { slugify } from '@/lib/utils'
 import { LANDING_THEMES, DEFAULT_LANDING_THEME_ID, getLandingTheme, type LandingThemeId } from '@/lib/landing-themes'
 import CountdownTimer from '@/components/CountdownTimer'
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, ExternalLink, Image as ImageIcon, X, Eye, EyeOff,
-  Layout, Palette, Plus, Trash2, Type, Lock, Gift, AlertTriangle, Timer, FileText,
+   Check, ExternalLink, Image as ImageIcon, X, 
+   Palette, Plus, Trash2, Type,  Gift, AlertTriangle, Timer, FileText,
 } from 'lucide-react'
 import {
   DEFAULT_LANDING_CONFIG, normalizeLandingConfig, LANDING_SECTION_META, LANDING_SECTION_TYPES,
@@ -59,7 +59,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
   
   const [landingConfig, setLandingConfig] = useState<LandingConfig>(DEFAULT_LANDING_CONFIG)
   const [fontPair, setFontPair] = useState<FontPairId>('theme-default')
-  const [activeTab, setActiveTab] = useState<'theme' | 'sections' | 'fonts'>('theme')
+  const [activeTab, setActiveTab] = useState<'theme' | 'fonts'>('theme')
 
   useEffect(() => {
     async function load() {
@@ -89,34 +89,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
   const previewUrl = (themeId: LandingThemeId) =>
     `/about-course/${slugify(hostName || 'instructor')}/${slugify(courseName)}/${courseId}?theme=${themeId}`
 
-  // A section's "key" is its customId for custom sections (several can share
-  // type 'custom') or its type for every other, singleton, section.
-  function sectionKey(s: LandingSectionEntry): string {
-    return s.customId ?? s.type
-  }
 
-  function updateSectionEnabled(key: string, enabled: boolean) {
-    setLandingConfig(prev => ({ ...prev, sections: prev.sections.map(s => sectionKey(s) === key ? { ...s, enabled } : s) }))
-  }
-
-  // Moves a section within the reorderable MIDDLE list only (hero/finalCta stay
-  // pinned). Works off entry identity (sectionKey), not type, so custom sections
-  // that share type 'custom' reorder independently instead of all moving together.
-  function moveSection(key: string, direction: -1 | 1) {
-    setLandingConfig(prev => {
-      const middle = prev.sections.filter(s => s.type !== PINNED_TOP && s.type !== PINNED_BOTTOM)
-      const idx = middle.findIndex(s => sectionKey(s) === key)
-      const nextIdx = idx + direction
-      if (idx === -1 || nextIdx < 0 || nextIdx >= middle.length) return prev
-        ;[middle[idx], middle[nextIdx]] = [middle[nextIdx], middle[idx]]
-
-      const pinnedTop = prev.sections.find(s => s.type === PINNED_TOP)!
-      const pinnedBottom = prev.sections.find(s => s.type === PINNED_BOTTOM)!
-      return { ...prev, sections: [pinnedTop, ...middle, pinnedBottom] }
-    })
-  }
-
-  
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -213,11 +186,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
     return () => window.clearTimeout(timer)
   }, [landingSnapshot, loading, saving])
 
-  const middleSections = landingConfig.sections.filter(s => s.type !== PINNED_TOP && s.type !== PINNED_BOTTOM)
-  const enabledCount = landingConfig.sections.filter(s => s.enabled).length
-  // LANDING_SECTION_TYPES includes 'custom', which isn't a fixed singleton
-  // section like the rest — exclude it so "X / Y visible" stays meaningful.
-  const fixedSectionCount = LANDING_SECTION_TYPES.length - 1
+  
 
   if (loading) {
     return <div className="w-32 h-6 rounded bg-white/5 animate-pulse" />
@@ -250,7 +219,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
       <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
         {([
           { id: 'theme', label: 'Theme & Colors', icon: <Palette className="w-3.5 h-3.5" /> },
-          { id: 'sections', label: 'Page Sections', icon: <Layout className="w-3.5 h-3.5" /> },
+          
           { id: 'fonts', label: 'Font Style', icon: <Type className="w-3.5 h-3.5" /> },
         ] as const).map(tab => (
           <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
@@ -355,150 +324,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
           </div>
         )}
 
-        {/* ── TAB: SECTIONS ── */}
-        {activeTab === 'sections' && (
-          <>
-            <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="font-semibold text-white">Page Sections & Order</h2>
-                <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-lighter)' }}>
-                  {enabledCount} / {fixedSectionCount} visible
-                </span>
-              </div>
-              <p className="text-xs mb-5" style={{ color: '#71717a' }}>
-                Use the arrows to reorder sections — the live page renders them top to bottom in this order.
-                Toggle a section off to hide it. Hero and Final CTA are pinned to the top and bottom so every
-                page keeps a clear start and a working buy button.
-              </p>
-
-              <div className="flex flex-col gap-2">
-                {/* Pinned: Hero */}
-                <div className="flex items-center gap-4 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <Lock className="w-4 h-4 flex-shrink-0" style={{ color: '#52525b' }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold" style={{ color: '#a1a1aa' }}>{LANDING_SECTION_META.hero.label} <span style={{ color: '#52525b', fontWeight: 400 }}>· always first</span></p>
-                    <p className="text-xs" style={{ color: '#52525b' }}>{LANDING_SECTION_META.hero.description}</p>
-                  </div>
-                </div>
-
-                {/* Reorderable middle sections */}
-                {middleSections.map((section, i) => {
-                  const key = sectionKey(section)
-                  const isCustom = section.type === 'custom'
-                  const customData = isCustom ? landingConfig.customSections.find(cs => cs.id === section.customId) : undefined
-                  const meta = isCustom ? undefined : LANDING_SECTION_META[section.type]
-                  const on = section.enabled
-                  const label = isCustom ? (customData?.heading.trim() || 'Untitled custom section') : meta!.label
-                  const description = isCustom ? 'Your own text section — edit it below' : meta!.description
-                  return (
-                    <div key={key}
-                      className="flex items-center gap-3 p-4 rounded-xl transition-all"
-                      style={{
-                        background: on ? 'rgba(var(--kurso-primary-rgb), 0.06)' : 'rgba(255,255,255,0.02)',
-                        border: on ? '1px solid rgba(var(--kurso-primary-rgb), 0.2)' : '1px solid rgba(255,255,255,0.06)',
-                      }}>
-                      {/* Reorder arrows */}
-                      <div className="flex flex-col gap-0.5 flex-shrink-0">
-                        <button type="button" onClick={() => moveSection(key, -1)} disabled={i === 0}
-                          className="w-6 h-5 rounded flex items-center justify-center disabled:opacity-20"
-                          style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
-                          <ArrowUp className="w-3 h-3" />
-                        </button>
-                        <button type="button" onClick={() => moveSection(key, 1)} disabled={i === middleSections.length - 1}
-                          className="w-6 h-5 rounded flex items-center justify-center disabled:opacity-20"
-                          style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}>
-                          <ArrowDown className="w-3 h-3" />
-                        </button>
-                      </div>
-
-                      {/* Toggle — for a custom section this doubles as its live/rollback
-                            switch: off = the page renders exactly as if it didn't exist. */}
-                      <button type="button" onClick={() => updateSectionEnabled(key, !on)}
-                        className="relative flex-shrink-0 transition-all"
-                        style={{ width: 40, height: 22, borderRadius: 999, background: on ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
-                        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: on ? '20px' : '2px' }} />
-                      </button>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate" style={{ color: on ? '#fff' : '#71717a' }}>{isCustom && '✎ '}{label}</p>
-                        <p className="text-xs" style={{ color: '#52525b' }}>{description}</p>
-                      </div>
-
-                      
-                    </div>
-                  )
-                })}
-
-                {/* Pinned: Final CTA — position is still fixed at the bottom,
-                      but unlike Hero it's not content-locked, so it gets the
-                      same on/off toggle as every other section. */}
-                {(() => {
-                  const finalCtaEntry = landingConfig.sections.find(s => s.type === 'finalCta')!
-                  const on = finalCtaEntry.enabled
-                  return (
-                    <div className="flex items-center gap-3 p-4 rounded-xl transition-all"
-                      style={{
-                        background: on ? 'rgba(var(--kurso-primary-rgb), 0.06)' : 'rgba(255,255,255,0.02)',
-                        border: on ? '1px solid rgba(var(--kurso-primary-rgb), 0.2)' : '1px solid rgba(255,255,255,0.06)',
-                      }}>
-                      <button type="button" onClick={() => updateSectionEnabled('finalCta', !on)}
-                        className="relative flex-shrink-0 transition-all"
-                        style={{ width: 40, height: 22, borderRadius: 999, background: on ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
-                        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: on ? '20px' : '2px' }} />
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold" style={{ color: on ? '#fff' : '#71717a' }}>{LANDING_SECTION_META.finalCta.label} <span style={{ color: '#52525b', fontWeight: 400 }}>· always last</span></p>
-                        <p className="text-xs" style={{ color: '#52525b' }}>{LANDING_SECTION_META.finalCta.description}</p>
-                      </div>
-                      <div style={{ color: on ? 'var(--kurso-primary-lighter)' : '#3f3f46', flexShrink: 0 }}>
-                        {on ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-
-              <div className="mt-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <p className="text-xs" style={{ color: '#52525b' }}>
-                  💡 Sections with no data (e.g. Testimonials if you haven't added any, or Curriculum if you
-                  haven't added lessons yet) are automatically hidden on the live page regardless of this toggle.
-                </p>
-              </div>
-            </div>
-
-            
-
-            {/* ── INSTRUCTOR LAYOUT ── */}
-            <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h2 className="font-semibold text-white mb-1">Instructor layout</h2>
-              <p className="text-xs mb-4" style={{ color: '#71717a' }}>
-                Applies to every instructor on this course, including co-instructors.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button type="button" onClick={() => setLandingConfig(prev => ({ ...prev, instructorLayout: 'square' }))}
-                  className="p-4 rounded-xl text-left transition-all"
-                  style={{
-                    background: landingConfig.instructorLayout === 'square' ? 'rgba(var(--kurso-primary-rgb), 0.1)' : 'rgba(255,255,255,0.02)',
-                    border: landingConfig.instructorLayout === 'square' ? '1px solid rgba(var(--kurso-primary-rgb), 0.35)' : '1px solid rgba(255,255,255,0.06)',
-                  }}>
-                  <p className="text-sm font-semibold mb-1" style={{ color: landingConfig.instructorLayout === 'square' ? '#fff' : '#a1a1aa' }}>Square cards</p>
-                  <p className="text-xs" style={{ color: '#52525b' }}>Compact cards side by side, wrapping if there are several</p>
-                </button>
-                <button type="button" onClick={() => setLandingConfig(prev => ({ ...prev, instructorLayout: 'rectangle' }))}
-                  className="p-4 rounded-xl text-left transition-all"
-                  style={{
-                    background: landingConfig.instructorLayout === 'rectangle' ? 'rgba(var(--kurso-primary-rgb), 0.1)' : 'rgba(255,255,255,0.02)',
-                    border: landingConfig.instructorLayout === 'rectangle' ? '1px solid rgba(var(--kurso-primary-rgb), 0.35)' : '1px solid rgba(255,255,255,0.06)',
-                  }}>
-                  <p className="text-sm font-semibold mb-1" style={{ color: landingConfig.instructorLayout === 'rectangle' ? '#fff' : '#a1a1aa' }}>Rectangle rows</p>
-                  <p className="text-xs" style={{ color: '#52525b' }}>Wide fixed-width card, one per row, height grows with bio text</p>
-                </button>
-              </div>
-            </div>
-
-            </>
-        )}
+        
 
         {/* ── TAB: FONTS ── */}
         {activeTab === 'fonts' && (

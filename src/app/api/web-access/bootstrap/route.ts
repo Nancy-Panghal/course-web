@@ -146,12 +146,12 @@ export async function GET(req: NextRequest) {
   )
 
   response.cookies.set('kurso_web_session', sessionToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    expires: new Date(sessionExpiresAt),
-  })
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+  expires: new Date(sessionExpiresAt),
+})
 
   return response
 }

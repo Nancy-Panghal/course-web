@@ -77,7 +77,7 @@ function Field({ label, children, hint }: { label: React.ReactNode; children: Re
     <div>
       <label className="text-sm font-medium text-white mb-2 block">{label}</label>
       {children}
-            {hint && <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: 'var(--kurso-hint)' }}>{hint}</p>}
+      {hint && <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: 'var(--kurso-hint)' }}>{hint}</p>}
     </div>
   )
 }
@@ -153,7 +153,7 @@ export default function CreateCoursePage() {
   const [usesExternalLandingPage, setUsesExternalLandingPage] = useState(false)
   // Step 3 — new fields
   const [level, setLevel] = useState('')
-  const [category, setCategory] = useState('')
+
   const [brandName, setBrandName] = useState('')
   const [requirements, setRequirements] = useState([''])
   const [targetAudience, setTargetAudience] = useState([''])
@@ -333,7 +333,6 @@ export default function CreateCoursePage() {
         uses_external_landing_page: usesExternalLandingPage,
         // Step 3 fields
         level: level || null,
-        category: category || null,
         brand_name: brandName.trim() || null,
         instructor_title: instructorTitle.trim() || null,
         requirements: requirements.filter(r => r.trim()),
@@ -453,19 +452,28 @@ export default function CreateCoursePage() {
                   </Field>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Category (optional)" hint="e.g. Digital Marketing, Coding, Finance">
-                      <Input value={category} onChange={setCategory} placeholder="e.g. Digital Marketing" />
-                    </Field>
                     <Field label="Difficulty Level">
                       <select
                         value={level}
                         onChange={e => setLevel(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none appearance-none cursor-pointer"
-                        style={{ background: '#050505', color: level ? '#fff' : '#52525b', border: '1px solid rgba(255,255,255,0.1)' }}
+                        style={{
+                          background: '#050505',
+                          color: level ? '#fff' : '#52525b',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                        }}
                       >
-                        <option value="" style={{ background: '#050505', color: '#52525b' }}>Select level…</option>
+                        <option value="" style={{ background: '#050505', color: '#52525b' }}>
+                          Select level…
+                        </option>
                         {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(l => (
-                          <option key={l} value={l} style={{ background: '#050505', color: '#fff' }}>{l}</option>
+                          <option
+                            key={l}
+                            value={l}
+                            style={{ background: '#050505', color: '#fff' }}
+                          >
+                            {l}
+                          </option>
                         ))}
                       </select>
                     </Field>
@@ -564,7 +572,7 @@ export default function CreateCoursePage() {
                     </div>
                   </Field>
 
-                                    <SectionDivider label="Instructor Bio" />
+                  <SectionDivider label="Instructor Bio" />
 
                   <Field label="Instructor Name" hint="Shown on course page">
                     <Input value={hostName} onChange={setHostName} placeholder="Your name" />
@@ -748,11 +756,19 @@ export default function CreateCoursePage() {
                   </div>
                   <p className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>
                     Important: your own page's copy should mention that lessons are delivered on{' '}
-                    <span className="text-white font-medium">WhatsApp</span> and/or{' '}
-                    <span className="text-white font-medium">Telegram</span>{' '}
-                    <Send className="w-3 h-3 inline" style={{ color: 'var(--kurso-primary-light)' }} />{' '}
+                    <span className="text-white font-medium">
+                      {delivery === 'both'
+                        ? 'WhatsApp + Telegram'
+                        : delivery === 'whatsapp'
+                          ? 'WhatsApp'
+                          : 'Telegram'}
+                    </span>{' '}
+                    <Send
+                      className="w-3 h-3 inline"
+                      style={{ color: 'var(--kurso-primary-light)' }}
+                    />{' '}
                     — students coming from your page won't see Kurso's course page explaining this,
-                    so it's on your copy to set that expectation.
+                    so your copy should set that expectation.
                   </p>
                 </div>
 
@@ -807,7 +823,15 @@ export default function CreateCoursePage() {
                   onUpgraded={(newPlanId: SubscriptionPlanId) => setEffectivePlanId(newPlanId)}
                 />
                 <p className="text-xs mt-3" style={{ color: 'rgba(247, 149, 20, 0.65)' }}>
-                  Once this course is live, students who enroll will only see the channel(s) you picked here — you can change it anytime from the course's Settings tab.
+                  Once this course is live, students who enroll will receive lessons through{' '}
+                  <strong>
+                    {delivery === 'both'
+                      ? 'WhatsApp + Telegram'
+                      : delivery === 'whatsapp'
+                        ? 'WhatsApp'
+                        : 'Telegram'}
+                  </strong>
+                  . You can change this anytime from the course's Settings tab.
                 </p>
               </>
             )}

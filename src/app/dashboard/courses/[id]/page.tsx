@@ -16,6 +16,7 @@ import {
   DEFAULT_LANDING_CONFIG, normalizeLandingConfig, MAX_CUSTOM_SECTION_IMAGES,
   MAX_FINAL_CTA_WORDS, DEFAULT_FINAL_CTA_TEXT,
   type LandingConfig, type LandingSectionEntry, type LandingCustomSection,
+  type LandingSectionType,
 } from '@/lib/landing-config'
 import { MAX_CUSTOM_SECTIONS_PER_COURSE, MAX_CUSTOM_HEADING_LENGTH, MAX_CUSTOM_BODY_LENGTH } from '@/lib/customSectionText'
 import { MAX_POLICY_FILE_BYTES, POLICY_DOC_LABELS, type PolicyDocType } from '@/lib/policyDocs'
@@ -416,6 +417,8 @@ function AddLessonModal({
               </select>
             </div>
           )}
+
+
 
           {/* Title */}
           <div>
@@ -2232,6 +2235,7 @@ export default function CourseManagePage({
   const [editAbout, setEditAbout] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editDuration, setEditDuration] = useState('')
+  const [editLanguage, setEditLanguage] = useState('English')
   const [editPlannedLessons, setEditPlannedLessons] = useState('')
   const [editNextLessonDate, setEditNextLessonDate] = useState('')
   const [editCourseEndDate, setEditCourseEndDate] = useState('')
@@ -2268,7 +2272,6 @@ export default function CourseManagePage({
   const [editTargetAudience, setEditTargetAudience] = useState<string[]>([])
   const [editTestimonials, setEditTestimonials] = useState<{ name: string; text: string; rating: number }[]>([])
   const [editLevel, setEditLevel] = useState('')
-  const [editCategory, setEditCategory] = useState('')
   const [editRequirements, setEditRequirements] = useState<string[]>([])
   const [settingsLandingConfig, setSettingsLandingConfig] = useState<LandingConfig>(DEFAULT_LANDING_CONFIG)
   const [uploadingCustomImageId, setUploadingCustomImageId] = useState<string | null>(null)
@@ -2329,6 +2332,11 @@ export default function CourseManagePage({
       setEditAbout(courseData.about_creator || '')
       setEditStartDate(courseData.start_date || '')
       setEditDuration(courseData.duration || '')
+      setEditLanguage(
+        Array.isArray(courseData.language)
+          ? courseData.language.join(', ')
+          : 'English'
+      )
 
       setEditSkills(Array.isArray(courseData.skills) ? courseData.skills.join(', ') : '')
       setEditPlannedLessons(courseData.total_lessons?.toString() || '')
@@ -2364,7 +2372,6 @@ export default function CourseManagePage({
       setEditTargetAudience(courseData.target_audience || [''])
       setEditTestimonials(courseData.testimonials || [])
       setEditLevel(courseData.level || '')
-      setEditCategory(courseData.category || '')
       setEditRequirements(courseData.requirements || [''])
       setSettingsLandingConfig(normalizeLandingConfig(courseData.landing_config, courseData.landing_sections))
 
@@ -2528,6 +2535,10 @@ export default function CourseManagePage({
         about_creator: editAbout,
         start_date: editStartDate,
         duration: editDuration,
+        language: editLanguage
+          .split(',')
+          .map(language => language.trim())
+          .filter(Boolean),
         total_lessons: editPlannedLessons ? parseInt(editPlannedLessons) : lessons.length,
         next_lesson_date: editNextLessonDate || null,
         course_end_date: editCourseEndDate || null,
@@ -2567,7 +2578,6 @@ export default function CourseManagePage({
         target_audience: editTargetAudience.filter(t => t.trim()),
         testimonials: editTestimonials.filter(t => t.name.trim() && t.text.trim()),
         level: editLevel || null,
-        category: editCategory.trim() || null,
         requirements: editRequirements.filter(r => r.trim()),
         landing_config: (() => {
           const cleanedBonuses = settingsLandingConfig.bonuses.map(b => ({ title: b.title.trim(), description: b.description.trim() })).filter(b => b.title.length > 0)
@@ -2622,12 +2632,98 @@ export default function CourseManagePage({
     return !error
   }
 
+  function LandingSectionToggle({
+    type,
+    customId,
+    label = 'Show this on your landing page.',
+  }: {
+    type: LandingSectionType
+    customId?: string
+    label?: string
+  }) {
+    const entry = settingsLandingConfig.sections.find(section =>
+      section.type === type &&
+      (!customId || section.customId === customId)
+    )
+
+    // Hero and Final CTA remain structurally locked.
+    if (!entry || type === 'hero' || type === 'finalCta') {
+      return null
+    }
+
+    const enabled = entry.enabled
+
+    return (
+      <div
+        className="flex items-center justify-between gap-4 mt-2 mb-4 p-4 rounded-xl"
+        style={{
+          background: enabled
+            ? 'rgba(var(--kurso-primary-rgb), 0.06)'
+            : 'rgba(255,255,255,0.03)',
+          border: enabled
+            ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
+            : '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        <div>
+          <p className="text-sm font-semibold text-white">
+            {label}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+            {enabled
+              ? 'This section is shown on your landing page.'
+              : 'This section is hidden from your landing page.'}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSettingsLandingConfig(previous => ({
+              ...previous,
+              sections: previous.sections.map(section =>
+                section.type === type &&
+                  (!customId || section.customId === customId)
+                  ? { ...section, enabled: !enabled }
+                  : section
+              ),
+            }))
+          }}
+          className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+          style={{
+            background: enabled
+              ? 'var(--kurso-primary)'
+              : 'rgba(255,255,255,0.12)',
+          }}
+          aria-label={enabled ? 'Hide this section' : 'Show this section'}
+          aria-pressed={enabled}
+        >
+          <span
+            className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+            style={{
+              transform: enabled
+                ? 'translateX(20px)'
+                : 'translateX(0)',
+            }}
+          />
+        </button>
+      </div>
+    )
+  }
   /**
    * Delivery method has its own explicit save (not the settings autosave):
    * changing it can cost real money (picking above-plan triggers inline
    * payment in the picker itself) and the "apply to enrolled students"
    * toggle needs a deliberate confirm, not a silent debounce.
    */
+  function getDeliveryLabel(method: string): string {
+    if (method === 'whatsapp') return 'WhatsApp'
+    if (method === 'telegram') return 'Telegram'
+    if (method === 'both') return 'WhatsApp + Telegram'
+    return 'the selected channel'
+  }
+
+
   async function saveDeliveryMethod() {
     if (!course) return
     setDeliveryError('')
@@ -2635,7 +2731,9 @@ export default function CourseManagePage({
     // Exact-match coverage check, not price comparison — telegram and
     // whatsapp are separate channels, not tiers of each other.
     if (!planCoversDeliveryMethod(effectivePlanId, settingsDelivery)) {
-      setDeliveryError('Your current plan does not cover this delivery method. Please select it again to unlock it.')
+      setDeliveryError(
+        `Your current plan does not cover ${getDeliveryLabel(settingsDelivery)}. Please select a covered delivery method.`
+      )
       return
     }
     setSavingDelivery(true)
@@ -2652,20 +2750,31 @@ export default function CourseManagePage({
 
     setCourse({ ...course, delivery: settingsDelivery })
 
+    // IMPORTANT:
+// Existing students must retain their enrollment.delivery_method snapshot.
+// This branch is intentionally kept for a future admin-controlled migration
+// feature, but there its UI toggle is commented out whcih can't be uncommented until Nivan/nancy approve.
+
     if (applyDeliveryToEnrolled) {
       const { error: enrollErr } = await supabase
         .from('enrollments')
         .update({ delivery_method: settingsDelivery })
         .eq('course_uuid', id)
       if (enrollErr) {
-        setDeliveryError('Delivery method saved for new students, but updating already-enrolled students failed — please try the toggle again.')
+        setDeliveryError(
+          `${getDeliveryLabel(settingsDelivery)} was saved for new students, but updating existing students failed — please try the toggle again.`
+        )
         setSavingDelivery(false)
         return
       }
-      setDeliverySuccess('Saved — applied to new enrollments and to already-enrolled students.')
+      setDeliverySuccess(
+        `Saved — ${getDeliveryLabel(settingsDelivery)} now applies to new enrollments and existing students.`
+      )
       setApplyDeliveryToEnrolled(false)
     } else {
-      setDeliverySuccess('Saved — this applies to students who enroll from now on. Already-enrolled students keep the channel they joined under.')
+      setDeliverySuccess(
+        `Saved — ${getDeliveryLabel(settingsDelivery)} applies to new enrollments. Existing students keep their current access.`
+      )
     }
     setSavingDelivery(false)
   }
@@ -2685,10 +2794,11 @@ export default function CourseManagePage({
     editDuration,
     editPlannedLessons,
     editNextLessonDate, editCourseEndDate, editStudentMessage, editLearn, editFaq, editHostImage,
+    editLanguage,
     editIsFreeCourse, editCertEnabled, editCertTemplate, editCertPalette, editCertCustomMessage,
     editSkills, editCertLogoUrl, editCertSignatureUrl, editUseLogoOnCertificate, editBrandName,
     editCoInstructors, editPromoVideoUrls, editPromoVideoHeading, editTargetAudience, editTestimonials,
-    editLevel, editCategory, editRequirements, settingsLandingConfig,
+    editLevel, editRequirements, settingsLandingConfig,
   })
 
   useEffect(() => {
@@ -3056,6 +3166,7 @@ export default function CourseManagePage({
           creatorId={creatorId}
           nextOrder={lessons.length + 1}
           modules={modules}
+
           initialModuleId={selectedModuleForLesson}
           initialType={addContentType}
         />
@@ -3230,6 +3341,13 @@ export default function CourseManagePage({
                   </div>
                 </div>
 
+
+                <LandingSectionToggle
+                  type="curriculum"
+                  label="Show lesson names & modules name on your landing page."
+                />
+
+
                 {/* Lesson list */}
                 {lessons.length === 0 && modules.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center glass"
@@ -3374,19 +3492,32 @@ export default function CourseManagePage({
                     disabled={savingDelivery}
                   />
 
-                  <label className="flex items-start gap-3 mt-5 p-4 rounded-xl cursor-pointer"
-                    style={{ background: 'rgba(250,204,21,0.06)', border: '1px solid rgba(250,204,21,0.2)' }}>
-                    <input type="checkbox" checked={applyDeliveryToEnrolled}
+                  {/* this is the toggle for applying the delivery method to existing students. It is currently commented out, but you can uncomment it if you want to allow users to apply the delivery method to existing students.
+                  this is my (Nivan/Nancy) decision to keep it commented out for now.   */}
+                  {/* <label
+                    className="flex items-start gap-3 mt-5 p-4 rounded-xl cursor-pointer"
+                    style={{
+                      background: 'rgba(250,204,21,0.06)',
+                      border: '1px solid rgba(250,204,21,0.2)',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={applyDeliveryToEnrolled}
                       onChange={e => setApplyDeliveryToEnrolled(e.target.checked)}
-                      className="mt-0.5" />
+                      className="mt-0.5"
+                    />
+
                     <span className="text-xs" style={{ color: '#fde68a' }}>
-                      <span className="font-semibold block mb-1">Also change this for already-enrolled students</span>
-                      By default, changing the delivery method only affects students who enroll from now on — existing students keep the channel they joined under. Checking this applies the change retroactively too.
-                      <span className="block mt-1.5" style={{ color: '#facc15' }}>
-                        ⚠️ Not recommended: this won't silently move a student to a new bot — a WhatsApp-enrolled student has no Telegram chat on file. It only changes which CTA/channel they're shown; if you're adding a channel they'll still need to tap and connect it themselves, and if you're removing one they may lose access to lessons they were reading there.
+                      <span className="font-semibold block mb-1">
+                        Also apply to existing students
+                      </span>
+
+                      <span className="block">
+                        Existing students keep their current access either way.
                       </span>
                     </span>
-                  </label>
+                  </label> */}
 
                   {deliveryError && (
                     <p className="text-xs mt-3 px-3 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }}>{deliveryError}</p>
@@ -3442,37 +3573,88 @@ export default function CourseManagePage({
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-                          <div>
-                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                              Category <span className="text-zinc-500 font-normal">(optional)</span>
-                            </label>
-                            <input
-                              value={editCategory}
-                              onChange={e => setEditCategory(e.target.value)}
-                              placeholder="e.g. Digital Marketing, Coding, Finance"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Difficulty Level</label>
-                            <select
-                              value={editLevel}
-                              onChange={e => setEditLevel(e.target.value)}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none appearance-none cursor-pointer"
-                              style={{ background: '#050505', color: editLevel ? '#fff' : '#a9a9ae' }}
-                            >
-                              <option value="" style={{ background: '#050505', color: '#52525b' }}>Select level…</option>
-                              {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(l => (
-                                <option key={l} value={l} style={{ background: '#050505', color: '#fff' }}>{l}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
+
                       </>
                     )}
 
                     <SectionDivider label="Course Price" />
+                    <SectionDivider label="Quick Stats" />
+
+                    <div
+                      className="rounded-2xl p-5"
+                      style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                      }}
+                    >
+                      <p className="text-xs mb-4" style={{ color: '#71717a' }}>
+                        These values appear together as the Quick Stats section on your landing page.
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Duration
+                          </label>
+                          <input
+                            value={editDuration}
+                            onChange={e => setEditDuration(e.target.value)}
+                            placeholder="4 Weeks"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Language
+                          </label>
+                          <input
+                            value={editLanguage}
+                            onChange={e => setEditLanguage(e.target.value)}
+                            placeholder="English"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                          />
+                          <p className="text-xs mt-1.5" style={{ color: '#71717a' }}>
+                            Separate multiple languages with commas.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Difficulty Level
+                          </label>
+
+                          <select
+                            value={editLevel}
+                            onChange={e => setEditLevel(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none appearance-none cursor-pointer"
+                            style={{
+                              background: '#050505',
+                              color: editLevel ? '#fff' : '#a9a9ae',
+                            }}
+                          >
+                            <option value="" style={{ background: '#050505', color: '#52525b' }}>
+                              Select level…
+                            </option>
+
+                            {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(level => (
+                              <option
+                                key={level}
+                                value={level}
+                                style={{ background: '#050505', color: '#fff' }}
+                              >
+                                {level}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <LandingSectionToggle
+                        type="stats"
+                        label="Show these on your landing page."
+                      />
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-semibold text-zinc-300 mb-2 block">Price (₹)</label>
@@ -3692,12 +3874,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               When students can join the course.
                             </p>
                           </div>
-                          <div>
-                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Duration</label>
-                            <input value={editDuration} onChange={e => setEditDuration(e.target.value)}
-                              placeholder="4 Weeks"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
-                          </div>
+
                         </div>
 
 
@@ -3710,6 +3887,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                         </div>
 
                         <SectionDivider label="What You'll Walk Away With " />
+                        <LandingSectionToggle type="learn" />
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">What You'll Walk Away With</label>
                           <div className="flex flex-col gap-2">
@@ -3728,6 +3906,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                         </div>
 
                         <SectionDivider label="Requirements" />
+                        <LandingSectionToggle type="requirements" />
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                             Requirements / Prerequisites
@@ -3809,6 +3988,66 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                            Instructor card layout
+                          </label>
+
+                          <p className="text-xs mb-3" style={{ color: '#71717a' }}>
+                            Choose how instructor cards appear on your landing page.
+                          </p>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {([
+                              {
+                                value: 'square' as const,
+                                title: 'Square cards',
+                                description: 'Compact cards displayed side by side.',
+                              },
+                              {
+                                value: 'rectangle' as const,
+                                title: 'Rectangle cards',
+                                description: 'Wide cards with more room for the biography.',
+                              },
+                            ]).map(option => {
+                              const selected =
+                                settingsLandingConfig.instructorLayout === option.value
+
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() =>
+                                    setSettingsLandingConfig(previous => ({
+                                      ...previous,
+                                      instructorLayout: option.value,
+                                    }))
+                                  }
+                                  className="p-4 rounded-xl text-left transition-all"
+                                  style={{
+                                    background: selected
+                                      ? 'rgba(var(--kurso-primary-rgb), 0.1)'
+                                      : 'rgba(255,255,255,0.03)',
+                                    border: selected
+                                      ? '1px solid rgba(var(--kurso-primary-rgb), 0.35)'
+                                      : '1px solid rgba(255,255,255,0.08)',
+                                  }}
+                                >
+                                  <p className="text-sm font-semibold text-white">
+                                    {option.title}
+                                  </p>
+                                  <p
+                                    className="text-xs mt-1"
+                                    style={{ color: '#71717a' }}
+                                  >
+                                    {option.description}
+                                  </p>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                             Additional Instructors
                             <span className="text-zinc-400 font-normal ml-1">— optional, for co-taught courses</span>
                           </label>
@@ -3824,6 +4063,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                         {/* Promo videos */}
                         <SectionDivider label="Promo Videos" />
+                        <LandingSectionToggle type="videos" />
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                             Section Heading
@@ -3857,6 +4097,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                         {/* Target audience */}
                         <SectionDivider label="Who Is This Course For?" />
+                        <LandingSectionToggle type="target" />
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                             Who Is This Course For?
@@ -3880,6 +4121,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                         {/* Testimonials */}
                         <SectionDivider label="What Students Say" />
+                        <LandingSectionToggle type="testimonials" />
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                             Student Testimonials
@@ -3920,6 +4162,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                         </div>
 
                         <SectionDivider label="Frequently Asked Questions" />
+                        <LandingSectionToggle type="faq" />
                         <div>
                           <label className="text-sm font-semibold text-zinc-300 mb-2 block">Frequently Asked Questions</label>
                           <div className="flex flex-col gap-3">
@@ -3955,6 +4198,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                         </div>
 
                         <SectionDivider label="What's Included (Bonuses)" />
+                        <LandingSectionToggle type="bonuses" />
                         <div className="flex flex-col gap-3">
                           {settingsLandingConfig.bonuses.map((bonus, i) => (
                             <div key={i} className="flex gap-2 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -3992,22 +4236,59 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             placeholder="+91 98765 43210"
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
                         </div>
-                        <label className="flex items-start gap-3 mt-1 p-3 rounded-xl cursor-pointer"
-                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                          <input type="checkbox" checked={editShowContactOnLanding}
-                            onChange={e => setEditShowContactOnLanding(e.target.checked)}
-                            className="mt-0.5" />
-                          <span className="text-xs text-zinc-300">
-                            <span className="font-semibold block mb-0.5 text-white">Show this on my landing page</span>
-                            <span style={{ color: 'var(--kurso-hint)' }}>
+
+                        <div
+                          className="flex items-center justify-between gap-4 mt-2 p-4 rounded-xl"
+                          style={{
+                            background: editShowContactOnLanding
+                              ? 'rgba(var(--kurso-primary-rgb), 0.06)'
+                              : 'rgba(255,255,255,0.03)',
+                            border: editShowContactOnLanding
+                              ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
+                              : '1px solid rgba(255,255,255,0.08)',
+                          }}
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              Show this on my landing page
+                            </p>
+
+                            <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
                               {editShowContactOnLanding
-                                ? 'Students will see a Contact link in your footer, next to Privacy Policy and Refund Policy.'
-                                : "Off by default — turn this on whenever you're ready for students to see it."}
-                            </span>
-                          </span>
-                        </label>
+                                ? 'Students will see a Contact link in your footer.'
+                                : 'This Contact link is hidden from your landing page.'}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setEditShowContactOnLanding(previous => !previous)}
+                            className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+                            style={{
+                              background: editShowContactOnLanding
+                                ? 'var(--kurso-primary)'
+                                : 'rgba(255,255,255,0.12)',
+                            }}
+                            aria-label={
+                              editShowContactOnLanding
+                                ? 'Hide contact link'
+                                : 'Show contact link'
+                            }
+                            aria-pressed={editShowContactOnLanding}
+                          >
+                            <span
+                              className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                              style={{
+                                transform: editShowContactOnLanding
+                                  ? 'translateX(20px)'
+                                  : 'translateX(0)',
+                              }}
+                            />
+                          </button>
+                        </div>
 
                         <SectionDivider label="Disclaimer" />
+                        <LandingSectionToggle type="disclaimer" />
                         <div className="flex flex-col gap-2">
                           <input value={settingsLandingConfig.disclaimer.title} onChange={e => updateDisclaimer('title', e.target.value)}
                             placeholder="Title (e.g. Important information)"
@@ -4024,6 +4305,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                         <div className="flex flex-col gap-4">
                           {settingsLandingConfig.customSections.map((cs) => (
                             <div key={cs.id} className="p-4 rounded-xl flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                              <LandingSectionToggle type="custom" customId={cs.id} />
                               <input value={cs.heading} onChange={e => updateCustomSection(cs.id, { heading: e.target.value })}
                                 maxLength={MAX_CUSTOM_HEADING_LENGTH} placeholder="Heading"
                                 className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
@@ -4140,6 +4422,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                         </div>
 
                         <SectionDivider label="Countdown & Seats" />
+                        <LandingSectionToggle type="urgency" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown ends at</label>
@@ -4382,26 +4665,30 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                       </>
                     )}
 
-                    <SectionDivider label="Embed Button" />
-                    <div>
-                      <p className="text-sm mb-3" style={{ color: '#a5a5a8', lineHeight: 1.6 }}>
-                        Paste this code anywhere on your own website to add a working "Buy Now" button — it opens Kurso checkout in a popup, everything else on your page stays untouched. You can freely change its color, size, font, and anything else in your own CSS to match your site; the only thing that must stay exactly as-is is the <code className="text-xs px-1 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.08)', color: '#e4e4e7' }}>data-kurso-course</code> attribute.
-                      </p>
-                      <pre className="text-xs mb-3 p-3 rounded-xl whitespace-pre-wrap break-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
-                        {embedSnippet()}
-                      </pre>
-                      <button onClick={copyEmbedSnippet}
-                        className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl text-sm font-medium transition-all"
-                        style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        {copiedEmbed
-                          ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
-                          : <><Copy className="w-4 h-4" />Copy Embed Code</>
-                        }
-                      </button>
-                      <p className="text-[11px] mt-2" style={{ color: '#71717a' }}>
-                        Note: the price shown is baked in at copy time — if you change your course price later, re-copy and re-paste this snippet.
-                      </p>
-                    </div>
+                    {course.uses_external_landing_page && (
+                      <>
+                        <SectionDivider label="Embed Button" />
+                        <div>
+                          <p className="text-sm mb-3" style={{ color: '#a5a5a8', lineHeight: 1.6 }}>
+                            Paste this code anywhere on your own website to add a working "Buy Now" button — it opens Kurso checkout in a popup, everything else on your page stays untouched. You can freely change its color, size, font, and anything else in your own CSS to match your site; the only thing that must stay exactly as-is is the <code className="text-xs px-1 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.08)', color: '#e4e4e7' }}>data-kurso-course</code> attribute.
+                          </p>
+                          <pre className="text-xs mb-3 p-3 rounded-xl whitespace-pre-wrap break-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
+                            {embedSnippet()}
+                          </pre>
+                          <button onClick={copyEmbedSnippet}
+                            className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl text-sm font-medium transition-all"
+                            style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            {copiedEmbed
+                              ? <><Check className="w-4 h-4" style={{ color: '#4ade80' }} />Copied!</>
+                              : <><Copy className="w-4 h-4" />Copy Embed Code</>
+                            }
+                          </button>
+                          <p className="text-[11px] mt-2" style={{ color: '#71717a' }}>
+                            Note: the price shown is baked in at copy time — if you change your course price later, re-copy and re-paste this snippet.
+                          </p>
+                        </div>
+                      </>
+                    )}
 
                     {/* Danger Zone */}
                     <div className="order-20 mt-12 pt-8 border-t border-red-500/20">
@@ -4513,7 +4800,10 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   Test This Course
                 </h3>
                 <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
-                  Since you're using your own landing page, there's no Kurso course page to preview. This instead enrolls you as a real student on WhatsApp or Telegram, so you can check the whole lesson-delivery experience before sending students there.
+                  Since you're using your own landing page, there's no Kurso course page to preview.
+                  This enrolls you as a real student on{' '}
+                  {getDeliveryLabel(course.delivery || 'both')}, so you can test the same
+                  lesson-delivery experience your students receive.
                 </p>
                 <button onClick={() => setShowTestModal(true)}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"

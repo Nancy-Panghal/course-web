@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         }
       );
       if (couponError) throw couponError;
-      
+
       const coupon = couponRows?.[0];
       if (coupon?.valid && coupon.final_amount <= 0) {
         isFree = true;
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       existingEnrollment = await firstRow(
         supabaseAdmin
           .from('enrollments')
-          .select('id, payment_status')
+          .select('id, payment_status, delivery_method')
           .eq('course_uuid', courseId)
           .eq('student_id', student.id)
       );
@@ -125,14 +125,27 @@ export async function POST(req: NextRequest) {
       existingEnrollment = await firstRow(
         supabaseAdmin
           .from('enrollments')
-          .select('id, payment_status')
+          .select('id, payment_status, delivery_method')
           .eq('course_uuid', courseId)
           .eq('phone', phoneOrEmail)
       );
     }
 
     if (existingEnrollment && existingEnrollment.payment_status === 'paid') {
-      return NextResponse.json({ success: true, alreadyEnrolled: true, enrollmentId: existingEnrollment.id });
+      if (existingEnrollment.delivery_method == null) {
+        await supabaseAdmin
+          .from('enrollments')
+          .update({
+            delivery_method: course.delivery || 'both',
+          })
+          .eq('id', existingEnrollment.id)
+      }
+
+      return NextResponse.json({
+        success: true,
+        alreadyEnrolled: true,
+        enrollmentId: existingEnrollment.id,
+      })
     }
 
     const now = new Date().toISOString();
@@ -150,6 +163,8 @@ export async function POST(req: NextRequest) {
           phone: phoneOrEmail,
           last_web_sync: now,
           coupon_id: appliedCoupon?.coupon_id || null,
+          delivery_method:
+            existingEnrollment.delivery_method || course.delivery || 'both',
         })
         .eq('id', existingEnrollment.id);
 
@@ -170,6 +185,7 @@ export async function POST(req: NextRequest) {
           completed_lessons: [],
           quiz_results: [],
           last_web_sync: now,
+          delivery_method: course.delivery || 'both',
           coupon_id: appliedCoupon?.coupon_id || null,
         })
         .select('id')

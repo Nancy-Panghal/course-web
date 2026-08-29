@@ -216,8 +216,8 @@ async function handleStripe(rawBody: string, req: NextRequest) {
   const eventType = body?.type
   const status: NormalizedEvent['status'] =
     eventType === 'checkout.session.completed' && session.payment_status === 'paid' ? 'success'
-    : eventType === 'checkout.session.expired' ? 'expired'
-    : 'pending'
+      : eventType === 'checkout.session.expired' ? 'expired'
+        : 'pending'
 
   const normalized: NormalizedEvent = {
     status,
@@ -308,18 +308,49 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
   const now = new Date().toISOString()
   let enrollmentId: string
 
+  const { data: deliveryCourse } = await supabaseAdmin
+    .from('courses')
+    .select('delivery')
+    .eq('id', transaction.course_id)
+    .maybeSingle()
+
+  const enrollmentDeliveryMethod = deliveryCourse?.delivery || 'both'
+
   if (existingEnrollment) {
     enrollmentId = existingEnrollment.id
+
     if (existingEnrollment.payment_status !== 'paid') {
-      await supabaseAdmin.from('enrollments').update({
-        payment_status: 'paid', payment_id: body.upi_txn_id, amount_paid: body.amount,
-        student_id: student.id, creator_id: transaction.creator_id, phone: phoneOrEmail, last_web_sync: now,
-      }).eq('id', enrollmentId)
+      await supabaseAdmin
+        .from('enrollments')
+        .update({
+          payment_status: 'paid',
+          payment_id: body.upi_txn_id,
+          amount_paid: body.amount,
+          student_id: student.id,
+          creator_id: transaction.creator_id,
+          phone: phoneOrEmail,
+          last_web_sync: now,
+          delivery_method:
+            existingEnrollment.delivery_method || enrollmentDeliveryMethod,
+        })
+        .eq('id', enrollmentId)
+    } else if (existingEnrollment.delivery_method == null) {
+      await supabaseAdmin
+        .from('enrollments')
+        .update({
+          delivery_method: enrollmentDeliveryMethod,
+        })
+        .eq('id', enrollmentId)
     }
   } else {
     const { data: newEnrollment, error: enrollErr } = await supabaseAdmin.from('enrollments').insert({
       course_uuid: transaction.course_id, student_id: student.id, creator_id: transaction.creator_id,
-      payment_status: 'paid', payment_id: body.upi_txn_id, amount_paid: body.amount, phone: phoneOrEmail, last_web_sync: now,
+      payment_status: 'paid',
+      payment_id: body.upi_txn_id,
+      amount_paid: body.amount,
+      phone: phoneOrEmail,
+      last_web_sync: now,
+      delivery_method: enrollmentDeliveryMethod,
     }).select('id').single()
     if (enrollErr) throw enrollErr
     enrollmentId = newEnrollment.id

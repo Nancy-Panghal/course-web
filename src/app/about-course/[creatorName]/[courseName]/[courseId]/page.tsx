@@ -42,7 +42,7 @@ export async function generateMetadata({
 
   const { data: course } = await supabase
     .from('courses')
-    .select('name, description, host_name, host_image, brand_logo_url, is_published, price, category')
+    .select('name, description, host_name, host_image, brand_logo_url, is_published, price')
     .eq('id', courseId)
     .single()
 
@@ -103,7 +103,7 @@ export default async function AboutCoursePage({
   const showTelegramChannel = deliveryMethod === 'telegram' || deliveryMethod === 'both'
   const showWhatsappChannel = deliveryMethod === 'whatsapp' || deliveryMethod === 'both'
   const deliveryChannelCopy = showTelegramChannel && showWhatsappChannel
-    ? 'Telegram or WhatsApp'
+  ? 'WhatsApp or Telegram'
     : showTelegramChannel
     ? 'Telegram'
     : 'WhatsApp'
@@ -873,7 +873,7 @@ export default async function AboutCoursePage({
             <div className={`flex flex-col ${promoVideoId ? 'lg:flex-1 text-left' : 'items-center text-center'}`}>
 
               {/* Badge */}
-              {(course.is_free_course || course.category) && (
+              {course.is_free_course && (
                 <div className="fu fu1 flex mb-5" style={{ justifyContent: promoVideoId ? 'flex-start' : 'center' }}>
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -882,9 +882,7 @@ export default async function AboutCoursePage({
                     background: c.accentSoft, border: `1px solid ${c.accentBorder}`,
                     padding: '5px 16px', borderRadius: 999,
                   }}>
-                    {course.is_free_course
-                      ? '✦ Completely free — Enroll now'
-                      : course.category}
+                    ✦ Completely free — Enroll now
                   </span>
                 </div>
               )}

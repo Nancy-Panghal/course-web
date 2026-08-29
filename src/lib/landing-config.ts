@@ -168,7 +168,7 @@ export const DEFAULT_LANDING_CONFIG: LandingConfig = {
  *    e.g. 'urgency' didn't exist before this feature) -> appended in default order
  *  - duplicate entries -> first occurrence wins, rest dropped
  *  - unrecognized section types (renamed/removed in a future version) -> dropped
- *  - locked sections (hero/curriculum/finalCta) -> forced enabled, can't be
+ *  - locked sections (hero/finalCta) -> forced enabled, can't be
  *    saved as disabled even by a bad API call or hand-edited row
  *  - legacyFlatSections -> the OLD boolean-map format (`landing_sections`
  *    column), used to seed sensible defaults for courses configured before
@@ -240,7 +240,10 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
     })
     .map((item: any) => ({
       type: item.type,
-      enabled: LANDING_SECTION_META[item.type as LandingSectionType].locked ? true : item.enabled !== false,
+      enabled:
+  LANDING_SECTION_META[item.type as LandingSectionType].locked
+    ? true
+    : item.enabled !== false,
       ...(item.type === 'custom' ? { customId: item.customId } : {}),
     }))
 
