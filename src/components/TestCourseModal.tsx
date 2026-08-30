@@ -234,7 +234,7 @@ export default function TestCourseModal({
                 </div>
               )}
 
-              {result.telegramToken && telegramBotUsername ? (
+              {result.telegramToken && telegramUsernameForLink ? (
                 <a
                   href={`https://t.me/${telegramUsernameForLink.replace('@', '')}?start=${result.telegramToken}`}
                   target="_blank"

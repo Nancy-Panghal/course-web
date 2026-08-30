@@ -45,7 +45,7 @@
 
   /* Field hint / helper text under form inputs — reuse this everywhere
    * instead of writing a one-off rgba() per component. */
-  --kurso-hint: rgba(247, 149, 20, 0.65);
+  --kurso-hint: rgba(242, 200, 188, 0.65);
 }
 
 .glow { box-shadow: 0 0 40px rgba(var(--kurso-accent-rgb), 0.15); }

@@ -2154,7 +2154,7 @@ function CertificatePreviewModal({
                   {creatorName}
                 </p>
                 <p className="text-xs" style={{ color: style.textColor + '80' }}>
-                  Instructor
+                  Mentor
                 </p>
               </div>
               <div className="text-center">
@@ -2170,6 +2170,45 @@ function CertificatePreviewModal({
         </div>
       </div>
     </div>
+  )
+}
+
+function SettingsGroup({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      className="rounded-2xl p-5 sm:p-6"
+      style={{
+        background: 'rgba(255,255,255,0.025)',
+        border: '1px solid rgba(255,255,255,0.08)',
+      }}
+    >
+      <div className="mb-5">
+        <h3 className="text-base font-semibold text-white">
+          {title}
+        </h3>
+
+        {description && (
+          <p
+            className="text-sm mt-1.5"
+            style={{ color: 'var(--kurso-hint)' }}
+          >
+            {description}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {children}
+      </div>
+    </section>
   )
 }
 
@@ -2275,6 +2314,8 @@ export default function CourseManagePage({
   const [editRequirements, setEditRequirements] = useState<string[]>([])
   const [settingsLandingConfig, setSettingsLandingConfig] = useState<LandingConfig>(DEFAULT_LANDING_CONFIG)
   const [uploadingCustomImageId, setUploadingCustomImageId] = useState<string | null>(null)
+
+  const isFinalCtaEnabled = settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled;
 
   useEffect(() => {
     async function load() {
@@ -2669,7 +2710,7 @@ export default function CourseManagePage({
           <p className="text-sm font-semibold text-white">
             {label}
           </p>
-          <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--kurso-hint)' }}>
             {enabled
               ? 'This section is shown on your landing page.'
               : 'This section is hidden from your landing page.'}
@@ -2751,9 +2792,9 @@ export default function CourseManagePage({
     setCourse({ ...course, delivery: settingsDelivery })
 
     // IMPORTANT:
-// Existing students must retain their enrollment.delivery_method snapshot.
-// This branch is intentionally kept for a future admin-controlled migration
-// feature, but there its UI toggle is commented out whcih can't be uncommented until Nivan/nancy approve.
+    // Existing students must retain their enrollment.delivery_method snapshot.
+    // This branch is intentionally kept for a future admin-controlled migration
+    // feature, but there its UI toggle is commented out whcih can't be uncommented until Nivan/nancy approve.
 
     if (applyDeliveryToEnrolled) {
       const { error: enrollErr } = await supabase
@@ -3478,7 +3519,7 @@ export default function CourseManagePage({
               </>
 
             ) : activeTab === 'settings' ? (
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-5">
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div className="flex items-center justify-between gap-4 mb-5">
                     <h2 className="font-semibold text-white">Delivery Method</h2>
@@ -3542,376 +3583,424 @@ export default function CourseManagePage({
                   </div>
 
                   <div className="flex flex-col gap-6">
-                    <SectionDivider label="Course Details" />
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Name</label>
-                      <input value={editName} onChange={e => setEditName(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
-                    </div>
+                    <SettingsGroup
+                      title="Course name"
+                      description="Shown on the landing page."
+                    >
+                      <div>
+
+                        <input value={editName} onChange={e => setEditName(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
+                      </div>
+                    </SettingsGroup>
 
                     {!course.uses_external_landing_page && (
                       <>
-                        <SectionDivider label="Course Description" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Description</label>
-                          <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] resize-none" />
-                        </div>
+                        <SettingsGroup
+                          title="Course Description"
+                          description="Shown below the course title."
+                        >
+                          <div>
 
-                        <div className="mt-6">
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Brand / Business Name <span style={{ color: '#f87171' }}>*</span>
-                          </label>
-                          <input
-                            value={editBrandName}
-                            onChange={e => setEditBrandName(e.target.value)}
-                            placeholder="Your brand name"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
-                          />
-                          <p className="text-[13px] mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
-                            Shown in your landing page navigation bar. Use your registered business name if you have one, otherwise your own name works fine.
-                          </p>
-                        </div>
+                            <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={5}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] resize-none" />
+                          </div>
+                        </SettingsGroup>
+
+
+                        <SettingsGroup
+                          title="Brand / Business Name *"
+                          description="Shown in your landing page. Use your registered business name if you have one, otherwise your own name works fine."
+                        >
+                          <div className="mt-6">
+
+                            <input
+                              value={editBrandName}
+                              onChange={e => setEditBrandName(e.target.value)}
+                              placeholder="Your brand name"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                            />
+
+                          </div>
+                        </SettingsGroup>
 
 
                       </>
                     )}
 
-                    <SectionDivider label="Course Price" />
-                    <SectionDivider label="Quick Stats" />
+                    {!course.uses_external_landing_page && (
+                      <>
+                        <SettingsGroup
+                          title="Quick Stats"
+                          description="These values appear together as the Quick Stats section on your landing page."
+                        >
 
-                    <div
-                      className="rounded-2xl p-5"
-                      style={{
-                        background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                      }}
-                    >
-                      <p className="text-xs mb-4" style={{ color: '#71717a' }}>
-                        These values appear together as the Quick Stats section on your landing page.
-                      </p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Duration
-                          </label>
-                          <input
-                            value={editDuration}
-                            onChange={e => setEditDuration(e.target.value)}
-                            placeholder="4 Weeks"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Language
-                          </label>
-                          <input
-                            value={editLanguage}
-                            onChange={e => setEditLanguage(e.target.value)}
-                            placeholder="English"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
-                          />
-                          <p className="text-xs mt-1.5" style={{ color: '#71717a' }}>
-                            Separate multiple languages with commas.
-                          </p>
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Difficulty Level
-                          </label>
-
-                          <select
-                            value={editLevel}
-                            onChange={e => setEditLevel(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none appearance-none cursor-pointer"
+                          <div
+                            className="rounded-2xl p-5"
                             style={{
-                              background: '#050505',
-                              color: editLevel ? '#fff' : '#a9a9ae',
+                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px solid rgba(255,255,255,0.06)',
                             }}
                           >
-                            <option value="" style={{ background: '#050505', color: '#52525b' }}>
-                              Select level…
-                            </option>
 
-                            {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(level => (
-                              <option
-                                key={level}
-                                value={level}
-                                style={{ background: '#050505', color: '#fff' }}
-                              >
-                                {level}
-                              </option>
-                            ))}
-                          </select>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                                  Duration
+                                </label>
+                                <input
+                                  value={editDuration}
+                                  onChange={e => setEditDuration(e.target.value)}
+                                  placeholder="4 Weeks"
+                                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                                  Language
+                                </label>
+                                <input
+                                  value={editLanguage}
+                                  onChange={e => setEditLanguage(e.target.value)}
+                                  placeholder="English"
+                                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                                />
+                                <p className="text-xs mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
+                                  Separate multiple languages with commas.
+                                </p>
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                                  Difficulty Level
+                                </label>
+
+                                <select
+                                  value={editLevel}
+                                  onChange={e => setEditLevel(e.target.value)}
+                                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none appearance-none cursor-pointer"
+                                  style={{
+                                    background: '#050505',
+                                    color: editLevel ? '#fff' : '#a9a9ae',
+                                  }}
+                                >
+                                  <option value="" style={{ background: '#050505', color: '#52525b' }}>
+                                    Select level…
+                                  </option>
+
+                                  {['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map(level => (
+                                    <option
+                                      key={level}
+                                      value={level}
+                                      style={{ background: '#050505', color: '#fff' }}
+                                    >
+                                      {level}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <LandingSectionToggle
+                              type="stats"
+                              label="Show these on your landing page."
+                            />
+                          </div>
+                        </SettingsGroup>
+                      </>
+                    )}
+
+
+
+                    <SettingsGroup
+                      title="Course Price"
+                      description="Set the amount students pay to enroll in this course."
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Price (₹)</label>
+                          <input
+                            value={editIsFreeCourse ? '0' : editPrice}
+                            onChange={e => { if (!editIsFreeCourse) setEditPrice(e.target.value) }}
+                            type="number"
+                            disabled={editIsFreeCourse}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                          />
+                          {editIsFreeCourse && (
+                            <p className="text-xs mt-1.5" style={{ color: '#f2bc96' }}>
+                              Turn off "Make this course free" below to set a price.
+                            </p>
+                          )}
+                        </div>
+                        {!course.uses_external_landing_page && (
+                          <>
+                            <div>
+                              <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                                Original Price (₹)
+                                <span className="text-zinc-400 text-sm font-normal ml-2">
+                                  — To show discount(like 50% off)
+                                </span>
+                              </label>
+                              <input
+                                value={editIsFreeCourse ? '' : editOriginalPrice}
+                                onChange={e => { if (!editIsFreeCourse) setEditOriginalPrice(e.target.value) }}
+                                type="number"
+                                disabled={editIsFreeCourse}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Refund Window (days)</label>
+                          <input value={editRefundWindowDays} onChange={e => setEditRefundWindowDays(e.target.value)} type="number"
+                            placeholder="7"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
+                          <p className="text-base mt-1" style={{ color: 'var(--kurso-hint)' }}>0 = no refunds accepted</p>
                         </div>
                       </div>
-
-                      <LandingSectionToggle
-                        type="stats"
-                        label="Show these on your landing page."
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Price (₹)</label>
-                        <input
-                          value={editIsFreeCourse ? '0' : editPrice}
-                          onChange={e => { if (!editIsFreeCourse) setEditPrice(e.target.value) }}
-                          type="number"
-                          disabled={editIsFreeCourse}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        />
-                        {editIsFreeCourse && (
-                          <p className="text-xs mt-1.5" style={{ color: '#f97316' }}>
-                            Turn off "Make this course free" below to set a price.
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                          Original Price (₹)
-                          <span className="text-zinc-400 text-sm font-normal ml-2">
-                            — To show discount(like 50% off)
-                          </span>
-                        </label>
-                        <input
-                          value={editIsFreeCourse ? '' : editOriginalPrice}
-                          onChange={e => { if (!editIsFreeCourse) setEditOriginalPrice(e.target.value) }}
-                          type="number"
-                          disabled={editIsFreeCourse}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Refund Window (days)</label>
-                        <input value={editRefundWindowDays} onChange={e => setEditRefundWindowDays(e.target.value)} type="number"
-                          placeholder="7"
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
-                        <p className="text-base mt-1" style={{ color: '#a5a5a8' }}>0 = no refunds accepted</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-semibold text-zinc-300 mb-2 block">Legal Pages</label>
-                      <p className="text-sm mb-4" style={{ color: '#a5a5a8', lineHeight: 1.6 }}>
-                        Upload a Refund Policy, Terms &amp; Conditions, and Privacy Policy as a .txt or .md file (max 20KB each).
-                        Don't paste one long paragraph — write it as a heading, then a short paragraph, then another heading, and so on. For example:
-                      </p>
-                      <pre className="text-xs mb-4 p-3 rounded-xl whitespace-pre-wrap" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
-                        {`## Eligibility
-Refunds are accepted within 7 days of purchase if you have not accessed more than 2 lessons.
-
-## How to request a refund
-Message us on WhatsApp with your order email and we'll process it within 5 business days.`}
-                      </pre>
-
-                      <div className="flex flex-col gap-4">
-                        {([
-                          { type: 'refund' as PolicyDocType, label: 'Refund Policy', path: editRefundPolicyPath },
-                          { type: 'terms' as PolicyDocType, label: 'Terms & Conditions', path: editTermsPath },
-                          { type: 'privacy' as PolicyDocType, label: 'Privacy Policy', path: editPrivacyPath },
-                        ]).map(doc => (
-                          <div key={doc.type} className="flex items-center justify-between gap-3 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div>
-                              <p className="text-sm font-semibold text-white">{doc.label}</p>
-                              {doc.path ? (
-                                <a href={doc.path} target="_blank" rel="noreferrer" className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)]">View uploaded file</a>
-                              ) : (
-                                <p className="text-xs" style={{ color: '#71717a' }}>No file uploaded yet</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer text-white" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                                {uploadingPolicyDoc === doc.type ? 'Uploading...' : doc.path ? 'Replace' : 'Upload'}
-                                <input type="file" accept=".txt,.md" className="hidden"
-                                  disabled={uploadingPolicyDoc !== null}
-                                  onChange={e => handleLegalDocUpload(e, doc.type)} />
-                              </label>
-                              {doc.path && (
-                                <button type="button" onClick={() => handleRemoveLegalDoc(doc.type)}
-                                  disabled={uploadingPolicyDoc !== null}
-                                  className="text-xs font-semibold px-3 py-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-colors">
-                                  Remove
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Make this entire course free toggle */}
-                    <div
-                      className="flex items-center justify-between gap-4 p-4 rounded-xl"
-                      style={{
-                        background: editIsFreeCourse ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)',
-                        border: editIsFreeCourse ? '1px solid rgba(74,222,128,0.25)' : '1px solid rgba(255,255,255,0.08)',
-                      }}
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-white">Make this entire course free</p>
-                        <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
-                          All lessons accessible without payment. Price is forced to ₹0 on save.
-                        </p>
-                        {editIsFreeCourse && (
-                          <p className="text-xs mt-1" style={{ color: '#f97316' }}>
-                            Turn this off to re-enable pricing.
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = !editIsFreeCourse
-                          setEditIsFreeCourse(next)
-                          if (next) {
-                            setEditPrice('0')
-                            setEditOriginalPrice('')
-                          }
-                        }}
-                        className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
-                        style={{ background: editIsFreeCourse ? '#4ade80' : 'rgba(255,255,255,0.12)' }}
-                        aria-pressed={editIsFreeCourse}
-                      >
-                        <span
-                          className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                          style={{ transform: editIsFreeCourse ? 'translateX(20px)' : 'translateX(0)' }}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Sticky Enroll Bar (Final CTA) toggle — only relevant
-                        on Kurso's own hosted landing page; a creator using
-                        their own external landing page never sees this
-                        page at all, so the toggle would do nothing there. */}
-                    {!course.uses_external_landing_page && (
+                      {/* Make this entire course free toggle */}
                       <div
                         className="flex items-center justify-between gap-4 p-4 rounded-xl"
                         style={{
-                          background: settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled
-                            ? 'rgba(var(--kurso-primary-rgb), 0.06)'
-                            : 'rgba(255,255,255,0.03)',
-                          border: settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled
-                            ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
-                            : '1px solid rgba(255,255,255,0.08)',
+                          background: editIsFreeCourse ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)',
+                          border: editIsFreeCourse ? '1px solid rgba(74,222,128,0.25)' : '1px solid rgba(255,255,255,0.08)',
                         }}
                       >
                         <div>
-                          <p className="text-sm font-semibold text-white">Sticky enroll bar</p>
+                          <p className="text-sm font-semibold text-white">Make this entire course free</p>
                           <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
-                            Keeps the price and an Enroll button visible at the bottom of the screen the whole time a student scrolls your landing page.
+                            All lessons accessible without payment. Price is forced to ₹0 on save.
                           </p>
+                          {editIsFreeCourse && (
+                            <p className="text-xs mt-1" style={{ color: '#f97316' }}>
+                              Turn this off to re-enable pricing.
+                            </p>
+                          )}
                         </div>
                         <button
                           type="button"
                           onClick={() => {
-                            setSettingsLandingConfig(prev => ({
-                              ...prev,
-                              sections: prev.sections.map(s =>
-                                s.type === 'finalCta' ? { ...s, enabled: !s.enabled } : s
-                              ),
-                            }))
+                            const next = !editIsFreeCourse
+                            setEditIsFreeCourse(next)
+                            if (next) {
+                              setEditPrice('0')
+                              setEditOriginalPrice('')
+                            }
                           }}
                           className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
-                          style={{
-                            background: settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled
-                              ? 'var(--kurso-primary)'
-                              : 'rgba(255,255,255,0.12)',
-                          }}
-                          aria-pressed={!!settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled}
+                          style={{ background: editIsFreeCourse ? '#4ade80' : 'rgba(255,255,255,0.12)' }}
+                          aria-pressed={editIsFreeCourse}
                         >
                           <span
                             className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                            style={{
-                              transform: settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled
-                                ? 'translateX(20px)'
-                                : 'translateX(0)',
-                            }}
+                            style={{ transform: editIsFreeCourse ? 'translateX(20px)' : 'translateX(0)' }}
                           />
                         </button>
                       </div>
-                    )}
+                    </SettingsGroup>
 
-                    {!course.uses_external_landing_page && settingsLandingConfig.sections.find(s => s.type === 'finalCta')?.enabled && (
-                      <div className="mt-3">
-                        <label className="text-sm font-semibold text-zinc-300 mb-2 block">Sticky bar message</label>
-                        <input
-                          value={settingsLandingConfig.finalCtaText}
-                          onChange={e => {
-                            const value = e.target.value
-                            const wordCount = value.match(/\S+/g)?.length || 0
 
-                            if (wordCount <= MAX_FINAL_CTA_WORDS) {
-                              setSettingsLandingConfig(prev => ({ ...prev, finalCtaText: value }))
-                            }
-                          }}
-                          placeholder={DEFAULT_FINAL_CTA_TEXT}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
-                        />
-                        <p className="text-xs mt-1.5" style={{ color: '#71717a' }}>
-                          Up to 50 words. Shown next to the price on the sticky bar. Leave blank to use: "{DEFAULT_FINAL_CTA_TEXT}"
-                        </p>
-                      </div>
-                    )}
 
                     {!course.uses_external_landing_page && (
                       <>
-                        <SectionDivider label="Course Schedule" />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <SettingsGroup
+                          title="Legal Pages"
+                          description="Upload a Refund Policy, Terms &amp; Conditions, and Privacy Policy as a .txt or .md file (max 20KB each).
+                        Don't paste one long paragraph — write it as a heading, then a short paragraph, then another heading, and so on. For example:"
+                        >
                           <div>
-                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Course Launch Date</label>
-                            <input value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
-                              placeholder="15th May 2026"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
-                            <p className="text-[13px] mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
-                              When students can join the course.
+
+                            <pre className="text-xs mb-4 p-3 rounded-xl whitespace-pre-wrap" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5a5a8' }}>
+                              {`## Eligibility
+Refunds are accepted within 7 days of purchase if you have not accessed more than 2 lessons.
+
+## How to request a refund
+Message us on WhatsApp with your order email and we'll process it within 5 business days.`}
+                            </pre>
+
+                            <div className="flex flex-col gap-4">
+                              {([
+                                { type: 'refund' as PolicyDocType, label: 'Refund Policy', path: editRefundPolicyPath },
+                                { type: 'terms' as PolicyDocType, label: 'Terms & Conditions', path: editTermsPath },
+                                { type: 'privacy' as PolicyDocType, label: 'Privacy Policy', path: editPrivacyPath },
+                              ]).map(doc => (
+                                <div key={doc.type} className="flex items-center justify-between gap-3 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                  <div>
+                                    <p className="text-sm font-semibold text-white">{doc.label}</p>
+                                    {doc.path ? (
+                                      <a href={doc.path} target="_blank" rel="noreferrer" className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)]">View uploaded file</a>
+                                    ) : (
+                                      <p className="text-xs" style={{ color: '#71717a' }}>No file uploaded yet</p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <label className="text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer text-white" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                                      {uploadingPolicyDoc === doc.type ? 'Uploading...' : doc.path ? 'Replace' : 'Upload'}
+                                      <input type="file" accept=".txt,.md" className="hidden"
+                                        disabled={uploadingPolicyDoc !== null}
+                                        onChange={e => handleLegalDocUpload(e, doc.type)} />
+                                    </label>
+                                    {doc.path && (
+                                      <button type="button" onClick={() => handleRemoveLegalDoc(doc.type)}
+                                        disabled={uploadingPolicyDoc !== null}
+                                        className="text-xs font-semibold px-3 py-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-colors">
+                                        Remove
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </SettingsGroup>
+                      </>
+                    )}
+
+
+                    {/* Sticky Enroll Bar (Final CTA) toggle — only relevant
+                         on Kurso's own hosted landing page; a creator using
+                         their own external landing page never sees this
+                         page at all, so the toggle would do nothing there. */}
+
+                    {!course.uses_external_landing_page && (
+                      <SettingsGroup
+                        title="Sticky enroll bar"
+                        description="Keeps the price and an Enroll button visible at the bottom of the screen the whole time a student scrolls your landing page."
+                      >
+                        <div
+                          className="flex items-center justify-between gap-4 p-4 rounded-xl"
+                          style={{
+                            background: isFinalCtaEnabled
+                              ? 'rgba(var(--kurso-primary-rgb), 0.06)'
+                              : 'rgba(255,255,255,0.03)',
+                            border: isFinalCtaEnabled
+                              ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
+                              : '1px solid rgba(255,255,255,0.08)',
+                          }}
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-white">Sticky enroll bar</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSettingsLandingConfig(prev => ({
+                                ...prev,
+                                sections: prev.sections.map(s =>
+                                  s.type === 'finalCta' ? { ...s, enabled: !s.enabled } : s
+                                ),
+                              }))
+                            }}
+                            className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+                            style={{
+                              background: isFinalCtaEnabled
+                                ? 'var(--kurso-primary)'
+                                : 'rgba(255,255,255,0.12)',
+                            }}
+                            aria-pressed={!!isFinalCtaEnabled}
+                          >
+                            <span
+                              className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                              style={{
+                                transform: isFinalCtaEnabled ? 'translateX(20px)' : 'translateX(0)',
+                              }}
+                            />
+                          </button>
+                        </div>
+
+                        {isFinalCtaEnabled && (
+                          <div className="mt-3">
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Sticky bar message</label>
+                            <input
+                              value={settingsLandingConfig.finalCtaText}
+                              onChange={e => {
+                                const value = e.target.value
+                                const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0
+
+                                if (wordCount <= MAX_FINAL_CTA_WORDS) {
+                                  setSettingsLandingConfig(prev => ({ ...prev, finalCtaText: value }))
+                                }
+                              }}
+                              placeholder={DEFAULT_FINAL_CTA_TEXT}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                            />
+                            <p className="text-xs mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
+                              Up to 50 words. Shown next to the price on the sticky bar. Leave blank to use: "{DEFAULT_FINAL_CTA_TEXT}"
                             </p>
                           </div>
+                        )}
+                      </SettingsGroup>
+                    )}
 
-                        </div>
 
+                    {!course.uses_external_landing_page && (
+                      <>
+                        <SettingsGroup
+                          title="Course Launch Date"
+                          description="Just shown on the landing page. If you are not sure leave it blank."
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
 
-                        <SectionDivider label="Certificate Skills" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Skills Covered (comma separated, for certificate)</label>
-                          <input value={editSkills} onChange={e => setEditSkills(e.target.value)}
-                            placeholder="e.g. SEO, Content Marketing, Keyword Research"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] " />
-                        </div>
+                              <input value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
+                                placeholder="15th May 2026"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
 
-                        <SectionDivider label="What You'll Walk Away With " />
-                        <LandingSectionToggle type="learn" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">What You'll Walk Away With</label>
-                          <div className="flex flex-col gap-2">
-                            {editLearn.map((item, i) => (
-                              <div key={i} className="flex gap-2">
-                                <input value={item} onChange={e => {
-                                  const next = [...editLearn]; next[i] = e.target.value; setEditLearn(next)
-                                }} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none" />
-                                <button onClick={() => setEditLearn(editLearn.filter((_, idx) => idx !== i))}
-                                  className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                              </div>
-                            ))}
-                            <button onClick={() => setEditLearn([...editLearn, ''])}
-                              className="text-sm text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Point</button>
+                            </div>
                           </div>
-                        </div>
+                        </SettingsGroup>
 
-                        <SectionDivider label="Requirements" />
-                        <LandingSectionToggle type="requirements" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Requirements / Prerequisites
-                            <span className="text-zinc-400 font-normal ml-1">— shown on landing page</span>
-                          </label>
+
+                        <SettingsGroup
+                          title="Certificate Skills"
+                          description="Shown on the certificate."
+                        >
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Seperate skills by comma.</label>
+                            <input value={editSkills} onChange={e => setEditSkills(e.target.value)}
+                              placeholder="e.g. SEO, Content Marketing, Keyword Research"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] " />
+                          </div>
+                        </SettingsGroup>
+
+                        <SettingsGroup
+                          title="What You'll Walk Away With"
+                          description="Add points summarizing what students will gain from the course."
+                        >
+                          <LandingSectionToggle type="learn" />
+                          <div>
+
+                            <div className="flex flex-col gap-2">
+                              {editLearn.map((item, i) => (
+                                <div key={i} className="flex gap-2">
+                                  <input value={item} onChange={e => {
+                                    const next = [...editLearn]; next[i] = e.target.value; setEditLearn(next)
+                                  }} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none" />
+                                  <button onClick={() => setEditLearn(editLearn.filter((_, idx) => idx !== i))}
+                                    className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                              ))}
+                              <button onClick={() => setEditLearn([...editLearn, ''])}
+                                className="text-sm text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Point</button>
+                            </div>
+                          </div>
+                        </SettingsGroup>
+
+
+
+                        <SettingsGroup
+                          title="Requirements / Prerequisites"
+                          description="What students need to know or have before taking this course."
+                        >
+                          <LandingSectionToggle type="requirements" />
+
+
                           <div className="flex flex-col gap-2">
                             {editRequirements.map((item, i) => (
                               <div key={i} className="flex gap-2">
@@ -3928,181 +4017,188 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             <button onClick={() => setEditRequirements([...editRequirements, ''])}
                               className="text-sm text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Requirement</button>
                           </div>
-                        </div>
+                        </SettingsGroup>
 
-                        <SectionDivider label="Instructor" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Photo</label>
-                          <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
-                              {editHostImage ? (
-                                <img src={editHostImage} alt="Instructor" className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-2xl font-bold text-zinc-700">
-                                  {editHostName ? editHostName.charAt(0).toUpperCase() : '?'}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <input
-                                type="file"
-                                id="host-image"
-                                className="hidden"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                disabled={uploadingImage}
-                              />
-                              <label
-                                htmlFor="host-image"
-                                className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
-                              >
-                                {uploadingImage ? 'Uploading...' : editHostImage ? 'Change Photo' : 'Upload Photo'}
-                              </label>
-                              {editHostImage && (
-                                <button
-                                  type="button"
-                                  onClick={() => setEditHostImage('')}
-                                  className="ml-2 text-xs text-zinc-500 hover:text-red-500"
+                        <SettingsGroup
+                          title="Mentor/Coach"
+                          description="The person/people who will be teaching this course."
+                        >
+
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Mentor Photo</label>
+                            <div className="flex items-center gap-4">
+                              <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                                {editHostImage ? (
+                                  <img src={editHostImage} alt="Mentor" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-2xl font-bold text-zinc-700">
+                                    {editHostName ? editHostName.charAt(0).toUpperCase() : '?'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <input
+                                  type="file"
+                                  id="host-image"
+                                  className="hidden"
+                                  accept="image/*"
+                                  onChange={handleImageUpload}
+                                  disabled={uploadingImage}
+                                />
+                                <label
+                                  htmlFor="host-image"
+                                  className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all"
                                 >
-                                  Remove
-                                </button>
-                              )}
-                              <p className="text-[14px] text-zinc-400 mt-1.5"> JPG/PNG (max 2MB)</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">About Instructor</label>
-                          <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2" />
-                          <input
-                            value={editInstructorTitle}
-                            onChange={e => setEditInstructorTitle(e.target.value)}
-                            placeholder="Instructor title, e.g. Senior Data Scientist"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2"
-                          />
-                          <textarea value={editAbout} onChange={e => setEditAbout(e.target.value)} rows={2} placeholder="Bio"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none" />
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Instructor card layout
-                          </label>
-
-                          <p className="text-xs mb-3" style={{ color: '#71717a' }}>
-                            Choose how instructor cards appear on your landing page.
-                          </p>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {([
-                              {
-                                value: 'square' as const,
-                                title: 'Square cards',
-                                description: 'Compact cards displayed side by side.',
-                              },
-                              {
-                                value: 'rectangle' as const,
-                                title: 'Rectangle cards',
-                                description: 'Wide cards with more room for the biography.',
-                              },
-                            ]).map(option => {
-                              const selected =
-                                settingsLandingConfig.instructorLayout === option.value
-
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() =>
-                                    setSettingsLandingConfig(previous => ({
-                                      ...previous,
-                                      instructorLayout: option.value,
-                                    }))
-                                  }
-                                  className="p-4 rounded-xl text-left transition-all"
-                                  style={{
-                                    background: selected
-                                      ? 'rgba(var(--kurso-primary-rgb), 0.1)'
-                                      : 'rgba(255,255,255,0.03)',
-                                    border: selected
-                                      ? '1px solid rgba(var(--kurso-primary-rgb), 0.35)'
-                                      : '1px solid rgba(255,255,255,0.08)',
-                                  }}
-                                >
-                                  <p className="text-sm font-semibold text-white">
-                                    {option.title}
-                                  </p>
-                                  <p
-                                    className="text-xs mt-1"
-                                    style={{ color: '#71717a' }}
+                                  {uploadingImage ? 'Uploading...' : editHostImage ? 'Change Photo' : 'Upload Photo'}
+                                </label>
+                                {editHostImage && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditHostImage('')}
+                                    className="ml-2 text-xs text-zinc-400 hover:text-red-500"
                                   >
-                                    {option.description}
-                                  </p>
-                                </button>
-                              )
-                            })}
+                                    Remove
+                                  </button>
+                                )}
+                                <p className="text-[14px] text-zinc-400 mt-1.5"> JPG/PNG (max 2MB)</p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
 
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Additional Instructors
-                            <span className="text-zinc-400 font-normal ml-1">— optional, for co-taught courses</span>
-                          </label>
-                          <CoInstructorsEditor
-                            value={editCoInstructors}
-                            onChange={setEditCoInstructors}
-                            onUpload={async file => {
-                              const { publicUrl } = await uploadToSupabase(file, 'images')
-                              return publicUrl
-                            }}
-                          />
-                        </div>
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block" >About Mentor</label>
+                            <input value={editHostName} onChange={e => setEditHostName(e.target.value)} placeholder="Name"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2" />
+                            <input
+                              value={editInstructorTitle}
+                              onChange={e => setEditInstructorTitle(e.target.value)}
+                              placeholder="Mentor title, e.g. Senior Data Scientist"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none mb-2"
+                            />
+                            <textarea value={editAbout} onChange={e => setEditAbout(e.target.value)} rows={5} placeholder="Bio"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none resize-none" />
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                              Mentor card layout
+                            </label>
+
+                            <p className="text-xs mb-3" style={{ color: 'var(--kurso-hint)' }}>
+                              Choose how mentor cards appear on your landing page.
+                            </p>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {([
+                                {
+                                  value: 'square' as const,
+                                  title: 'Square cards',
+                                  description: 'Compact cards displayed side by side.',
+                                },
+                                {
+                                  value: 'rectangle' as const,
+                                  title: 'Rectangle cards',
+                                  description: 'Wide cards with more room for the biography.',
+                                },
+                              ]).map(option => {
+                                const selected =
+                                  settingsLandingConfig.instructorLayout === option.value
+
+                                return (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() =>
+                                      setSettingsLandingConfig(previous => ({
+                                        ...previous,
+                                        instructorLayout: option.value,
+                                      }))
+                                    }
+                                    className="p-4 rounded-xl text-left transition-all"
+                                    style={{
+                                      background: selected
+                                        ? 'rgba(var(--kurso-primary-rgb), 0.1)'
+                                        : 'rgba(255,255,255,0.03)',
+                                      border: selected
+                                        ? '1px solid rgba(var(--kurso-primary-rgb), 0.35)'
+                                        : '1px solid rgba(255,255,255,0.08)',
+                                    }}
+                                  >
+                                    <p className="text-sm font-semibold text-white">
+                                      {option.title}
+                                    </p>
+                                    <p
+                                      className="text-xs mt-1"
+                                      style={{ color: 'var(--kurso-hint)' }}
+                                    >
+                                      {option.description}
+                                    </p>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                              Additional Mentors
+                              <span className="text-zinc-400 font-normal ml-1 ">— optional, for co-taught courses</span>
+                            </label>
+                            <CoInstructorsEditor
+                              value={editCoInstructors}
+                              onChange={setEditCoInstructors}
+                              onUpload={async file => {
+                                const { publicUrl } = await uploadToSupabase(file, 'images')
+                                return publicUrl
+                              }}
+                            />
+                          </div>
+                        </SettingsGroup>
 
                         {/* Promo videos */}
-                        <SectionDivider label="Promo Videos" />
-                        <LandingSectionToggle type="videos" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Section Heading
-                            <span className="text-zinc-400 font-normal ml-1">— shown above the videos on your landing page (optional)</span>
-                          </label>
-                          <input value={editPromoVideoHeading} onChange={e => setEditPromoVideoHeading(e.target.value)}
-                            placeholder="e.g. See what you'll be learning"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] mb-4" />
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Promo / Preview Videos
-                            <span className="text-zinc-400 font-normal ml-1">— up to 3, YouTube or Vimeo links</span>
-                          </label>
-                          <div className="flex flex-col gap-2">
-                            {editPromoVideoUrls.map((url, i) => (
-                              <div key={i} className="flex gap-2">
-                                <input value={url}
-                                  onChange={e => { const n = [...editPromoVideoUrls]; n[i] = e.target.value; setEditPromoVideoUrls(n) }}
-                                  placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
-                                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
-                                <button onClick={() => setEditPromoVideoUrls(editPromoVideoUrls.filter((_, idx) => idx !== i))}
-                                  className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                              </div>
-                            ))}
-                            {editPromoVideoUrls.length < 3 && (
-                              <button onClick={() => setEditPromoVideoUrls([...editPromoVideoUrls, ''])}
-                                className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add video</button>
-                            )}
-                          </div>
+                        <SettingsGroup
+                          title="Promo / Preview Videos"
+                          description="Shown on your landing page. You can add up to 3 videos from YouTube or Vimeo."
+                        >
+                          <LandingSectionToggle type="videos" />
+                          <div>
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">
+                              Section Heading
+                              <span className="text-[var(--kurso-hint)] font-normal ml-1 ">— shown above the videos on your landing page (optional)</span>
 
-                        </div>
+                            </label>
+                            <input value={editPromoVideoHeading} onChange={e => setEditPromoVideoHeading(e.target.value)}
+                              placeholder="e.g. See what you'll be learning"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)] mb-4" />
+
+                            <div className="flex flex-col gap-2">
+                              {editPromoVideoUrls.map((url, i) => (
+                                <div key={i} className="flex gap-2">
+                                  <input value={url}
+                                    onChange={e => { const n = [...editPromoVideoUrls]; n[i] = e.target.value; setEditPromoVideoUrls(n) }}
+                                    placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
+                                  <button onClick={() => setEditPromoVideoUrls(editPromoVideoUrls.filter((_, idx) => idx !== i))}
+                                    className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                              ))}
+                              {editPromoVideoUrls.length < 3 && (
+                                <button onClick={() => setEditPromoVideoUrls([...editPromoVideoUrls, ''])}
+                                  className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add video</button>
+                              )}
+                            </div>
+                          </div>
+                        </SettingsGroup>
+
 
                         {/* Target audience */}
-                        <SectionDivider label="Who Is This Course For?" />
-                        <LandingSectionToggle type="target" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Who Is This Course For?
-                            <span className="text-zinc-400 font-normal ml-1">— shown as a "Who this is for" section</span>
-                          </label>
+                        <SettingsGroup
+                          title="Who Is This Course For?"
+                          description="Specify the ideal student profile for this course."
+                        >
+                          <LandingSectionToggle type="target" />
+
+
                           <div className="flex flex-col gap-2">
                             {editTargetAudience.map((item, i) => (
                               <div key={i} className="flex gap-2">
@@ -4117,54 +4213,62 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             <button onClick={() => setEditTargetAudience([...editTargetAudience, ''])}
                               className="text-sm text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Audience</button>
                           </div>
-                        </div>
+
+                        </SettingsGroup>
 
                         {/* Testimonials */}
-                        <SectionDivider label="What Students Say" />
-                        <LandingSectionToggle type="testimonials" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">
-                            Student Testimonials
+                        <SettingsGroup
+                          title="Student Testimonials"
+                          description="Showcase what students are saying about your course."
+                        >
+                          <LandingSectionToggle type="testimonials" />
+                          <div>
 
-                          </label>
-                          <div className="flex flex-col gap-3">
-                            {editTestimonials.map((t, i) => (
-                              <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
-                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <button onClick={() => setEditTestimonials(editTestimonials.filter((_, idx) => idx !== i))}
-                                  className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                                <input value={t.name}
-                                  onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], name: e.target.value }; setEditTestimonials(n) }}
-                                  placeholder="Student name"
-                                  className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8" />
-                                <textarea value={t.text}
-                                  onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], text: e.target.value }; setEditTestimonials(n) }}
-                                  placeholder="What they said about the course..."
-                                  rows={2}
-                                  className="w-full bg-transparent text-sm text-zinc-300 outline-none resize-none" />
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-zinc-300">Rating:</span>
-                                  {[1, 2, 3, 4, 5].map(star => (
-                                    <button key={star} type="button"
-                                      onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star }; setEditTestimonials(n) }}
-                                      style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
-                                  ))}
-                                  <span className="text-sm text-zinc-400 ml-2">({t.rating || 5}/5)</span>
+                            <p className="text-sm text-zinc-400 mb-5" style={{ color: 'var(--kurso-hint)' }}>Click the previous star to remove next star rating. e.g. if all  stars are filled then click 4th star to remove 5th star rating and for 4th star click 3rd star and so on.</p>
+
+                            <div className="flex flex-col gap-3">
+                              {editTestimonials.map((t, i) => (
+                                <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
+                                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <button onClick={() => setEditTestimonials(editTestimonials.filter((_, idx) => idx !== i))}
+                                    className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <input value={t.name}
+                                    onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], name: e.target.value }; setEditTestimonials(n) }}
+                                    placeholder="Student name"
+                                    className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8" />
+                                  <textarea value={t.text}
+                                    onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], text: e.target.value }; setEditTestimonials(n) }}
+                                    placeholder="What they said about the course..."
+                                    rows={2}
+                                    className="w-full bg-transparent text-sm text-zinc-300 outline-none resize-none" />
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-zinc-300">Rating:</span>
+                                    {[1, 2, 3, 4, 5].map(star => (
+                                      <button key={star} type="button"
+                                        onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star }; setEditTestimonials(n) }}
+                                        style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
+                                    ))}
+                                    <span className="text-sm text-zinc-400 ml-2">({t.rating || 5}/5)</span>
+                                  </div>
+
                                 </div>
-                                <span className="text-sm text-zinc-400">Click on the stars to set rating </span>
-                              </div>
-                            ))}
-                            <button onClick={() => setEditTestimonials([...editTestimonials, { name: '', text: '', rating: 5 }])}
-                              className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Testimonial</button>
+                              ))}
+                              <button onClick={() => setEditTestimonials([...editTestimonials, { name: '', text: '', rating: 5 }])}
+                                className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Testimonial</button>
+                            </div>
                           </div>
-                        </div>
+                        </SettingsGroup>
 
-                        <SectionDivider label="Frequently Asked Questions" />
-                        <LandingSectionToggle type="faq" />
-                        <div>
-                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Frequently Asked Questions</label>
+
+                        <SettingsGroup
+                          title="Frequently Asked Questions"
+                          description="Add questions and answers that students may ask about your course."
+                        >
+                          <LandingSectionToggle type="faq" />
+
+
                           <div className="flex flex-col gap-3">
                             {editFaq.map((faq, i) => (
                               <div key={i} className="p-4 rounded-xl relative flex flex-col gap-2"
@@ -4195,475 +4299,494 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             <button onClick={() => setEditFaq([...editFaq, { question: '', answer: '' }])}
                               className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add FAQ</button>
                           </div>
-                        </div>
 
-                        <SectionDivider label="What's Included (Bonuses)" />
-                        <LandingSectionToggle type="bonuses" />
-                        <div className="flex flex-col gap-3">
-                          {settingsLandingConfig.bonuses.map((bonus, i) => (
-                            <div key={i} className="flex gap-2 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                              <div className="flex-1 flex flex-col gap-2">
-                                <input value={bonus.title} onChange={e => updateBonus(i, 'title', e.target.value)}
-                                  placeholder="Bonus title (e.g. Private community access)"
-                                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
-                                <input value={bonus.description} onChange={e => updateBonus(i, 'description', e.target.value)}
-                                  placeholder="Short description (optional)"
-                                  className="w-full px-3 py-2 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
-                              </div>
-                              <button type="button" onClick={() => removeBonus(i)}
-                                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                                style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                          <button type="button" onClick={addBonus}
-                            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
-                            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                            <Plus className="w-3.5 h-3.5" /> Add bonus
-                          </button>
-                        </div>
+                        </SettingsGroup>
 
-                        <SectionDivider label="Contact" />
-                        <p className="text-sm -mt-3 mb-1" style={{ color: 'var(--kurso-text-muted)' }}>
-                          Add an email or phone students can reach you on. No verification needed — this is just for display.
-                        </p>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-                          <input type="email" value={editContactEmail} onChange={e => setEditContactEmail(e.target.value)}
-                            placeholder="you@example.com"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
-                          <input type="tel" value={editContactPhone} onChange={e => setEditContactPhone(e.target.value)}
-                            placeholder="+91 98765 43210"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
-                        </div>
-
-                        <div
-                          className="flex items-center justify-between gap-4 mt-2 p-4 rounded-xl"
-                          style={{
-                            background: editShowContactOnLanding
-                              ? 'rgba(var(--kurso-primary-rgb), 0.06)'
-                              : 'rgba(255,255,255,0.03)',
-                            border: editShowContactOnLanding
-                              ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
-                              : '1px solid rgba(255,255,255,0.08)',
-                          }}
+                        <SettingsGroup
+                          title="What's Included (Bonuses)"
+                          description="Add any bonus materials or perks that come with the course, such as downloadable resources, templates, or exclusive access to additional content."
                         >
-                          <div>
-                            <p className="text-sm font-semibold text-white">
-                              Show this on my landing page
-                            </p>
 
-                            <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
-                              {editShowContactOnLanding
-                                ? 'Students will see a Contact link in your footer.'
-                                : 'This Contact link is hidden from your landing page.'}
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => setEditShowContactOnLanding(previous => !previous)}
-                            className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
-                            style={{
-                              background: editShowContactOnLanding
-                                ? 'var(--kurso-primary)'
-                                : 'rgba(255,255,255,0.12)',
-                            }}
-                            aria-label={
-                              editShowContactOnLanding
-                                ? 'Hide contact link'
-                                : 'Show contact link'
-                            }
-                            aria-pressed={editShowContactOnLanding}
-                          >
-                            <span
-                              className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                              style={{
-                                transform: editShowContactOnLanding
-                                  ? 'translateX(20px)'
-                                  : 'translateX(0)',
-                              }}
-                            />
-                          </button>
-                        </div>
-
-                        <SectionDivider label="Disclaimer" />
-                        <LandingSectionToggle type="disclaimer" />
-                        <div className="flex flex-col gap-2">
-                          <input value={settingsLandingConfig.disclaimer.title} onChange={e => updateDisclaimer('title', e.target.value)}
-                            placeholder="Title (e.g. Important information)"
-                            className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                          <textarea value={settingsLandingConfig.disclaimer.text} onChange={e => updateDisclaimer('text', e.target.value)}
-                            placeholder="Disclaimer text shown on the live page..." rows={4}
-                            className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400 resize-none" />
-                        </div>
-
-                        <SectionDivider label="Custom Sections" />
-                        <p className="text-sm -mt-3 mb-1" style={{ color: '#a1a1a4' }}>
-                          Create section according to your needs. Each section can have a heading, body text, and images. You can also customize the heading size, body text size, alignment, box style, and spacing.
-                        </p>
-                        <div className="flex flex-col gap-4">
-                          {settingsLandingConfig.customSections.map((cs) => (
-                            <div key={cs.id} className="p-4 rounded-xl flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                              <LandingSectionToggle type="custom" customId={cs.id} />
-                              <input value={cs.heading} onChange={e => updateCustomSection(cs.id, { heading: e.target.value })}
-                                maxLength={MAX_CUSTOM_HEADING_LENGTH} placeholder="Heading"
-                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                              <textarea value={cs.body} onChange={e => updateCustomSection(cs.id, { body: e.target.value })}
-                                maxLength={MAX_CUSTOM_BODY_LENGTH} placeholder="Body text..." rows={4}
-                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600 resize-none" />
-                              <p className="text-[12px] -mt-1" style={{ color: '#8d8d91' }}>{cs.body.length} / {MAX_CUSTOM_BODY_LENGTH} characters</p>
-
-                              <div className="flex flex-col gap-2">
-                                <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Images ({cs.images.length} / {MAX_CUSTOM_SECTION_IMAGES})</span>
-                                {cs.images.length > 0 && (
-                                  <div className="flex flex-wrap gap-2">
-                                    {cs.images.map((img, imgI) => (
-                                      <div key={imgI} className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-                                        <img src={img} alt="" className="w-full h-full object-cover" />
-                                        <button type="button" onClick={() => removeCustomSectionImage(cs.id, img)}
-                                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded flex items-center justify-center"
-                                          style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}>
-                                          <XIcon className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                {cs.images.length < MAX_CUSTOM_SECTION_IMAGES && (
-                                  <label className="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium cursor-pointer"
-                                    style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                                    <ImageIconLucide className="w-3.5 h-3.5" />
-                                    {uploadingCustomImageId === cs.id ? 'Uploading...' : '1 image = full width · 2 side by side · 3+ scrolls — add images'}
-                                    <input type="file" accept="image/*" multiple hidden disabled={uploadingCustomImageId === cs.id}
-                                      onChange={e => { if (e.target.files?.length) addCustomSectionImages(cs.id, e.target.files); e.target.value = '' }} />
-                                  </label>
-                                )}
-                              </div>
-
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                <label className="flex flex-col gap-1">
-                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Heading size</span>
-                                  <select value={cs.headingSize} onChange={e => updateCustomSection(cs.id, { headingSize: e.target.value as any })}
-                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                    <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
-                                    <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
-                                    <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
-                                  </select>
-                                </label>
-                                <label className="flex flex-col gap-1">
-                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Body text size</span>
-                                  <select value={cs.bodySize} onChange={e => updateCustomSection(cs.id, { bodySize: e.target.value as any })}
-                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                    <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
-                                    <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
-                                    <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
-                                  </select>
-                                </label>
-                                <label className="flex flex-col gap-1">
-                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Alignment</span>
-                                  <select value={cs.align} onChange={e => updateCustomSection(cs.id, { align: e.target.value as any })}
-                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                    <option value="left" style={{ background: '#27272a', color: '#fff' }}>Left</option>
-                                    <option value="center" style={{ background: '#27272a', color: '#fff' }}>Center</option>
-                                  </select>
-                                </label>
-                                <label className="flex flex-col gap-1">
-                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Box style</span>
-                                  <select value={cs.style} onChange={e => updateCustomSection(cs.id, { style: e.target.value as any })}
-                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                    <option value="plain" style={{ background: '#27272a', color: '#fff' }}>Plain</option>
-                                    <option value="card" style={{ background: '#27272a', color: '#fff' }}>Card</option>
-                                  </select>
-                                </label>
-                                <label className="flex flex-col gap-1">
-                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Spacing</span>
-                                  <select value={cs.spacing} onChange={e => updateCustomSection(cs.id, { spacing: e.target.value as any })}
-                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                    <option value="compact" style={{ background: '#27272a', color: '#fff' }}>Compact</option>
-                                    <option value="normal" style={{ background: '#27272a', color: '#fff' }}>Normal</option>
-                                    <option value="roomy" style={{ background: '#27272a', color: '#fff' }}>Roomy</option>
-                                  </select>
-                                </label>
-                                <label className="flex flex-col gap-1">
-                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Background</span>
-                                  <select value={cs.background} onChange={e => updateCustomSection(cs.id, { background: e.target.value as any })}
-                                    className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
-                                    <option value="theme" style={{ background: '#27272a', color: '#fff' }}>Match theme (recommended)</option>
-                                    <option value="custom" style={{ background: '#27272a', color: '#fff' }}>Custom color</option>
-                                  </select>
-                                </label>
-                              </div>
-
-                              {cs.background === 'custom' && (
-                                <label className="flex items-center gap-2">
-                                  <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Background color</span>
-                                  <input type="color" value={cs.backgroundColor} onChange={e => updateCustomSection(cs.id, { backgroundColor: e.target.value })}
-                                    className="w-8 h-8 rounded border border-white/10 bg-transparent" />
-                                </label>
-                              )}
-
-                              <div className="flex justify-end">
-                                <button type="button" onClick={() => removeCustomSection(cs.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                          <LandingSectionToggle type="bonuses" />
+                          <div className="flex flex-col gap-3">
+                            {settingsLandingConfig.bonuses.map((bonus, i) => (
+                              <div key={i} className="flex gap-2 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div className="flex-1 flex flex-col gap-2">
+                                  <input value={bonus.title} onChange={e => updateBonus(i, 'title', e.target.value)}
+                                    placeholder="Bonus title (e.g. Private community access)"
+                                    className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
+                                  <input value={bonus.description} onChange={e => updateBonus(i, 'description', e.target.value)}
+                                    placeholder="Short description (optional)"
+                                    className="w-full px-3 py-2 rounded-lg text-xs bg-white/5 border border-white/10 text-white placeholder:text-zinc-400" />
+                                </div>
+                                <button type="button" onClick={() => removeBonus(i)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
                                   style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
-                                  <Trash2 className="w-3.5 h-3.5" /> Remove section
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
-                            </div>
-                          ))}
-                          <button type="button" onClick={addCustomSection}
-                            disabled={settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE}
-                            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40"
-                            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
-                            <Plus className="w-3.5 h-3.5" />
-                            {settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE ? `Limit of ${MAX_CUSTOM_SECTIONS_PER_COURSE} reached` : 'Add custom section'}
-                          </button>
-                        </div>
+                            ))}
+                            <button type="button" onClick={addBonus}
+                              className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
+                              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                              <Plus className="w-3.5 h-3.5" /> Add bonus
+                            </button>
+                          </div>
+                        </SettingsGroup>
 
-                        <SectionDivider label="Countdown & Seats" />
-                        <LandingSectionToggle type="urgency" />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown ends at</label>
-                            <input type="datetime-local" value={settingsLandingConfig.urgency.endAt}
-                              onChange={e => updateUrgency('endAt', e.target.value)}
-                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white" />
-                          </div>
-                          <div>
-                            <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
-                            <input value={settingsLandingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
-                              placeholder="Enrollment closes in"
-                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                          </div>
-                          <div>
-                            <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
-                            <input type="number" min={0} value={settingsLandingConfig.urgency.seatsAvailable ?? ''}
-                              onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
-                              placeholder="Leave blank to hide"
-                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                          </div>
-                          <div>
-                            <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats label</label>
-                            <input value={settingsLandingConfig.urgency.seatsLabel} onChange={e => updateUrgency('seatsLabel', e.target.value)}
-                              placeholder="seats left at this price"
-                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                          </div>
-                        </div>
-                        {settingsLandingConfig.urgency.endAt && new Date(settingsLandingConfig.urgency.endAt).getTime() <= Date.now() && (
-                          <p className="text-xs -mt-2" style={{ color: 'var(--kurso-accent)' }}>
-                            ⚠ This date is in the past — the countdown won't show on the live page until you set a future date.
-                          </p>
-                        )}
+                        <SettingsGroup
+                          title="Contact Information"
+                          description="Add an email or phone students can reach you on."
+                        >
 
-                        <div className="flex flex-col gap-6">
-                          <SectionDivider label="Certificate" />
-                          <div>
-                            <div className="flex items-center justify-between mb-4">
-                              <div>
-                                <p className="text-sm font-semibold text-white">Completion Certificates</p>
-                                <p className="text-xs mt-0.5" style={{ color: '#939397' }}>
-                                  Auto-issued as PDF when a student completes all lessons
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => setEditCertEnabled(v => !v)}
-                                className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
-                                style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
-                              >
-                                <div
-                                  className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
-                                  style={{ left: editCertEnabled ? '24px' : '4px' }}
-                                />
-                              </button>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                            <input type="email" value={editContactEmail} onChange={e => setEditContactEmail(e.target.value)}
+                              placeholder="you@example.com"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
+                            <input type="tel" value={editContactPhone} onChange={e => setEditContactPhone(e.target.value)}
+                              placeholder="+91 98765 43210"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
+                          </div>
+
+                          <div
+                            className="flex items-center justify-between gap-4 mt-2 p-4 rounded-xl"
+                            style={{
+                              background: editShowContactOnLanding
+                                ? 'rgba(var(--kurso-primary-rgb), 0.06)'
+                                : 'rgba(255,255,255,0.03)',
+                              border: editShowContactOnLanding
+                                ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
+                                : '1px solid rgba(255,255,255,0.08)',
+                            }}
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-white">
+                                Show this on my landing page
+                              </p>
+
+                              <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+                                {editShowContactOnLanding
+                                  ? "Students will see a Contact link in your website's footer."
+                                  : 'This Contact link is hidden from your landing page.'}
+                              </p>
                             </div>
 
-                            {editCertEnabled && (
-                              <div className="flex flex-col gap-4 mt-2">
-                                <div>
-                                  <label className="text-sm font-medium text-zinc-400 mb-2 block">Choose a Color Palette</label>
-                                  <p className="text-xs mb-2" style={{ color: '#71717a' }}>
-                                    Choose any color palette, then select any layout you like below.
-                                  </p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {CERT_PALETTES.map(palette => (
-                                      <button
-                                        key={palette.id}
-                                        type="button"
-                                        onClick={() => setEditCertPalette(palette.id)}
-                                        className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
-                                        style={{
-                                          background: editCertPalette === palette.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
-                                          border: editCertPalette === palette.id ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)' : '1px solid rgba(255,255,255,0.08)',
-                                        }}
-                                      >
-                                        <span className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.background}, ${palette.accent})`, border: `1px solid ${palette.divider}` }} />
-                                        <span className="text-sm font-semibold text-white">{palette.label}</span>
-                                        {editCertPalette === palette.id && <span className="ml-auto w-2 h-2 rounded-full" style={{ background: 'var(--kurso-primary)' }} />}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
+                            <button
+                              type="button"
+                              onClick={() => setEditShowContactOnLanding(previous => !previous)}
+                              className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+                              style={{
+                                background: editShowContactOnLanding
+                                  ? 'var(--kurso-primary)'
+                                  : 'rgba(255,255,255,0.12)',
+                              }}
+                              aria-label={
+                                editShowContactOnLanding
+                                  ? 'Hide contact link'
+                                  : 'Show contact link'
+                              }
+                              aria-pressed={editShowContactOnLanding}
+                            >
+                              <span
+                                className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                                style={{
+                                  transform: editShowContactOnLanding
+                                    ? 'translateX(20px)'
+                                    : 'translateX(0)',
+                                }}
+                              />
+                            </button>
+                          </div>
+                        </SettingsGroup>
 
-                                <div>
-                                  <label className="text-sm font-medium text-zinc-400 mb-2 block">Choose a Layout</label>
-                                  <p className="text-xs mb-2" style={{ color: '#71717a' }}>
-                                    After selecting a color palette, select any layout and then click Preview to have a glance. You can change the color palette and layout by selecting another option.
-                                  </p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {([
-                                      { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
-                                      { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
-                                      { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
-                                      { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
-                                      { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
-                                    ] as const).map(t => (
-                                      <div
-                                        key={t.id}
-                                        className="flex items-center gap-2"
-                                      >
-                                        <button
-                                          type="button"
-                                          onClick={() => setEditCertTemplate(t.id)}
-                                          className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
-                                          style={{
-                                            background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
-                                            border: editCertTemplate === t.id
-                                              ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
-                                              : '1px solid rgba(255,255,255,0.08)',
-                                          }}
-                                        >
-                                          <div
-                                            className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
-                                            style={{
-                                              background:
-                                                t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
-                                                  t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
-                                                    t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
-                                                      t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
-                                                        'linear-gradient(135deg,#060d2e,#d4af37)',
-                                            }}
-                                          />
-                                          <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-white">{t.label}</p>
-                                            <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
-                                          </div>
-                                          {editCertTemplate === t.id && (
-                                            <div
-                                              className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
-                                              style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
-                                            >
-                                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                                <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                              </svg>
-                                            </div>
-                                          )}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setPreviewTemplate(t.id)
-                                            setShowCertPreview(true)
-                                          }}
-                                          className="px-3 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10 text-xs font-medium"
-                                          style={{
-                                            background: 'rgba(255,255,255,0.03)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
-                                            color: '#a1a1aa',
-                                          }}
-                                          title={`Preview ${t.label} template`}
-                                        >
-                                          Preview
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
+                        <SettingsGroup
+                          title="Disclaimer"
+                          description="Add a disclaimer to your landing page to inform students about any important information or legal notices. (You can skip this if not needed)"
+                        >
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                      <label className="text-xs font-medium text-zinc-400">Use Brand Logo on Certificate</label>
-                                      <button
-                                        type="button"
-                                        onClick={() => setEditUseLogoOnCertificate(v => !v)}
-                                        className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                                        style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
-                                      >
-                                        <div
-                                          className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-                                          style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
-                                        />
-                                      </button>
+                          <LandingSectionToggle type="disclaimer" />
+                          <div className="flex flex-col gap-2">
+                            <input value={settingsLandingConfig.disclaimer.title} onChange={e => updateDisclaimer('title', e.target.value)}
+                              placeholder="Title (e.g. Important information)"
+                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                            <textarea value={settingsLandingConfig.disclaimer.text} onChange={e => updateDisclaimer('text', e.target.value)}
+                              placeholder="Disclaimer text shown on the live page..." rows={4}
+                              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-400 resize-none" />
+                          </div>
+                        </SettingsGroup>
+
+                        <SettingsGroup
+                          title="Custom Sections (highly optional)"
+                          description="Create section according to your needs. Each section can have a heading, body text, and images. You can also customize the heading size, body text size, alignment, box style, and spacing."
+                        >
+
+                          <div className="flex flex-col gap-4">
+                            {settingsLandingConfig.customSections.map((cs) => (
+                              <div key={cs.id} className="p-4 rounded-xl flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                <LandingSectionToggle type="custom" customId={cs.id} />
+                                <input value={cs.heading} onChange={e => updateCustomSection(cs.id, { heading: e.target.value })}
+                                  maxLength={MAX_CUSTOM_HEADING_LENGTH} placeholder="Heading"
+                                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                                <textarea value={cs.body} onChange={e => updateCustomSection(cs.id, { body: e.target.value })}
+                                  maxLength={MAX_CUSTOM_BODY_LENGTH} placeholder="Body text..." rows={4}
+                                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600 resize-none" />
+                                <p className="text-[12px] -mt-1" style={{ color: '#8d8d91' }}>{cs.body.length} / {MAX_CUSTOM_BODY_LENGTH} characters</p>
+
+                                <div className="flex flex-col gap-2">
+                                  <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Images ({cs.images.length} / {MAX_CUSTOM_SECTION_IMAGES})</span>
+                                  {cs.images.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                      {cs.images.map((img, imgI) => (
+                                        <div key={imgI} className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                                          <img src={img} alt="" className="w-full h-full object-cover" />
+                                          <button type="button" onClick={() => removeCustomSectionImage(cs.id, img)}
+                                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded flex items-center justify-center"
+                                            style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}>
+                                            <XIcon className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      ))}
                                     </div>
-
-                                    {editUseLogoOnCertificate && brandLogoUrl && (
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
-                                        <span className="text-xs text-zinc-500">Will print on the certificate</span>
-                                      </div>
-                                    )}
-
-                                    {editUseLogoOnCertificate && !brandLogoUrl && (
-                                      <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
-                                        style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
-                                        <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
-                                          Please provide the brand logo above —{' '}
-                                          <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
-                                            upload it in Design Landing Page
-                                          </Link>.
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    {!editUseLogoOnCertificate && (
-                                      <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
-                                        Uses the same logo set in Design Landing Page.
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  <div>
-                                    <label className="text-sm font-semibold text-zinc-300 mb-2 block">Instructor Signature (optional)</label>
-                                    <input type="file" accept="image/png,image/jpeg" id="cert-sig"
-                                      className="hidden"
-                                      onChange={async e => {
-                                        const file = e.target.files?.[0]
-                                        if (!file) return
-                                        const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
-                                        setEditCertSignatureUrl(publicUrl)
-                                      }} />
-                                    <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
-                                      {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
+                                  )}
+                                  {cs.images.length < MAX_CUSTOM_SECTION_IMAGES && (
+                                    <label className="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium cursor-pointer"
+                                      style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                                      <ImageIconLucide className="w-3.5 h-3.5" />
+                                      {uploadingCustomImageId === cs.id ? 'Uploading...' : '1 image = full width · 2 side by side · 3+ scrolls — add images'}
+                                      <input type="file" accept="image/*" multiple hidden disabled={uploadingCustomImageId === cs.id}
+                                        onChange={e => { if (e.target.files?.length) addCustomSectionImages(cs.id, e.target.files); e.target.value = '' }} />
                                     </label>
-                                    {editCertSignatureUrl && <span className="text-xs text-zinc-500 ml-2">Uploaded</span>}
-                                  </div>
+                                  )}
                                 </div>
 
-                                <div>
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <label className="text-sm font-medium text-zinc-400">Custom Message on Certificate</label>
-                                    <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
-                                  </div>
-                                  <input
-                                    type="text"
-                                    value={editCertCustomMessage}
-                                    onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
-                                    placeholder="e.g. Keep building, keep shipping. — Your Name"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
-                                  />
-                                  <p className="text-[12px] mt-1" style={{ color: '#919193' }}>
-                                    Appears as a small line on the certificate. Leave blank to omit.
-                                  </p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  <label className="flex flex-col gap-1">
+                                    <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Heading size</span>
+                                    <select value={cs.headingSize} onChange={e => updateCustomSection(cs.id, { headingSize: e.target.value as any })}
+                                      className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                      <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
+                                      <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
+                                      <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
+                                    </select>
+                                  </label>
+                                  <label className="flex flex-col gap-1">
+                                    <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Body text size</span>
+                                    <select value={cs.bodySize} onChange={e => updateCustomSection(cs.id, { bodySize: e.target.value as any })}
+                                      className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                      <option value="sm" style={{ background: '#27272a', color: '#fff' }}>Small</option>
+                                      <option value="md" style={{ background: '#27272a', color: '#fff' }}>Medium</option>
+                                      <option value="lg" style={{ background: '#27272a', color: '#fff' }}>Large</option>
+                                    </select>
+                                  </label>
+                                  <label className="flex flex-col gap-1">
+                                    <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Alignment</span>
+                                    <select value={cs.align} onChange={e => updateCustomSection(cs.id, { align: e.target.value as any })}
+                                      className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                      <option value="left" style={{ background: '#27272a', color: '#fff' }}>Left</option>
+                                      <option value="center" style={{ background: '#27272a', color: '#fff' }}>Center</option>
+                                    </select>
+                                  </label>
+                                  <label className="flex flex-col gap-1">
+                                    <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Box style</span>
+                                    <select value={cs.style} onChange={e => updateCustomSection(cs.id, { style: e.target.value as any })}
+                                      className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                      <option value="plain" style={{ background: '#27272a', color: '#fff' }}>Plain</option>
+                                      <option value="card" style={{ background: '#27272a', color: '#fff' }}>Card</option>
+                                    </select>
+                                  </label>
+                                  <label className="flex flex-col gap-1">
+                                    <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Spacing</span>
+                                    <select value={cs.spacing} onChange={e => updateCustomSection(cs.id, { spacing: e.target.value as any })}
+                                      className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                      <option value="compact" style={{ background: '#27272a', color: '#fff' }}>Compact</option>
+                                      <option value="normal" style={{ background: '#27272a', color: '#fff' }}>Normal</option>
+                                      <option value="roomy" style={{ background: '#27272a', color: '#fff' }}>Roomy</option>
+                                    </select>
+                                  </label>
+                                  <label className="flex flex-col gap-1">
+                                    <span className="text-[12px] font-medium" style={{ color: '#88888d' }}>Background</span>
+                                    <select value={cs.background} onChange={e => updateCustomSection(cs.id, { background: e.target.value as any })}
+                                      className="px-2 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 text-white" style={{ colorScheme: 'dark' }}>
+                                      <option value="theme" style={{ background: '#27272a', color: '#fff' }}>Match theme (recommended)</option>
+                                      <option value="custom" style={{ background: '#27272a', color: '#fff' }}>Custom color</option>
+                                    </select>
+                                  </label>
+                                </div>
+
+                                {cs.background === 'custom' && (
+                                  <label className="flex items-center gap-2">
+                                    <span className="text-[10px] font-medium" style={{ color: '#71717a' }}>Background color</span>
+                                    <input type="color" value={cs.backgroundColor} onChange={e => updateCustomSection(cs.id, { backgroundColor: e.target.value })}
+                                      className="w-8 h-8 rounded border border-white/10 bg-transparent" />
+                                  </label>
+                                )}
+
+                                <div className="flex justify-end">
+                                  <button type="button" onClick={() => removeCustomSection(cs.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                                    style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
+                                    <Trash2 className="w-3.5 h-3.5" /> Remove section
+                                  </button>
                                 </div>
                               </div>
-                            )}
+                            ))}
+                            <button type="button" onClick={addCustomSection}
+                              disabled={settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE}
+                              className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40"
+                              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                              <Plus className="w-3.5 h-3.5" />
+                              {settingsLandingConfig.customSections.length >= MAX_CUSTOM_SECTIONS_PER_COURSE ? `Limit of ${MAX_CUSTOM_SECTIONS_PER_COURSE} reached` : 'Add custom section'}
+                            </button>
                           </div>
-                        </div>
+                        </SettingsGroup>
+
+
+                        <SettingsGroup
+                          title="Countdown & Seats"
+                          description="Show seats availability in certain time period. You can change countdown label and seats label next to time & seats."
+                        >
+
+                          <LandingSectionToggle type="urgency" />
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown ends at</label>
+                              <input type="datetime-local" value={settingsLandingConfig.urgency.endAt}
+                                onChange={e => updateUrgency('endAt', e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white" />
+                            </div>
+                            <div>
+                              <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
+                              <input value={settingsLandingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
+                                placeholder="Enrollment closes in"
+                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                            </div>
+                            <div>
+                              <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
+                              <input type="number" min={0} value={settingsLandingConfig.urgency.seatsAvailable ?? ''}
+                                onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
+                                placeholder="Leave blank to hide"
+                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                            </div>
+                            <div>
+                              <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats label</label>
+                              <input value={settingsLandingConfig.urgency.seatsLabel} onChange={e => updateUrgency('seatsLabel', e.target.value)}
+                                placeholder="seats left at this price"
+                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                            </div>
+                          </div>
+                          {settingsLandingConfig.urgency.endAt && new Date(settingsLandingConfig.urgency.endAt).getTime() <= Date.now() && (
+                            <p className="text-sm -mt-2" style={{ color: 'rgb(237, 152, 128)' }}>
+                              ⚠ This date is the past date — the countdown won't show on the live page until you set a future date.
+                            </p>
+                          )}
+                                                </SettingsGroup>
+
                       </>
                     )}
+
+                        <SettingsGroup
+                          title="Completion Certificates"
+                          description="Auto-issued as PDF when a student completes all lessons"
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <p className="text-sm mb-2" style={{ color: 'rgb(240, 233, 231)' }}>Enable / Disable Certificate</p>
+                            
+                            <button
+                              onClick={() => setEditCertEnabled(v => !v)}
+                              className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
+                              style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
+                            >
+                              <div
+                                className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                                style={{ left: editCertEnabled ? '24px' : '4px' }}
+                              />
+                            </button>
+                          </div>
+
+                          {editCertEnabled && (
+                            <div className="flex flex-col gap-4 mt-2">
+                              <div>
+                                <label className="text-sm font-medium text-zinc-300 mb-2 block">Choose a Color Palette</label>
+                                <p className="text-sm mb-2" style={{ color: 'var(--kurso-hint)' }}>
+                                  Choose any color palette, then select any layout you like below. And Then click preview option next to layout.You can try any color palette and layout, after selecting layout you can change the palette too.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {CERT_PALETTES.map(palette => (
+                                    <button
+                                      key={palette.id}
+                                      type="button"
+                                      onClick={() => setEditCertPalette(palette.id)}
+                                      className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
+                                      style={{
+                                        background: editCertPalette === palette.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                                        border: editCertPalette === palette.id ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)' : '1px solid rgba(255,255,255,0.08)',
+                                      }}
+                                    >
+                                      <span className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.background}, ${palette.accent})`, border: `1px solid ${palette.divider}` }} />
+                                      <span className="text-sm font-semibold text-white">{palette.label}</span>
+                                      {editCertPalette === palette.id && <span className="ml-auto w-2 h-2 rounded-full" style={{ background: 'var(--kurso-primary)' }} />}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-medium text-zinc-300 mb-2 block">Choose a Layout</label>
+                                <p className="text-sm mb-2" style={{color: 'var(--kurso-hint)' }}>
+                                  Preview palette and layout and at last select which combo you liked.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {([
+                                    { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
+                                    { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
+                                    { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
+                                    { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
+                                    { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
+                                  ] as const).map(t => (
+                                    <div
+                                      key={t.id}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditCertTemplate(t.id)}
+                                        className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
+                                        style={{
+                                          background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                                          border: editCertTemplate === t.id
+                                            ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
+                                            : '1px solid rgba(255,255,255,0.08)',
+                                        }}
+                                      >
+                                        <div
+                                          className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
+                                          style={{
+                                            background:
+                                              t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
+                                                t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
+                                                  t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
+                                                    t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
+                                                      'linear-gradient(135deg,#060d2e,#d4af37)',
+                                          }}
+                                        />
+                                        <div className="min-w-0">
+                                          <p className="text-sm font-semibold text-white">{t.label}</p>
+                                          <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
+                                        </div>
+                                        {editCertTemplate === t.id && (
+                                          <div
+                                            className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
+                                            style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
+                                          >
+                                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                              <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                          </div>
+                                        )}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setPreviewTemplate(t.id)
+                                          setShowCertPreview(true)
+                                        }}
+                                        className="px-3 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10 text-xs font-medium"
+                                        style={{
+                                          background: 'rgba(255,255,255,0.03)',
+                                          border: '1px solid rgba(255,255,255,0.08)',
+                                          color: '#a1a1aa',
+                                        }}
+                                        title={`Preview ${t.label} template`}
+                                      >
+                                        Preview
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                  <div className="flex items-center justify-between mb-4 mt-3">
+                                    <label className="text-sm font-medium text-zinc-200">Use Brand Logo on Certificate</label>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditUseLogoOnCertificate(v => !v)}
+                                      className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                                      style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
+                                    >
+                                      <div
+                                        className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                                        style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
+                                      />
+                                    </button>
+                                  </div>
+
+                                  {editUseLogoOnCertificate && brandLogoUrl && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
+                                      <span className="text-xs text-zinc-400">Will print on the certificate</span>
+                                    </div>
+                                  )}
+
+                                  {editUseLogoOnCertificate && !brandLogoUrl && (
+                                    <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
+                                      style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                                      <p className="text-sm" style={{ color: 'var(--kurso-accent)' }}>
+                                        Please provide the brand logo above —{' '}
+                                        <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
+                                          upload it in Design Landing Page
+                                        </Link>.
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {!editUseLogoOnCertificate && (
+                                    <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
+                                      Uses the same logo set in Design Landing Page.
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <label className="text-sm font-semibold text-zinc-300 mb-3 block">Mentor Signature (optional)</label>
+                                  <input type="file" accept="image/png,image/jpeg" id="cert-sig"
+                                    className="hidden"
+                                    onChange={async e => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
+                                      const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
+                                      setEditCertSignatureUrl(publicUrl)
+                                    }} />
+                                  <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
+                                    {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
+                                  </label>
+                                  {editCertSignatureUrl && <span className="text-xs text-zinc-400 ml-2">Uploaded</span>}
+                                </div>
+                              </div>
+
+                              <div>
+                                <div className="flex items-center justify-between mb-3">
+                                  <label className="text-sm font-medium text-zinc-300">Custom Message on Certificate</label>
+                                  <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={editCertCustomMessage}
+                                  onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
+                                  placeholder="e.g. Keep building, keep shipping. — Your Name"
+                                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                                />
+                                <p className="text-sm mt-4" style={{ color: 'var(--kurso-hint)' }}>
+                                  Appears as a small line on the certificate. You can leave it blank no trouble.
+                                </p>
+                              </div>
+                                                          </div>
+                          )}
+
+                        </SettingsGroup>
 
                     {course.uses_external_landing_page && (
                       <>
@@ -4683,7 +4806,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               : <><Copy className="w-4 h-4" />Copy Embed Code</>
                             }
                           </button>
-                          <p className="text-[11px] mt-2" style={{ color: '#71717a' }}>
+                          <p className="text-[13px] mt-2" style={{ color: 'var(--kurso-hint)' }}>
                             Note: the price shown is baked in at copy time — if you change your course price later, re-copy and re-paste this snippet.
                           </p>
                         </div>
