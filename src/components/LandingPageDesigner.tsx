@@ -203,17 +203,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Header — course name already shown by the parent course page, this is just the live-preview link */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs" style={{ color: '#9c9ca0' }}>
-          {saving ? 'Saving…' : savedMsg ? '✓ Saved' : 'Saved automatically'}
-        </p>
-        <a href={previewUrl(selectedTheme)} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all"
-          style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <ExternalLink className="w-3.5 h-3.5" /> Preview Live
-        </a>
-      </div>
+      
 
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -238,9 +228,8 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
         {/* ── BRAND LOGO (always visible) ── */}
         <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
           <h2 className="font-semibold text-white mb-1">Brand Logo</h2>
-          <p className="text-xs mb-4" style={{ color: '#71717a' }}>
-            Shown in the landing page nav next to your brand name. When a logo is uploaded, both the logo image
-            and your brand/instructor name appear together.
+          <p className="text-sm mb-4" style={{ color: 'var(--kurso-hint)' }}>
+            Shown in the landing page and certificate, if you don't have then disable brand logo on certificate and here don't upload.
           </p>
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
@@ -257,11 +246,11 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
               </label>
               {brandLogoUrl && (
                 <button onClick={() => setBrandLogoUrl('')}
-                  className="ml-2 text-xs text-zinc-500 hover:text-red-500 inline-flex items-center gap-1">
+                  className="ml-2 text-xs text-zinc-400 hover:text-red-500 inline-flex items-center gap-1">
                   <X className="w-3 h-3" /> Remove
                 </button>
               )}
-              <p className="text-[10px] text-zinc-500 mt-1.5">PNG/JPG/WebP · transparent background recommended · max 2 MB</p>
+              <p className="text-[12px] text-zinc-400 mt-1.5">PNG/JPG/WebP · transparent background recommended · max 2 MB</p>
             </div>
           </div>
         </div>
@@ -270,7 +259,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
         {activeTab === 'theme' && (
           <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <h2 className="font-semibold text-white mb-1">Choose a Theme</h2>
-            <p className="text-xs mb-5" style={{ color: '#71717a' }}>
+            <p className="text-sm mb-5" style={{ color: 'var(--kurso-hint)' }}>
               Themes control the full color palette, background, and heading font. Use "Preview" to see it live
               with your real course data before saving.
             </p>
@@ -302,7 +291,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
                           </span>
                         )}
                       </div>
-                      <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.tagline}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--kurso-hint)' }}>{t.tagline}</p>
                     </div>
 
                     <div className="flex gap-2">
@@ -330,9 +319,9 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
         {activeTab === 'fonts' && (
           <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <h2 className="font-semibold text-white mb-1">Font Style</h2>
-            <p className="text-xs mb-5" style={{ color: '#71717a' }}>
-              Override the heading font pairing from your theme. Body text always uses Inter for readability.
-              Select "Theme Default" to use whatever font the theme was designed with.
+            <p className="text-sm mb-5" style={{ color: 'var(--kurso-hint)' }}>
+              On right side click preview course page option and see how the font is looking on your course.
+              
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -359,7 +348,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
                           </div>
                         )}
                       </div>
-                      <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{fp.desc}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--kurso-hint)' }}>{fp.desc}</p>
                     </div>
                   </button>
                 )
@@ -367,10 +356,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
             </div>
 
             <div className="mt-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <p className="text-xs" style={{ color: '#52525b' }}>
-                💡 Font changes take effect on your live page immediately after saving. Use "Preview Live" at
-                the top to check before sharing.
-              </p>
+              
             </div>
           </div>
         )}

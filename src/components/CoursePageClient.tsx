@@ -95,7 +95,11 @@ export default function CoursePageClient({ course, variant }: Props) {
           <>
             <button onClick={() => setShowTestModal(true)}
               className="inline-flex min-h-10 shrink-0 whitespace-nowrap items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-              style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15', border: '1px solid rgba(250,204,21,0.25)' }}>
+              style={{
+                background: 'var(--kurso-accent)',
+                color: '#fff',
+                border: '1px solid var(--kurso-accent)',
+              }}>
               <FlaskConical className="w-4 h-4" /> Test Course
             </button>
             {showTestModal && (
@@ -113,10 +117,13 @@ export default function CoursePageClient({ course, variant }: Props) {
       return (
         <>
           <button onClick={() => setShowTestModal(true)}
-            className={`flex items-center justify-center gap-2 rounded-xl font-semibold transition-all ${
-              variant === 'cta' ? 'px-8 py-4 text-lg' : 'w-full py-3 text-base'
-            }`}
-            style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15', border: '1px solid rgba(250,204,21,0.25)' }}>
+            className={`flex items-center justify-center gap-2 rounded-xl font-semibold transition-all ${variant === 'cta' ? 'px-8 py-4 text-lg' : 'w-full py-3 text-base'
+              }`}
+            style={{
+              background: 'var(--kurso-accent)',
+              color: '#fff',
+              border: '1px solid var(--kurso-accent)',
+            }}>
             <FlaskConical className={variant === 'cta' ? 'w-5 h-5' : 'w-4 h-4'} />
             Test This Course
           </button>
@@ -182,7 +189,7 @@ export default function CoursePageClient({ course, variant }: Props) {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all">
           Continue Learning →
         </a>
-        <p className="text-xs text-center" style={{color:'#4ade80'}}>
+        <p className="text-xs text-center" style={{ color: '#4ade80' }}>
           ✓ You are enrolled in this course
         </p>
       </div>
@@ -201,13 +208,12 @@ export default function CoursePageClient({ course, variant }: Props) {
   return (
     <>
       <button onClick={() => setShowModal(true)}
-        className={`flex items-center justify-center gap-2 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all ${
-          variant === 'nav' ? 'px-4 py-2 text-sm' : 
+        className={`flex items-center justify-center gap-2 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all ${variant === 'nav' ? 'px-4 py-2 text-sm' :
           variant === 'cta' ? 'px-8 py-4 text-lg' : 'w-full py-3 text-base'
-        }`}>
-        {variant === 'nav' ? 'Enroll Now' : 
-         variant === 'cta' ? `Enroll for ₹${course.price.toLocaleString()}` : 
-         `Enroll Now — ₹${course.price.toLocaleString()}`}
+          }`}>
+        {variant === 'nav' ? 'Enroll Now' :
+          variant === 'cta' ? `Enroll for ₹${course.price.toLocaleString()}` :
+            `Enroll Now — ₹${course.price.toLocaleString()}`}
         <ArrowRight className={variant === 'nav' ? 'w-4 h-4' : 'w-5 h-5'} />
       </button>
 

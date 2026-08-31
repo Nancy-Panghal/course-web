@@ -165,7 +165,7 @@ export default function TestCourseModal({
       >
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <FlaskConical className="w-5 h-5" style={{ color: '#facc15' }} />
+            <FlaskConical className="w-5 h-5" style={{ color: 'var(--kurso-accent)' }} />
             <h2 className="font-semibold text-white">Test This Course</h2>
           </div>
           <button onClick={onClose}><X className="w-5 h-5" style={{ color: '#71717a' }} /></button>
@@ -205,7 +205,7 @@ export default function TestCourseModal({
                 border: '1px solid rgba(var(--kurso-primary-rgb), 0.25)',
               }}
             >
-              🧪 Test mode is ready. Open each available delivery method below to test the same experience your students receive.
+              🧪 Test mode is ready. Open each available delivery method below to test the almost same experience your students receive.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

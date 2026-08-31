@@ -7,7 +7,7 @@ import type { LandingTheme } from './types'
 export const midnightViolet: LandingTheme = {
   id: 'midnight-violet',
   name: 'Midnight Violet',
-  tagline: 'Dark, premium, SaaS-native. Our original signature look.',
+  tagline: 'Dark, premium, SaaS-native. Violet shades.',
   swatch: ['#080808', '#7c3aed', '#a78bfa'],
   fonts: {
     heading: "'Playfair Display', serif",

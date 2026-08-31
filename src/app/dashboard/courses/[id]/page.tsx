@@ -1314,7 +1314,7 @@ function LessonWidget({
               {lesson.duration && (
                 <span className="text-xs" style={{ color: '#52525b' }}>{lesson.duration}</span>
               )}
-              <span className="text-xs" style={{ color: lesson.is_published ? '#4ade80' : '#8f8f91' }}>
+              <span className="text-xs" style={{ color: lesson.is_published ? '#4ade80' : '#c1c1c3' }}>
                 {lesson.is_published ? '● Published' : '○ Draft'}
               </span>
               {numberError && (
@@ -3292,9 +3292,9 @@ export default function CourseManagePage({
               <h1 className="text-2xl font-bold text-white truncate">{course.name}</h1>
               <span className="text-xs px-2.5 py-1 rounded-full font-medium"
                 style={{
-                  background: course.is_published ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.05)',
-                  color: course.is_published ? '#4ade80' : '#52525b',
-                  border: course.is_published ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(255,255,255,0.08)',
+                  background: course.is_published ? 'rgba(74,222,128,0.1)' : 'rgba(51, 50, 50, 0.05)',
+                  color: course.is_published ? '#4ade80' : '#f1f1f4',
+                  border: course.is_published ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(167, 166, 166, 0.08)',
                 }}>
                 {course.uses_external_landing_page
                   ? (course.is_published ? '● Checkout On' : '○ Checkout Off')
@@ -3567,6 +3567,8 @@ export default function CourseManagePage({
                     <p className="text-xs mt-3 px-3 py-2 rounded-lg" style={{ color: '#4ade80', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>{deliverySuccess}</p>
                   )}
 
+
+
                   <button onClick={saveDeliveryMethod} disabled={savingDelivery}
                     className="mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))' }}>
@@ -3575,6 +3577,7 @@ export default function CourseManagePage({
                 </div>
 
                 <div className="rounded-2xl p-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="mt-3 mb-3 text-sm">You can click course preview in right side and see live how your course landing page is looking and side by side update the information and reload the tab to see your changes.</p>
                   <div className="flex items-center justify-between gap-4 mb-5">
                     <h2 className="font-semibold text-white">Course Settings</h2>
                     <span className="text-xs" style={{ color: savingSettings ? 'var(--kurso-primary-light)' : '#71717a' }}>
@@ -4164,7 +4167,10 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                           <div>
                             <label className="text-sm font-semibold text-zinc-300 mb-2 block">
                               Section Heading
-                              <span className="text-[var(--kurso-hint)] font-normal ml-1 ">— shown above the videos on your landing page (optional)</span>
+                              <span
+                                className="font-normal ml-1"
+                                style={{ color: 'var(--kurso-hint)' }}
+                              >— shown above the videos on your landing page (optional)</span>
 
                             </label>
                             <input value={editPromoVideoHeading} onChange={e => setEditPromoVideoHeading(e.target.value)}
@@ -4579,214 +4585,214 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               ⚠ This date is the past date — the countdown won't show on the live page until you set a future date.
                             </p>
                           )}
-                                                </SettingsGroup>
+                        </SettingsGroup>
 
                       </>
                     )}
 
-                        <SettingsGroup
-                          title="Completion Certificates"
-                          description="Auto-issued as PDF when a student completes all lessons"
+                    <SettingsGroup
+                      title="Completion Certificates"
+                      description="Auto-issued as PDF when a student completes all lessons"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm mb-2" style={{ color: 'rgb(240, 233, 231)' }}>Enable / Disable Certificate</p>
+
+                        <button
+                          onClick={() => setEditCertEnabled(v => !v)}
+                          className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
+                          style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
                         >
-                          <div className="flex items-center justify-between mb-4">
-                            <p className="text-sm mb-2" style={{ color: 'rgb(240, 233, 231)' }}>Enable / Disable Certificate</p>
-                            
-                            <button
-                              onClick={() => setEditCertEnabled(v => !v)}
-                              className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
-                              style={{ background: editCertEnabled ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
-                            >
-                              <div
-                                className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
-                                style={{ left: editCertEnabled ? '24px' : '4px' }}
-                              />
-                            </button>
+                          <div
+                            className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                            style={{ left: editCertEnabled ? '24px' : '4px' }}
+                          />
+                        </button>
+                      </div>
+
+                      {editCertEnabled && (
+                        <div className="flex flex-col gap-4 mt-2">
+                          <div>
+                            <label className="text-sm font-medium text-zinc-300 mb-2 block">Choose a Color Palette</label>
+                            <p className="text-sm mb-2" style={{ color: 'var(--kurso-hint)' }}>
+                              Choose any color palette, then select any layout you like below. And Then click preview option next to layout.You can try any color palette and layout, after selecting layout you can change the palette too.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {CERT_PALETTES.map(palette => (
+                                <button
+                                  key={palette.id}
+                                  type="button"
+                                  onClick={() => setEditCertPalette(palette.id)}
+                                  className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
+                                  style={{
+                                    background: editCertPalette === palette.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                                    border: editCertPalette === palette.id ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)' : '1px solid rgba(255,255,255,0.08)',
+                                  }}
+                                >
+                                  <span className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.background}, ${palette.accent})`, border: `1px solid ${palette.divider}` }} />
+                                  <span className="text-sm font-semibold text-white">{palette.label}</span>
+                                  {editCertPalette === palette.id && <span className="ml-auto w-2 h-2 rounded-full" style={{ background: 'var(--kurso-primary)' }} />}
+                                </button>
+                              ))}
+                            </div>
                           </div>
 
-                          {editCertEnabled && (
-                            <div className="flex flex-col gap-4 mt-2">
-                              <div>
-                                <label className="text-sm font-medium text-zinc-300 mb-2 block">Choose a Color Palette</label>
-                                <p className="text-sm mb-2" style={{ color: 'var(--kurso-hint)' }}>
-                                  Choose any color palette, then select any layout you like below. And Then click preview option next to layout.You can try any color palette and layout, after selecting layout you can change the palette too.
-                                </p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {CERT_PALETTES.map(palette => (
-                                    <button
-                                      key={palette.id}
-                                      type="button"
-                                      onClick={() => setEditCertPalette(palette.id)}
-                                      className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
-                                      style={{
-                                        background: editCertPalette === palette.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
-                                        border: editCertPalette === palette.id ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)' : '1px solid rgba(255,255,255,0.08)',
-                                      }}
-                                    >
-                                      <span className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.background}, ${palette.accent})`, border: `1px solid ${palette.divider}` }} />
-                                      <span className="text-sm font-semibold text-white">{palette.label}</span>
-                                      {editCertPalette === palette.id && <span className="ml-auto w-2 h-2 rounded-full" style={{ background: 'var(--kurso-primary)' }} />}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="text-sm font-medium text-zinc-300 mb-2 block">Choose a Layout</label>
-                                <p className="text-sm mb-2" style={{color: 'var(--kurso-hint)' }}>
-                                  Preview palette and layout and at last select which combo you liked.
-                                </p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {([
-                                    { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
-                                    { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
-                                    { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
-                                    { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
-                                    { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
-                                  ] as const).map(t => (
+                          <div>
+                            <label className="text-sm font-medium text-zinc-300 mb-2 block">Choose a Layout</label>
+                            <p className="text-sm mb-2" style={{ color: 'var(--kurso-hint)' }}>
+                              Preview palette and layout and at last select which combo you liked.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {([
+                                { id: 'classic', label: 'Classic', desc: 'White · Navy border · Gold accents' },
+                                { id: 'modern', label: 'Modern', desc: 'Dark · Violet accents · Clean' },
+                                { id: 'gold', label: 'Gold', desc: 'Ivory · Ornate gold borders' },
+                                { id: 'minimal', label: 'Minimal', desc: 'Pure white · Ultra clean' },
+                                { id: 'royal', label: 'Royal', desc: 'Deep navy · Gold typography' },
+                              ] as const).map(t => (
+                                <div
+                                  key={t.id}
+                                  className="flex items-center gap-2"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditCertTemplate(t.id)}
+                                    className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
+                                    style={{
+                                      background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
+                                      border: editCertTemplate === t.id
+                                        ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
+                                        : '1px solid rgba(255,255,255,0.08)',
+                                    }}
+                                  >
                                     <div
-                                      key={t.id}
-                                      className="flex items-center gap-2"
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={() => setEditCertTemplate(t.id)}
-                                        className="flex-1 flex items-start gap-3 p-3 rounded-xl text-left transition-all"
-                                        style={{
-                                          background: editCertTemplate === t.id ? 'rgba(var(--kurso-primary-rgb), 0.15)' : 'rgba(255,255,255,0.03)',
-                                          border: editCertTemplate === t.id
-                                            ? '1px solid rgba(var(--kurso-primary-rgb), 0.45)'
-                                            : '1px solid rgba(255,255,255,0.08)',
-                                        }}
-                                      >
-                                        <div
-                                          className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
-                                          style={{
-                                            background:
-                                              t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
-                                                t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
-                                                  t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
-                                                    t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
-                                                      'linear-gradient(135deg,#060d2e,#d4af37)',
-                                          }}
-                                        />
-                                        <div className="min-w-0">
-                                          <p className="text-sm font-semibold text-white">{t.label}</p>
-                                          <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
-                                        </div>
-                                        {editCertTemplate === t.id && (
-                                          <div
-                                            className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
-                                            style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
-                                          >
-                                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                                              <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                          </div>
-                                        )}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          setPreviewTemplate(t.id)
-                                          setShowCertPreview(true)
-                                        }}
-                                        className="px-3 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10 text-xs font-medium"
-                                        style={{
-                                          background: 'rgba(255,255,255,0.03)',
-                                          border: '1px solid rgba(255,255,255,0.08)',
-                                          color: '#a1a1aa',
-                                        }}
-                                        title={`Preview ${t.label} template`}
-                                      >
-                                        Preview
-                                      </button>
+                                      className="w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
+                                      style={{
+                                        background:
+                                          t.id === 'classic' ? 'linear-gradient(135deg,#1a2744,#c9a227)' :
+                                            t.id === 'modern' ? 'linear-gradient(135deg,#0f0f1a,var(--kurso-primary))' :
+                                              t.id === 'gold' ? 'linear-gradient(135deg,#fdf8ed,#c9a227)' :
+                                                t.id === 'minimal' ? 'linear-gradient(135deg,#ffffff,var(--kurso-primary))' :
+                                                  'linear-gradient(135deg,#060d2e,#d4af37)',
+                                      }}
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-white">{t.label}</p>
+                                      <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>{t.desc}</p>
                                     </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                  <div className="flex items-center justify-between mb-4 mt-3">
-                                    <label className="text-sm font-medium text-zinc-200">Use Brand Logo on Certificate</label>
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditUseLogoOnCertificate(v => !v)}
-                                      className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
-                                      style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
-                                    >
+                                    {editCertTemplate === t.id && (
                                       <div
-                                        className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-                                        style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
-                                      />
-                                    </button>
-                                  </div>
-
-                                  {editUseLogoOnCertificate && brandLogoUrl && (
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
-                                      <span className="text-xs text-zinc-400">Will print on the certificate</span>
-                                    </div>
-                                  )}
-
-                                  {editUseLogoOnCertificate && !brandLogoUrl && (
-                                    <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
-                                      style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
-                                      <p className="text-sm" style={{ color: 'var(--kurso-accent)' }}>
-                                        Please provide the brand logo above —{' '}
-                                        <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
-                                          upload it in Design Landing Page
-                                        </Link>.
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {!editUseLogoOnCertificate && (
-                                    <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
-                                      Uses the same logo set in Design Landing Page.
-                                    </p>
-                                  )}
+                                        className="ml-auto flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
+                                        style={{ background: 'var(--kurso-primary)', marginTop: 2 }}
+                                      >
+                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                                          <path d="M1 4l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setPreviewTemplate(t.id)
+                                      setShowCertPreview(true)
+                                    }}
+                                    className="px-3 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10 text-xs font-medium"
+                                    style={{
+                                      background: 'rgba(255,255,255,0.03)',
+                                      border: '1px solid rgba(255,255,255,0.08)',
+                                      color: '#a1a1aa',
+                                    }}
+                                    title={`Preview ${t.label} template`}
+                                  >
+                                    Preview
+                                  </button>
                                 </div>
+                              ))}
+                            </div>
+                          </div>
 
-                                <div>
-                                  <label className="text-sm font-semibold text-zinc-300 mb-3 block">Mentor Signature (optional)</label>
-                                  <input type="file" accept="image/png,image/jpeg" id="cert-sig"
-                                    className="hidden"
-                                    onChange={async e => {
-                                      const file = e.target.files?.[0]
-                                      if (!file) return
-                                      const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
-                                      setEditCertSignatureUrl(publicUrl)
-                                    }} />
-                                  <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
-                                    {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
-                                  </label>
-                                  {editCertSignatureUrl && <span className="text-xs text-zinc-400 ml-2">Uploaded</span>}
-                                </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <div className="flex items-center justify-between mb-4 mt-3">
+                                <label className="text-sm font-medium text-zinc-200">Use Brand Logo on Certificate</label>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditUseLogoOnCertificate(v => !v)}
+                                  className="relative w-9 h-5 rounded-full transition-all flex-shrink-0"
+                                  style={{ background: editUseLogoOnCertificate ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}
+                                >
+                                  <div
+                                    className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                                    style={{ left: editUseLogoOnCertificate ? '18px' : '2px' }}
+                                  />
+                                </button>
                               </div>
 
-                              <div>
-                                <div className="flex items-center justify-between mb-3">
-                                  <label className="text-sm font-medium text-zinc-300">Custom Message on Certificate</label>
-                                  <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
+                              {editUseLogoOnCertificate && brandLogoUrl && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
+                                  <span className="text-xs text-zinc-400">Will print on the certificate</span>
                                 </div>
-                                <input
-                                  type="text"
-                                  value={editCertCustomMessage}
-                                  onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
-                                  placeholder="e.g. Keep building, keep shipping. — Your Name"
-                                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
-                                />
-                                <p className="text-sm mt-4" style={{ color: 'var(--kurso-hint)' }}>
-                                  Appears as a small line on the certificate. You can leave it blank no trouble.
+                              )}
+
+                              {editUseLogoOnCertificate && !brandLogoUrl && (
+                                <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
+                                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
+                                  <p className="text-sm" style={{ color: 'var(--kurso-accent)' }}>
+                                    Please provide the brand logo above —{' '}
+                                    <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
+                                      upload it in Design Landing Page
+                                    </Link>.
+                                  </p>
+                                </div>
+                              )}
+
+                              {!editUseLogoOnCertificate && (
+                                <p className="text-xs mt-1" style={{ color: '#8a8a8f' }}>
+                                  Uses the same logo set in Design Landing Page.
                                 </p>
-                              </div>
-                                                          </div>
-                          )}
+                              )}
+                            </div>
 
-                        </SettingsGroup>
+                            <div>
+                              <label className="text-sm font-semibold text-zinc-300 mb-3 block">Mentor Signature (optional)</label>
+                              <input type="file" accept="image/png,image/jpeg" id="cert-sig"
+                                className="hidden"
+                                onChange={async e => {
+                                  const file = e.target.files?.[0]
+                                  if (!file) return
+                                  const { publicUrl } = await uploadToSupabase(file, 'cert-assets')
+                                  setEditCertSignatureUrl(publicUrl)
+                                }} />
+                              <label htmlFor="cert-sig" className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10">
+                                {editCertSignatureUrl ? 'Replace Signature' : 'Upload Signature'}
+                              </label>
+                              {editCertSignatureUrl && <span className="text-xs text-zinc-400 ml-2">Uploaded</span>}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <label className="text-sm font-medium text-zinc-300">Custom Message on Certificate</label>
+                              <span className="text-xs" style={{ color: '#52525b' }}>{editCertCustomMessage.length}/120</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={editCertCustomMessage}
+                              onChange={e => setEditCertCustomMessage(e.target.value.slice(0, 120))}
+                              placeholder="e.g. Keep building, keep shipping. — Your Name"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]"
+                            />
+                            <p className="text-sm mt-4" style={{ color: 'var(--kurso-hint)' }}>
+                              Appears as a small line on the certificate. You can leave it blank no trouble.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                    </SettingsGroup>
 
                     {course.uses_external_landing_page && (
                       <>
@@ -4892,7 +4898,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
                   <p className="text-xs" style={{ color: 'var(--kurso-accent)' }}>
-                    You need to pay for a Kurso plan before this can be turned on — this is separate from your Razorpay/Stripe/Cashfree account, which is what actually collects payment from students. <Link href="/upgrade" className="underline font-semibold">Go to upgrade page</Link>
+                    You need to pay for a Kurso plan before this can be turned on — this is separate from your Razorpay/Stripe/Cashfree account, which is what actually collects payment from students. <Link href="/upgrade" className="underline font-semibold text-xs">Go to upgrade page</Link>
                   </p>
                 </div>
               )}
@@ -4906,8 +4912,8 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                 </div>
               )}
               <button onClick={toggleUsesExternalLandingPage}
-                className="text-[11px] mt-2 underline"
-                style={{ color: '#71717a' }}>
+                className="text-[12px] mt-2 underline"
+                style={{ color: 'var(--kurso-hint)' }}>
                 {course.uses_external_landing_page
                   ? "Using Kurso's course page instead? Switch mode"
                   : 'Using your own landing page instead? Switch mode'}
@@ -4919,18 +4925,17 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
               <div className="rounded-2xl p-5 glass"
                 style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                 <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                  <FlaskConical className="w-4 h-4" style={{ color: '#facc15' }} />
+                  <FlaskConical className="w-4 h-4" style={{ color: 'var(--kurso-accent)' }} />
                   Test This Course
                 </h3>
-                <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
-                  Since you're using your own landing page, there's no Kurso course page to preview.
-                  This enrolls you as a real student on{' '}
-                  {getDeliveryLabel(course.delivery || 'both')}, so you can test the same
+                <p className="text-sm mb-3" style={{ color: 'var(--kurso-hint)' }}>
+
+                  This enrolls you as a real student on both platforms so you can test the almost same
                   lesson-delivery experience your students receive.
                 </p>
                 <button onClick={() => setShowTestModal(true)}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
-                  style={{ background: 'rgba(250,204,21,0.08)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)' }}>
+                  style={{ background: 'rgba(250,204,21,0.08)', color: 'var(--kurso-accent)', border: '1px solid rgba(250,204,21,0.2)' }}>
                   <FlaskConical className="w-4 h-4" />
                   Test This Course
                 </button>
@@ -4944,7 +4949,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   </span>
                   Course Page
                 </h3>
-                <p className="text-xs mb-3" style={{ color: '#9c9ca0' }}>
+                <p className="text-sm mb-3" style={{ color: 'var(--kurso-hint)' }}>
                   This is what students see when they visit your course link.
                 </p>
                 <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
@@ -4953,9 +4958,13 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   <ExternalLink className="w-4 h-4" />
                   Preview Course Page
                 </Link>
+                <p className="text-sm mb-3 mt-3" style={{ color: 'var(--kurso-hint)' }}>
+                  This enrolls you as a real student on both platforms so you can test the almost same
+                  lesson-delivery experience your students receive.
+                </p>
                 <button onClick={() => setShowTestModal(true)}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all"
-                  style={{ background: 'rgba(250,204,21,0.08)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)' }}>
+                  style={{ background: 'rgba(250,204,21,0.08)', color: 'var(--kurso-accent)', border: '1px solid rgba(250,204,21,0.2)' }}>
                   <FlaskConical className="w-4 h-4" />
                   Test This Course
                 </button>
@@ -4981,7 +4990,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                   <Share2 className="w-4 h-4" style={{ color: 'var(--kurso-primary-light)' }} />
                   Share Course
                 </h3>
-                <p className="text-xs mb-4" style={{ color: '#adadb0' }}>
+                <p className="text-xs mb-4" style={{ color: 'var(--kurso-hint)' }}>
                   Share this link with your students to enroll.
                 </p>
 
