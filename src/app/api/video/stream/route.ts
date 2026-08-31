@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { Redis } from '@upstash/redis'
 import { verifyVideoUrl } from '@/lib/signer'
 import { isLessonFree } from '@/lib/freeLesson'
 import { getWebAccessContext } from '@/lib/webAccess'
@@ -22,37 +23,34 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!   // server only
 )
 
-// In-memory rate limiter (swap for Redis/Upstash in production)
-const rateLimitMap = new Map<string, { count: number; windowStart: number }>()
-const RATE_WINDOW = 60_000   // 1 minute
-const RATE_MAX    = 40       // max chunk requests per minute per identity+lesson
+// Redis-backed rate limiter — shared across all serverless instances,
+// unlike an in-memory Map which resets per cold start / per instance.
+const redis = Redis.fromEnv()
 
-function isRateLimited(key: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(key) ?? { count: 0, windowStart: now }
-  if (now - entry.windowStart > RATE_WINDOW) {
-    rateLimitMap.set(key, { count: 1, windowStart: now })
-    return false
+const RATE_WINDOW_SECONDS = 60   // 1 minute
+const RATE_MAX = 40              // max chunk requests per minute per identity+lesson
+
+async function isRateLimited(key: string): Promise<boolean> {
+  const rateLimitKey = `videoratelimit:${key}`
+  const count = await redis.incr(rateLimitKey)
+  if (count === 1) {
+    // First hit in this window — set the window to expire in 60s.
+    await redis.expire(rateLimitKey, RATE_WINDOW_SECONDS)
   }
-  entry.count++
-  rateLimitMap.set(key, entry)
-  return entry.count > RATE_MAX
+  return count > RATE_MAX
 }
-
-
 
 // ── Enrollment result cache (avoids 5 DB queries on every range request) ──
-const enrollmentCache = new Map<string, { result: boolean; expiresAt: number }>()
+// Also Redis-backed now, for the same cross-instance-consistency reason.
+const ENROLLMENT_CACHE_TTL_SECONDS = 5 * 60   // 5 minutes
 
-function getCachedEnrollment(key: string): boolean | null {
-  const entry = enrollmentCache.get(key)
-  if (!entry) return null
-  if (Date.now() > entry.expiresAt) { enrollmentCache.delete(key); return null }
-  return entry.result
+async function getCachedEnrollment(key: string): Promise<boolean | null> {
+  const value = await redis.get<boolean>(`enrollcache:${key}`)
+  return value === null || value === undefined ? null : value
 }
 
-function setCachedEnrollment(key: string, result: boolean) {
-  enrollmentCache.set(key, { result, expiresAt: Date.now() + 5 * 60 * 1000 })
+async function setCachedEnrollment(key: string, result: boolean): Promise<void> {
+  await redis.set(`enrollcache:${key}`, result, { ex: ENROLLMENT_CACHE_TTL_SECONDS })
 }
 
 async function verifyEnrollment(
@@ -61,7 +59,7 @@ async function verifyEnrollment(
   req?: NextRequest
 ): Promise<boolean> {
   const cacheKey = `${lessonId}:${identity}`
-  const cached = getCachedEnrollment(cacheKey)
+  const cached = await getCachedEnrollment(cacheKey)
   if (cached !== null) return cached
 
   const { data: lesson } = await supabase
@@ -70,7 +68,7 @@ async function verifyEnrollment(
     .eq('id', lessonId)
     .single()
 
-  if (!lesson) { setCachedEnrollment(cacheKey, false); return false }
+  if (!lesson) { await setCachedEnrollment(cacheKey, false); return false }
 
   const { data: course } = await supabase
     .from('courses')
@@ -82,14 +80,14 @@ async function verifyEnrollment(
     { is_free: lesson.is_free ?? false },
     { is_free_course: course?.is_free_course ?? false }
   )
-  if (isFree) { setCachedEnrollment(cacheKey, true); return true }
+  if (isFree) { await setCachedEnrollment(cacheKey, true); return true }
 
   if (identity === 'web') {
   const webAccess = req ? await getWebAccessContext(req) : null
 
   const allowed = webAccess?.courseId === lesson.course_id
 
-  setCachedEnrollment(cacheKey, allowed)
+  await setCachedEnrollment(cacheKey, allowed)
   return allowed
 }
 
@@ -113,7 +111,7 @@ async function verifyEnrollment(
         .limit(1)
         .single()
 
-      if (enrollment) { setCachedEnrollment(cacheKey, true); return true }
+      if (enrollment) { await setCachedEnrollment(cacheKey, true); return true }
     }
 
     if (student) {
@@ -131,7 +129,7 @@ async function verifyEnrollment(
           .limit(1)
           .single()
 
-        if (enrollment) { setCachedEnrollment(cacheKey, true); return true }
+        if (enrollment) { await setCachedEnrollment(cacheKey, true); return true }
       }
     }
 
@@ -152,14 +150,14 @@ async function verifyEnrollment(
             .limit(1)
             .single()
 
-          if (enrollment) { setCachedEnrollment(cacheKey, true); return true }
+          if (enrollment) { await setCachedEnrollment(cacheKey, true); return true }
         }
       }
     } catch (e) {
       console.warn('[verifyEnrollment] admin auth user lookup failed:', e)
     }
 
-    setCachedEnrollment(cacheKey, false)
+    await setCachedEnrollment(cacheKey, false)
     return false
   }
 
@@ -167,7 +165,7 @@ async function verifyEnrollment(
   // never tags which channel it came from, and both are just numeric
   // strings, so check both columns rather than guessing from the shape.
   if (!/^[0-9]+$/.test(identity)) {
-    setCachedEnrollment(cacheKey, false)
+    await setCachedEnrollment(cacheKey, false)
     return false
   }
 
@@ -180,11 +178,11 @@ async function verifyEnrollment(
     .single()
 
   if (enrollment && enrollment.payment_status === 'paid') {
-    setCachedEnrollment(cacheKey, true)
+    await setCachedEnrollment(cacheKey, true)
     return true
   }
 
-  setCachedEnrollment(cacheKey, false)
+  await setCachedEnrollment(cacheKey, false)
   return false
 }
 
@@ -241,8 +239,8 @@ export async function GET(req: NextRequest) {
     return new NextResponse('Link expired or invalid', { status: 401 })
   }
 
-  // 2. Rate limit
-  if (isRateLimited(`${lessonId}:${identity}`)) {
+    // 2. Rate limit
+  if (await isRateLimited(`${lessonId}:${identity}`)) {
     return new NextResponse('Too many requests', { status: 429 })
   }
 
