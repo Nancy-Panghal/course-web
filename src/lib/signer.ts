@@ -23,8 +23,9 @@ if (!SECRET && process.env.NODE_ENV === 'production') {
 
 // ── TTLs ───────────────────────────────────────────────────────────
 export const TTL = {
-  VIDEO: 2 * 60 * 60 * 1000,      // 2 hours  — video stream
-  LIVE_SESSION_VIDEO: 2 * 60 * 60 * 1000, // 2 hours — live session recording stream
+  VIDEO: 15 * 60 * 1000,      // 15 min  — video stream (was 2h; safe to shorten now that WatermarkedPlayer refreshes + resumes silently)
+  LIVE_SESSION_VIDEO: 15 * 60 * 1000, // 15 min — live session recording stream (same reasoning)
+  
   LIVE_SESSION_RECORDING_PAGE: 90 * 24 * 60 * 60 * 1000, // 90 days — the link sent in the WhatsApp/Telegram message itself. Long-lived because a student may not open the message for days; the actual video-stream URL embedded inside the page is generated fresh, short-lived, at click time (see LIVE_SESSION_VIDEO above).
   PDF:   1 * 60 * 60 * 1000,      // 1 hour   — PDF view
   LESSON: 2 * 60 * 60 * 1000,     // 2 hours  — lesson page (from Telegram)

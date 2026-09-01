@@ -27,6 +27,7 @@ export default function WatermarkedPlayer({
   studentName = 'Student',
   studentId = '',
   lessonTitle = '',
+  lessonId,
   onEnded,
   onExpired,
 }: {
@@ -34,6 +35,7 @@ export default function WatermarkedPlayer({
   studentName?: string
   studentId?: string
   lessonTitle?: string
+  lessonId?: string
   onEnded?: () => void
   onExpired?: () => void
 }) {
@@ -42,9 +44,16 @@ export default function WatermarkedPlayer({
   const containerRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<number>(0)
   const tRef = useRef<number>(0)
-  const playPromiseRef = useRef<Promise<void> | null>(null)
+    const playPromiseRef = useRef<Promise<void> | null>(null)
   const skipRef = useRef<(seconds: number) => void>(() => { })
   const toggleRef = useRef<() => void>(() => { })
+  // Track playback position + play/pause state continuously so that if the
+  // signed `src` gets silently swapped for a fresh one (same lesson, token
+  // renewed before/after expiry), we can resume exactly where the viewer
+  // left off instead of the video restarting from 0:00.
+  const lastTimeRef = useRef<number>(0)
+  const wasPlayingRef = useRef<boolean>(false)
+  const lastLessonIdRef = useRef<string | undefined>(lessonId)
 
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -102,8 +111,10 @@ export default function WatermarkedPlayer({
     v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + seconds))
   }, [])
 
-  skipRef.current = skip
+    skipRef.current = skip
   toggleRef.current = toggle
+
+  useEffect(() => { wasPlayingRef.current = playing }, [playing])
 
   const wmText = studentId ? `${studentName} · ${studentId}` : studentName
 
@@ -308,9 +319,10 @@ export default function WatermarkedPlayer({
   }, [])
 
   // ── Video events ────────────────────────────────────────────────
-  const onTimeUpdate = () => {
+    const onTimeUpdate = () => {
     const v = videoRef.current
     if (!v || !v.duration) return
+    lastTimeRef.current = v.currentTime
     setProgress((v.currentTime / v.duration) * 100)
     setDuration(v.duration)
   }
@@ -338,11 +350,39 @@ export default function WatermarkedPlayer({
     setError(msgs[code ?? 4] || 'Playback failed. Please refresh the page.')
   }
 
-  // Reset retry/error state whenever we get a new src (e.g. after a refresh)
+    // Reset retry/error state whenever we get a new src (e.g. after a refresh)
   useEffect(() => {
     hasRetriedRef.current = false
     setError(null)
-  }, [src])
+
+    // Same lesson, new src → this is a silent token refresh, not the viewer
+    // picking a different lesson. Resume exactly where they left off instead
+    // of letting the browser reset to 0:00 when the src attribute changes.
+    const isSameLesson = lessonId !== undefined && lessonId === lastLessonIdRef.current
+    lastLessonIdRef.current = lessonId
+
+    const v = videoRef.current
+    if (!isSameLesson || !v) return
+
+    const resumeAt = lastTimeRef.current
+    const shouldResume = wasPlayingRef.current
+    if (!resumeAt && !shouldResume) return
+
+    const onLoaded = () => {
+      if (resumeAt > 0) v.currentTime = resumeAt
+      if (shouldResume) {
+        playPromiseRef.current = v.play()
+        playPromiseRef.current
+          .then(() => setPlaying(true))
+          .catch(err => {
+            if (err.name !== 'AbortError') console.error('Resume after refresh failed:', err)
+          })
+      }
+      v.removeEventListener('loadedmetadata', onLoaded)
+    }
+    v.addEventListener('loadedmetadata', onLoaded)
+    return () => v.removeEventListener('loadedmetadata', onLoaded)
+  }, [src, lessonId])
 
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current

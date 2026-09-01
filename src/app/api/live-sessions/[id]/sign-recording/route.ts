@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { signLiveSessionVideoUrl } from '@/lib/signer'
+import { signLiveSessionVideoUrl, TTL } from '@/lib/signer'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const { id: sessionId } = await params
 
-        const { data: session } = await supabase
+    const { data: session } = await supabase
       .from('live_sessions')
       .select('id, course_id, creator_id, recording_storage_path, recording_url')
       .eq('id', sessionId)
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!enrolled) return NextResponse.json({ error: 'Not enrolled' }, { status: 403 })
     }
 
-        // An externally-hosted recording (Zoom/Drive/YouTube/etc.) has no
+    // An externally-hosted recording (Zoom/Drive/YouTube/etc.) has no
     // bytes for Kurso to proxy or watermark — hand back the link itself,
     // clearly marked, rather than trying to run it through the signed
     // stream flow that only ever works for an uploaded file.
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const url = signLiveSessionVideoUrl(sessionId, user.id)
-    return NextResponse.json({ url, external: false, expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() })
+    return NextResponse.json({ url, external: false, expiresAt: new Date(Date.now() + TTL.LIVE_SESSION_VIDEO).toISOString() })
   } catch (err: any) {
     console.error('[live-sessions/sign-recording]', err.message)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

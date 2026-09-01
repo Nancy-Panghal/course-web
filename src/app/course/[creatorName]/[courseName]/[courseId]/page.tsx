@@ -1079,6 +1079,7 @@ export default function CourseLearnPage() {
                         studentName={user?.email || 'Preview Student'}
                         studentId={enrollment?.phone || user?.phone || user?.user_metadata?.phone || ''}
                         lessonTitle={currentLesson?.title}
+                        lessonId={currentLesson?.id}
                         onEnded={() => currentLesson && markComplete(currentLesson.order_num)}
                         onExpired={refreshContentUrl}
                       />
@@ -1754,6 +1755,7 @@ function LiveSessionsSidebarSection({ courseId, sessionToken, studentName, stude
                 studentName={studentName}
                 studentId={studentId}
                 lessonTitle="Live class recording"
+                lessonId={playingSessionId ?? undefined}
                 onExpired={() => watchRecording(playingSessionId)}
               />
             ) : null}
