@@ -127,7 +127,15 @@ interface CourseModule {
   planned_lessons: number
 }
 
-async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl: string; storagePath: string }> {
+// Folders that hold video content — these upload to R2 instead of Supabase.
+const R2_FOLDERS = ['videos', 'live-recordings', 'live-session-recordings']
+
+async function uploadToSupabase(file: File, folder: string, courseId?: string): Promise<{ publicUrl: string; storagePath: string }> {
+  if (R2_FOLDERS.includes(folder)) {
+    if (!courseId) throw new Error('Missing course ID for video upload')
+    return uploadVideoToR2(file, folder, courseId)
+  }
+
   try {
     const ext = file.name.split('.').pop()
     const safeName = `${folder}/${Math.random().toString(36).substring(2)}-${Date.now()}.${ext}`
@@ -169,8 +177,48 @@ async function uploadToSupabase(file: File, folder: string): Promise<{ publicUrl
       publicUrl: publicUrlData.publicUrl,
       storagePath: safeName
     }
-  } catch (err: any) {
+    } catch (err: any) {
     console.error('Upload error:', err)
+    throw new Error(err.message || 'Upload failed')
+  }
+}
+
+async function uploadVideoToR2(file: File, folder: string, courseId: string): Promise<{ publicUrl: string; storagePath: string }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const authToken = session?.access_token
+    if (!authToken) throw new Error('Not logged in — please log in again.')
+
+    const signRes = await fetch('/api/upload/r2-sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ fileName: file.name, contentType: file.type, folder, courseId }),
+    })
+
+    if (!signRes.ok) {
+      const body = await signRes.json().catch(() => ({}))
+      throw new Error(body.error || 'Could not get an upload URL')
+    }
+
+    const { uploadUrl, key } = await signRes.json()
+
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    })
+
+    if (!putRes.ok) {
+      throw new Error('Upload to storage failed')
+    }
+
+    // Video is private (served only through /api/video/stream) — there's no
+    // real public URL to give out. `key` fills that slot so the existing
+    // "must provide a URL or file" check on the caller side still passes;
+    // it's never opened directly, only video_storage_path is actually used.
+    return { publicUrl: key, storagePath: key }
+  } catch (err: any) {
+    console.error('R2 upload error:', err)
     throw new Error(err.message || 'Upload failed')
   }
 }
@@ -308,7 +356,7 @@ function AddLessonModal({
     if (file && type !== 'live' && type !== 'quiz') {
       try {
         const folder = type === 'video' ? 'videos' : 'pdfs'
-        const { publicUrl, storagePath } = await uploadToSupabase(file, folder)
+        const { publicUrl, storagePath } = await uploadToSupabase(file, folder, courseId)
         finalUrl = publicUrl
         finalStoragePath = storagePath
       } catch (err: any) {
@@ -639,7 +687,7 @@ function LiveRecordingEditor({ lesson, onRefresh }: { lesson: Lesson; onRefresh:
     setUploading(true)
     setUploadError('')
     try {
-      const { storagePath } = await uploadToSupabase(file, 'live-recordings')
+      const { storagePath } = await uploadToSupabase(file, 'live-recordings', lesson.course_id)
       // Deliberately does NOT touch content_url (the join link stays intact)
       // and clears the old raw live_recording_url so nothing else in the
       // app can still surface an unprotected link for this lesson.
@@ -1732,7 +1780,7 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
     setUploadingRecording(true)
     setRecordingUploadError('')
     try {
-      const { storagePath } = await uploadToSupabase(file, 'live-session-recordings')
+      const { storagePath } = await uploadToSupabase(file, 'live-session-recordings', courseId)
       await fetch(`/api/live-sessions/${sessionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

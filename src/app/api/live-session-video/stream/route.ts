@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyLiveSessionVideoUrl } from '@/lib/signer'
+import { getR2SignedUrl } from '@/lib/r2'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -125,14 +126,12 @@ export async function GET(req: NextRequest) {
   if (!session) return new NextResponse('Session not found', { status: 404 })
   if (!session.recording_storage_path) return new NextResponse('Recording not found', { status: 404 })
 
-  const allowed = await verifyEnrollment(session.course_id, identity)
+    const allowed = await verifyEnrollment(session.course_id, identity)
   if (!allowed) return new NextResponse('Not enrolled', { status: 403 })
 
-  const { data: signed, error } = await supabase.storage
-    .from('lessons')
-    .createSignedUrl(session.recording_storage_path, 60)
+  const signedUrl = await getR2SignedUrl(session.recording_storage_path, 60)
 
-  if (error || !signed?.signedUrl) {
+  if (!signedUrl) {
     return new NextResponse('Storage error', { status: 502 })
   }
 
@@ -142,7 +141,7 @@ export async function GET(req: NextRequest) {
 
   let upstream: Response
   try {
-    upstream = await fetch(signed.signedUrl, { headers: upstreamHeaders })
+    upstream = await fetch(signedUrl, { headers: upstreamHeaders })
   } catch {
     return new NextResponse('Storage fetch failed', { status: 502 })
   }

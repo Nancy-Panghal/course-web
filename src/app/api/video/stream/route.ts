@@ -13,10 +13,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { Redis } from '@upstash/redis'
 import { verifyVideoUrl } from '@/lib/signer'
+import { Redis } from '@upstash/redis'
 import { isLessonFree } from '@/lib/freeLesson'
 import { getWebAccessContext } from '@/lib/webAccess'
+import { getR2SignedUrl } from '@/lib/r2'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -210,18 +211,16 @@ async function getStorageUrl(lessonId: string): Promise<string | null> {
     return null
   }
 
-  const path = lesson.video_storage_path
+    const path = lesson.video_storage_path
   console.error('[video/stream] resolving', lessonId, '| video_storage_path:', path, '| content_url:', lesson.content_url)
 
   if (path && !path.startsWith('http')) {
-    const { data, error } = await supabase.storage
-      .from('lessons')
-      .createSignedUrl(path, 60) // 60s — server only, never sent to client
-    if (error || !data?.signedUrl) {
-      console.error('[video/stream] createSignedUrl failed for path', JSON.stringify(path), '| bucket: lessons | error:', error?.message)
+    const signedUrl = await getR2SignedUrl(path, 60) // 60s — server only, never sent to client
+    if (!signedUrl) {
+      console.error('[video/stream] R2 signed URL failed for key', JSON.stringify(path))
       return null
     }
-    return data.signedUrl
+    return signedUrl
   }
 
   if (!lesson.content_url) {

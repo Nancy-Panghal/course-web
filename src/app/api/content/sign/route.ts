@@ -97,35 +97,6 @@ if (
       }
     }
 
-    // ── NEW: for video, return a direct Supabase signed URL (no proxy) ──
-    if (type === 'video') {
-      const { data: lessonContent } = await supabase
-        .from('lessons')
-        .select('video_storage_path, content_url')
-        .eq('id', lessonId)
-        .single()
-
-      const storagePath = lessonContent?.video_storage_path
-      if (storagePath && !storagePath.startsWith('http')) {
-        const { data: signed } = await supabase.storage
-          .from('lessons')
-          .createSignedUrl(storagePath, 60 * 60) // 1 hour — given directly to browser
-        if (signed?.signedUrl) {
-          // Log then return
-          void supabase.from('lesson_access_logs').insert({
-            lesson_id: lessonId,
-            course_id: lesson.course_id,
-            web_user_id: webUserId,
-            source: 'web',
-            accessed_at: new Date().toISOString(),
-          }).then(() => {}, () => {})
-          return NextResponse.json({
-            url: signed.signedUrl,
-            expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          })
-        }
-      }
-    }
     
 
     // Log access for piracy detection (web path)
