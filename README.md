@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kurso
 
-## Getting Started
+Kurso is a course-selling platform for creators — a lightweight alternative to Graphy, Learnyst, Classplus, or Tagmango, built for the Indian creator market.
 
-First, run the development server:
+Live at **[kurso.in](https://www.kurso.in/)**.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+A creator signs up, uploads their course content, sets a price, and shares a link. Students pay, get access, and go through their lessons, assignments, quizzes, and certificates — all from one dashboard the creator controls.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What it does
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Course builder** — creators can generate a course landing page in minutes without having to design one from scratch, or embed the Kurso checkout link into a landing page they already have. Courses are structured into modules and lessons (video, PDF, text, live sessions), with drafts that can be published when ready and edited as the creator goes.
+- **Content protection** — videos and PDFs are watermarked per-student and served through signed, time-limited URLs instead of public links, so shared content can be traced back to the student.
+- **Payments, your way (BYOK)** — instead of locking creators into one payment processor, Kurso lets each creator connect their own Razorpay or Cashfree account. Money goes straight to them; Kurso never sits in the middle of the payout.
+- **Assignments & quizzes** — students submit assignments and take quizzes tied to lessons; creators review and grade from the dashboard.
+- **Certificates** — auto-generated on course completion, with the creator's branding, a signature, and a QR code that verifies the certificate is genuine.
+- **Analytics & student management** — creators can see enrollments, revenue, and student progress, and export data when they need it.
+- **Delivery beyond the website** — once a creator adds a course and a student enrolls, lessons and notifications are delivered automatically on WhatsApp and Telegram as well as the website (see the two companion bots below), with no extra setup needed from the creator.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tech stack
 
-## Learn More
+- **Framework**: Next.js (App Router) + TypeScript
+- **Database & Auth**: Supabase (PostgreSQL)
+- **Hosting**: Vercel
+- **File storage**: Cloudflare R2
+- **Caching / rate limiting**: Upstash Redis
+- **Messaging**: Meta WhatsApp Business API, Telegram
+- **Email**: Resend
+- **Payments**: Razorpay and Cashfree (creator-connected via BYOK), plus Cashfree for Kurso's own subscription billing
+- **Styling**: Tailwind CSS
 
-To learn more about Next.js, take a look at the following resources:
+## Related repos
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Kurso delivers course content over chat apps in addition to the website:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [**telegram-bot**](https://github.com/Nancy-Panghal/telegram-bot) — sends lessons, quizzes, and assignment prompts to students on Telegram.
+- [**Whatsapp-bot**](https://github.com/Nancy-Panghal/Whatsapp-bot) — same idea, over WhatsApp, using Meta's official WhatsApp Business API.
 
-## Deploy on Vercel
+Both bots share this app's Supabase database and use signed links to fetch content, so a student's progress stays in sync no matter which channel they use.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project status
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Kurso is a working, self-built platform, currently not processing live customer payments yet. It's built and maintained solo, end to end — product, backend, and the two bot integrations above.
