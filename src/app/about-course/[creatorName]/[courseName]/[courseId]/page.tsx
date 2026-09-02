@@ -226,7 +226,7 @@ export default async function AboutCoursePage({
           ].map((s, i) => (
             <div key={i} className="text-center">
               <div className="ak-stat-num mb-1">{s.num}</div>
-              <div style={{ fontSize: 13, color: mutedSoft, fontWeight: 500 }}>{s.label}</div>
+              <div style={{ fontSize: 'clamp(0.85rem, 0.9vw, 0.95rem)', color: mutedSoft, fontWeight: 500 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -248,7 +248,7 @@ export default async function AboutCoursePage({
                   style={{ background: c.accentSoft, border: `1px solid ${c.accentBorder}` }}>
                   <Target className="w-4 h-4" style={{ color: c.accentText }} />
                 </div>
-                <p style={{ color: c.textSecondary, fontSize: '0.92rem', lineHeight: 1.7 }}>{item}</p>
+                <p style={{ color: c.textSecondary, fontSize: 'clamp(0.98rem, 1vw, 1.05rem)', lineHeight: 1.7 }}>{item}</p>
               </div>
             ))}
           </div>
@@ -271,7 +271,7 @@ export default async function AboutCoursePage({
                   style={{ background: c.accentSoft, border: `1px solid ${c.accentBorder}` }}>
                   <CheckCircle className="w-3.5 h-3.5" style={{ color: c.accentText }} />
                 </div>
-                <p style={{ color: c.textSecondary, fontSize: '0.92rem', lineHeight: 1.7 }}>{item}</p>
+                <p style={{ color: c.textSecondary, fontSize: 'clamp(0.98rem, 1vw, 1.05rem)', lineHeight: 1.7 }}>{item}</p>
               </div>
             ))}
           </div>
@@ -288,7 +288,7 @@ export default async function AboutCoursePage({
             {course.requirements.map((item: string, i: number) => (
               <li key={i} className="flex items-start gap-3">
                 <ChevronRight className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: c.accentText }} />
-                <span style={{ color: c.textSecondary, fontSize: '0.96rem', lineHeight: 1.65 }}>{item}</span>
+                <span style={{ color: c.textSecondary, fontSize: 'clamp(1rem, 1.1vw, 1.08rem)', lineHeight: 1.65 }}>{item}</span>
               </li>
             ))}
           </ul>
@@ -371,7 +371,7 @@ export default async function AboutCoursePage({
                       </div>
                     </div>
                     <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
-                      <p style={{ color: c.textSecondary, fontSize: '0.98rem', lineHeight: 1.8 }}>
+                      <p style={{ color: c.textSecondary, fontSize: 'clamp(1.02rem, 1.1vw, 1.08rem)', lineHeight: 1.8 }}>
                         {inst.bio}
                       </p>
                     </div>
@@ -396,14 +396,14 @@ export default async function AboutCoursePage({
                       </div>
                     )}
                   </div>
-                  <p style={{ fontFamily: fonts.heading, fontSize: '0.95rem', fontWeight: 800, color: c.textPrimary }}>
+                  <p style={{ fontFamily: fonts.heading, fontSize: 'clamp(1rem, 1.1vw, 1.05rem)', fontWeight: 800, color: c.textPrimary }}>
                     {inst.name}
                   </p>
                   <p style={{ fontSize: '0.68rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4, marginBottom: 10 }}>
                     {inst.title}
                   </p>
                   {inst.bio && (
-                    <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7 }}>
+                    <p style={{ color: c.textSecondary, fontSize: 'clamp(0.98rem, 1vw, 1.05rem)', lineHeight: 1.7 }}>
                       {inst.bio}
                     </p>
                   )}
@@ -429,8 +429,8 @@ export default async function AboutCoursePage({
               {testimonials.map((t, i) => (
                 <div key={i} className="ak-card p-6 flex flex-col gap-3">
                   <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
-                  <p style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
+                  <p style={{ color: c.textSecondary, fontSize: 'clamp(1rem, 1vw, 1.05rem)', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
+                  <p style={{ fontSize: '0.92rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
                 </div>
               ))}
             </div>
@@ -442,8 +442,8 @@ export default async function AboutCoursePage({
                   <div key={i} className="ak-card p-6 flex flex-col gap-3"
                     style={{ width: 300, flexShrink: 0 }}>
                    <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
-                    <p style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
-                    <p style={{ fontSize: '0.85rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p> 
+                    <p style={{ color: c.textSecondary, fontSize: 'clamp(1rem, 1vw, 1.05rem)', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
+                    <p style={{ fontSize: '0.92rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p> 
 
 
                   </div>
@@ -483,8 +483,8 @@ export default async function AboutCoursePage({
                   </span>
                 </div>
                 <div>
-                  <p style={{ fontSize: '0.95rem', fontWeight: 700, color: c.textPrimary, marginBottom: 6 }}>{step.title}</p>
-                  <p style={{ fontSize: '0.92rem', color: mutedSoft, lineHeight: 1.65 }}>{step.desc}</p>
+                  <p style={{ fontSize: 'clamp(1rem, 1.1vw, 1.05rem)', fontWeight: 700, color: c.textPrimary, marginBottom: 6 }}>{step.title}</p>
+                  <p style={{ fontSize: 'clamp(0.98rem, 1vw, 1.05rem)', color: mutedSoft, lineHeight: 1.65 }}>{step.desc}</p>
                 </div>
               </div>
             ))}
@@ -506,13 +506,13 @@ export default async function AboutCoursePage({
               <details key={i} className="group rounded-2xl overflow-hidden"
                 style={{ background: c.cardBg, border: `1px solid ${c.borderSoft}` }}>
                 <summary className="flex items-center justify-between p-5 cursor-pointer list-none select-none gap-4">
-                  <span style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.92rem', lineHeight: 1.5 }}>{item.question}</span>
+                  <span style={{ fontWeight: 600, color: c.textPrimary, fontSize: 'clamp(1rem, 1.1vw, 1.05rem)', lineHeight: 1.5 }}>{item.question}</span>
                   <span className="faq-icon flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-lg"
                     style={{ background: c.accentSoft, color: c.accentText, lineHeight: 1 }}>+</span>
                 </summary>
                 <div className="px-5 pb-5">
                   <div style={{ height: 1, background: c.border, marginBottom: 14 }} />
-                  <p style={{ color: c.textSecondary, fontSize: '0.93rem', lineHeight: 1.75 }}>{item.answer}</p>
+                  <p style={{ color: c.textSecondary, fontSize: 'clamp(0.98rem, 1vw, 1.05rem)', lineHeight: 1.75 }}>{item.answer}</p>
                 </div>
               </details>
             ))}
@@ -539,9 +539,9 @@ export default async function AboutCoursePage({
                   <Gift className="w-4 h-4" style={{ color: c.accentText }} />
                 </div>
                 <div>
-                  <p style={{ color: c.textPrimary, fontSize: '0.92rem', fontWeight: 700, marginBottom: bonus.description ? 4 : 0 }}>{bonus.title}</p>
+                  <p style={{ color: c.textPrimary, fontSize: 'clamp(1rem, 1.1vw, 1.05rem)', fontWeight: 700, marginBottom: bonus.description ? 4 : 0 }}>{bonus.title}</p>
                   {bonus.description && (
-                    <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.65 }}>{bonus.description}</p>
+                    <p style={{ color: c.textSecondary, fontSize: 'clamp(0.95rem, 1vw, 1.02rem)', lineHeight: 1.65 }}>{bonus.description}</p>
                   )}
                 </div>
               </div>
@@ -560,10 +560,10 @@ export default async function AboutCoursePage({
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: c.textMuted }} />
             <div>
-              <h3 style={{ fontWeight: 600, color: c.textPrimary, fontSize: '0.95rem', marginBottom: 8 }}>
+              <h3 style={{ fontWeight: 600, color: c.textPrimary, fontSize: 'clamp(1.02rem, 1.1vw, 1.08rem)', marginBottom: 8 }}>
                 {landingConfig.disclaimer.title}
               </h3>
-              <p style={{ color: c.textSecondary, fontSize: '0.9rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+              <p style={{ color: c.textSecondary, fontSize: 'clamp(0.98rem, 1vw, 1.05rem)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
                 {landingConfig.disclaimer.text}
               </p>
             </div>
@@ -640,7 +640,7 @@ export default async function AboutCoursePage({
               <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-7">
                 <div className="flex items-center gap-2">
                   <Timer className="w-4 h-4" style={{ color: c.accentText }} />
-                  <span style={{ fontSize: '0.8rem', color: c.textSecondary, fontWeight: 600 }}>
+                  <span style={{ fontSize: 'clamp(0.88rem, 0.9vw, 0.95rem)', color: c.textSecondary, fontWeight: 600 }}>
                     {landingConfig.urgency.label}
                   </span>
                 </div>
@@ -672,7 +672,7 @@ export default async function AboutCoursePage({
                 <p style={{ fontSize: '1.9rem', fontWeight: 800, color: c.textPrimary, lineHeight: 1, fontFamily: fonts.heading }}>
                   {landingConfig.urgency.seatsAvailable}
                 </p>
-                <p style={{ fontSize: '0.8rem', color: c.textSecondary, fontWeight: 500, textAlign: 'center' }}>
+                <p style={{ fontSize: 'clamp(0.88rem, 0.9vw, 0.95rem)', color: c.textSecondary, fontWeight: 500, textAlign: 'center' }}>
                   {landingConfig.urgency.seatsLabel}
                 </p>
               </div>
@@ -954,7 +954,7 @@ export default async function AboutCoursePage({
                 <div className="flex justify-center" style={{ width: '100%', maxWidth: 360 }}>
                   <CoursePageClient course={courseData} variant="cta" />
                 </div>
-                <p style={{ fontSize: 13, color: faintSoft }}>🔒 Secure payment · Instant access · Anti-piracy protected</p>
+                <p style={{ fontSize: 13, color: mutedSoft }}>🔒 Secure payment · Instant access · Anti-piracy protected</p>
               </div>
               )}
 
@@ -1036,7 +1036,7 @@ export default async function AboutCoursePage({
                 <div className="flex justify-center" style={{ width: '100%', maxWidth: 360 }}>
                   <CoursePageClient course={courseData} variant="cta" />
                 </div>
-                <p style={{ fontSize: 13, color: faintSoft }}>🔒 Secure payment · Instant access · Anti-piracy protected</p>
+                <p style={{ fontSize: 13, color: mutedSoft }}>🔒 Secure payment · Instant access · Anti-piracy protected</p>
               </div>
 
               {/* WhatsApp / Telegram / Web Access pills — gated by course.delivery, no leakage */}
@@ -1118,7 +1118,7 @@ export default async function AboutCoursePage({
                 { icon: <Send className="w-3.5 h-3.5" />, label: 'Telegram & WhatsApp' },
                 { icon: <Shield className="w-3.5 h-3.5" />, label: 'Anti-piracy' },
               ].map((b, i) => (
-                <div key={i} className="flex items-center gap-1.5" style={{ fontSize: '0.87rem', color: faintSoft }}>
+                <div key={i} className="flex items-center gap-1.5" style={{ fontSize: 'clamp(0.92rem, 0.9vw, 0.98rem)', color: mutedSoft }}>
                   <span style={{ color: mutedSoft }}>{b.icon}</span>{b.label}
                 </div>
               ))}
@@ -1148,7 +1148,7 @@ export default async function AboutCoursePage({
             {course.brand_logo_url ? (
               <>
                 <img src={course.brand_logo_url} alt={brandDisplayName} className="h-5 max-w-[100px] object-contain" style={{ opacity: 0.65 }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: c.textFaint }}>{brandDisplayName}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: c.textMuted }}>{brandDisplayName}</span>
               </>
             ) : (
               <>
@@ -1160,7 +1160,7 @@ export default async function AboutCoursePage({
             )}
           </Link>
           {(course.refund_policy_text || course.refund_window_days > 0) && (
-            <p className="mb-4" style={{ color: mutedSoft, fontSize: '0.85rem', lineHeight: 1.7, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
+            <p className="mb-4" style={{ color: mutedSoft, fontSize: 'clamp(0.92rem, 0.9vw, 0.98rem)', lineHeight: 1.7, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
               {course.refund_policy_text
                 ? course.refund_policy_text
                 : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
@@ -1169,16 +1169,16 @@ export default async function AboutCoursePage({
                     {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path || (course.show_contact_on_landing && (course.contact_email || course.contact_phone))) && (
             <div className="mb-4 flex items-center justify-center flex-wrap gap-x-5 gap-y-1.5">
               {course.refund_policy_storage_path && (
-                <a href={`/policy/${course.id}/refund`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Refund Policy</a>
+                <a href={`/policy/${course.id}/refund`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Refund Policy</a>
               )}
               {course.terms_storage_path && (
-                <a href={`/policy/${course.id}/terms`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Terms &amp; Conditions</a>
+                <a href={`/policy/${course.id}/terms`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Terms &amp; Conditions</a>
               )}
               {course.privacy_storage_path && (
-                <a href={`/policy/${course.id}/privacy`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Privacy Policy</a>
+                <a href={`/policy/${course.id}/privacy`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Privacy Policy</a>
               )}
               {course.show_contact_on_landing && (course.contact_email || course.contact_phone) && (
-                <a href={`/contact/${course.id}`} style={{ color: mutedSoft, fontSize: '0.82rem' }}>Contact</a>
+                <a href={`/contact/${course.id}`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Contact</a>
               )}
             </div>
           )}

@@ -98,7 +98,7 @@ export default function EbooksPage() {
     setTimeout(() => setCopiedId(prev => (prev === eb.id ? null : prev)), 2000)
   }
 
-  async function handleCreate(e: React.FormEvent) {
+    async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setCreateError(''); setCreateSuccess('')
     if (!title.trim() || !price || !pdfFile) { setCreateError('Title, price, and a PDF file are required.'); return }
@@ -107,9 +107,27 @@ export default function EbooksPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Please log in again.')
 
-      const pdfPath = `${user.id}/${crypto.randomUUID()}.pdf`
-      const { error: pdfUploadError } = await supabase.storage.from('ebook-files').upload(pdfPath, pdfFile)
-      if (pdfUploadError) throw new Error('Could not upload the PDF: ' + pdfUploadError.message)
+      const { data: { session } } = await supabase.auth.getSession()
+      const authToken = session?.access_token
+      if (!authToken) throw new Error('Please log in again.')
+
+      const signRes = await fetch('/api/upload/r2-sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ fileName: pdfFile.name, contentType: pdfFile.type, folder: 'ebooks' }),
+      })
+      if (!signRes.ok) {
+        const body = await signRes.json().catch(() => ({}))
+        throw new Error(body.error || 'Could not get an upload URL for the PDF')
+      }
+      const { uploadUrl, key: pdfPath } = await signRes.json()
+
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': pdfFile.type },
+        body: pdfFile,
+      })
+      if (!putRes.ok) throw new Error('Could not upload the PDF')
 
       let coverUrl: string | null = null
       if (coverFile) {

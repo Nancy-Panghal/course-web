@@ -114,22 +114,23 @@ export default function CoursePageClient({ course, variant }: Props) {
           </>
         )
       }
-      return (
+            return (
         <>
-          <button onClick={() => setShowTestModal(true)}
-            className={`flex items-center justify-center gap-2 rounded-xl font-semibold transition-all ${variant === 'cta' ? 'px-8 py-4 text-lg' : 'w-full py-3 text-base'
-              }`}
-            style={{
-              background: 'var(--kurso-accent)',
-              color: '#fff',
-              border: '1px solid var(--kurso-accent)',
-            }}>
-            <FlaskConical className={variant === 'cta' ? 'w-5 h-5' : 'w-4 h-4'} />
-            Test This Course
-          </button>
-          <p className="text-xs text-center mt-2" style={{ color: '#71717a' }}>
-            Not live yet — students can't enroll until you upgrade. Test the WhatsApp/Telegram delivery yourself first.
-          </p>
+          <div className="flex flex-col items-center w-full gap-3">
+            <button onClick={() => setShowTestModal(true)}
+              className="flex items-center justify-center gap-2 rounded-xl font-semibold transition-all w-full px-8 py-3 text-base"
+              style={{
+                background: 'var(--kurso-accent)',
+                color: '#fff',
+                border: '1px solid var(--kurso-accent)',
+              }}>
+              <FlaskConical className="w-4 h-4" />
+              Test This Course
+            </button>
+            <p className="text-xs text-center w-full" style={{ color: '#9ca3af' }}>
+              Not live yet — students can't enroll until you upgrade. Test the WhatsApp/Telegram delivery yourself first.
+            </p>
+          </div>
           {showTestModal && (
             <TestCourseModal
               courseId={course.id}
@@ -211,9 +212,9 @@ export default function CoursePageClient({ course, variant }: Props) {
         className={`flex items-center justify-center gap-2 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all ${variant === 'nav' ? 'px-4 py-2 text-sm' :
           variant === 'cta' ? 'px-8 py-4 text-lg' : 'w-full py-3 text-base'
           }`}>
-        {variant === 'nav' ? 'Enroll Now' :
-          variant === 'cta' ? `Enroll for ₹${course.price.toLocaleString()}` :
-            `Enroll Now — ₹${course.price.toLocaleString()}`}
+                {variant === 'nav' ? (course.is_free_course ? 'Enroll Free' : 'Enroll Now') :
+          variant === 'cta' ? (course.is_free_course ? 'Enroll for Free' : `Enroll for ₹${course.price.toLocaleString()}`) :
+            (course.is_free_course ? 'Enroll Now — Free' : `Enroll Now — ₹${course.price.toLocaleString()}`)}
         <ArrowRight className={variant === 'nav' ? 'w-4 h-4' : 'w-5 h-5'} />
       </button>
 

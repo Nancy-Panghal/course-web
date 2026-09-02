@@ -99,30 +99,31 @@ export default function CurriculumAccordion({
     }
   }, [])
 
-  // ── Theme defaults (backwards-compatible: if no theme passed, use original dark style) ──
-  // Use the main page bg for the curriculum panel — this is the key change that makes
-  // light themes (Cherry Blossom, Ocean Breeze, Sunrise Editorial) look correct.
-  // For dark themes (Midnight Violet, Emerald Noir, Carbon Black) the bg is already dark.
+    // ── Theme colors ──
+  // `themeColors` (the active course theme's palette) always wins when it's passed in —
+  // the hardcoded values below are only a fallback for the rare case no theme is passed
+  // at all. `dark` is still used to pick a sensible fallback shade, and for the couple of
+  // decorative accents (lesson separators) that have no direct theme equivalent.
   const panelBg = themeColors?.bg ?? '#080808'
   const dark = isDarkBg(panelBg)
-  const textPrimary = dark ? '#ffffff' : (themeColors?.textPrimary ?? '#ffffff')
-  const textSecondary = dark ? '#a1a1aa' : (themeColors?.textSecondary ?? '#a1a1aa')
-  const textMuted = dark ? '#71717a' : (themeColors?.textMuted ?? '#71717a')
-  const textFaint = dark ? '#3f3f46' : (themeColors?.textFaint ?? '#3f3f46')
+  const textPrimary = themeColors?.textPrimary ?? (dark ? '#ffffff' : '#18181b')
+  const textSecondary = themeColors?.textSecondary ?? (dark ? '#a1a1aa' : '#3f3f46')
+  const textMuted = themeColors?.textMuted ?? (dark ? '#71717a' : '#71717a')
+  const textFaint = themeColors?.textFaint ?? (dark ? '#3f3f46' : '#c4c4c9')
   const accentText = themeColors?.accentText ?? 'var(--kurso-primary-lighter)'
   const accentSoft = themeColors?.accentSoft ?? 'rgba(var(--kurso-primary-rgb), 0.1)'
   const accentBorder = themeColors?.accentBorder ?? 'rgba(var(--kurso-primary-rgb), 0.25)'
   const accentBorderStrong = themeColors?.accentBorderStrong ?? 'rgba(var(--kurso-primary-rgb), 0.35)'
 
-  // Borders on the dark panel
-  const panelBorder = dark
-    ? 'rgba(255,255,255,0.07)'
-    : themeColors?.borderSoft ?? 'rgba(0,0,0,0.1)'
+  // Borders and panel backgrounds — use the theme's own border/card tint (e.g. Amber
+  // Forge's amber-tinted borders, Lagoon Teal's teal-tinted borders) instead of a flat
+  // black/white overlay that looked the same on every dark theme.
+  const panelBorder = themeColors?.border ?? (dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)')
   const panelBorderOpen = accentBorderStrong
-  const modBg = dark ? 'rgba(255,255,255,0.02)' : (themeColors?.cardBg ?? 'rgba(255,255,255,0.5)')
+  const modBg = themeColors?.cardBg ?? (dark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.5)')
   const modBgOpen = accentSoft
   const lessonSep = dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)'
-  const lessonTopBorder = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'
+  const lessonTopBorder = themeColors?.borderSoft ?? (dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)')
 
   const headingFont = themeFonts?.heading ?? "'Playfair Display', serif"
   const bodyFont = themeFonts?.body ?? 'inherit'
