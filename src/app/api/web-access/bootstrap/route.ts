@@ -141,9 +141,17 @@ export async function GET(req: NextRequest) {
     `/course/${slugify(course.host_name || 'creator')}` +
     `/${slugify(course.name || 'course')}/${course.id}`
 
-  const response = NextResponse.redirect(
+    const response = NextResponse.redirect(
     new URL(destination, req.url)
   )
+
+  // Chat-app in-app browsers (WhatsApp/Telegram) are known to aggressively
+  // reuse a cached page instead of doing a fresh navigation when a new link
+  // is tapped from the same conversation. These headers tell every layer —
+  // the in-app browser, any CDN, any intermediate proxy — this response and
+  // its destination must never be served from cache.
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+  response.headers.set('Pragma', 'no-cache')
 
   response.cookies.set('kurso_web_session', sessionToken, {
   httpOnly: true,
