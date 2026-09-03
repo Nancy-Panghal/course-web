@@ -16,7 +16,7 @@ export default function TermsPage() {
         </Link>
         <Link href="/"
           className="flex items-center gap-2 text-sm transition-colors"
-          style={{color:'#a1a1aa'}}>
+          style={{color:'#c7c7cb'}}>
           <ArrowLeft className="w-4 h-4" />
           Back to Home
         </Link>
@@ -166,13 +166,13 @@ export default function TermsPage() {
       </div>
 
       <div className="border-t px-6 py-10 text-center" style={{borderColor:'rgba(255,255,255,0.06)'}}>
-        <div className="flex items-center justify-center gap-6 text-sm" style={{color:'#52525b'}}>
+        <div className="flex items-center justify-center gap-6 text-sm" style={{color:'#828285'}}>
           <Link href="/terms" style={{color:'#a1a1aa'}}>Terms</Link>
-          <Link href="/privacy" style={{color:'#52525b'}} className="hover:text-white transition-colors">Privacy</Link>
-          <Link href="/refund-policy" style={{color:'#52525b'}} className="hover:text-white transition-colors">Refund Policy</Link>
-          <Link href="/" style={{color:'#52525b'}} className="hover:text-white transition-colors">Home</Link>
+          <Link href="/privacy" style={{color:'#828285'}} className="hover:text-white transition-colors">Privacy</Link>
+          <Link href="/refund-policy" style={{color:'#828285'}} className="hover:text-white transition-colors">Refund Policy</Link>
+          <Link href="/" style={{color:'#828285'}} className="hover:text-white transition-colors">Home</Link>
         </div>
-        <p className="text-xs mt-4" style={{color:'#3f3f46'}}>© 2026 Kurso. All rights reserved.</p>
+        <p className="text-xs mt-4" style={{color:'#828284'}}>© 2026 Kurso. All rights reserved.</p>
       </div>
     </div>
   )

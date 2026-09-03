@@ -266,7 +266,7 @@ export default function ContactPage() {
             </div>
             <span className="text-sm font-medium text-white">Kurso</span>
           </Link>
-          <div className="flex gap-6 text-xs" style={{color:'#52525b'}}>
+          <div className="flex gap-6 text-xs" style={{color:'#828285'}}>
             <Link href="/feedback" className="hover:text-white transition-colors">Feedback</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>

@@ -70,7 +70,7 @@ const features = [
 
 const steps = [
   { num: '01', title: 'Upload your course', desc: 'Drag in your videos, notes, and assignments. No technical setup required.' },
-  { num: '02', title: 'Set your price', desc: 'Pick a flat monthly plan or 10% commission, and connect your bank account or UPI ID for direct payouts.' },
+  { num: '02', title: 'Set your price', desc: 'Pick a flat monthly plan or 3% to 8% commission, and connect your bank account or UPI ID for direct payouts.' },
   { num: '03', title: 'Share your link', desc: 'Students enroll and pay on your course page. They are auto-enrolled the moment payment succeeds.' },
   { num: '04', title: 'Bot delivers lessons', desc: 'Each lesson lands in WhatsApp or Telegram. Mark it done to unlock the quiz, notes, and assignment — then the next lesson.' },
   { num: '05', title: 'Go live anytime', desc: 'Drop in a Zoom or Google Meet link for a live class — we share it with every enrolled student automatically.' },
@@ -191,7 +191,7 @@ const stats = [
   { num: 'Free', label: 'To build & test' },
   { num: '2', label: 'Delivery channels' },
   { num: '₹0', label: 'Setup cost' },
-  { num: '10%', label: 'Or flat monthly fee' },
+  { num: '3% to 8%', label: 'Or flat monthly fee' },
 ]
 
 // ─── COMPONENTS ───
@@ -645,7 +645,7 @@ export default function HomePage() {
               <div>
                 <h3 className="text-xl font-bold text-white mb-2">Prefer to pay only when you earn?</h3>
                 <p className="text-text-2 max-w-xl">
-                  Skip the flat monthly fee and go with a <span className="text-white font-medium">10% commission</span> instead —
+                  Skip the flat monthly fee and go with a <span className="text-white font-medium"> 3% to 8% commission</span> instead —
                   you only pay us when your course sells. This option needs a quick setup call, so reach out and we'll get you going.
                 </p>
               </div>

@@ -46,7 +46,7 @@ export default function FeedbackPage() {
           <span className="font-semibold text-white">Kurso</span>
         </Link>
         <Link href="/" className="flex items-center gap-2 text-sm transition-colors"
-          style={{color:'#a1a1aa'}}>
+          style={{color:'#cacacf'}}>
           <ArrowLeft className="w-4 h-4" />
           Back to Home
         </Link>
@@ -168,7 +168,7 @@ export default function FeedbackPage() {
           )}
         </div>
 
-        <p className="text-center text-sm mt-6" style={{color:'#52525b'}}>
+        <p className="text-center text-sm mt-6" style={{color:'#bdbdc0'}}>
           Got a support issue instead? Head to{' '}
           <Link href="/contact" className="font-medium" style={{color:'var(--kurso-primary-light)'}}>Contact</Link>.
         </p>
@@ -184,7 +184,7 @@ export default function FeedbackPage() {
             </div>
             <span className="text-sm font-medium text-white">Kurso</span>
           </Link>
-          <div className="flex gap-6 text-xs" style={{color:'#52525b'}}>
+          <div className="flex gap-6 text-xs" style={{color:'#cbcbd1'}}>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>

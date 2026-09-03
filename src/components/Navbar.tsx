@@ -55,14 +55,14 @@ export default function Navbar() {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-8">
-          <Link href="/#features" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Features</Link>
-          <Link href="/#how-it-works" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>How it works</Link>
-          <Link href="/#pricing" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Pricing</Link>
-          <Link href="/contact" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Contact</Link>
+          <Link href="/#features" className="text-sm transition-colors" style={{color:'#c3c3c7'}}>Features</Link>
+          <Link href="/#how-it-works" className="text-sm transition-colors" style={{color:'#c3c3c7'}}>How it works</Link>
+          <Link href="/#pricing" className="text-sm transition-colors" style={{color:'#c3c3c7'}}>Pricing</Link>
+          <Link href="/contact" className="text-sm transition-colors" style={{color:'#c3c3c7'}}>Contact</Link>
 
           {!user && (
             <>
-              <Link href="/login" className="text-sm transition-colors" style={{color:'#a1a1aa'}}>Login</Link>
+              <Link href="/login" className="text-sm transition-colors" style={{color:'#c3c3c7'}}>Login</Link>
               <Link href="/login"
                 className="violet-gradient px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 glow">
                 Get Started Free
@@ -88,7 +88,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile hamburger */}
-        <button className="md:hidden" style={{color:'#a1a1aa'}}
+        <button className="md:hidden" style={{color:'##c3c3c7'}}
           onClick={() => setMenuOpen(!menuOpen)}>
           {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -98,10 +98,10 @@ export default function Navbar() {
       {menuOpen && (
         <div className="md:hidden border-b px-6 py-4 flex flex-col gap-4"
           style={{background:'rgba(0,0,0,0.95)', backdropFilter:'blur(20px)', borderColor:'rgba(255,255,255,0.06)'}}>
-          <Link href="/#features" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>Features</Link>
-          <Link href="/#how-it-works" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>How it works</Link>
-          <Link href="/#pricing" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>Pricing</Link>
-          <Link href="/contact" className="text-sm" style={{color:'#a1a1aa'}} onClick={() => setMenuOpen(false)}>Contact</Link>
+          <Link href="/#features" className="text-sm" style={{color:'##c3c3c7'}} onClick={() => setMenuOpen(false)}>Features</Link>
+          <Link href="/#how-it-works" className="text-sm" style={{color:'##c3c3c7'}} onClick={() => setMenuOpen(false)}>How it works</Link>
+          <Link href="/#pricing" className="text-sm" style={{color:'##c3c3c7'}} onClick={() => setMenuOpen(false)}>Pricing</Link>
+          <Link href="/contact" className="text-sm" style={{color:'##c3c3c7'}} onClick={() => setMenuOpen(false)}>Contact</Link>
 
           {!user && (
             <Link href="/login"
