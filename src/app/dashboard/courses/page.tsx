@@ -48,13 +48,18 @@ export default function CoursesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
+        const { data } = await supabase
       .from('courses')
-      .select('*')
+      .select('*, lessons(count)')
       .eq('creator_id', user.id)
       .order('created_at', { ascending: false })
 
-    setCourses(data || [])
+    const coursesWithLiveCounts = (data || []).map((c: any) => ({
+      ...c,
+      total_lessons: c.lessons?.[0]?.count ?? 0,
+    }))
+
+    setCourses(coursesWithLiveCounts)
     setLoading(false)
   }
 

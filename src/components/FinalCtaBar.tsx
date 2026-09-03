@@ -45,14 +45,10 @@ type FinalCtaCourse = {
 
 export default function FinalCtaBar({
     course,
-    originalPrice,
-    discount,
     text,
     colors,
 }: {
     course: FinalCtaCourse
-    originalPrice?: number
-    discount?: number
     text: string
     colors: Pick<LandingThemeColors, 'navBg' | 'navBorder' | 'textPrimary' | 'textMuted'>
 }) {
@@ -72,42 +68,22 @@ export default function FinalCtaBar({
                 borderTop: `1px solid ${colors.navBorder}`,
             }}
         >
-            <div
-                className="mx-auto flex flex-wrap items-center justify-center gap-x-10 gap-y-3"
+                        <div
+                className="mx-auto flex flex-col sm:flex-row items-center justify-center gap-x-10 gap-y-3"
                 style={{ maxWidth: 1080, padding: '16px 20px' }}
             >
-                <span
-                    className="font-semibold"
+                                <span
+                    className="font-semibold text-center sm:text-left w-full sm:w-auto sm:flex-1 sm:max-w-[620px] min-w-0"
                     style={{
-                        fontSize: '1.25rem',
+                        fontSize: 'clamp(1rem, 3vw, 1.25rem)',
                         lineHeight: 1.42,
                         color: colors.textPrimary,
-                        flex: '1 1 440px',
-                        maxWidth: 620,
-                        minWidth: 0,
                     }}
                 >
                     {text}
                 </span>
 
-                <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-3 flex-shrink-0">
-                    <div className="flex items-baseline gap-2">
-                        <span
-                            className="font-extrabold whitespace-nowrap"
-                            style={{ fontSize: '1.15rem', color: colors.textPrimary }}
-                        >
-                            {course.is_free_course ? 'Free' : `₹${course.price?.toLocaleString()}`}
-                        </span>
-                        {!course.is_free_course && !!discount && discount > 0 && !!originalPrice && (
-                            <span
-                                className="hidden sm:inline whitespace-nowrap"
-                                style={{ fontSize: '0.8rem', color: colors.textMuted, textDecoration: 'line-through' }}
-                            >
-                                ₹{originalPrice.toLocaleString()}
-                            </span>
-                        )}
-                    </div>
-
+                                <div className="w-full sm:w-auto sm:max-w-xs [&>a]:w-full [&>a]:!py-3 [&>a]:!text-base [&>a]:justify-center [&>button]:w-full [&>button]:!py-3 [&>button]:!text-base [&>button]:justify-center [&>div]:w-full">
                     <CoursePageClient course={course} variant="nav" />
                 </div>
             </div>

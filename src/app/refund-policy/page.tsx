@@ -26,13 +26,13 @@ export default function RefundPolicyPage() {
             Legal
           </div>
           <h1 className="text-4xl font-bold text-white mb-3">Refund Policy</h1>
-          <p style={{color:'#a1a1aa'}} className="text-sm">Last updated: [DATE] · Effective from the date of publication on this page</p>
+          <p style={{color:'#a1a1aa'}} className="text-sm">Last updated: September 3, 2026 · Effective from the date of publication on this page</p>
         </div>
 
         <div className="prose-custom">
           <Section title="1. Scope and Definitions">
             <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed mb-3">
-              This Refund Policy governs all monetary refunds arising out of transactions conducted on or through the Kurso platform (&ldquo;<strong>Kurso</strong>&rdquo;, &ldquo;<strong>the Platform</strong>&rdquo;, &ldquo;<strong>we</strong>&rdquo;, &ldquo;<strong>us</strong>&rdquo;), operated as a sole proprietorship under the trade name KURSO by [Proprietor&rsquo;s Full Legal Name], having its principal place of business at Rohtak, Haryana, India. This Policy is incorporated by reference into, and forms part of, our Terms &amp; Conditions.
+              This Refund Policy governs all monetary refunds arising out of transactions conducted on or through the Kurso platform (&ldquo;<strong>Kurso</strong>&rdquo;, &ldquo;<strong>the Platform</strong>&rdquo;, &ldquo;<strong>we</strong>&rdquo;, &ldquo;<strong>us</strong>&rdquo;), operated as a sole proprietorship under the trade name KURSO (Udyam Registration No. UDYAM-HR-16-0051480), having its principal place of business at Rohtak, Haryana, India. This Policy is incorporated by reference into, and forms part of, our Terms &amp; Conditions.
             </p>
             <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
               For the purposes of this Policy: a &ldquo;<strong>Creator</strong>&rdquo; is an individual or entity who lists, prices, and sells a course, live cohort, or ebook (each, a &ldquo;<strong>Product</strong>&rdquo;) through the Platform; a &ldquo;<strong>Student</strong>&rdquo; is any individual who purchases a Product; a &ldquo;<strong>Course Transaction</strong>&rdquo; is any payment made by a Student to a Creator for a Product; and a &ldquo;<strong>Subscription Fee</strong>&rdquo; is any payment made by a Creator to Kurso for access to the Platform&rsquo;s software and delivery infrastructure.

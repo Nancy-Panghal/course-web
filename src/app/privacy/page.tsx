@@ -24,195 +24,114 @@ export default function PrivacyPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-16">
-        {/* Header */}
         <div className="mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-medium"
             style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
             Legal
           </div>
           <h1 className="text-4xl font-bold text-white mb-3">Privacy Policy</h1>
-          <p style={{color:'#a1a1aa'}} className="text-sm">
-            Last updated: 10 May 2026 · Effective immediately
-          </p>
+          <p style={{color:'#a1a1aa'}} className="text-sm">Last updated: September 3, 2026 · Effective from the date of publication on this page</p>
         </div>
 
         <div className="prose-custom">
-
-          <Section title="1. Introduction">
-            Kurso ("we", "us", "our") is committed to protecting your privacy. This Privacy
-            Policy explains how we collect, use, store, and share your personal data when you use
-            our platform at kurso.in.
-            <br /><br />
-            By using Kurso, you consent to the practices described in this policy. If you
-            do not agree, please discontinue use of the Service.
+          <Section title="1. Scope and Data Fiduciary">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              This Privacy Policy describes how Kurso (&ldquo;<strong>Kurso</strong>&rdquo;, &ldquo;<strong>we</strong>&rdquo;, &ldquo;<strong>us</strong>&rdquo;), operated as a sole proprietorship under the trade name KURSO (Udyam Registration No. UDYAM-HR-16-0051480), having its principal place of business at House No. 72, Parawar Road, Maina, Rohtak, Haryana &ndash; 124021, India, collects, uses, discloses, and protects personal data in connection with the Kurso platform (the &ldquo;<strong>Platform</strong>&rdquo;), including its website and its Telegram and WhatsApp bot integrations. For the purposes of the Digital Personal Data Protection Act, 2023 (&ldquo;<strong>DPDP Act</strong>&rdquo;), Kurso acts as the <strong>Data Fiduciary</strong> in respect of the personal data described in this Policy, and you, as a Creator or Student, are a <strong>Data Principal</strong>.
+            </p>
           </Section>
 
-          <Section title="2. Information We Collect">
-            <strong style={{color:'#fff'}}>Information you provide directly:</strong>
-            <ul>
-              <li>Account information: name, email address, password</li>
-              <li>Profile data: display name, course name, WhatsApp number</li>
-              <li>Payment information: processed by Razorpay — we do not store card details</li>
-              <li>Course content: videos, PDFs, and other materials you upload</li>
-              <li>Student data: phone numbers and enrollment details you add</li>
-            </ul>
-            <br />
-            <strong style={{color:'#fff'}}>Information collected automatically:</strong>
-            <ul>
-              <li>Usage data: pages visited, features used, time spent on platform</li>
-              <li>Device information: browser type, operating system, IP address</li>
-              <li>Cookies and similar tracking technologies</li>
-              <li>Log data: server logs including timestamps and error reports</li>
-            </ul>
-            <br />
-            <strong style={{color:'#fff'}}>Information from third parties:</strong>
-            <ul>
-              <li>Google OAuth data when you sign in with Google (name, email, profile picture)</li>
-              <li>Razorpay transaction confirmations (amount, transaction ID, status)</li>
-              <li>WhatsApp message metadata via Meta WhatsApp Business API</li>
-            </ul>
+          <Section title="2. Personal Data We Collect">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed mb-3">
+              <strong>From Creators:</strong> full name, email address, phone number, business/brand name, and, where a Creator connects a payment gateway, gateway account credentials (API keys and webhook secrets), which are encrypted at rest and used solely to process the Creator&rsquo;s own transactions with their Students.
+            </p>
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed mb-3">
+              <strong>From Students:</strong> full name, email address, phone number, and, where a Student accesses a Product via our Telegram or WhatsApp integrations, their Telegram chat ID or WhatsApp-registered phone number. We also collect enrollment records, payment status (not full card or bank details, which are handled directly by the relevant payment gateway), quiz and assignment submissions, and certificate issuance records.
+            </p>
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed mb-3">
+              <strong>Anti-piracy and access data:</strong> to protect Creator Content, we log which Student accessed which lesson and when, and embed an identifying watermark (the Student&rsquo;s name and/or identifier) into video playback. This data is used solely to trace unauthorised redistribution of Content and to enforce Section 8 of our Terms &amp; Conditions.
+            </p>
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              <strong>Technical data:</strong> IP address, browser and device information, and session identifiers (via a session cookie used to maintain a logged-in state after accessing the Platform through a Telegram or WhatsApp link), collected automatically for security, fraud prevention, and to keep the Platform functioning correctly.
+            </p>
           </Section>
 
-          <Section title="3. How We Use Your Information">
-            We use your data to:
-            <ul>
-              <li>Provide, maintain, and improve the Kurso platform</li>
-              <li>Process payments and manage your subscription</li>
-              <li>Deliver course content to your enrolled students via WhatsApp and web portal</li>
-              <li>Send transactional emails (receipts, security alerts, account notifications)</li>
-              <li>Operate our anti-piracy scanning and takedown services on your behalf</li>
-              <li>Monitor platform security and prevent fraud</li>
-              <li>Comply with legal obligations</li>
-              <li>Respond to your support requests</li>
-            </ul>
-            We do not sell your personal data to third parties. We do not use your data for
-            advertising purposes.
+          <Section title="3. How We Use Personal Data">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              We use personal data to: (a) create and manage Creator and Student accounts; (b) deliver purchased Content to the correct, authorised Student, including via our anti-piracy and watermarking measures; (c) process Creator Subscription Fee payments; (d) issue completion certificates; (e) send transactional communications (enrollment confirmations, lesson notifications, payment receipts, and support responses); (f) investigate and respond to suspected unauthorised redistribution of Content; (g) comply with applicable law and respond to lawful requests from authorities; and (h) improve and maintain the security of the Platform.
+            </p>
           </Section>
 
-          <Section title="4. Data Storage and Security">
-            Your data is stored on secure servers provided by Supabase (PostgreSQL database)
-            with encryption at rest. Course files are stored on Cloudflare R2 with access
-            controls. All data transmission is encrypted via HTTPS/TLS.
-            <br /><br />
-            We implement industry-standard security measures including:
-            <ul>
-              <li>End-to-end encryption for sensitive data</li>
-              <li>Role-based access controls limiting who can access your data</li>
-              <li>Regular security audits and vulnerability assessments</li>
-              <li>Automatic session expiration and token rotation</li>
-            </ul>
-            Despite our best efforts, no security system is impenetrable. In the event of a
-            data breach, we will notify affected users within 72 hours.
+          <Section title="4. Third-Party Processors">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed mb-3">
+              We rely on the following categories of third-party service providers to operate the Platform, each of which processes personal data on our behalf and is contractually or by policy restricted from using it for their own purposes:
+            </p>
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed mb-3">
+              <strong>Supabase</strong> (database, authentication, and file storage); <strong>Cloudflare</strong> (video and ebook file storage and delivery); <strong>Upstash</strong> (short-lived rate-limiting data, hosted in the Mumbai, India region); <strong>Vercel</strong> (application hosting); and, where a Creator connects them, <strong>Razorpay</strong>, <strong>Cashfree</strong>, or <strong>Stripe</strong> (payment processing for that Creator&rsquo;s own transactions). Kurso itself uses Cashfree to process Creator Subscription Fee payments.
+            </p>
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+                            Our database, authentication, and file storage (Supabase) and our video/ebook storage (Cloudflare R2) are both hosted in the Asia-Pacific (Mumbai, India) region. Where any other service provider processes personal data outside India, we rely on that provider&rsquo;s own data protection commitments and take reasonable steps consistent with the DPDP Act.
+            </p>
           </Section>
 
-          <Section title="5. Data Sharing">
-            We share your data only with:
-            <ul>
-              <li><strong style={{color:'#fff'}}>Supabase</strong> — database and authentication infrastructure</li>
-              <li><strong style={{color:'#fff'}}>Cloudflare</strong> — file storage and CDN delivery</li>
-              <li><strong style={{color:'#fff'}}>Razorpay</strong> — payment processing</li>
-              <li><strong style={{color:'#fff'}}>Meta (WhatsApp)</strong> — message delivery via WhatsApp Business API</li>
-              <li><strong style={{color:'#fff'}}>Resend</strong> — transactional email delivery</li>
-              <li><strong style={{color:'#fff'}}>Legal authorities</strong> — when required by law or court order</li>
-            </ul>
-            All third-party providers are bound by their own privacy policies and data processing
-            agreements.
+          <Section title="5. Children&rsquo;s Data">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed mb-3">
+              Some Students on the Platform are under 18 years of age. Where we have actual knowledge that a Data Principal is a child, we do not use their personal data for behavioural monitoring or targeted advertising, in accordance with the DPDP Act. Processing of a child&rsquo;s personal data is intended to be undertaken only with the verifiable consent of a parent or lawful guardian, obtained at the time of purchase or enrollment.
+            </p>
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              <strong>We are in the process of implementing a dedicated, verifiable parental-consent mechanism as required by the DPDP Act.</strong> Until that mechanism is live, the individual completing a purchase or enrollment on behalf of a minor Student is required, under our Terms &amp; Conditions, to confirm that they are the Student&rsquo;s parent or lawful guardian or are otherwise authorised to act on the guardian&rsquo;s behalf.
+            </p>
           </Section>
 
-          <Section title="6. Student Data">
-            Creators who use Kurso to deliver courses to students act as independent data
-            controllers for their students' data. Kurso acts as a data processor on behalf
-            of Creators.
-            <br /><br />
-            Creators are responsible for:
-            <ul>
-              <li>Obtaining proper consent from students to collect and process their data</li>
-              <li>Informing students about how their data is used</li>
-              <li>Complying with applicable data protection laws in their jurisdiction</li>
-            </ul>
-            Student phone numbers and progress data are stored securely and used only to
-            deliver course content.
+          <Section title="6. Data Retention">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              We retain personal data for as long as the relevant account remains active, and thereafter for as long as necessary to comply with our legal obligations (including tax and accounting requirements), resolve disputes, and enforce our agreements. Anti-piracy access logs are retained for a limited period sufficient to investigate reported unauthorised redistribution of Content. A Data Principal may request earlier erasure as described in Section 8, subject to our right to retain data where required by law.
+            </p>
           </Section>
 
-          <Section title="7. Cookies">
-            Kurso uses the following cookies:
-            <ul>
-              <li><strong style={{color:'#fff'}}>Essential cookies</strong> — required for authentication and session management</li>
-              <li><strong style={{color:'#fff'}}>Preference cookies</strong> — remember your settings and preferences</li>
-              <li><strong style={{color:'#fff'}}>Analytics cookies</strong> — help us understand how the platform is used (anonymized)</li>
-            </ul>
-            You can control cookie settings through your browser. Disabling essential cookies
-            may affect platform functionality.
+          <Section title="7. Security Measures">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              We apply reasonable technical and organisational measures to protect personal data, including encryption of Creator payment gateway credentials at rest, time-limited signed access links for Content (rather than permanent public links), and access controls restricting who can view Student and Creator data. No method of transmission or storage is completely secure, and we cannot guarantee absolute security.
+            </p>
           </Section>
 
-          <Section title="8. Data Retention">
-            We retain your data for as long as your account is active. Upon account deletion:
-            <ul>
-              <li>A 7-day grace period begins where data is soft-deleted</li>
-              <li>After 7 days, all account data is permanently and irreversibly deleted</li>
-              <li>Payment records are retained for 7 years as required by financial regulations</li>
-              <li>Anonymized usage analytics may be retained indefinitely</li>
-            </ul>
+          <Section title="8. Your Rights as a Data Principal">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed mb-3">
+              Subject to the DPDP Act, you have the right to: (a) obtain a summary of the personal data we hold about you and the processing activities undertaken; (b) request correction, completion, or updating of your personal data; (c) request erasure of your personal data, unless retention is required for a legal purpose; (d) withdraw any consent previously given, without affecting the lawfulness of processing carried out before withdrawal; (e) nominate another individual to exercise these rights on your behalf in the event of your death or incapacity; and (f) file a grievance with us in the first instance, and thereafter with the Data Protection Board of India if unresolved.
+            </p>
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              To exercise any of these rights, contact us using the details in Section 11 below.
+            </p>
           </Section>
 
-          <Section title="9. Your Rights">
-            You have the right to:
-            <ul>
-              <li><strong style={{color:'#fff'}}>Access</strong> — request a copy of all data we hold about you</li>
-              <li><strong style={{color:'#fff'}}>Correction</strong> — update inaccurate or incomplete data</li>
-              <li><strong style={{color:'#fff'}}>Deletion</strong> — request deletion of your account and data</li>
-              <li><strong style={{color:'#fff'}}>Portability</strong> — receive your data in a machine-readable format</li>
-              <li><strong style={{color:'#fff'}}>Objection</strong> — object to processing of your data for specific purposes</li>
-              <li><strong style={{color:'#fff'}}>Withdrawal of consent</strong> — withdraw consent at any time where processing is consent-based</li>
-            </ul>
-            To exercise any of these rights, email privacy@kurso.in. We will respond within
-            30 days.
+          <Section title="9. Cookies">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              We use a strictly necessary session cookie to keep you signed in after accessing the Platform through a Telegram or WhatsApp link, and standard authentication cookies for account login on the website. We do not use these cookies for advertising or cross-site tracking.
+            </p>
           </Section>
 
-          <Section title="10. Children's Privacy">
-            Kurso is not intended for users under 18 years of age. We do not knowingly
-            collect personal data from children. If you believe a child has provided us with
-            personal data, please contact us immediately and we will delete it.
+          <Section title="10. Data Breach Notification">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              In the event of a personal data breach, we will notify the Data Protection Board of India and affected Data Principals as required under the DPDP Act and rules made thereunder.
+            </p>
           </Section>
 
-          <Section title="11. International Data Transfers">
-            Kurso is operated from India. If you access the Service from outside India,
-            your data may be transferred to and processed in India and other countries where
-            our service providers operate. By using the Service, you consent to these transfers.
-            <br /><br />
-            For users in the European Economic Area (EEA), we ensure appropriate safeguards
-            are in place for international data transfers in compliance with GDPR.
+          <Section title="11. Grievance Officer and Contact">
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              For any question about this Policy, or to exercise a right described in Section 8, contact our Grievance Officer at <a href="mailto:support@kurso.in" style={{color:'var(--kurso-primary-light)'}}>support@kurso.in</a>. All requests are personally reviewed by the Platform&rsquo;s proprietor. See also our{' '}
+              <Link href="/contact" style={{color:'var(--kurso-primary-light)'}}>Contact page</Link>.
+            </p>
           </Section>
 
           <Section title="12. Changes to This Policy">
-            We may update this Privacy Policy periodically. We will notify you of significant
-            changes via email at least 14 days before they take effect. Your continued use of
-            the Service after the effective date constitutes acceptance of the updated policy.
+            <p style={{color:'#a1a1aa'}} className="text-sm leading-relaxed">
+              We may revise this Policy from time to time to reflect changes in our practices or legal requirements. The &ldquo;Last updated&rdquo; date above will be revised accordingly, and material changes will be notified through the Platform.
+            </p>
           </Section>
-
-          <Section title="13. Contact Us">
-            For privacy-related questions, data requests, or concerns:
-            <br /><br />
-            <strong style={{color:'#fff'}}>Kurso — Privacy Team</strong><br />
-            Email: privacy@kurso.in<br />
-            Support: support@kurso.in<br /><br />
-            We aim to respond to all privacy requests within 30 days.
-          </Section>
-
         </div>
       </div>
 
-      <style jsx>{`
-        .prose-custom { color: #a1a1aa; line-height: 1.8; font-size: 15px; }
-        .prose-custom ul { margin: 12px 0 12px 20px; display: flex; flex-direction: column; gap: 6px; }
-        .prose-custom li { list-style: disc; }
-        .prose-custom strong { color: #e4e4e7; }
-      `}</style>
-
-      {/* Footer */}
-      <div className="border-t px-6 py-8 text-center"
-        style={{borderColor:'rgba(255,255,255,0.06)'}}>
-        <div className="flex items-center justify-center gap-6 text-sm">
+      <div className="border-t px-6 py-10 text-center" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+        <div className="flex items-center justify-center gap-6 text-sm" style={{color:'#52525b'}}>
           <Link href="/terms" style={{color:'#52525b'}} className="hover:text-white transition-colors">Terms</Link>
           <Link href="/privacy" style={{color:'#a1a1aa'}}>Privacy</Link>
           <Link href="/refund-policy" style={{color:'#52525b'}} className="hover:text-white transition-colors">Refund Policy</Link>
