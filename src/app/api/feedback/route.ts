@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'onboarding@resend.dev',
-          to: ['nancypanghal13@gmail.com'],
+                    from: process.env.RESEND_FROM_EMAIL || 'Kurso <onboarding@resend.dev>',
+                    to: ['support@kurso.in'],
           subject: `[Kurso Feedback] ${typeLabel} — from ${email.trim()}`,
           html,
         }),
