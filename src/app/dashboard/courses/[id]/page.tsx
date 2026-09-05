@@ -177,7 +177,7 @@ async function uploadToSupabase(file: File, folder: string, courseId?: string): 
       publicUrl: publicUrlData.publicUrl,
       storagePath: safeName
     }
-    } catch (err: any) {
+  } catch (err: any) {
     console.error('Upload error:', err)
     throw new Error(err.message || 'Upload failed')
   }
@@ -2299,10 +2299,10 @@ export default function CourseManagePage({
   const [copiedEmbed, setCopiedEmbed] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
-    const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>(
+  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>(
     searchParams.get('tab') === 'settings' ? 'settings'
       : searchParams.get('tab') === 'landing' ? 'landing'
-      : 'lessons'
+        : 'lessons'
   )
   const [token, setToken] = useState('')
 
@@ -2353,6 +2353,7 @@ export default function CourseManagePage({
   const [previewTemplate, setPreviewTemplate] = useState<string>('classic')
   // Shared brand logo — uploaded from the "Design Landing Page" tab, read-only here.
   const [brandLogoUrl, setBrandLogoUrl] = useState('')
+  const [uploadingBrandLogo, setUploadingBrandLogo] = useState(false)
   const [editUseLogoOnCertificate, setEditUseLogoOnCertificate] = useState(false)
   const [editBrandName, setEditBrandName] = useState('')
   const [editInstructorTitle, setEditInstructorTitle] = useState('')
@@ -2614,6 +2615,21 @@ export default function CourseManagePage({
     updateCustomSection(csId, { images: cs.images.filter(img => img !== imageUrl) })
   }
 
+  async function handleBrandLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { alert('Logo must be 2MB or smaller.'); return }
+    setUploadingBrandLogo(true)
+    try {
+      const { publicUrl } = await uploadToSupabase(file, 'brand-logos')
+      setBrandLogoUrl(publicUrl)
+    } catch (err: any) {
+      alert(err.message || 'Logo upload failed')
+    } finally {
+      setUploadingBrandLogo(false)
+    }
+  }
+
   async function updateSettings(): Promise<boolean> {
     setSavingSettings(true)
     const { error } = await supabase
@@ -2648,6 +2664,7 @@ export default function CourseManagePage({
         cert_signature_url: editCertSignatureUrl || null,
         cert_custom_message: editCertCustomMessage.trim() || null,
         use_logo_on_certificate: editUseLogoOnCertificate,
+        brand_logo_url: brandLogoUrl || null,
         skills: editSkills.trim()
           ? editSkills.split(',').map(s => s.trim()).filter(Boolean)
           : null,
@@ -4779,23 +4796,28 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                 </button>
                               </div>
 
-                              {editUseLogoOnCertificate && brandLogoUrl && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <img src={brandLogoUrl} alt="Brand Logo" className="h-6 object-contain" />
-                                  <span className="text-xs text-zinc-400">Will print on the certificate</span>
-                                </div>
-                              )}
-
-                              {editUseLogoOnCertificate && !brandLogoUrl && (
-                                <div className="flex items-start gap-2 p-2.5 rounded-lg mt-1"
-                                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
-                                  <p className="text-sm" style={{ color: 'var(--kurso-accent)' }}>
-                                    Please provide the brand logo above —{' '}
-                                                                        <Link href={`/dashboard/courses/${id}?tab=landing`} className="underline">
-                                      upload it in Design Landing Page
-                                    </Link>.
-                                  </p>
+                                                            {editUseLogoOnCertificate && (
+                                <div className="flex items-center gap-3 mt-1">
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                                    {brandLogoUrl
+                                      ? <img src={brandLogoUrl} alt="Brand Logo" className="w-full h-full object-contain" />
+                                      : <ImageIconLucide className="w-4 h-4 text-zinc-600" />}
+                                  </div>
+                                  <div className="flex-1">
+                                    <input type="file" accept="image/png,image/jpeg,image/webp" id="cert-brand-logo"
+                                      className="hidden" onChange={handleBrandLogoUpload} disabled={uploadingBrandLogo} />
+                                    <label htmlFor="cert-brand-logo"
+                                      className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all">
+                                      {uploadingBrandLogo ? 'Uploading...' : brandLogoUrl ? 'Replace Logo' : 'Upload Logo'}
+                                    </label>
+                                    {brandLogoUrl && (
+                                      <button onClick={() => setBrandLogoUrl('')}
+                                        className="ml-2 text-xs text-zinc-400 hover:text-red-500 inline-flex items-center gap-1">
+                                        <XIcon className="w-3 h-3" /> Remove
+                                      </button>
+                                    )}
+                                    <p className="text-[11px] text-zinc-400 mt-1">PNG/JPG/WebP · max 2 MB · will print on the certificate</p>
+                                  </div>
                                 </div>
                               )}
 

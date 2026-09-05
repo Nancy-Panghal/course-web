@@ -138,8 +138,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
     const { error: updateError } = await supabase
       .from('courses')
       .update({
-        landing_theme: selectedTheme,
-        brand_logo_url: brandLogoUrl || null,
+                landing_theme: selectedTheme,
         landing_sections: legacyMirror,
         landing_config: configToSave,
         landing_font_pair: fontPair === 'theme-default' ? null : fontPair,
