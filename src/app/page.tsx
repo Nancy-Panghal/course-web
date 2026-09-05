@@ -406,8 +406,9 @@ export default function HomePage() {
                     <div className="glass rounded-2xl border border-border overflow-hidden glow">
             {DEMO_VIDEO_URL ? (
               DEMO_VIDEO_URL.endsWith('.mp4') ? (
-                <video
+                                <video
                   src={DEMO_VIDEO_URL}
+                  poster="/demo-poster.jpg"
                   controls
                   playsInline
                   preload="metadata"
