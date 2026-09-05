@@ -14,7 +14,7 @@ import { resolveAccountType } from '@/lib/account'
 // TODO: paste your screen-recording link here (YouTube embed URL or hosted .mp4)
 // e.g. 'https://www.youtube.com/embed/XXXXXXXXXXX'
 // Leave empty to show the "coming soon" placeholder.
-const DEMO_VIDEO_URL = ''
+const DEMO_VIDEO_URL: string = 'https://pub-e026ccf9cda1475dad7790cac878419c.r2.dev/demo/homepage-walkthrough.mp4'
 
 // ─── DATA ───
 const features = [
@@ -403,16 +403,26 @@ export default function HomePage() {
             <p className="text-text-2 font-light">A quick look at how a lesson goes from your dashboard to a student's chat.</p>
           </div>
 
-          <div className="glass rounded-2xl border border-border overflow-hidden glow">
+                    <div className="glass rounded-2xl border border-border overflow-hidden glow">
             {DEMO_VIDEO_URL ? (
-              <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
-                <iframe
+              DEMO_VIDEO_URL.endsWith('.mp4') ? (
+                <video
                   src={DEMO_VIDEO_URL}
-                  className="absolute inset-0 w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full aspect-video bg-black"
                 />
-              </div>
+              ) : (
+                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+                  <iframe
+                    src={DEMO_VIDEO_URL}
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              )
             ) : (
               <div className="aspect-video flex flex-col items-center justify-center gap-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
                 <div className="w-16 h-16 violet-gradient rounded-2xl flex items-center justify-center animate-pulse-glow">
