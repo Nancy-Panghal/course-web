@@ -5,8 +5,8 @@ import { slugify } from '@/lib/utils'
 import { LANDING_THEMES, DEFAULT_LANDING_THEME_ID, getLandingTheme, type LandingThemeId } from '@/lib/landing-themes'
 import CountdownTimer from '@/components/CountdownTimer'
 import {
-   Check, ExternalLink, Image as ImageIcon, X, 
-   Palette, Plus, Trash2, Type,  Gift, AlertTriangle, Timer, FileText,
+  Check, ExternalLink, Image as ImageIcon, X,
+  Palette, Plus, Trash2, Type, Gift, AlertTriangle, Timer, FileText,
 } from 'lucide-react'
 import {
   DEFAULT_LANDING_CONFIG, normalizeLandingConfig, LANDING_SECTION_META, LANDING_SECTION_TYPES,
@@ -56,7 +56,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
   const [selectedTheme, setSelectedTheme] = useState<LandingThemeId>(DEFAULT_LANDING_THEME_ID)
   const [brandLogoUrl, setBrandLogoUrl] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
-  
+
   const [landingConfig, setLandingConfig] = useState<LandingConfig>(DEFAULT_LANDING_CONFIG)
   const [fontPair, setFontPair] = useState<FontPairId>('theme-default')
   const [activeTab, setActiveTab] = useState<'theme' | 'fonts'>('theme')
@@ -138,7 +138,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
     const { error: updateError } = await supabase
       .from('courses')
       .update({
-                landing_theme: selectedTheme,
+        landing_theme: selectedTheme,
         landing_sections: legacyMirror,
         landing_config: configToSave,
         landing_font_pair: fontPair === 'theme-default' ? null : fontPair,
@@ -185,7 +185,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
     return () => window.clearTimeout(timer)
   }, [landingSnapshot, loading, saving])
 
-  
+
 
   if (loading) {
     return <div className="w-32 h-6 rounded bg-white/5 animate-pulse" />
@@ -202,13 +202,13 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
   return (
     <div className="flex flex-col gap-6">
 
-      
+
 
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
         {([
           { id: 'theme', label: 'Theme & Colors', icon: <Palette className="w-3.5 h-3.5" /> },
-          
+
           { id: 'fonts', label: 'Font Style', icon: <Type className="w-3.5 h-3.5" /> },
         ] as const).map(tab => (
           <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
@@ -312,7 +312,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
           </div>
         )}
 
-        
+
 
         {/* ── TAB: FONTS ── */}
         {activeTab === 'fonts' && (
@@ -320,7 +320,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
             <h2 className="font-semibold text-white mb-1">Font Style</h2>
             <p className="text-sm mb-5" style={{ color: 'var(--kurso-hint)' }}>
               On right side click preview course page option and see how the font is looking on your course.
-              
+
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -355,7 +355,7 @@ export default function LandingPageDesigner({ courseId }: { courseId: string }) 
             </div>
 
             <div className="mt-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              
+
             </div>
           </div>
         )}
