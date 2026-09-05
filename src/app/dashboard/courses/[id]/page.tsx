@@ -2299,8 +2299,10 @@ export default function CourseManagePage({
   const [copiedEmbed, setCopiedEmbed] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const publishingRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>(
-    searchParams.get('tab') === 'settings' ? 'settings' : 'lessons'
+    const [activeTab, setActiveTab] = useState<'lessons' | 'settings' | 'landing'>(
+    searchParams.get('tab') === 'settings' ? 'settings'
+      : searchParams.get('tab') === 'landing' ? 'landing'
+      : 'lessons'
   )
   const [token, setToken] = useState('')
 
@@ -4790,7 +4792,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-accent)' }} />
                                   <p className="text-sm" style={{ color: 'var(--kurso-accent)' }}>
                                     Please provide the brand logo above —{' '}
-                                    <Link href={`/dashboard/courses/${id}/landing-page`} className="underline">
+                                                                        <Link href={`/dashboard/courses/${id}?tab=landing`} className="underline">
                                       upload it in Design Landing Page
                                     </Link>.
                                   </p>
