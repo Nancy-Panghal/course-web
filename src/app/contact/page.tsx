@@ -1,7 +1,7 @@
 "use client"
 import { useState } from 'react'
 import Link from 'next/link'
-import { GraduationCap, Mail, Phone, ArrowLeft, Send, CheckCircle, Sparkles } from 'lucide-react'
+import { GraduationCap, Mail, ArrowLeft, Send, CheckCircle, Sparkles } from 'lucide-react'
 
 export default function ContactPage() {
   const [name, setName] = useState('')
@@ -89,47 +89,17 @@ export default function ContactPage() {
               </a>
             </div>
 
-            <div className="rounded-2xl p-6 glass"
-              style={{border:'1px solid rgba(255,255,255,0.06)'}}>
-              <div className="w-10 h-10 violet-gradient rounded-xl flex items-center justify-center mb-4">
-                <Phone className="w-5 h-5 text-white" />
-              </div>
-              <h3 className="font-semibold text-white mb-1">Call or WhatsApp</h3>
-              <p className="text-sm mb-3" style={{color:'#a1a1aa'}}>
-                Mon–Sat, 10AM–7PM IST
-              </p>
-              <p 
-                className="text-sm font-medium transition-colors"
-                style={{color:'#e8e6ec',marginBottom:'10px'}}> 
-                +91 XXXXX XXXXX
-              </p>
-              <a 
-                href="https://wa.me/91XXXXXXXXXX"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-medium transition-colors"
-                style={{color:'var(--kurso-primary-light)'}}>
-                Chat on WhatsApp →
-              </a>
-            </div>
+            
 
             
 
-            {/* Response time */}
+                        {/* Reassurance */}
             <div className="rounded-2xl p-5"
               style={{background:'rgba(var(--kurso-primary-rgb), 0.08)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
-              <p className="text-sm font-semibold text-white mb-2">Response Times</p>
-              {[
-                {type:'WhatsApp', time:'~5 hours'},
-                {type:'Email', time:'~24 hours'},
-                {type:'Billing issues', time:'Same day'},
-              ].map((r,i) => (
-                <div key={i} className="flex justify-between items-center py-1.5"
-                  style={{borderBottom: i < 2 ? '1px solid rgba(var(--kurso-primary-rgb), 0.1)' : 'none'}}>
-                  <span className="text-sm" style={{color:'#a1a1aa'}}>{r.type}</span>
-                  <span className="text-xs font-medium" style={{color:'var(--kurso-primary-light)'}}>{r.time}</span>
-                </div>
-              ))}
+              <p className="text-sm font-semibold text-white mb-2">We're quick to help</p>
+              <p className="text-sm leading-relaxed" style={{color:'#a1a1aa'}}>
+                Whatever it is — a bug, a billing question, or you just want a hand setting up and designing your first course — email us and we'll sort it out with you. Don't overthink what to write, just tell us the issue in your own words and we'll take it from there.
+              </p>
             </div>
           </div>
 
