@@ -408,7 +408,7 @@ export default function HomePage() {
               DEMO_VIDEO_URL.endsWith('.mp4') ? (
                                 <video
                   src={DEMO_VIDEO_URL}
-                  poster="/demo-poster.jpg"
+                  poster="/demo-poster.png"
                   controls
                   playsInline
                   preload="metadata"
