@@ -28,7 +28,8 @@ import {
   Eye, EyeOff, ExternalLink, Copy, Check,
   Trash2, CheckCircle, AlertCircle,
   MessageCircle, Monitor, Share2, ChevronDown, ChevronUp, AlertTriangle,
-  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X, ChevronRight, Code2
+  Calendar, Clock, Link as LinkIcon, Video as VideoIcon, Pencil, X, ChevronRight, Code2,
+  Award
 } from 'lucide-react'
 
 interface Course {
@@ -92,6 +93,7 @@ interface Lesson {
   order_num: number
   is_published: boolean
   is_free: boolean
+  is_last_lesson: boolean
   qa_enabled: boolean
   duration: string
   module_id?: string | null
@@ -1106,6 +1108,7 @@ function DeleteLessonModal({
   onClose: () => void
 }) {
   const [confirmText, setConfirmText] = useState('')
+  const requiresTyping = lesson.is_published
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
@@ -1119,21 +1122,23 @@ function DeleteLessonModal({
 
         <div className="flex flex-col gap-4">
           <p className="text-sm text-zinc-400">
-            Are you sure you want to delete the lesson <strong className="text-white">{lesson.title}</strong>? This action cannot be undone.
+            This can&apos;t be undone. The lesson will not be restored after deletion.
           </p>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-zinc-300">
-              To confirm, type the lesson name: <span className="text-white">{lesson.title}</span>
-            </label>
-            <input
-              type="text"
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="Type lesson name here"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
-            />
-          </div>
+          {requiresTyping && (
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium text-zinc-300">
+                This lesson is published. To confirm, type the lesson name: <span className="text-white">{lesson.title}</span>
+              </label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="Type lesson name here"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-red-500/50"
+              />
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button
@@ -1145,13 +1150,87 @@ function DeleteLessonModal({
             </button>
             <button
               onClick={onConfirm}
-              disabled={confirmText.trim() !== lesson.title.trim()}
+              disabled={requiresTyping && confirmText.trim() !== lesson.title.trim()}
               className="flex-1 py-3 rounded-xl text-sm font-medium text-white disabled:opacity-50"
               style={{ background: '#ef4444' }}
             >
               Delete Lesson
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── MARK / UNMARK LAST LESSON MODAL ──
+function MarkLastLessonModal({
+  lesson,
+  mode,
+  onConfirm,
+  onClose,
+}: {
+  lesson: Lesson
+  mode: 'mark' | 'unmark'
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl p-6"
+        style={{ background: '#111', border: '1px solid rgba(234,179,8,0.3)' }}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Award className="w-4 h-4" style={{ color: '#eab308' }} />
+            {mode === 'mark' ? 'Mark as last lesson' : 'Unmark as last lesson'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.06)', color: '#a1a1aa' }}
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {mode === 'mark' ? (
+          <div className="rounded-xl p-4 mb-6" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)' }}>
+            <p className="text-sm leading-6 text-white mb-2">
+              Are you sure <strong>&ldquo;{lesson.title}&rdquo;</strong> is the last lesson of your course?
+            </p>
+            <p className="text-xs leading-5" style={{ color: 'var(--kurso-hint)' }}>
+              This means you won&apos;t upload any lessons after this one, and students will become eligible for the completion certificate (if you&apos;ve set one up) as soon as they finish it — regardless of your planned lesson count. You can unmark it anytime.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl p-4 mb-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-sm leading-6 text-white">
+              Unmark <strong>&ldquo;{lesson.title}&rdquo;</strong> as the last lesson? The certificate will go back to using your course&apos;s planned lesson count instead.
+            </p>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl text-sm font-medium"
+            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-3 rounded-xl text-sm font-semibold text-black"
+            style={{ background: '#eab308' }}
+          >
+            {mode === 'mark' ? 'Yes, mark as last lesson' : 'Yes, unmark'}
+          </button>
         </div>
       </div>
     </div>
@@ -1220,6 +1299,7 @@ function LessonWidget({
   onTogglePublish,
   onToggleFree,
   onToggleQA,
+  onToggleLastLesson,
   onRefresh,
   onRenumber,
 }: {
@@ -1228,6 +1308,7 @@ function LessonWidget({
   onTogglePublish: (id: string, current: boolean) => void
   onToggleFree: (id: string, current: boolean) => void
   onToggleQA: (id: string, current: boolean) => void
+  onToggleLastLesson: (id: string, current: boolean) => void
   onRefresh: () => void
   onRenumber: (lesson: Lesson, newNumber: string) => Promise<{ ok: boolean; error?: string }>
 }) {
@@ -1235,6 +1316,7 @@ function LessonWidget({
   const [operationError, setOperationError] = useState('')
   const [resourceSaving, setResourceSaving] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showLastLessonModal, setShowLastLessonModal] = useState(false)
   const [editingNumber, setEditingNumber] = useState(false)
   const [numberInput, setNumberInput] = useState(String(lesson.order_num))
   const [numberSaving, setNumberSaving] = useState(false)
@@ -1303,6 +1385,14 @@ function LessonWidget({
           lesson={lesson}
           onConfirm={() => onDelete(lesson.id)}
           onClose={() => setShowDeleteModal(false)}
+        />
+      )}
+      {showLastLessonModal && (
+        <MarkLastLessonModal
+          lesson={lesson}
+          mode={lesson.is_last_lesson ? 'unmark' : 'mark'}
+          onConfirm={() => { onToggleLastLesson(lesson.id, lesson.is_last_lesson); setShowLastLessonModal(false) }}
+          onClose={() => setShowLastLessonModal(false)}
         />
       )}
       <div className="rounded-2xl overflow-hidden transition-all"
@@ -1410,6 +1500,19 @@ function LessonWidget({
               }}>
               <MessageCircle className="w-3 h-3" />
               {lesson.qa_enabled ? 'Q&A On' : 'Q&A Off'}
+            </button>
+
+            <button
+              onClick={() => setShowLastLessonModal(true)}
+              title={lesson.is_last_lesson ? 'Unmark as the last lesson' : 'Mark as the last lesson — students get the certificate after completing it'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: lesson.is_last_lesson ? 'rgba(234,179,8,0.12)' : 'rgba(255,255,255,0.05)',
+                color: lesson.is_last_lesson ? '#eab308' : '#8f8f91',
+                border: lesson.is_last_lesson ? '1px solid rgba(234,179,8,0.25)' : '1px solid rgba(255,255,255,0.08)',
+              }}>
+              <Award className="w-3 h-3" />
+              {lesson.is_last_lesson ? 'Last Lesson' : 'Mark as Last'}
             </button>
 
             <button onClick={() => { setExpanded(!expanded); setOperationError('') }}
@@ -2325,7 +2428,6 @@ export default function CourseManagePage({
   const [editStartDate, setEditStartDate] = useState('')
   const [editDuration, setEditDuration] = useState('')
   const [editLanguage, setEditLanguage] = useState('English')
-  const [editPlannedLessons, setEditPlannedLessons] = useState('')
   const [editNextLessonDate, setEditNextLessonDate] = useState('')
   const [editCourseEndDate, setEditCourseEndDate] = useState('')
   const [editStudentMessage, setEditStudentMessage] = useState('')
@@ -2431,7 +2533,6 @@ export default function CourseManagePage({
       )
 
       setEditSkills(Array.isArray(courseData.skills) ? courseData.skills.join(', ') : '')
-      setEditPlannedLessons(courseData.total_lessons?.toString() || '')
       setEditNextLessonDate(courseData.next_lesson_date || '')
       setEditCourseEndDate(courseData.course_end_date || '')
       setEditStudentMessage(courseData.student_update_message || '')
@@ -2646,7 +2747,7 @@ export default function CourseManagePage({
           .split(',')
           .map(language => language.trim())
           .filter(Boolean),
-        total_lessons: editPlannedLessons ? parseInt(editPlannedLessons) : lessons.length,
+        total_lessons: lessons.length,
         next_lesson_date: editNextLessonDate || null,
         course_end_date: editCourseEndDate || null,
         student_update_message: editStudentMessage.trim() || null,
@@ -2715,7 +2816,7 @@ export default function CourseManagePage({
         about_creator: editAbout,
         start_date: editStartDate,
         duration: editDuration,
-        total_lessons: editPlannedLessons ? parseInt(editPlannedLessons) : lessons.length,
+        total_lessons: lessons.length,
         next_lesson_date: editNextLessonDate || undefined,
         course_end_date: editCourseEndDate || undefined,
         student_update_message: editStudentMessage.trim() || undefined,
@@ -2900,7 +3001,6 @@ export default function CourseManagePage({
     editAbout,
     editStartDate,
     editDuration,
-    editPlannedLessons,
     editNextLessonDate, editCourseEndDate, editStudentMessage, editLearn, editFaq, editHostImage,
     editLanguage,
     editIsFreeCourse, editCertEnabled, editCertTemplate, editCertPalette, editCertCustomMessage,
@@ -3110,6 +3210,20 @@ export default function CourseManagePage({
       .from('lessons')
       .update({ qa_enabled: !current })
       .eq('id', lessonId)
+    await fetchLessons()
+  }
+
+  async function toggleLessonLastLesson(lessonId: string, current: boolean) {
+    if (current) {
+      // Unmarking — just clear it. Certificate gate falls back to the
+      // course's planned-lessons total, same as before this feature existed.
+      await supabase.from('lessons').update({ is_last_lesson: false }).eq('id', lessonId)
+    } else {
+      // Marking — only one lesson per course can hold this flag, so clear
+      // any existing one first (DB has a matching unique index as a backstop).
+      await supabase.from('lessons').update({ is_last_lesson: false }).eq('course_id', id).eq('is_last_lesson', true)
+      await supabase.from('lessons').update({ is_last_lesson: true }).eq('id', lessonId)
+    }
     await fetchLessons()
   }
 
@@ -3514,6 +3628,7 @@ export default function CourseManagePage({
                                 onTogglePublish={toggleLessonPublish}
                                 onToggleFree={toggleLessonFree}
                                 onToggleQA={toggleLessonQA}
+                                onToggleLastLesson={toggleLessonLastLesson}
                                 onRefresh={fetchLessons}
                                 onRenumber={moveLessonToNumber}
                               />
@@ -3532,6 +3647,7 @@ export default function CourseManagePage({
                           onTogglePublish={toggleLessonPublish}
                           onToggleFree={toggleLessonFree}
                           onToggleQA={toggleLessonQA}
+                          onToggleLastLesson={toggleLessonLastLesson}
                           onRefresh={fetchLessons}
                           onRenumber={moveLessonToNumber}
                         />
@@ -4796,7 +4912,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                 </button>
                               </div>
 
-                                                            {editUseLogoOnCertificate && (
+                              {editUseLogoOnCertificate && (
                                 <div className="flex items-center gap-3 mt-1">
                                   <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
                                     {brandLogoUrl

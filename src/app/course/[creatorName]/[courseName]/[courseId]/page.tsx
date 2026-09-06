@@ -17,7 +17,8 @@ import Link from 'next/link'
 import {
   Shield, CheckCircle, ChevronRight, ChevronLeft,
   Award, Menu, Clock, Lock, FileText, Play, BookOpen,
-  HelpCircle, Download, ExternalLink, Sparkles
+  HelpCircle, Download, ExternalLink, Sparkles,
+  Megaphone, CalendarClock
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { findPaidEnrollment, linkStudentToEnrollment } from '@/lib/enrollments'
@@ -39,6 +40,7 @@ interface Lesson {
   order_num: number
   duration: string
   is_published: boolean
+  is_last_lesson?: boolean
   module_id?: string | null
   summary_url?: string | null
   notes_url?: string | null
@@ -187,6 +189,8 @@ export default function CourseLearnPage() {
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
   const [currentId, setCurrentId] = useState('')
+  const [lessonNote, setLessonNote] = useState<string | null>(null)
+  const [nextAvailabilityMessage, setNextAvailabilityMessage] = useState<string | null>(null)
   const [completed, setCompleted] = useState<number[]>([])
   const [quizResults, setQuizResults] = useState<Enrollment['quiz_results']>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -471,10 +475,37 @@ export default function CourseLearnPage() {
   const prevLesson = currentIndex > 0 ? lessons[currentIndex - 1] : null
   const nextLesson = currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null
   const plannedTotal = Math.max(course?.total_lessons || 0, lessons.length)
+
+  // Creator-set "note" for the lesson currently being viewed — shown as a
+  // banner above the lesson widgets, per lesson, so it re-fetches on navigation.
+  useEffect(() => {
+    if (!course?.id || !currentLesson) { setLessonNote(null); return }
+    let cancelled = false
+    fetch(`/api/lesson-messages/public?courseId=${course.id}&lessonNumber=${currentLesson.order_num}`)
+      .then(r => r.json())
+      .then(json => { if (!cancelled) setLessonNote(json.type === 'note' ? json.text : null) })
+      .catch(() => { if (!cancelled) setLessonNote(null) })
+    return () => { cancelled = true }
+  }, [course?.id, currentLesson?.id])
+
+  // Creator-set "availability" message for the slot right after the last
+  // lesson the student can currently see — covers both an existing-but-
+  // unpublished/incomplete lesson and a genuine future "next lesson" slot.
+  useEffect(() => {
+    if (!course?.id || nextLesson) { setNextAvailabilityMessage(null); return }
+    const upcomingNumber = (currentLesson?.order_num || 0) + 1
+    let cancelled = false
+    fetch(`/api/lesson-messages/public?courseId=${course.id}&lessonNumber=${upcomingNumber}`)
+      .then(r => r.json())
+      .then(json => { if (!cancelled) setNextAvailabilityMessage(json.type === 'availability' ? json.text : null) })
+      .catch(() => { if (!cancelled) setNextAvailabilityMessage(null) })
+    return () => { cancelled = true }
+  }, [course?.id, nextLesson, currentLesson?.order_num])
   const progress = lessons.length > 0
     ? Math.round((completed.length / Math.max(plannedTotal, lessons.length)) * 100)
     : 0
   const remainingPlanned = Math.max(plannedTotal - lessons.length, 0)
+  const lastLesson = lessons.find(l => l.is_last_lesson)
   const isFree = currentLesson && course?.is_published !== false && isLessonFree(
     { is_free: currentLesson.is_free ?? false },
     { is_free_course: course?.is_free_course ?? false }
@@ -488,7 +519,12 @@ export default function CourseLearnPage() {
   const effectiveDeliveryMethod = (isEnrolled ? (enrollment?.delivery_method || course?.delivery) : course?.delivery) || 'both'
   const telegramDeliveryAllowed = effectiveDeliveryMethod === 'telegram' || effectiveDeliveryMethod === 'both'
   const whatsappDeliveryAllowed = effectiveDeliveryMethod === 'whatsapp' || effectiveDeliveryMethod === 'both'
-  const allDone = plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal
+  // A creator-marked "last lesson" overrides the old total_lessons math entirely,
+  // matching the same rule the server enforces in /api/lesson/complete and
+  // /api/certificate/issue.
+  const allDone = lastLesson
+    ? completed.includes(lastLesson.order_num)
+    : (plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal)
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)
 
 
@@ -923,6 +959,27 @@ export default function CourseLearnPage() {
                 </div>
               )}
 
+              {/* Creator note for this lesson — one prominent banner, not small print */}
+              {lessonNote && (
+                <div style={{
+                  marginBottom: 18, padding: '14px 18px', borderRadius: 12,
+                  background: 'linear-gradient(135deg, rgba(var(--kurso-primary-rgb), 0.14), rgba(var(--kurso-primary-rgb), 0.05))',
+                  border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)',
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+                    background: 'linear-gradient(135deg,var(--kurso-primary),var(--kurso-secondary))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Megaphone className="w-4 h-4 text-white" />
+                  </div>
+                  <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, lineHeight: 1.5, margin: 0 }}>
+                    {lessonNote}
+                  </p>
+                </div>
+              )}
+
               {/* Content */}
               {currentLesson?.content_type === 'quiz' ? (
                 <div style={{ aspectRatio: '16/9', background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24, padding: 24, textAlign: 'center' }}>
@@ -1214,12 +1271,14 @@ export default function CourseLearnPage() {
                   )
                 ) : remainingPlanned > 0 ? (
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ color: '#eab308', fontSize: 13, fontWeight: 800 }}>Next lessons upcoming</p>
-                    <p style={{ color: '#71717a', fontSize: 11 }}>
-                      {course.next_lesson_date
-                        ? `Next: ${new Date(course.next_lesson_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
-                        : `${remainingPlanned} more lesson${remainingPlanned > 1 ? 's' : ''} planned`}
-                    </p>
+                    <p style={{ color: '#eab308', fontSize: 13, fontWeight: 800 }}>Next lesson upcoming</p>
+                    {!nextAvailabilityMessage && (
+                      <p style={{ color: '#71717a', fontSize: 11 }}>
+                        {course.next_lesson_date
+                          ? `Next: ${new Date(course.next_lesson_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                          : `${remainingPlanned} more lesson${remainingPlanned > 1 ? 's' : ''} planned`}
+                      </p>
+                    )}
                   </div>
 
                 ) : allDone ? (
@@ -1235,6 +1294,36 @@ export default function CourseLearnPage() {
                   </p>
                 )}
               </div>
+
+              {/* Creator's lesson-availability message — the actual widget the
+                  student sees in place of a locked/future lesson. Prominent card,
+                  not a small caption, per spec. Only shown when the creator has
+                  set one; otherwise the compact "Next lesson upcoming" line above
+                  already covers it. */}
+              {!nextLesson && nextAvailabilityMessage && (
+                <div style={{
+                  marginBottom: 24, padding: '22px 24px', borderRadius: 16,
+                  background: 'linear-gradient(135deg, rgba(234,179,8,0.1), rgba(234,179,8,0.03))',
+                  border: '1px solid rgba(234,179,8,0.25)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12,
+                }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 14,
+                    background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <CalendarClock className="w-6 h-6" style={{ color: '#eab308' }} />
+                  </div>
+                  <p style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.6, margin: 0, maxWidth: 520 }}>
+                    {nextAvailabilityMessage}
+                  </p>
+                  {course.next_lesson_date && (
+                    <p style={{ color: '#eab308', fontSize: 12, fontWeight: 700, margin: 0 }}>
+                      Next: {new Date(course.next_lesson_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Assignment as an activity attached to a video/pdf/live lesson —
                   separate from a lesson whose content_type IS 'assignment', which

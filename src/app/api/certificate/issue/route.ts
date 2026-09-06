@@ -62,14 +62,8 @@ const effectiveCourseId = enrollment.course_uuid
       return NextResponse.json({ issued: false, reason: 'not_paid' })
     }
 
-    // ── Resolve the planned lesson total from courses.total_lessons ───────
-    const { data: courseForCount } = await supabase
-      .from('courses')
-      .select('total_lessons')
-      .eq('id', enrollment.course_uuid)
-      .maybeSingle()
-
-    // Also fetch all published lessons so we can check the last lesson is done
+           // Fetch all published lessons — this is the baseline "course length" now
+    // that manual total_lessons overrides are gone.
     const { data: publishedLessons, count: publishedCount } = await supabase
       .from('lessons')
       .select('order_num', { count: 'exact' })
@@ -77,21 +71,27 @@ const effectiveCourseId = enrollment.course_uuid
       .eq('is_published', true)
       .order('order_num', { ascending: true })
 
-    // Use creator's planned total as the hard gate; fall back to published count
-    const plannedTotal: number = (courseForCount?.total_lessons && courseForCount.total_lessons > 0)
-      ? courseForCount.total_lessons
-      : (publishedCount ?? 0)
-
-    console.log('[certificate/issue] Total lessons (planned):', plannedTotal)
+    // A creator-marked "last lesson" overrides everything else when set.
+    const { data: lastLessonRow } = await supabase
+      .from('lessons')
+      .select('order_num')
+      .eq('course_id', enrollment.course_uuid)
+      .eq('is_last_lesson', true)
+      .maybeSingle()
 
     const completedLessons: number[] = Array.isArray(enrollment.completed_lessons)
       ? enrollment.completed_lessons
       : []
 
+    const plannedTotal: number = lastLessonRow ? lastLessonRow.order_num : (publishedCount ?? 0)
+    const isComplete = lastLessonRow
+      ? completedLessons.includes(lastLessonRow.order_num)
+      : (plannedTotal > 0 && completedLessons.length >= plannedTotal)
+
+    console.log('[certificate/issue] Total lessons:', plannedTotal, lastLessonRow ? '(via marked last lesson)' : '')
     console.log('[certificate/issue] Completed:', completedLessons.length, '/', plannedTotal)
 
-    // Must have completed at least every planned lesson
-    if (plannedTotal === 0 || completedLessons.length < plannedTotal) {
+    if (!isComplete) {
       return NextResponse.json({
         issued: false,
         reason: 'incomplete',
@@ -100,17 +100,20 @@ const effectiveCourseId = enrollment.course_uuid
       })
     }
 
-    // Must have the last published lesson explicitly marked complete (anti-cheat)
-    const lastPublishedOrderNum = publishedLessons?.length
-      ? Math.max(...publishedLessons.map((l: any) => l.order_num))
-      : null
+    // Anti-cheat: the gating lesson must be explicitly marked complete.
+    // When a last lesson is marked, THAT lesson is the gate — extra lessons
+    // published afterward (bonus content, etc.) don't block the certificate.
+    // Otherwise, fall back to the actual last published lesson, as before.
+    const requiredLastLesson = lastLessonRow
+      ? lastLessonRow.order_num
+      : (publishedLessons?.length ? Math.max(...publishedLessons.map((l: any) => l.order_num)) : null)
 
-    if (lastPublishedOrderNum !== null && !completedLessons.includes(lastPublishedOrderNum)) {
+    if (requiredLastLesson !== null && !completedLessons.includes(requiredLastLesson)) {
       return NextResponse.json({
         issued: false,
         reason: 'last_lesson_not_completed',
         message: 'Please complete the final lesson before claiming your certificate.',
-        lastLesson: lastPublishedOrderNum,
+        lastLesson: requiredLastLesson,
         completedLessons,
       })
     }

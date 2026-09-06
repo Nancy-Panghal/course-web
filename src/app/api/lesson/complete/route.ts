@@ -141,30 +141,36 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', enrollment.id)
 
-    if (updateErr) throw updateErr
+        if (updateErr) throw updateErr
 
-    // ── Determine planned lesson total (use courses.total_lessons; fall back to published count) ─
     const { data: courseRow } = await supabase
       .from('courses')
-      .select('total_lessons, name, creator_id, host_name, cert_enabled, cert_template, cert_palette, cert_custom_message, cert_logo_url, cert_signature_url, brand_logo_url, use_logo_on_certificate')
+      .select('name, creator_id, host_name, cert_enabled, cert_template, cert_palette, cert_custom_message, cert_logo_url, cert_signature_url, brand_logo_url, use_logo_on_certificate')
       .eq('id', courseId)
       .maybeSingle()
 
-    // Count only published lessons as the baseline; creator's planned total is the hard gate
+    // Count only published lessons — this is the baseline "course length" now
+    // that manual total_lessons overrides are gone.
     const { count: publishedCount } = await supabase
       .from('lessons')
       .select('*', { count: 'exact', head: true })
       .eq('course_id', courseId)
       .eq('is_published', true)
 
-    // total_lessons is the gatekeeper — must complete ALL planned lessons before completion
-    // If the creator hasn't set a total_lessons, fall back to the published count
-    const plannedTotal: number = (courseRow?.total_lessons && courseRow.total_lessons > 0)
-      ? courseRow.total_lessons
-      : (publishedCount ?? 0)
+    // If the creator has explicitly marked a lesson as the last one, THAT lesson
+    // alone is the certificate gate. Otherwise, every published lesson must be done.
+    const { data: lastLessonRow } = await supabase
+      .from('lessons')
+      .select('order_num')
+      .eq('course_id', courseId)
+      .eq('is_last_lesson', true)
+      .maybeSingle()
 
-    // A student is done only when they've completed every planned lesson
-    const courseCompleted = plannedTotal > 0 && completed.length >= plannedTotal
+    const plannedTotal: number = lastLessonRow ? lastLessonRow.order_num : (publishedCount ?? 0)
+
+    const courseCompleted = lastLessonRow
+      ? completed.includes(lastLessonRow.order_num)
+      : (plannedTotal > 0 && completed.length >= plannedTotal)
 
     let certResult: { certificateId: string; pdfUrl: string } | null = null
 

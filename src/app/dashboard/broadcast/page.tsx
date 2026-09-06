@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
+import LessonMessagesWidget from '@/components/LessonMessagesWidget'
 import {
   Send, Clock, Users, CheckCircle2, XCircle,
   ChevronDown, Megaphone, AlertCircle, BookOpen,
@@ -460,8 +461,14 @@ export default function BroadcastPage() {
               })}
               </div>
             </div>
-          )}
+                    )}
         </div>
+
+        {selectedCourse && (
+          <div className="mt-6">
+            <LessonMessagesWidget courseId={selectedCourse} token={token} />
+          </div>
+        )}
 
       </main>
     </div>
