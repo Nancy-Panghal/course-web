@@ -79,6 +79,18 @@ export async function renumberLessons(
     .filter((u, i) => lessons[i].order_num !== u.order_num)
 
   await applyLessonReorder(supabase, updates)
+
+  // A pending "next lesson" message (one with no real lesson row yet)
+  // points at a bare number. If an earlier lesson just got deleted,
+  // everything shifted down — so re-point it at the true next slot
+  // instead of letting it silently go stale.
+  const trueNextNumber = lessons.length + 1
+  await supabase
+    .from('lesson_messages')
+    .update({ pending_lesson_number: trueNextNumber })
+    .eq('course_id', courseId)
+    .is('lesson_id', null)
+    .not('pending_lesson_number', 'is', null)
 }
 
 /**
