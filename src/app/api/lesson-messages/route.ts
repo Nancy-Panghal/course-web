@@ -83,7 +83,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: lessonsError.message }, { status: 500 })
     }
 
-    const lessonsById = new Map((lessons || []).map(l => [l.id, l]))
+        const lessonsById = new Map((lessons || []).map(l => [l.id, l]))
+    const lessonsByOrderNum = new Map((lessons || []).map(l => [l.order_num, l]))
 
     const { data: messages, error: messagesError } = await supabase
       .from('lesson_messages')
@@ -97,11 +98,19 @@ export async function GET(req: NextRequest) {
 
     const visible = (messages || []).filter(m => {
       if (m.message_type !== 'availability') return true
-      if (!m.lesson_id) return true // pending "next lesson" slot — no real lesson to check yet
-      const lesson = lessonsById.get(m.lesson_id)
-      if (!lesson) return true // lesson gone (shouldn't happen — cascade would've deleted the row too)
-      return !isLessonAvailable(lesson as LessonAvailabilityInput)
+      if (m.lesson_id) {
+        const lesson = lessonsById.get(m.lesson_id)
+        if (!lesson) return true // lesson gone (shouldn't happen — cascade would've deleted the row too)
+        return !isLessonAvailable(lesson as LessonAvailabilityInput)
+      }
+      // Pending "next lesson" slot — a real lesson may have been created and
+      // published at this order_num since the message was set. If so, this
+      // message is stale and should disappear just like the lesson_id case.
+      const nowRealLesson = lessonsByOrderNum.get(m.pending_lesson_number)
+      if (!nowRealLesson) return true
+      return !isLessonAvailable(nowRealLesson as LessonAvailabilityInput)
     })
+
 
     const enriched = visible.map(m => {
       const lesson = m.lesson_id ? lessonsById.get(m.lesson_id) : null

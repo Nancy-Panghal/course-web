@@ -3564,11 +3564,21 @@ export default function CourseManagePage({
                 </div>
 
 
-                <LandingSectionToggle
+                                <LandingSectionToggle
                   type="curriculum"
                   label="Show lesson names & modules name on your landing page."
                 />
 
+                {/* Keep students engaged while you're still uploading */}
+                <p className="text-sm mb-6" style={{ color: '#fff' }}>
+                  Haven&apos;t uploaded or published all your lessons yet?{' '}
+                  <span style={{ color: 'var(--kurso-hint)' }}>
+                    Set a message for when the next lesson will be available, so students aren&apos;t left guessing and stay engaged. For example, if you&apos;ve published lessons 1–5 and are still working on more, go set an availability message for Lesson 6. If some of 1–5 aren&apos;t published yet instead, add a note for the first unpublished one telling students when it&apos;ll be ready.
+                  </span>{' '}
+                  <Link href="/dashboard/broadcast" className="underline" style={{ color: 'var(--kurso-hint)' }}>
+                    Go to Broadcast to set it up →
+                  </Link>
+                </p>
 
                 {/* Lesson list */}
                 {lessons.length === 0 && modules.length === 0 ? (

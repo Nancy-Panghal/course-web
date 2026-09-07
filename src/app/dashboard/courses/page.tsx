@@ -22,8 +22,8 @@ interface Course {
   created_at: string
   host_name?: string
   scheduled_deletion_at?: string
+  uses_external_landing_page?: boolean
 }
-
 const deliveryIcon: Record<string, any> = {
   web: Monitor,
   whatsapp: MessageCircle,
@@ -48,7 +48,7 @@ export default function CoursesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-        const { data } = await supabase
+    const { data } = await supabase
       .from('courses')
       .select('*, lessons(count)')
       .eq('creator_id', user.id)
@@ -72,7 +72,7 @@ export default function CoursesPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-white mb-1">Courses</h1>
-            <p className="text-sm" style={{color:'#a1a1aa'}}>
+            <p className="text-sm" style={{ color: '#a1a1aa' }}>
               {courses.length} course{courses.length !== 1 ? 's' : ''} created
             </p>
           </div>
@@ -89,13 +89,13 @@ export default function CoursesPage() {
           </div>
         ) : courses.length === 0 ? (
           <div className="rounded-2xl p-16 text-center glass"
-            style={{border:'1px solid rgba(255,255,255,0.06)'}}>
+            style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{background:'rgba(var(--kurso-primary-rgb), 0.1)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
-              <BookOpen className="w-8 h-8" style={{color:'var(--kurso-primary-light)'}} />
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.1)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+              <BookOpen className="w-8 h-8" style={{ color: 'var(--kurso-primary-light)' }} />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">No courses yet</h3>
-            <p className="text-sm mb-6" style={{color:'#a1a1aa'}}>
+            <p className="text-sm mb-6" style={{ color: '#a1a1aa' }}>
               Create your first course and start delivering it to students.
             </p>
             <Link href="/dashboard/courses/create"
@@ -127,36 +127,36 @@ export default function CoursesPage() {
                         <h3 className="font-semibold text-white truncate">{course.name}</h3>
                         {course.is_published ? (
                           <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
-                            style={{background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.2)'}}>
+                            style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}>
                             Live
                           </span>
                         ) : (
                           <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
-                            style={{background:'rgba(255,255,255,0.05)', color:'#52525b', border:'1px solid rgba(255,255,255,0.08)'}}>
+                            style={{ background: 'rgba(255,255,255,0.05)', color: '#52525b', border: '1px solid rgba(255,255,255,0.08)' }}>
                             Draft
                           </span>
                         )}
                       </div>
-                      <p className="text-sm truncate" style={{color:'#a1a1aa'}}>{course.description}</p>
+                      <p className="text-sm truncate" style={{ color: '#a1a1aa' }}>{course.description}</p>
                     </div>
                   </div>
 
                   {/* Stats */}
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="rounded-xl p-3 text-center"
-                      style={{background:'rgba(255,255,255,0.03)'}}>
+                      style={{ background: 'rgba(255,255,255,0.03)' }}>
                       <p className="text-lg font-bold gradient-text">₹{course.price.toLocaleString()}</p>
-                      <p className="text-xs" style={{color:'#52525b'}}>Price</p>
+                      <p className="text-xs" style={{ color: '#52525b' }}>Price</p>
                     </div>
                     <div className="rounded-xl p-3 text-center"
-                      style={{background:'rgba(255,255,255,0.03)'}}>
+                      style={{ background: 'rgba(255,255,255,0.03)' }}>
                       <p className="text-lg font-bold text-white">{course.total_lessons}</p>
-                      <p className="text-xs" style={{color:'#52525b'}}>Lessons</p>
+                      <p className="text-xs" style={{ color: '#52525b' }}>Lessons</p>
                     </div>
                     <div className="rounded-xl p-3 text-center"
-                      style={{background:'rgba(255,255,255,0.03)'}}>
-                      <DeliveryIcon className="w-5 h-5 mx-auto mb-0.5" style={{color:'var(--kurso-primary-light)'}} />
-                      <p className="text-xs" style={{color:'#52525b'}}>{deliveryLabel[course.delivery]}</p>
+                      style={{ background: 'rgba(255,255,255,0.03)' }}>
+                      <DeliveryIcon className="w-5 h-5 mx-auto mb-0.5" style={{ color: 'var(--kurso-primary-light)' }} />
+                      <p className="text-xs" style={{ color: '#52525b' }}>{deliveryLabel[course.delivery]}</p>
                     </div>
                   </div>
 
@@ -164,20 +164,22 @@ export default function CoursesPage() {
                   <div className="flex gap-2">
                     <Link href={`/dashboard/courses/${course.id}`}
                       className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all"
-                      style={{background:'rgba(var(--kurso-primary-rgb), 0.15)', color:'var(--kurso-primary-light)', border:'1px solid rgba(var(--kurso-primary-rgb), 0.2)'}}>
+                      style={{ background: 'rgba(var(--kurso-primary-rgb), 0.15)', color: 'var(--kurso-primary-light)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
                       <BookOpen className="w-4 h-4" />
                       Manage
                     </Link>
-                    <Link href={`/dashboard/analytics/${course.id}`}
+                                        <Link href={`/dashboard/analytics/${course.id}`}
                       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all"
                       style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa', border:'1px solid rgba(255,255,255,0.08)'}}>
                       <BarChart3 className="w-4 h-4" />
                     </Link>
-                    <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all"
-                      style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
-                      <ExternalLink className="w-4 h-4" />
-                    </Link>
+                    {!course.uses_external_landing_page && (
+                      <Link href={`/about-course/${slugify(course.host_name || 'instructor')}/${slugify(course.name)}/${course.id}`} target="_blank"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all"
+                        style={{background:'rgba(255,255,255,0.05)', color:'#a1a1aa'}}>
+                        <ExternalLink className="w-4 h-4" />
+                      </Link>
+                    )}
                   </div>
                 </div>
               )
