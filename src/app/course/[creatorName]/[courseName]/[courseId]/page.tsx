@@ -519,12 +519,9 @@ export default function CourseLearnPage() {
   const effectiveDeliveryMethod = (isEnrolled ? (enrollment?.delivery_method || course?.delivery) : course?.delivery) || 'both'
   const telegramDeliveryAllowed = effectiveDeliveryMethod === 'telegram' || effectiveDeliveryMethod === 'both'
   const whatsappDeliveryAllowed = effectiveDeliveryMethod === 'whatsapp' || effectiveDeliveryMethod === 'both'
-  // A creator-marked "last lesson" overrides the old total_lessons math entirely,
-  // matching the same rule the server enforces in /api/lesson/complete and
-  // /api/certificate/issue.
-  const allDone = lastLesson
-    ? completed.includes(lastLesson.order_num)
-    : (plannedTotal > 0 && remainingPlanned === 0 && completed.length >= plannedTotal)
+    // Certificate eligibility requires an explicit "last lesson" mark — no
+  // implicit completion just from finishing every published lesson.
+  const allDone = !!lastLesson && completed.includes(lastLesson.order_num)
   const currentQuizResult = quizResults.find(r => r.lessonId === currentLesson?.id)
 
 
@@ -549,7 +546,7 @@ export default function CourseLearnPage() {
     let refreshTimer: ReturnType<typeof setTimeout> | null = null
     let cancelled = false
 
-    function load() {
+        function load(attempt = 0) {
       getSignedContentUrl(currentLesson!.id, type)
         .then(({ url, expiresAt }) => {
           if (cancelled) return
@@ -561,7 +558,17 @@ export default function CourseLearnPage() {
             if (msLeft > 0) refreshTimer = setTimeout(load, msLeft)
           }
         })
-        .catch(() => { if (!cancelled) setLoadingContent(false) })
+        .catch(() => {
+          if (cancelled) return
+          // First failure is very often the Supabase client's session not
+          // having finished hydrating yet on a fresh page load (not a real
+          // network/auth problem) — retry once, shortly, before giving up.
+          if (attempt < 1) {
+            setTimeout(() => { if (!cancelled) load(attempt + 1) }, 900)
+            return
+          }
+          setLoadingContent(false)
+        })
     }
     load()
 

@@ -166,11 +166,11 @@ export async function POST(req: NextRequest) {
       .eq('is_last_lesson', true)
       .maybeSingle()
 
-    const plannedTotal: number = lastLessonRow ? lastLessonRow.order_num : (publishedCount ?? 0)
+        const plannedTotal: number = lastLessonRow ? lastLessonRow.order_num : (publishedCount ?? 0)
 
-    const courseCompleted = lastLessonRow
-      ? completed.includes(lastLessonRow.order_num)
-      : (plannedTotal > 0 && completed.length >= plannedTotal)
+    // Certificate eligibility now requires an explicit "last lesson" mark —
+    // no more implicit completion just from finishing every published lesson.
+    const courseCompleted = !!lastLessonRow && completed.includes(lastLessonRow.order_num)
 
     let certResult: { certificateId: string; pdfUrl: string } | null = null
 

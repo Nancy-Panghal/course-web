@@ -83,11 +83,12 @@ const effectiveCourseId = enrollment.course_uuid
       ? enrollment.completed_lessons
       : []
 
-    const plannedTotal: number = lastLessonRow ? lastLessonRow.order_num : (publishedCount ?? 0)
-    const isComplete = lastLessonRow
-      ? completedLessons.includes(lastLessonRow.order_num)
-      : (plannedTotal > 0 && completedLessons.length >= plannedTotal)
+       const plannedTotal: number = lastLessonRow ? lastLessonRow.order_num : (publishedCount ?? 0)
 
+    // Certificate eligibility now requires an explicit "last lesson" mark —
+    // no more implicit completion just from finishing every published lesson.
+    const isComplete = !!lastLessonRow && completedLessons.includes(lastLessonRow.order_num)
+    
     console.log('[certificate/issue] Total lessons:', plannedTotal, lastLessonRow ? '(via marked last lesson)' : '')
     console.log('[certificate/issue] Completed:', completedLessons.length, '/', plannedTotal)
 
