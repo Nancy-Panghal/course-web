@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
+import { normalizePhone } from '@/lib/phone'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +27,8 @@ export async function POST(req: NextRequest) {
     if (userErr || !userData.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const creatorId = userData.user.id
 
-    const { courseId, name, phone, telegramUsername } = await req.json()
+    const { courseId, name, phone: rawPhone, telegramUsername } = await req.json()
+    const phone = normalizePhone(rawPhone) || rawPhone || null
     if (!courseId || (!phone && !telegramUsername)) {
       return NextResponse.json({ error: 'Enter at least a phone number or Telegram username.' }, { status: 400 })
     }
@@ -125,15 +127,15 @@ export async function POST(req: NextRequest) {
       const { error: updateErr } = await supabase
         .from('enrollments')
         .update({
-  student_id: testStudent.id,
-  phone: phone || null,
-  certificate_student_name: name || null,
-  payment_id: existing.payment_id === 'TEST'
-    ? testPaymentId
-    : existing.payment_id,
-  delivery_method:
-    existing.delivery_method || course.delivery || 'both',
-})
+          student_id: testStudent.id,
+          phone: phone || null,
+          certificate_student_name: name || null,
+          payment_id: existing.payment_id === 'TEST'
+            ? testPaymentId
+            : existing.payment_id,
+          delivery_method:
+            existing.delivery_method || course.delivery || 'both',
+        })
         .eq('id', existing.id)
 
       if (updateErr) throw updateErr

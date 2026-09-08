@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { Users, Search, Phone, BookOpen, Calendar, TrendingUp, RotateCcw } from 'lucide-react'
+import { Users, Search, Phone, BookOpen, Calendar, TrendingUp, RotateCcw, Upload, X, FileText, CheckCircle2, AlertCircle } from 'lucide-react'
 
 interface Student {
   id: string
@@ -25,11 +25,23 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('')
   const [refundMessage, setRefundMessage] = useState<{ id: string; text: string; ok: boolean } | null>(null)
 
-  const [refundModalStudent, setRefundModalStudent] = useState<Student | null>(null)
+    const [refundModalStudent, setRefundModalStudent] = useState<Student | null>(null)
   const [refundDetails, setRefundDetails] = useState<{ provider: string; netAmount: number; alreadyRefunded: number; refundable: number } | null>(null)
   const [refundDetailsLoading, setRefundDetailsLoading] = useState(false)
   const [refundDetailsError, setRefundDetailsError] = useState('')
   const [refundMode, setRefundMode] = useState<'full' | 'partial'>('full')
+
+  // ── CSV migration import ──────────────────────────────────────────
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importCourses, setImportCourses] = useState<{ id: string; name: string }[]>([])
+  const [importCourseId, setImportCourseId] = useState('')
+  const [importFileName, setImportFileName] = useState('')
+  const [importRows, setImportRows] = useState<Record<string, string>[]>([])
+  const [importParseError, setImportParseError] = useState('')
+  const [sendWebInvite, setSendWebInvite] = useState(true)
+  const [importing, setImporting] = useState(false)
+  const [importSummary, setImportSummary] = useState<{ total: number; created: number; updated: number; skipped: number; failed: number } | null>(null)
+  const [importResults, setImportResults] = useState<Array<{ row: number; status: string; reason?: string; name?: string; identifier?: string }>>([])
   const [refundAmountInput, setRefundAmountInput] = useState('')
   const [refundReason, setRefundReason] = useState('')
   const [refundSubmitting, setRefundSubmitting] = useState(false)
@@ -102,25 +114,30 @@ export default function StudentsPage() {
     }
   }
 
-  useEffect(() => {
     async function fetchData() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-      const [{ data: s }, { data: l }] = await Promise.all([
-        supabase
-          .from('enrollments')
-          .select('*')
-          .eq('creator_id', user.id)
-          .eq('is_test', false)
-          .order('enrolled_at', { ascending: false }),
-        supabase.from('lessons').select('order_num, title').order('order_num'),
-      ])
-      setStudents(s || [])
-      setLessons(l || [])
-      setLoading(false)
-    }
+    const [{ data: s }, { data: l }, { data: c }] = await Promise.all([
+      supabase
+        .from('enrollments')
+        .select('*')
+        .eq('creator_id', user.id)
+        .eq('is_test', false)
+        .order('enrolled_at', { ascending: false }),
+      supabase.from('lessons').select('order_num, title').order('order_num'),
+      supabase.from('courses').select('id, name').eq('creator_id', user.id).order('created_at', { ascending: false }),
+    ])
+    setStudents(s || [])
+    setLessons(l || [])
+    setImportCourses(c || [])
+    if (!importCourseId && c && c.length > 0) setImportCourseId(c[0].id)
+    setLoading(false)
+  }
+
+  useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const totalLessons = lessons.length
@@ -136,10 +153,149 @@ export default function StudentsPage() {
     return lesson ? lesson.title : currentLesson > totalLessons ? 'Completed ✓' : 'Not started'
   }
 
-  function getStatusColor(currentLesson: number) {
+    function getStatusColor(currentLesson: number) {
     if (currentLesson > totalLessons) return { bg: 'rgba(74,222,128,0.1)', color: '#4ade80', label: 'Completed' }
     if (currentLesson === 1) return { bg: 'rgba(250,204,21,0.1)', color: '#facc15', label: 'Just started' }
     return { bg: 'rgba(139,92,246,0.1)', color: 'var(--kurso-primary-light)', label: 'In progress' }
+  }
+
+  // ── CSV migration import ──────────────────────────────────────────
+  // Minimal dependency-free CSV parser — handles quoted fields (so a name
+  // like "Sharma, Rahul" or a field containing a comma doesn't break the
+  // column count) and both \n and \r\n line endings.
+  function parseCsv(text: string): Record<string, string>[] {
+    const rows: string[][] = []
+    let field = ''
+    let row: string[] = []
+    let inQuotes = false
+    const src = text.replace(/\r\n/g, '\n')
+
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i]
+      if (inQuotes) {
+        if (ch === '"') {
+          if (src[i + 1] === '"') { field += '"'; i++ } else { inQuotes = false }
+        } else {
+          field += ch
+        }
+      } else if (ch === '"') {
+        inQuotes = true
+      } else if (ch === ',') {
+        row.push(field); field = ''
+      } else if (ch === '\n') {
+        row.push(field); field = ''
+        rows.push(row); row = []
+      } else {
+        field += ch
+      }
+    }
+    if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row) }
+
+    const nonEmptyRows = rows.filter(r => r.some(c => c.trim() !== ''))
+    if (nonEmptyRows.length < 1) return []
+
+    const header = nonEmptyRows[0].map(h => h.trim().toLowerCase())
+    const colIndex = (...aliases: string[]) => header.findIndex(h => aliases.includes(h))
+    const idx = {
+      name: colIndex('name', 'student name', 'full name'),
+      phone: colIndex('phone', 'phone number', 'mobile', 'whatsapp'),
+      email: colIndex('email', 'email address'),
+      amountPaid: colIndex('amountpaid', 'amount paid', 'amount', 'price paid'),
+      enrolledAt: colIndex('enrolledat', 'enrolled at', 'enrollment date', 'date'),
+    }
+
+    return nonEmptyRows.slice(1).map(cols => ({
+      name: idx.name >= 0 ? (cols[idx.name] || '').trim() : '',
+      phone: idx.phone >= 0 ? (cols[idx.phone] || '').trim() : '',
+      email: idx.email >= 0 ? (cols[idx.email] || '').trim() : '',
+      amountPaid: idx.amountPaid >= 0 ? (cols[idx.amountPaid] || '').trim() : '',
+      enrolledAt: idx.enrolledAt >= 0 ? (cols[idx.enrolledAt] || '').trim() : '',
+    }))
+  }
+
+  function openImportModal() {
+    setImportFileName('')
+    setImportRows([])
+    setImportParseError('')
+    setImportSummary(null)
+    setImportResults([])
+    setSendWebInvite(true)
+    setShowImportModal(true)
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportFileName(file.name)
+    setImportSummary(null)
+    setImportResults([])
+    setImportParseError('')
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const text = String(reader.result || '')
+        const parsed = parseCsv(text)
+        if (parsed.length === 0) {
+          setImportParseError('Could not find any rows in this file. Make sure it has a header row with at least a Phone or Email column.')
+          setImportRows([])
+          return
+        }
+        const missingIdentifier = parsed.filter(r => !r.phone && !r.email).length
+        if (missingIdentifier === parsed.length) {
+          setImportParseError('No row has a Phone or Email value — at least one is required per student.')
+          setImportRows([])
+          return
+        }
+        setImportRows(parsed)
+      } catch {
+        setImportParseError('Could not read this file. Please make sure it is a plain CSV export.')
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  function downloadSampleCsv() {
+    const sample = 'Name,Phone,Email,AmountPaid,EnrolledAt\nRahul Sharma,9876543210,rahul@gmail.com,999,2025-01-15\nAnanya Sen,9812345678,,499,\n'
+    const blob = new Blob([sample], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'kurso-student-import-sample.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function submitImport() {
+    if (!importCourseId || importRows.length === 0) return
+    setImporting(true)
+    setImportSummary(null)
+    setImportResults([])
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { setImportParseError('Not signed in.'); setImporting(false); return }
+
+      const res = await fetch('/api/creator/students/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ courseId: importCourseId, rows: importRows, sendWebInvite }),
+      })
+      const d = await res.json()
+      if (!res.ok) {
+        setImportParseError(d.error || 'Import failed. Please try again.')
+        setImporting(false)
+        return
+      }
+      setImportSummary(d.summary)
+      setImportResults(d.results || [])
+      await fetchData()
+    } catch {
+      setImportParseError('Network error. Please try again.')
+    } finally {
+      setImporting(false)
+    }
   }
 
   return (
@@ -156,19 +312,27 @@ export default function StudentsPage() {
             </p>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by phone..."
-              className="pl-10 pr-4 py-2.5 rounded-xl text-sm text-white outline-none w-64"
-              style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
-              onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
-              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-            />
+                    {/* Search + Import */}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'#52525b'}} />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search by phone..."
+                className="pl-10 pr-4 py-2.5 rounded-xl text-sm text-white outline-none w-64"
+                style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}
+                onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+              />
+            </div>
+            <button onClick={openImportModal}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 whitespace-nowrap"
+              style={{background:'var(--kurso-primary)'}}>
+              <Upload className="w-4 h-4" />
+              Import Students
+            </button>
           </div>
         </div>
 
@@ -419,13 +583,143 @@ export default function StudentsPage() {
                           {refundSubmitting ? 'Processing...' : 'Issue refund'}
                         </button>
                       </div>
-                      <p className="text-[10px] text-center mt-3" style={{ color: '#3f3f46' }}>
+                                            <p className="text-[10px] text-center mt-3" style={{ color: '#3f3f46' }}>
                         This calls your {refundDetails.provider} account directly — the money moves immediately and cannot be undone from here.
                       </p>
                     </>
                   )}
                 </>
               ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import Students (migration) modal ────────────────────────── */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-xl rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)' }}>
+
+            <div className="flex items-center justify-between px-5 py-4"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="text-white font-semibold">Import students from another platform</h3>
+              <button onClick={() => setShowImportModal(false)} style={{ color: '#71717a' }}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto">
+              <p className="text-sm mb-4" style={{ color: '#a1a1aa' }}>
+                Upload a CSV of students who already paid you elsewhere. They'll get zero-friction
+                paid access on Kurso — no re-payment, no button to enroll again.
+              </p>
+
+              {/* Course selector */}
+              <label className="text-xs mb-1.5 block" style={{ color: '#a1a1aa' }}>Which course are these students enrolled in?</label>
+              <select value={importCourseId} onChange={e => setImportCourseId(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none mb-4"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {importCourses.length === 0 && <option value="">No courses found</option>}
+                {importCourses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+
+              {/* File input */}
+              <label className="text-xs mb-1.5 block" style={{ color: '#a1a1aa' }}>CSV file</label>
+              <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer mb-2"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                <FileText className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--kurso-primary-light)' }} />
+                <span className="text-sm text-white truncate">{importFileName || 'Choose a .csv file...'}</span>
+                <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileSelect} />
+              </label>
+              <button onClick={downloadSampleCsv} className="text-xs mb-4 hover:opacity-80"
+                style={{ color: 'var(--kurso-primary-light)' }}>
+                Download sample CSV format
+              </button>
+
+              {importParseError && (
+                <div className="p-3 rounded-xl text-sm mb-4 flex items-start gap-2"
+                  style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{importParseError}</span>
+                </div>
+              )}
+
+              {importRows.length > 0 && !importSummary && (
+                <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-sm text-white mb-1">{importRows.length} student{importRows.length !== 1 ? 's' : ''} found in this file</p>
+                  <p className="text-xs" style={{ color: '#71717a' }}>
+                    Preview: {importRows.slice(0, 3).map(r => r.name || r.phone || r.email).filter(Boolean).join(', ')}
+                    {importRows.length > 3 ? '…' : ''}
+                  </p>
+                </div>
+              )}
+
+              {/* Web login invite toggle */}
+              <label className="flex items-start gap-2.5 mb-4 cursor-pointer">
+                <input type="checkbox" checked={sendWebInvite} onChange={e => setSendWebInvite(e.target.checked)}
+                  className="mt-0.5" />
+                <span className="text-xs" style={{ color: '#a1a1aa' }}>
+                  Also email a "set your password" link to rows that include an email address, so they can
+                  log in on kurso.in directly. WhatsApp/Telegram access works either way and doesn't need this.
+                </span>
+              </label>
+
+              {/* Results */}
+              {importSummary && (
+                <div className="mb-4">
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {[
+                      { label: 'Created', value: importSummary.created, color: '#4ade80' },
+                      { label: 'Updated', value: importSummary.updated, color: '#3b82f6' },
+                      { label: 'Skipped', value: importSummary.skipped, color: '#facc15' },
+                      { label: 'Failed', value: importSummary.failed, color: '#f87171' },
+                    ].map(s => (
+                      <div key={s.label} className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                        <div className="text-lg font-bold" style={{ color: s.color }}>{s.value}</div>
+                        <div className="text-[10px]" style={{ color: '#71717a' }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {importResults.filter(r => r.status === 'failed' || r.status === 'skipped').length > 0 && (
+                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="max-h-40 overflow-y-auto">
+                        {importResults.filter(r => r.status === 'failed' || r.status === 'skipped').map(r => (
+                          <div key={r.row} className="flex items-center gap-2 px-3 py-2 text-xs"
+                            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                            {r.status === 'failed'
+                              ? <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#f87171' }} />
+                              : <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#facc15' }} />}
+                            <span style={{ color: '#a1a1aa' }}>Row {r.row} ({r.name || r.identifier || 'unknown'}): {r.reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {importSummary.created + importSummary.updated > 0 && (
+                    <div className="flex items-center gap-2 mt-3 text-xs" style={{ color: '#4ade80' }}>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      {importSummary.created + importSummary.updated} student{importSummary.created + importSummary.updated !== 1 ? 's' : ''} now have paid access — they can message your WhatsApp/Telegram bot right away.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 p-5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => setShowImportModal(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                {importSummary ? 'Close' : 'Cancel'}
+              </button>
+              {!importSummary && (
+                <button onClick={submitImport} disabled={importing || importRows.length === 0 || !importCourseId}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                  style={{ background: 'var(--kurso-primary)' }}>
+                  {importing ? 'Importing...' : `Import ${importRows.length || ''} student${importRows.length !== 1 ? 's' : ''}`}
+                </button>
+              )}
             </div>
           </div>
         </div>

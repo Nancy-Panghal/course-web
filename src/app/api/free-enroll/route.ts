@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendLoggedEmail, escapeHtml } from '@/lib/email';
 import { slugify } from '@/lib/utils';
+import { normalizePhone } from '@/lib/phone';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,14 +17,15 @@ async function firstRow(query: any): Promise<any | null> {
 
 export async function POST(req: NextRequest) {
   try {
-    const {
+       const {
       courseId,
       studentId,
       studentEmail,
       studentName,
-      studentPhone,
+      studentPhone: rawStudentPhone,
       couponCode,
     } = await req.json();
+    const studentPhone = normalizePhone(rawStudentPhone) || rawStudentPhone || null;
 
     if (!courseId) {
       return NextResponse.json({ error: 'Missing course ID' }, { status: 400 });
