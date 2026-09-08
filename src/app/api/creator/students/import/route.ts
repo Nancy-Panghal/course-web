@@ -168,6 +168,8 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
     const creatorName = creatorProfile?.name || course.host_name || 'Your instructor'
     const effectiveDeliveryMethod = course.delivery || 'both'
+    const creatorId = creator.id
+    const courseName = course.name
 
     async function processRow(raw: ImportRow, index: number): Promise<RowResult> {
       const rowNum = index + 1
@@ -266,7 +268,7 @@ export async function POST(req: NextRequest) {
           if (email && sendWebInvite) {
             await provisionWebAccountAndNotify({
               email, name: name || '', phone: normalizedPhone, courseId,
-              courseName: course.name, creatorId: creator.id, creatorName,
+              courseName, creatorId, creatorName,
             }).catch(() => null)
           }
 
@@ -275,7 +277,7 @@ export async function POST(req: NextRequest) {
 
         const { error: insertEnrollErr } = await supabase.from('enrollments').insert({
           course_uuid: courseId,
-          creator_id: creator.id,
+          creator_id: creatorId,
           student_id: student.id,
           phone: phoneOrEmail,
           certificate_student_name: name,
@@ -309,7 +311,7 @@ export async function POST(req: NextRequest) {
         if (email && sendWebInvite) {
           await provisionWebAccountAndNotify({
             email, name: name || '', phone: normalizedPhone, courseId,
-            courseName: course.name, creatorId: creator.id, creatorName,
+            courseName, creatorId, creatorName,
           }).catch(() => null)
         }
 
