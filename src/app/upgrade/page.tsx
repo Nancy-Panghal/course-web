@@ -70,8 +70,101 @@ export default function UpgradePage() {
   const [refundRequesting, setRefundRequesting] = useState(false)
   const [refundMessage, setRefundMessage] = useState('')
   const [extRequests, setExtRequests] = useState<any[]>([])
-  const [extRequesting, setExtRequesting] = useState(false)
+    const [extRequesting, setExtRequesting] = useState(false)
   const [extMessage, setExtMessage] = useState<{ text: string; isError: boolean } | null>(null)
+
+  // ── Pay As You Earn (revenue share) ──────────────────────────────
+  const [revShareAgreement, setRevShareAgreement] = useState<any>(null)
+  const [revShareInvoices, setRevShareInvoices] = useState<any[]>([])
+  const [revShareWaiverRequests, setRevShareWaiverRequests] = useState<any[]>([])
+  const [enrollingRevShare, setEnrollingRevShare] = useState(false)
+  const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null)
+  const [waiverReasonDraft, setWaiverReasonDraft] = useState<Record<string, string>>({})
+  const [submittingWaiverFor, setSubmittingWaiverFor] = useState<string | null>(null)
+  const [revShareMessage, setRevShareMessage] = useState<{ text: string; isError: boolean } | null>(null)
+
+  async function loadRevenueShare() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    const [agreementRes, waiverRes] = await Promise.all([
+      fetch('/api/creator/revenue-share', { headers: { Authorization: `Bearer ${session.access_token}` } }),
+      fetch('/api/creator/revenue-share/waiver-request', { headers: { Authorization: `Bearer ${session.access_token}` } }),
+    ])
+    if (agreementRes.ok) {
+      const d = await agreementRes.json()
+      setRevShareAgreement(d.agreement || null)
+      setRevShareInvoices(d.invoices || [])
+    }
+    if (waiverRes.ok) {
+      const d = await waiverRes.json()
+      setRevShareWaiverRequests(d.requests || [])
+    }
+  }
+
+  async function enrollRevenueShare() {
+    setEnrollingRevShare(true)
+    setRevShareMessage(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Please log in again.')
+      const res = await fetch('/api/creator/revenue-share', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Could not activate Pay As You Earn.')
+      setSuccess('Pay As You Earn is active — WhatsApp and Telegram delivery are unlocked now, no upfront cost.')
+      await loadRevenueShare()
+    } catch (err: any) {
+      setRevShareMessage({ text: err.message, isError: true })
+    } finally {
+      setEnrollingRevShare(false)
+    }
+  }
+
+  async function payRevenueShareInvoice(invoiceId: string) {
+    setPayingInvoiceId(invoiceId)
+    setRevShareMessage(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Please log in again.')
+      const orderRes = await fetch('/api/creator/revenue-share/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ invoiceId }),
+      })
+      const data = await orderRes.json()
+      if (data.error) throw new Error(data.error)
+
+      const cashfree = await loadCashfreeSdk()
+      await cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: '_self' })
+    } catch (err: any) {
+      setRevShareMessage({ text: err.message, isError: true })
+      setPayingInvoiceId(null)
+    }
+  }
+
+  async function requestRevenueShareWaiver(invoiceId: string) {
+    setSubmittingWaiverFor(invoiceId)
+    setRevShareMessage(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Please log in again.')
+      const res = await fetch('/api/creator/revenue-share/waiver-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ invoiceId, reason: waiverReasonDraft[invoiceId] || '' }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Could not submit the request.')
+      setRevShareMessage({ text: 'Request sent — your course stays live while we review it.', isError: false })
+      await loadRevenueShare()
+    } catch (err: any) {
+      setRevShareMessage({ text: err.message, isError: true })
+    } finally {
+      setSubmittingWaiverFor(null)
+    }
+  }
 
   async function loadPaymentsAndSubscription(creatorId: string) {
     const { data: paymentRows } = await supabase
@@ -157,9 +250,10 @@ export default function UpgradePage() {
       }
       const profile = await getCreatorProfile()
       setCreator(profile)
-      if (profile?.id) {
+            if (profile?.id) {
         await loadPaymentsAndSubscription(profile.id)
       }
+      await loadRevenueShare()
       setLoading(false)
     }
     load()
@@ -244,9 +338,10 @@ export default function UpgradePage() {
       setCheckingStatus(false)
       if (status === 'active' || status === 'success') {
         const profile = await getCreatorProfile()
-        setCreator(profile)
-        setSuccess('Successfully upgraded! Your academy is now fully active.')
+                setCreator(profile)
+        setSuccess('Successfully upgraded! Your courses are now fully active.')
         if (profile?.id) await loadPaymentsAndSubscription(profile.id)
+        await loadRevenueShare()
       } else {
         setError('We could not confirm this payment yet. If money was deducted, it will reflect within a few minutes — refresh this page, or contact support if it does not.')
       }
@@ -509,6 +604,98 @@ export default function UpgradePage() {
               </div>
             )
           })}
+        </div>
+
+                {/* Pay As You Earn */}
+        <div className="rounded-2xl p-8 mb-12 relative overflow-hidden"
+          style={{ border: '1px solid rgba(247,149,20,0.35)', background: 'rgba(247,149,20,0.04)' }}>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-2">
+            <div>
+              <span className="inline-block text-xs font-bold px-3 py-1 rounded-full mb-3"
+                style={{ background: 'var(--kurso-primary)', color: '#fff' }}>
+                ZERO RISK
+              </span>
+              <h2 className="text-2xl font-bold text-white mb-2">Pay As You Earn</h2>
+              <p className="text-sm max-w-lg" style={{ color: '#a1a1aa' }}>
+                0 upfront, 5% of what you collect (6.5% beyond 300 active students) — billed monthly,
+                only in months you actually earn something.
+              </p>
+            </div>
+            {revShareAgreement?.status === 'active' ? (
+              <div className="text-xs font-semibold px-4 py-2 rounded-xl flex-shrink-0" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}>
+                ✓ Active — full delivery unlocked
+              </div>
+            ) : (
+              <button onClick={enrollRevenueShare} disabled={enrollingRevShare}
+                className="px-6 py-3 rounded-xl font-semibold text-white text-sm disabled:opacity-50 flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))' }}>
+                {enrollingRevShare ? 'Activating...' : 'Switch to Pay As You Earn'}
+              </button>
+            )}
+          </div>
+
+          {revShareMessage && (
+            <p className="text-xs mb-2" style={{ color: revShareMessage.isError ? '#f87171' : '#4ade80' }}>{revShareMessage.text}</p>
+          )}
+
+          {revShareAgreement?.status === 'active' && (
+            <div className="mt-6">
+              <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#71717a' }}>Your invoices</div>
+              {revShareInvoices.length === 0 ? (
+                <p className="text-sm" style={{ color: '#71717a' }}>Nothing yet — your first invoice appears after your first full month.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {revShareInvoices.map(inv => {
+                    const monthLabel = new Date(inv.period_start).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+                    const pendingWaiver = revShareWaiverRequests.find(w => w.invoice_id === inv.id && w.status === 'pending')
+                    const statusStyle: Record<string, { bg: string; color: string; label: string }> = {
+                      pending: { bg: 'rgba(250,204,21,0.1)', color: '#facc15', label: 'Due' },
+                      not_due: { bg: 'rgba(255,255,255,0.05)', color: '#71717a', label: 'Nothing earned' },
+                      paid: { bg: 'rgba(74,222,128,0.1)', color: '#4ade80', label: 'Paid' },
+                      waived: { bg: 'rgba(59,130,246,0.1)', color: '#60a5fa', label: 'Waived' },
+                      overdue: { bg: 'rgba(239,68,68,0.1)', color: '#f87171', label: 'Overdue' },
+                    }
+                    const s = statusStyle[inv.status] || statusStyle.pending
+                    return (
+                      <div key={inv.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+                          <div className="text-sm text-white font-medium">{monthLabel}</div>
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>{s.label}</span>
+                        </div>
+                        <div className="text-xs mb-3" style={{ color: '#71717a' }}>
+                          You collected ₹{Number(inv.gross_revenue).toLocaleString()} · Commission ₹{Number(inv.total_amount_due).toLocaleString()}
+                        </div>
+                        {inv.status === 'pending' && !pendingWaiver && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button onClick={() => payRevenueShareInvoice(inv.id)} disabled={payingInvoiceId === inv.id}
+                              className="px-4 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                              style={{ background: 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))' }}>
+                              {payingInvoiceId === inv.id ? 'Opening payment...' : `Pay ₹${Number(inv.total_amount_due).toLocaleString()}`}
+                            </button>
+                            <input
+                              value={waiverReasonDraft[inv.id] || ''}
+                              onChange={e => setWaiverReasonDraft(prev => ({ ...prev, [inv.id]: e.target.value }))}
+                              placeholder="Slow month? Tell us why (optional)"
+                              className="flex-1 min-w-[160px] px-3 py-2 rounded-lg text-xs text-white outline-none"
+                              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                            />
+                            <button onClick={() => requestRevenueShareWaiver(inv.id)} disabled={submittingWaiverFor === inv.id}
+                              className="px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
+                              style={{ background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              {submittingWaiverFor === inv.id ? 'Sending...' : 'Request waiver'}
+                            </button>
+                          </div>
+                        )}
+                        {pendingWaiver && (
+                          <p className="text-xs" style={{ color: '#60a5fa' }}>Waiver requested — your course stays live while we review it.</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Subscription payments & invoices — directly below the plan cards */}

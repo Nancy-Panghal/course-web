@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendLoggedEmail, escapeHtml } from '@/lib/email'
 import { getSubscriptionPlan } from '@/app/api/razorpay/subscription-plans'
+import { previousMonthRange, REVENUE_SHARE_INVOICE_GRACE_DAYS } from '@/lib/revenueShare'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +41,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const results = { checked: 0, sent7d: 0, sent1d: 0, expired: 0, errors: [] as string[] }
+  const results = {
+    checked: 0, sent7d: 0, sent1d: 0, expired: 0,
+    revenueShareInvoicesGenerated: 0, revenueShareOverdueReminders: 0, revenueShareOverdueUnpublished: 0,
+    errors: [] as string[],
+  }
 
   try {
     const { data: subs, error } = await supabase
@@ -139,7 +144,7 @@ export async function GET(req: NextRequest) {
         // approval knows it's safe to republish these specifically —
         // never a course the creator chose to draft themselves.
         await supabase.from('courses')
-          .update({ is_published: false, auto_unpublished_at: now.toISOString() })
+          .update({ is_published: false, auto_unpublished_at: now.toISOString(), auto_unpublished_reason: 'subscription_expired' })
           .eq('creator_id', sub.creator_id)
           .eq('is_published', true)
 
@@ -161,10 +166,170 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    await runRevenueShareSweep(now, results)
+
     return NextResponse.json({ ok: true, ...results })
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err.message, ...results }, { status: 500 })
   }
+}
+
+/**
+ * Runs on the same daily tick as the subscription sweep above.
+ *
+ * Two jobs:
+ * 1. Generate last month's invoice for every active Pay-As-You-Earn
+ *    creator, if it doesn't already exist yet (idempotent — safe to run
+ *    every day, not just on the 1st, so a missed cron run never skips a
+ *    creator). Zero revenue that month → invoice still created, but
+ *    marked 'not_due' so it never shows a payment prompt or a reminder —
+ *    "pay only in months you earn" is enforced right here.
+ * 2. Sweep invoices that are still 'pending' REVENUE_SHARE_INVOICE_GRACE_DAYS
+ *    after being generated, with no pending waiver request, and take the
+ *    creator's published courses offline — mirrors the subscription
+ *    auto-expiry sweep exactly, including never touching existing
+ *    enrollments (students who already paid keep their access).
+ */
+async function runRevenueShareSweep(now: Date, results: {
+  revenueShareInvoicesGenerated: number
+  revenueShareOverdueReminders: number
+  revenueShareOverdueUnpublished: number
+  errors: string[]
+}) {
+  const { data: agreements, error: agErr } = await supabase
+    .from('revenue_share_agreements')
+    .select('id, creator_id, base_rate_percent')
+    .eq('status', 'active')
+  if (agErr) { results.errors.push(`revenue-share agreements query: ${agErr.message}`); return }
+
+  const { start, end } = previousMonthRange(now)
+
+  for (const agreement of agreements || []) {
+    try {
+      const { data: existingInvoice } = await supabase
+        .from('revenue_share_invoices')
+        .select('id')
+        .eq('creator_id', agreement.creator_id)
+        .eq('period_start', start)
+        .maybeSingle()
+      if (existingInvoice) continue
+
+      const { data: periodPayments, error: payErr } = await supabase
+        .from('payments')
+        .select('gross_amount, platform_fee')
+        .eq('creator_id', agreement.creator_id)
+        .eq('status', 'paid')
+        .not('course_id', 'is', null)
+        .gte('paid_at', `${start}T00:00:00.000Z`)
+        .lte('paid_at', `${end}T23:59:59.999Z`)
+      if (payErr) throw payErr
+
+      const grossRevenue = (periodPayments || []).reduce((sum, p) => sum + (p.gross_amount || 0), 0)
+      const totalAmountDue = (periodPayments || []).reduce((sum, p) => sum + (p.platform_fee || 0), 0)
+
+      await supabase.from('revenue_share_invoices').insert({
+        creator_id: agreement.creator_id,
+        agreement_id: agreement.id,
+        period_start: start,
+        period_end: end,
+        gross_revenue: grossRevenue,
+        total_amount_due: totalAmountDue,
+        status: totalAmountDue > 0 ? 'pending' : 'not_due',
+      })
+      results.revenueShareInvoicesGenerated++
+    } catch (e: any) {
+      results.errors.push(`revenue-share invoice for creator ${agreement.creator_id}: ${e.message}`)
+    }
+  }
+
+  // Overdue sweep — only invoices that actually have something due.
+  const { data: pendingInvoices, error: pendErr } = await supabase
+    .from('revenue_share_invoices')
+    .select('id, creator_id, total_amount_due, created_at, reminder_sent_at, creators(name, email)')
+    .eq('status', 'pending')
+    .gt('total_amount_due', 0)
+  if (pendErr) { results.errors.push(`revenue-share pending invoices query: ${pendErr.message}`); return }
+
+  for (const invoice of pendingInvoices || []) {
+    try {
+      const ageDays = (now.getTime() - new Date(invoice.created_at).getTime()) / (1000 * 60 * 60 * 24)
+      const creator = (invoice as any).creators
+
+      const { data: pendingWaiver } = await supabase
+        .from('revenue_share_waiver_requests')
+        .select('id')
+        .eq('invoice_id', invoice.id)
+        .eq('status', 'pending')
+        .maybeSingle()
+      if (pendingWaiver) continue // creator's asked for a review — hold off entirely until you decide
+
+      // One reminder, a few days before the course would go offline.
+      if (ageDays >= REVENUE_SHARE_INVOICE_GRACE_DAYS - 4 && ageDays < REVENUE_SHARE_INVOICE_GRACE_DAYS && !invoice.reminder_sent_at) {
+        if (creator?.email) {
+          await sendLoggedEmail({
+            supabase,
+            emailType: 'revenue_share_invoice_reminder',
+            to: creator.email,
+            subject: `Your Kurso commission of ₹${invoice.total_amount_due} is due`,
+            html: revenueShareReminderEmailHtml({ name: creator.name, amount: invoice.total_amount_due, daysLeft: Math.max(0, Math.ceil(REVENUE_SHARE_INVOICE_GRACE_DAYS - ageDays)) }),
+            creatorId: invoice.creator_id,
+          })
+        }
+        await supabase.from('revenue_share_invoices').update({ reminder_sent_at: now.toISOString() }).eq('id', invoice.id)
+        results.revenueShareOverdueReminders++
+      }
+
+      if (ageDays >= REVENUE_SHARE_INVOICE_GRACE_DAYS) {
+        await supabase.from('revenue_share_invoices').update({ status: 'overdue', overdue_at: now.toISOString() }).eq('id', invoice.id)
+
+        await supabase.from('courses')
+          .update({ is_published: false, auto_unpublished_at: now.toISOString(), auto_unpublished_reason: 'revenue_share_overdue' })
+          .eq('creator_id', invoice.creator_id)
+          .eq('is_published', true)
+
+        results.revenueShareOverdueUnpublished++
+
+        if (creator?.email) {
+          await sendLoggedEmail({
+            supabase,
+            emailType: 'revenue_share_invoice_overdue',
+            to: creator.email,
+            subject: 'Your Kurso courses have been paused — unpaid commission',
+            html: revenueShareOverdueEmailHtml({ name: creator.name, amount: invoice.total_amount_due }),
+            creatorId: invoice.creator_id,
+          })
+        }
+      }
+    } catch (e: any) {
+      results.errors.push(`revenue-share overdue check ${invoice.id}: ${e.message}`)
+    }
+  }
+}
+
+function revenueShareReminderEmailHtml({ name, amount, daysLeft }: { name: string; amount: number; daysLeft: number }) {
+  const safeName = escapeHtml(name || 'there')
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #18181b;">
+      <p>Hi ${safeName},</p>
+      <p>Last month you collected enough for a Kurso commission of <strong>₹${amount}</strong>. It's due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}, or your courses pause for new enrollments (existing students keep full access either way).</p>
+      <p>Pay now, or if it was a slow month, request a waiver — both from your dashboard:</p>
+      <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#f79514;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Go to billing</a></p>
+      <p style="font-size: 13px; color: #71717a;">— Team Kurso</p>
+    </div>
+  `
+}
+
+function revenueShareOverdueEmailHtml({ name, amount }: { name: string; amount: number }) {
+  const safeName = escapeHtml(name || 'there')
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #18181b;">
+      <p>Hi ${safeName},</p>
+      <p>Your unpaid Kurso commission of <strong>₹${amount}</strong> has gone past the grace period, so we've paused your courses for <strong>new</strong> enrollments. Students who already enrolled keep full access — nothing changes for them.</p>
+      <p>Pay the invoice to go live again immediately:</p>
+      <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#f79514;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Go to billing</a></p>
+      <p style="font-size: 13px; color: #71717a;">— Team Kurso</p>
+    </div>
+  `
 }
 
 function expiredEmailHtml({ name }: { name: string }) {

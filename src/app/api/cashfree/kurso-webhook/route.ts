@@ -61,12 +61,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Malformed payload' }, { status: 400 })
   }
 
-  const subscription = await firstRow(
+    const subscription = await firstRow(
     supabaseAdmin.from('subscriptions').select('id, creator_id, plan_tier, status').eq('gateway_order_id', orderId)
   )
 
   if (!subscription) {
-    await logWebhook({ provider: 'cashfree', flow: 'flow_b', signature_valid: true, http_status_returned: 200, gateway_order_id: orderId, error_message: 'No matching subscription for this order_id', raw_payload: body })
+    const invoice = await firstRow(
+      supabaseAdmin.from('revenue_share_invoices').select('id, creator_id, status, total_amount_due').eq('gateway_order_id', orderId)
+    )
+
+    if (invoice) {
+      await logWebhook({ provider: 'cashfree', flow: 'flow_b', signature_valid: true, http_status_returned: 200, gateway_order_id: orderId, event: body?.type, raw_payload: body })
+
+      if (paymentStatus === 'FAILED' || paymentStatus === 'USER_DROPPED') {
+        return NextResponse.json({ received: true, message: `Marked ${paymentStatus}` })
+      }
+      if (paymentStatus !== 'SUCCESS') {
+        return NextResponse.json({ received: true, message: `Ignored status: ${paymentStatus}` })
+      }
+      if (invoice.status === 'paid') {
+        return NextResponse.json({ received: true, message: 'Already processed' })
+      }
+
+      await supabaseAdmin.from('revenue_share_invoices').update({
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+      }).eq('id', invoice.id)
+
+      // A course only ever goes offline here if the auto-expiry sweep
+      // already paused it for THIS invoice going overdue — paying re-opens
+      // exactly that, never a course the creator drafted themselves.
+      await supabaseAdmin.from('courses')
+        .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
+        .eq('creator_id', invoice.creator_id)
+        .eq('auto_unpublished_reason', 'revenue_share_overdue')
+
+      return NextResponse.json({ received: true, message: 'Revenue-share invoice paid' })
+    }
+
+    await logWebhook({ provider: 'cashfree', flow: 'flow_b', signature_valid: true, http_status_returned: 200, gateway_order_id: orderId, error_message: 'No matching subscription or invoice for this order_id', raw_payload: body })
     // 200 so Cashfree doesn't retry an order we'll never recognize.
     return NextResponse.json({ received: true, matched: false })
   }
@@ -98,8 +131,8 @@ export async function POST(req: NextRequest) {
     // Auto-republish courses that were paused by the auto-expiry cron
     // (never a course the creator chose to draft themselves — that's the
     // whole reason auto_unpublished_at exists, to tell the two apart).
-    await supabaseAdmin.from('courses')
-      .update({ is_published: true, auto_unpublished_at: null })
+        await supabaseAdmin.from('courses')
+      .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
       .eq('creator_id', subscription.creator_id)
       .not('auto_unpublished_at', 'is', null)
 

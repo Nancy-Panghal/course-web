@@ -41,7 +41,8 @@ export default function StudentsPage() {
   const [sendWebInvite, setSendWebInvite] = useState(true)
   const [importing, setImporting] = useState(false)
   const [importSummary, setImportSummary] = useState<{ total: number; created: number; updated: number; skipped: number; failed: number } | null>(null)
-  const [importResults, setImportResults] = useState<Array<{ row: number; status: string; reason?: string; name?: string; identifier?: string }>>([])
+    const [importResults, setImportResults] = useState<Array<{ row: number; status: string; reason?: string; name?: string; identifier?: string }>>([])
+  const [claimLinkCopied, setClaimLinkCopied] = useState(false)
   const [refundAmountInput, setRefundAmountInput] = useState('')
   const [refundReason, setRefundReason] = useState('')
   const [refundSubmitting, setRefundSubmitting] = useState(false)
@@ -213,13 +214,14 @@ export default function StudentsPage() {
     }))
   }
 
-  function openImportModal() {
+    function openImportModal() {
     setImportFileName('')
     setImportRows([])
     setImportParseError('')
     setImportSummary(null)
     setImportResults([])
     setSendWebInvite(true)
+    setClaimLinkCopied(false)
     setShowImportModal(true)
   }
 
@@ -697,10 +699,34 @@ export default function StudentsPage() {
                       </div>
                     </div>
                   )}
-                  {importSummary.created + importSummary.updated > 0 && (
+                                    {importSummary.created + importSummary.updated > 0 && (
                     <div className="flex items-center gap-2 mt-3 text-xs" style={{ color: '#4ade80' }}>
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       {importSummary.created + importSummary.updated} student{importSummary.created + importSummary.updated !== 1 ? 's' : ''} now have paid access — they can message your WhatsApp/Telegram bot right away.
+                    </div>
+                  )}
+                  {importSummary.created + importSummary.updated > 0 && (
+                    <div className="mt-3 rounded-xl p-3" style={{ background: 'rgba(34,158,217,0.08)', border: '1px solid rgba(34,158,217,0.2)' }}>
+                      <p className="text-xs mb-2" style={{ color: '#a1a1aa' }}>
+                        WhatsApp students can just message you directly. If any of them use <strong>Telegram</strong>,
+                        share this one-time link so they can connect their account:
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}/claim/telegram?course=${importCourseId}`}
+                          className="flex-1 px-3 py-2 rounded-lg text-xs text-white outline-none"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                          onFocus={e => e.target.select()} />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/claim/telegram?course=${importCourseId}`)
+                            setClaimLinkCopied(true)
+                            setTimeout(() => setClaimLinkCopied(false), 2000)
+                          }}
+                          className="px-3 py-2 rounded-lg text-xs font-semibold text-white whitespace-nowrap"
+                          style={{ background: '#229ED9' }}>
+                          {claimLinkCopied ? 'Copied!' : 'Copy link'}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

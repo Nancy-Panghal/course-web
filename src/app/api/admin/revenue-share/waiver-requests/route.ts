@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
+import { friendlyErrorResponse } from '@/lib/payment-errors'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+export async function GET(req: NextRequest) {
+  try {
+    const admin = await requireAdmin(req, supabase)
+    if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { data, error } = await supabase
+      .from('revenue_share_waiver_requests')
+      .select('id, creator_id, invoice_id, status, reason, requested_at, reviewed_at, admin_note, creators(name, email), revenue_share_invoices(period_start, period_end, gross_revenue, total_amount_due)')
+      .order('requested_at', { ascending: false })
+    if (error) throw error
+    return NextResponse.json({ requests: data || [] })
+  } catch (err: any) {
+    return friendlyErrorResponse(err, 'admin/revenue-share/waiver-requests GET')
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const admin = await requireAdmin(req, supabase)
+    if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { requestId, decision, note } = await req.json()
+    if (!requestId || !['approved', 'rejected'].includes(decision)) {
+      return NextResponse.json({ error: 'Missing or invalid fields' }, { status: 400 })
+    }
+
+    const { data: reqRow, error: reqErr } = await supabase
+      .from('revenue_share_waiver_requests')
+      .select('id, creator_id, invoice_id, status')
+      .eq('id', requestId)
+      .maybeSingle()
+    if (reqErr) throw reqErr
+    if (!reqRow) return NextResponse.json({ error: 'Request not found' }, { status: 404 })
+    if (reqRow.status !== 'pending') {
+      return NextResponse.json({ error: `Already ${reqRow.status}` }, { status: 400 })
+    }
+
+    if (decision === 'approved') {
+      const { error: waiveErr } = await supabase
+        .from('revenue_share_invoices')
+        .update({ status: 'waived' })
+        .eq('id', reqRow.invoice_id)
+      if (waiveErr) throw waiveErr
+
+      // Waiving effectively un-lapses this creator, even if the overdue
+      // sweep already paused their courses while this sat unreviewed —
+      // re-publish only what THAT sweep paused for THIS reason, never a
+      // course the creator drafted themselves or paused for another reason.
+      await supabase.from('courses')
+        .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
+        .eq('creator_id', reqRow.creator_id)
+        .eq('auto_unpublished_reason', 'revenue_share_overdue')
+    }
+
+    const { error: decideErr } = await supabase
+      .from('revenue_share_waiver_requests')
+      .update({
+        status: decision,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: admin.email,
+        admin_note: note || null,
+      })
+      .eq('id', requestId)
+    if (decideErr) throw decideErr
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return friendlyErrorResponse(err, 'admin/revenue-share/waiver-requests POST')
+  }
+}

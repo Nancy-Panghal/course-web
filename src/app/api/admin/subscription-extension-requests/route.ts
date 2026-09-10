@@ -82,8 +82,8 @@ export async function POST(req: NextRequest) {
       // cron already paused courses while this request sat unreviewed past
       // its grace window — re-publish only what that sweep paused (never a
       // course the creator drafted themselves), same as a normal renewal.
-      await supabase.from('courses')
-        .update({ is_published: true, auto_unpublished_at: null })
+            await supabase.from('courses')
+        .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
         .eq('creator_id', reqRow.creator_id)
         .not('auto_unpublished_at', 'is', null)
     }

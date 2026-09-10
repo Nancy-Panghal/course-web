@@ -42,12 +42,24 @@ export async function pollOrderStatus(clientTxnId: string, attemptsLeft = 8): Pr
 
 /**
  * Resolves the delivery-plan tier the creator currently has unlocked:
+ *  - an active Pay-As-You-Earn revenue-share agreement → 'both' (the whole
+ *    point of PAYE is zero upfront cost for full access — commission is
+ *    billed after the fact, per sale, never gating what's unlocked)
  *  - an active paid subscription → its plan_tier
  *  - no active subscription but trial not yet expired → 'both' (full
  *    access during the trial, so nothing blocks testing/onboarding)
- *  - trial expired and no active subscription → null (nothing unlocked)
+ *  - trial expired and no active subscription/agreement → null (nothing unlocked)
  */
 export async function getEffectivePlanId(creatorId: string, trialEndsAt?: string | null): Promise<SubscriptionPlanId | null> {
+  const { data: revShare } = await supabase
+    .from('revenue_share_agreements')
+    .select('id')
+    .eq('creator_id', creatorId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (revShare) return 'both'
+
   const { data: sub } = await supabase
     .from('subscriptions')
     .select('plan_tier, status, current_period_end')

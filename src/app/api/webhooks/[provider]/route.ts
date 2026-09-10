@@ -5,6 +5,7 @@ import { decryptCredentials } from '@/lib/payment-gateways'
 import { normalizePhone } from '@/lib/phone'
 import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 import { generateInvoicePdfForPayment } from '@/lib/invoice'
+import { computeRevenueShareSplit } from '@/lib/revenueShare'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -363,7 +364,8 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
 
   // Mirror into the legacy `payments` table so the existing invoice system
   // (numbering, GST, download route) keeps working unchanged.
-  const { data: course } = await supabaseAdmin.from('courses').select('name').eq('id', transaction.course_id).maybeSingle()
+    const { data: course } = await supabaseAdmin.from('courses').select('name').eq('id', transaction.course_id).maybeSingle()
+    const { platformFee, creatorEarning, ratePercent } = await computeRevenueShareSplit(transaction.creator_id, body.amount ?? 0)
   const { data: paymentRow, error: paymentInsertError } = await supabaseAdmin
     .from('payments')
     .insert({
@@ -381,8 +383,9 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
       gross_amount: body.amount,
       discount_amount: 0,
       net_amount: body.amount,
-      platform_fee: 0,
-      creator_earning: body.amount,
+      platform_fee: platformFee,
+      creator_earning: creatorEarning,
+      revenue_share_rate_percent: ratePercent,
       status: 'paid',
       metadata: { source: `${provider}_webhook` },
       paid_at: new Date().toISOString(),
