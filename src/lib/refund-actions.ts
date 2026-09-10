@@ -308,6 +308,74 @@ export async function decideEbookRefundRequest({ requestId, creatorId, decision,
   }
 }
 
+// Called once Cashfree has actually confirmed a refund succeeded — either
+// synchronously (decideSubscriptionRefundRequest got refund_status: SUCCESS
+// on its first call) or asynchronously (kurso-webhook's REFUND_STATUS_WEBHOOK
+// handler). Either caller must pass the refundReferenceId it initiated the
+// refund with, so a stale/duplicate webhook for a superseded attempt can
+// never be applied to whatever refund is currently pending on this payment.
+export async function finalizeKursoSubscriptionRefundSuccess({ paymentId, refundReferenceId, refundAmount }: { paymentId: string; refundReferenceId: string; refundAmount: number }): Promise<void> {
+  const { data: payment } = await supabase
+    .from('kurso_subscription_payments')
+    .select('id, subscription_id, amount, refunded_amount, refund_reference_id, pending_refund_request_id')
+    .eq('id', paymentId)
+    .maybeSingle()
+
+  if (!payment || payment.refund_reference_id !== refundReferenceId) return
+
+  const newRefundedAmount = Number(payment.refunded_amount || 0) + refundAmount
+  const isFullRefund = newRefundedAmount >= Number(payment.amount) - 0.01
+
+  await supabase.from('kurso_subscription_payments').update({
+    refund_status: 'succeeded',
+    refunded_amount: newRefundedAmount,
+    refund_error: null,
+    refund_reference_id: null,
+    pending_refund_amount: null,
+  }).eq('id', paymentId)
+
+  // Only cancel the subscription on a full refund — a partial refund
+  // (e.g. Kurso choosing to refund less than the full amount to a
+  // heavy-usage creator) doesn't necessarily mean the subscription
+  // itself should end.
+  if (isFullRefund && payment.subscription_id) {
+    await supabase.from('subscriptions').update({ status: 'cancelled' }).eq('id', payment.subscription_id)
+  }
+
+  if (payment.pending_refund_request_id) {
+    await supabase.from('refund_requests').update({
+      status: 'completed', completed_at: new Date().toISOString(),
+    }).eq('id', payment.pending_refund_request_id)
+  }
+}
+
+// Mirror of finalizeKursoSubscriptionRefundSuccess for the FAILED/CANCELLED
+// case — puts the request back to 'pending' (instead of leaving it stuck on
+// 'approved') so the admin can see it needs another attempt.
+export async function markKursoSubscriptionRefundFailed({ paymentId, refundReferenceId, errorMessage }: { paymentId: string; refundReferenceId: string; errorMessage: string }): Promise<void> {
+  const { data: payment } = await supabase
+    .from('kurso_subscription_payments')
+    .select('id, refund_reference_id, pending_refund_request_id')
+    .eq('id', paymentId)
+    .maybeSingle()
+
+  if (!payment || payment.refund_reference_id !== refundReferenceId) return
+
+  await supabase.from('kurso_subscription_payments').update({
+    refund_status: 'failed',
+    refund_error: errorMessage,
+    refund_reference_id: null,
+    pending_refund_amount: null,
+  }).eq('id', paymentId)
+
+  if (payment.pending_refund_request_id) {
+    await supabase.from('refund_requests').update({
+      status: 'pending',
+      decision_note: `Refund attempt failed via Cashfree: ${errorMessage}. Please retry.`,
+    }).eq('id', payment.pending_refund_request_id)
+  }
+}
+
 export async function decideSubscriptionRefundRequest({ requestId, decision, note, amount }: { requestId: string; decision: 'approved' | 'denied'; note?: string; amount?: number }): Promise<ActionResult> {
   const { data: request } = await supabase
     .from('refund_requests')
@@ -340,6 +408,9 @@ export async function decideSubscriptionRefundRequest({ requestId, decision, not
   if (!payment.order_id) {
     return { ok: false, status: 404, error: 'This payment predates automatic refund tracking and has no stored order ID — it must be refunded manually from the Cashfree dashboard.' }
   }
+  if (payment.refund_status === 'processing') {
+    return { ok: false, status: 409, error: 'A refund is already processing on this payment — wait for Cashfree to confirm it before starting another.' }
+  }
 
   const alreadyRefunded = Number(payment.refunded_amount || 0)
   const refundable = Number(payment.amount) - alreadyRefunded
@@ -351,39 +422,43 @@ export async function decideSubscriptionRefundRequest({ requestId, decision, not
   }
 
   const refundId = randomUUID()
-  await supabase.from('kurso_subscription_payments').update({ refund_status: 'pending' }).eq('id', payment.id)
+
+  // Recorded BEFORE calling Cashfree — refund_reference_id is what the
+  // REFUND_STATUS_WEBHOOK uses to find its way back to this exact payment +
+  // request, so it must already be there by the time Cashfree can possibly
+  // notify us.
+  await supabase.from('kurso_subscription_payments').update({
+    refund_status: 'processing',
+    refund_reference_id: refundId,
+    pending_refund_amount: requestedAmount,
+    pending_refund_request_id: requestId,
+    refund_error: null,
+  }).eq('id', payment.id)
+
+  await supabase.from('refund_requests').update({
+    status: 'approved', decision_note: note || null, decided_at: new Date().toISOString(), decided_by: 'admin',
+  }).eq('id', requestId)
 
   try {
-    await refundKursoSubscriptionPayment({
+    const { refundStatus } = await refundKursoSubscriptionPayment({
       orderId: payment.order_id,
       amount: requestedAmount,
       refundId,
       reason: note,
     })
 
-    const isFullRefund = requestedAmount >= refundable - 0.01
-    await supabase.from('kurso_subscription_payments').update({
-      refund_status: 'succeeded',
-      refunded_amount: alreadyRefunded + requestedAmount,
-      refund_error: null,
-    }).eq('id', payment.id)
-
-    // Only cancel the subscription on a full refund — a partial refund
-    // (e.g. Kurso choosing to refund less than the full amount to a
-    // heavy-usage creator) doesn't necessarily mean the subscription
-    // itself should end.
-    if (isFullRefund) {
-      await supabase.from('subscriptions').update({ status: 'cancelled' }).eq('id', request.subscription_id)
+    if (refundStatus === 'SUCCESS') {
+      await finalizeKursoSubscriptionRefundSuccess({ paymentId: payment.id, refundReferenceId: refundId, refundAmount: requestedAmount })
+      return { ok: true, message: `Refund of ₹${requestedAmount.toLocaleString('en-IN')} issued via Cashfree.` }
     }
 
-    await supabase.from('refund_requests').update({
-      status: 'completed', decision_note: note || null, decided_at: new Date().toISOString(), decided_by: 'admin', completed_at: new Date().toISOString(),
-    }).eq('id', requestId)
-
-    return { ok: true, message: `Refund of ₹${requestedAmount.toLocaleString('en-IN')} issued via Cashfree.${isFullRefund ? ' Subscription cancelled.' : ''}` }
+    // Cashfree accepted the refund but hasn't settled it — the
+    // REFUND_STATUS_WEBHOOK handler in kurso-webhook/route.ts finalizes this
+    // once Cashfree confirms SUCCESS or FAILED/CANCELLED.
+    return { ok: true, message: `Refund of ₹${requestedAmount.toLocaleString('en-IN')} submitted to Cashfree and is processing — it'll confirm automatically once settled.` }
   } catch (err: any) {
     const msg = err instanceof KursoCashfreeError ? err.message : 'Cashfree rejected this refund. No money was moved and nothing was changed.'
-    await supabase.from('kurso_subscription_payments').update({ refund_status: 'failed', refund_error: msg }).eq('id', payment.id)
+    await markKursoSubscriptionRefundFailed({ paymentId: payment.id, refundReferenceId: refundId, errorMessage: msg })
     return { ok: false, status: 502, error: msg }
   }
 }

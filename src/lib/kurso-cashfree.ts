@@ -116,7 +116,7 @@ export async function refundKursoSubscriptionPayment(params: {
   amount: number // rupees
   refundId: string // idempotency/reference — pass a stable id so a retry can't double-refund
   reason?: string
-}): Promise<{ providerRefundId: string }> {
+}): Promise<{ providerRefundId: string; refundStatus: string }> {
   const { clientId, clientSecret } = credentials()
 
   const res = await fetch(`${baseUrl()}/pg/orders/${params.orderId}/refunds`, {
@@ -134,9 +134,15 @@ export async function refundKursoSubscriptionPayment(params: {
     }),
   })
 
-  const json = await res.json().catch(() => null)
+    const json = await res.json().catch(() => null)
   if (!res.ok) {
     throw new KursoCashfreeError(json?.message || `Cashfree refund failed (${res.status})`, res.status)
   }
-  return { providerRefundId: json.refund_id || json.cf_refund_id || params.refundId }
+  // Cashfree refunds aren't always instant — refund_status can come back
+  // PENDING here and only resolve to SUCCESS/FAILED later via the
+  // REFUND_STATUS_WEBHOOK. Callers must not treat a 200 here as "money moved".
+  return {
+    providerRefundId: json.refund_id || json.cf_refund_id || params.refundId,
+    refundStatus: json.refund_status || 'PENDING',
+  }
 }

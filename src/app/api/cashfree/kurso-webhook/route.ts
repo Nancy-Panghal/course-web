@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyKursoCashfreeWebhookSignature } from '@/lib/kurso-cashfree'
 import { getSubscriptionPlan } from '@/app/api/razorpay/subscription-plans'
+import { finalizeKursoSubscriptionRefundSuccess, markKursoSubscriptionRefundFailed } from '@/lib/refund-actions'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +25,83 @@ async function logWebhook(fields: Record<string, any>) {
   } catch (e) {
     console.error('Failed to write webhook_logs row:', e)
   }
+}
+
+// Cashfree's REFUND_STATUS_WEBHOOK payload shape is completely different
+// from the payment one above — refund info lives under data.refund, not
+// data.payment, and there is no data.payment.payment_status field at all.
+// This only ever finalizes a refund that decideSubscriptionRefundRequest
+// already marked 'processing' with a matching refund_reference_id — a
+// refund_id on the payload that doesn't match whatever's currently pending
+// on that payment (a retried webhook for an old, already-finalized, or
+// superseded attempt) is ignored rather than reapplied.
+async function handleRefundWebhook(body: any) {
+  const refund = body?.data?.refund
+  const orderId = refund?.order_id
+  const refundReferenceId = refund?.refund_id // the refundId WE generated and passed at creation time
+  const refundStatus = refund?.refund_status // SUCCESS | PENDING | FAILED | CANCELLED
+  const refundAmount = Number(refund?.refund_amount)
+
+  if (!orderId || !refundReferenceId) {
+    await logWebhook({ provider: 'cashfree', flow: 'flow_b_refund', signature_valid: true, http_status_returned: 400, error_message: 'Malformed refund payload', raw_payload: body })
+    return NextResponse.json({ error: 'Malformed payload' }, { status: 400 })
+  }
+
+  const payment = await firstRow(
+    supabaseAdmin.from('kurso_subscription_payments').select('id, refund_reference_id').eq('order_id', orderId)
+  )
+
+  if (!payment) {
+    await logWebhook({ provider: 'cashfree', flow: 'flow_b_refund', signature_valid: true, http_status_returned: 200, gateway_order_id: orderId, error_message: 'No matching subscription payment for this order_id', raw_payload: body })
+    return NextResponse.json({ received: true, matched: false })
+  }
+
+  if (payment.refund_reference_id !== refundReferenceId) {
+    await logWebhook({ provider: 'cashfree', flow: 'flow_b_refund', signature_valid: true, http_status_returned: 200, gateway_order_id: orderId, error_message: 'refund_id does not match the pending refund on this payment — ignored', raw_payload: body })
+    return NextResponse.json({ received: true, matched: false })
+  }
+
+  await logWebhook({ provider: 'cashfree', flow: 'flow_b_refund', signature_valid: true, http_status_returned: 200, gateway_order_id: orderId, event: body?.type, raw_payload: body })
+
+  try {
+    if (refundStatus === 'SUCCESS') {
+      await finalizeKursoSubscriptionRefundSuccess({ paymentId: payment.id, refundReferenceId, refundAmount })
+      return NextResponse.json({ received: true, message: 'Refund finalized' })
+    }
+    if (refundStatus === 'FAILED' || refundStatus === 'CANCELLED') {
+      await markKursoSubscriptionRefundFailed({ paymentId: payment.id, refundReferenceId, errorMessage: `Cashfree refund ${String(refundStatus).toLowerCase()}` })
+      return NextResponse.json({ received: true, message: `Refund ${String(refundStatus).toLowerCase()}` })
+    }
+    // PENDING (or anything else) — still processing, nothing to finalize yet.
+    return NextResponse.json({ received: true, message: `Refund still ${refundStatus || 'processing'}` })
+  } catch (err: any) {
+    console.error('Cashfree kurso-webhook refund processing error:', err)
+    await logWebhook({ provider: 'cashfree', flow: 'flow_b_refund', signature_valid: true, http_status_returned: 500, gateway_order_id: orderId, error_message: err?.message || 'Unknown refund processing error', raw_payload: body })
+    return NextResponse.json({ error: 'Processing error — left pending for reconciliation' }, { status: 500 })
+  }
+}
+
+// Cashfree auto-refunds a payment on its own in edge cases like a duplicate
+// charge on the same order — Kurso never initiates these, so there's no
+// refund_reference_id or refund_requests row behind one. This just logs it
+// for manual reconciliation rather than touching any refund/subscription
+// state, and returns 200 so Cashfree doesn't keep retrying it.
+async function handleAutoRefundWebhook(body: any) {
+  const autoRefund = body?.data?.auto_refund
+  const orderId = autoRefund?.order_id
+
+  await logWebhook({
+    provider: 'cashfree',
+    flow: 'flow_b_auto_refund',
+    signature_valid: true,
+    http_status_returned: 200,
+    gateway_order_id: orderId || null,
+    event: body?.type,
+    error_message: autoRefund ? null : 'Malformed auto-refund payload',
+    raw_payload: body,
+  })
+
+  return NextResponse.json({ received: true, message: 'Auto-refund logged for reconciliation' })
 }
 
 export async function POST(req: NextRequest) {
@@ -51,7 +129,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  const body = safeParse(rawBody)
+    const body = safeParse(rawBody)
+
+    if (body?.type === 'REFUND_STATUS_WEBHOOK') {
+    return handleRefundWebhook(body)
+  }
+  if (body?.type === 'AUTO_REFUND_STATUS_WEBHOOK') {
+    return handleAutoRefundWebhook(body)
+  }
+
   const orderId = body?.data?.order?.order_id
   const paymentStatus = body?.data?.payment?.payment_status // SUCCESS | FAILED | USER_DROPPED
   const amount = body?.data?.payment?.payment_amount

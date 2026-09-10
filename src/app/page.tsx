@@ -651,17 +651,7 @@ export default function HomePage() {
             </p>
           </div>
 
-                    <div className="max-w-2xl mx-auto mb-16">
-            <div className="glass rounded-2xl px-6 py-4 flex flex-col sm:flex-row items-center justify-center gap-3 text-center sm:text-left"
-              style={{ border: '1px solid rgba(247,149,20,0.2)' }}>
-              <RefreshCw className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--kurso-primary)' }} />
-              <span className="text-sm text-text-2">
-                Used less than your plan allows this month? We'll extend it into the next month
-                automatically — no extra payment needed.
-              </span>
-            </div>
-          </div>
-
+                    
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start mb-6">
             {plans.map((p, i) => <PlanCard key={i} plan={p} />)}
           </div>
