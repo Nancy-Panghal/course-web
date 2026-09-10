@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('revenue_share_waiver_requests')
-      .select('id, creator_id, invoice_id, status, reason, requested_at, reviewed_at, admin_note, creators(name, email), revenue_share_invoices(period_start, period_end, gross_revenue, total_amount_due)')
+            .select('id, creator_id, invoice_id, status, reason, requested_at, reviewed_at, admin_note, creators(name, email), revenue_share_invoices(product_type, period_start, period_end, gross_revenue, total_amount_due)')
       .order('requested_at', { ascending: false })
     if (error) throw error
     return NextResponse.json({ requests: data || [] })
@@ -34,9 +34,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing or invalid fields' }, { status: 400 })
     }
 
-    const { data: reqRow, error: reqErr } = await supabase
+        const { data: reqRow, error: reqErr } = await supabase
       .from('revenue_share_waiver_requests')
-      .select('id, creator_id, invoice_id, status')
+      .select('id, creator_id, invoice_id, status, revenue_share_invoices(product_type)')
       .eq('id', requestId)
       .maybeSingle()
     if (reqErr) throw reqErr
@@ -52,14 +52,25 @@ export async function POST(req: NextRequest) {
         .eq('id', reqRow.invoice_id)
       if (waiveErr) throw waiveErr
 
+      const isEbook = (reqRow as any).revenue_share_invoices?.product_type === 'ebook'
+
       // Waiving effectively un-lapses this creator, even if the overdue
-      // sweep already paused their courses while this sat unreviewed —
-      // re-publish only what THAT sweep paused for THIS reason, never a
-      // course the creator drafted themselves or paused for another reason.
-      await supabase.from('courses')
-        .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
-        .eq('creator_id', reqRow.creator_id)
-        .eq('auto_unpublished_reason', 'revenue_share_overdue')
+      // sweep already paused their courses/ebooks while this sat
+      // unreviewed — re-publish only what THAT sweep paused for THIS
+      // reason, never something the creator drafted themselves or
+      // paused for another reason. Which table depends on which kind
+      // of invoice this waiver was for.
+      if (isEbook) {
+        await supabase.from('ebooks')
+          .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
+          .eq('creator_id', reqRow.creator_id)
+          .eq('auto_unpublished_reason', 'ebook_revenue_share_overdue')
+      } else {
+        await supabase.from('courses')
+          .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
+          .eq('creator_id', reqRow.creator_id)
+          .eq('auto_unpublished_reason', 'revenue_share_overdue')
+      }
     }
 
     const { error: decideErr } = await supabase

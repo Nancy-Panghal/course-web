@@ -14,6 +14,14 @@ export const REVENUE_SHARE_OVERFLOW_RATE_PERCENT = 6.5
 export const REVENUE_SHARE_STUDENT_THRESHOLD = 300
 export const REVENUE_SHARE_INVOICE_GRACE_DAYS = 14
 
+// Ebook commission is unconditional — it applies to every creator's ebook
+// sales regardless of course plan (flat, PAYE, or none at all), since
+// ebook selling is never gated behind a plan. Lower than the course rate
+// because fulfillment is just a signed download link, not ongoing bot
+// delivery or video streaming.
+export const EBOOK_REVENUE_SHARE_RATE_PERCENT = 4
+export const EBOOK_MONTHLY_REVENUE_FLOOR = 500
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!

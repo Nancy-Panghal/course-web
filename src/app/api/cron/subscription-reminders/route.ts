@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendLoggedEmail, escapeHtml } from '@/lib/email'
 import { getSubscriptionPlan } from '@/app/api/razorpay/subscription-plans'
-import { previousMonthRange, REVENUE_SHARE_INVOICE_GRACE_DAYS } from '@/lib/revenueShare'
+import { previousMonthRange, REVENUE_SHARE_INVOICE_GRACE_DAYS, EBOOK_REVENUE_SHARE_RATE_PERCENT, EBOOK_MONTHLY_REVENUE_FLOOR } from '@/lib/revenueShare'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -177,18 +177,26 @@ export async function GET(req: NextRequest) {
 /**
  * Runs on the same daily tick as the subscription sweep above.
  *
- * Two jobs:
- * 1. Generate last month's invoice for every active Pay-As-You-Earn
+ * Three jobs:
+ * 1. Generate last month's COURSE invoice for every active Pay-As-You-Earn
  *    creator, if it doesn't already exist yet (idempotent — safe to run
  *    every day, not just on the 1st, so a missed cron run never skips a
  *    creator). Zero revenue that month → invoice still created, but
  *    marked 'not_due' so it never shows a payment prompt or a reminder —
  *    "pay only in months you earn" is enforced right here.
- * 2. Sweep invoices that are still 'pending' REVENUE_SHARE_INVOICE_GRACE_DAYS
- *    after being generated, with no pending waiver request, and take the
- *    creator's published courses offline — mirrors the subscription
- *    auto-expiry sweep exactly, including never touching existing
- *    enrollments (students who already paid keep their access).
+ * 2. Generate last month's EBOOK invoice for every creator with ebook
+ *    sales that month — unconditionally, regardless of course plan,
+ *    since ebook selling is never gated behind any plan. Below the
+ *    ₹500 monthly floor → 'not_due', same as zero course revenue.
+ *    Kept as a SEPARATE invoice row (product_type) per Nancy's call —
+ *    a creator can owe course commission, ebook commission, both, or
+ *    neither in the same month, each tracked and paid independently.
+ * 3. Sweep invoices that are still 'pending' REVENUE_SHARE_INVOICE_GRACE_DAYS
+ *    after being generated, with no pending waiver request. Enforcement
+ *    differs by type: an overdue COURSE invoice pauses new enrollments
+ *    (mirrors the subscription auto-expiry sweep); an overdue EBOOK
+ *    invoice pauses new ebook sales only. Neither ever touches students
+ *    or buyers who already paid.
  */
 async function runRevenueShareSweep(now: Date, results: {
   revenueShareInvoicesGenerated: number
@@ -196,13 +204,14 @@ async function runRevenueShareSweep(now: Date, results: {
   revenueShareOverdueUnpublished: number
   errors: string[]
 }) {
+  const { start, end } = previousMonthRange(now)
+
+  // ── 1. Course invoices — only for active PAYE agreements ──────────
   const { data: agreements, error: agErr } = await supabase
     .from('revenue_share_agreements')
     .select('id, creator_id, base_rate_percent')
     .eq('status', 'active')
-  if (agErr) { results.errors.push(`revenue-share agreements query: ${agErr.message}`); return }
-
-  const { start, end } = previousMonthRange(now)
+  if (agErr) { results.errors.push(`revenue-share agreements query: ${agErr.message}`) }
 
   for (const agreement of agreements || []) {
     try {
@@ -211,6 +220,7 @@ async function runRevenueShareSweep(now: Date, results: {
         .select('id')
         .eq('creator_id', agreement.creator_id)
         .eq('period_start', start)
+        .eq('product_type', 'course')
         .maybeSingle()
       if (existingInvoice) continue
 
@@ -230,6 +240,7 @@ async function runRevenueShareSweep(now: Date, results: {
       await supabase.from('revenue_share_invoices').insert({
         creator_id: agreement.creator_id,
         agreement_id: agreement.id,
+        product_type: 'course',
         period_start: start,
         period_end: end,
         gross_revenue: grossRevenue,
@@ -238,14 +249,61 @@ async function runRevenueShareSweep(now: Date, results: {
       })
       results.revenueShareInvoicesGenerated++
     } catch (e: any) {
-      results.errors.push(`revenue-share invoice for creator ${agreement.creator_id}: ${e.message}`)
+      results.errors.push(`course revenue-share invoice for creator ${agreement.creator_id}: ${e.message}`)
     }
   }
 
-  // Overdue sweep — only invoices that actually have something due.
+  // ── 2. Ebook invoices — every creator with ebook sales, unconditionally ──
+  const { data: ebookPayments, error: ebookPayErr } = await supabase
+    .from('payments')
+    .select('creator_id, gross_amount')
+    .eq('status', 'paid')
+    .eq('product_type', 'ebook')
+    .gte('paid_at', `${start}T00:00:00.000Z`)
+    .lte('paid_at', `${end}T23:59:59.999Z`)
+  if (ebookPayErr) {
+    results.errors.push(`ebook payments query: ${ebookPayErr.message}`)
+  } else {
+    const ebookGrossByCreator = new Map<string, number>()
+    for (const p of ebookPayments || []) {
+      ebookGrossByCreator.set(p.creator_id, (ebookGrossByCreator.get(p.creator_id) || 0) + (p.gross_amount || 0))
+    }
+
+    for (const [creatorId, ebookGross] of ebookGrossByCreator.entries()) {
+      try {
+        const { data: existingInvoice } = await supabase
+          .from('revenue_share_invoices')
+          .select('id')
+          .eq('creator_id', creatorId)
+          .eq('period_start', start)
+          .eq('product_type', 'ebook')
+          .maybeSingle()
+        if (existingInvoice) continue
+
+        const totalAmountDue = ebookGross >= EBOOK_MONTHLY_REVENUE_FLOOR
+          ? Math.round((ebookGross * EBOOK_REVENUE_SHARE_RATE_PERCENT) / 100)
+          : 0
+
+        await supabase.from('revenue_share_invoices').insert({
+          creator_id: creatorId,
+          product_type: 'ebook',
+          period_start: start,
+          period_end: end,
+          gross_revenue: ebookGross,
+          total_amount_due: totalAmountDue,
+          status: totalAmountDue > 0 ? 'pending' : 'not_due',
+        })
+        results.revenueShareInvoicesGenerated++
+      } catch (e: any) {
+        results.errors.push(`ebook revenue-share invoice for creator ${creatorId}: ${e.message}`)
+      }
+    }
+  }
+
+  // ── 3. Overdue sweep — covers both invoice types ──────────────────
   const { data: pendingInvoices, error: pendErr } = await supabase
     .from('revenue_share_invoices')
-    .select('id, creator_id, total_amount_due, created_at, reminder_sent_at, creators(name, email)')
+    .select('id, creator_id, product_type, total_amount_due, created_at, reminder_sent_at, creators(name, email)')
     .eq('status', 'pending')
     .gt('total_amount_due', 0)
   if (pendErr) { results.errors.push(`revenue-share pending invoices query: ${pendErr.message}`); return }
@@ -254,6 +312,7 @@ async function runRevenueShareSweep(now: Date, results: {
     try {
       const ageDays = (now.getTime() - new Date(invoice.created_at).getTime()) / (1000 * 60 * 60 * 24)
       const creator = (invoice as any).creators
+      const isEbook = invoice.product_type === 'ebook'
 
       const { data: pendingWaiver } = await supabase
         .from('revenue_share_waiver_requests')
@@ -263,15 +322,18 @@ async function runRevenueShareSweep(now: Date, results: {
         .maybeSingle()
       if (pendingWaiver) continue // creator's asked for a review — hold off entirely until you decide
 
-      // One reminder, a few days before the course would go offline.
+      // One reminder, a few days before enforcement kicks in.
       if (ageDays >= REVENUE_SHARE_INVOICE_GRACE_DAYS - 4 && ageDays < REVENUE_SHARE_INVOICE_GRACE_DAYS && !invoice.reminder_sent_at) {
         if (creator?.email) {
           await sendLoggedEmail({
             supabase,
-            emailType: 'revenue_share_invoice_reminder',
+            emailType: isEbook ? 'ebook_revenue_share_invoice_reminder' : 'revenue_share_invoice_reminder',
             to: creator.email,
-            subject: `Your Kurso commission of ₹${invoice.total_amount_due} is due`,
-            html: revenueShareReminderEmailHtml({ name: creator.name, amount: invoice.total_amount_due, daysLeft: Math.max(0, Math.ceil(REVENUE_SHARE_INVOICE_GRACE_DAYS - ageDays)) }),
+            subject: `Your Kurso ${isEbook ? 'ebook ' : ''}commission of ₹${invoice.total_amount_due} is due`,
+            html: revenueShareReminderEmailHtml({
+              name: creator.name, amount: invoice.total_amount_due,
+              daysLeft: Math.max(0, Math.ceil(REVENUE_SHARE_INVOICE_GRACE_DAYS - ageDays)), isEbook,
+            }),
             creatorId: invoice.creator_id,
           })
         }
@@ -282,20 +344,29 @@ async function runRevenueShareSweep(now: Date, results: {
       if (ageDays >= REVENUE_SHARE_INVOICE_GRACE_DAYS) {
         await supabase.from('revenue_share_invoices').update({ status: 'overdue', overdue_at: now.toISOString() }).eq('id', invoice.id)
 
-        await supabase.from('courses')
-          .update({ is_published: false, auto_unpublished_at: now.toISOString(), auto_unpublished_reason: 'revenue_share_overdue' })
-          .eq('creator_id', invoice.creator_id)
-          .eq('is_published', true)
+        if (isEbook) {
+          // Blocks NEW ebook sales only — existing buyers keep their
+          // downloads, and this never touches the creator's courses.
+          await supabase.from('ebooks')
+            .update({ is_published: false, auto_unpublished_at: now.toISOString(), auto_unpublished_reason: 'ebook_revenue_share_overdue' })
+            .eq('creator_id', invoice.creator_id)
+            .eq('is_published', true)
+        } else {
+          await supabase.from('courses')
+            .update({ is_published: false, auto_unpublished_at: now.toISOString(), auto_unpublished_reason: 'revenue_share_overdue' })
+            .eq('creator_id', invoice.creator_id)
+            .eq('is_published', true)
+        }
 
         results.revenueShareOverdueUnpublished++
 
         if (creator?.email) {
           await sendLoggedEmail({
             supabase,
-            emailType: 'revenue_share_invoice_overdue',
+            emailType: isEbook ? 'ebook_revenue_share_invoice_overdue' : 'revenue_share_invoice_overdue',
             to: creator.email,
-            subject: 'Your Kurso courses have been paused — unpaid commission',
-            html: revenueShareOverdueEmailHtml({ name: creator.name, amount: invoice.total_amount_due }),
+            subject: isEbook ? 'New ebook sales paused — unpaid commission' : 'Your Kurso courses have been paused — unpaid commission',
+            html: revenueShareOverdueEmailHtml({ name: creator.name, amount: invoice.total_amount_due, isEbook }),
             creatorId: invoice.creator_id,
           })
         }
@@ -306,12 +377,15 @@ async function runRevenueShareSweep(now: Date, results: {
   }
 }
 
-function revenueShareReminderEmailHtml({ name, amount, daysLeft }: { name: string; amount: number; daysLeft: number }) {
+function revenueShareReminderEmailHtml({ name, amount, daysLeft, isEbook }: { name: string; amount: number; daysLeft: number; isEbook?: boolean }) {
   const safeName = escapeHtml(name || 'there')
+  const consequence = isEbook
+    ? 'or new ebook sales pause (anyone who already bought keeps their download either way)'
+    : 'or your courses pause for new enrollments (existing students keep full access either way)'
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #18181b;">
       <p>Hi ${safeName},</p>
-      <p>Last month you collected enough for a Kurso commission of <strong>₹${amount}</strong>. It's due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}, or your courses pause for new enrollments (existing students keep full access either way).</p>
+      <p>Last month you collected enough for a Kurso ${isEbook ? 'ebook ' : ''}commission of <strong>₹${amount}</strong>. It's due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}, ${consequence}.</p>
       <p>Pay now, or if it was a slow month, request a waiver — both from your dashboard:</p>
       <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#f79514;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Go to billing</a></p>
       <p style="font-size: 13px; color: #71717a;">— Team Kurso</p>
@@ -319,12 +393,15 @@ function revenueShareReminderEmailHtml({ name, amount, daysLeft }: { name: strin
   `
 }
 
-function revenueShareOverdueEmailHtml({ name, amount }: { name: string; amount: number }) {
+function revenueShareOverdueEmailHtml({ name, amount, isEbook }: { name: string; amount: number; isEbook?: boolean }) {
   const safeName = escapeHtml(name || 'there')
+  const consequence = isEbook
+    ? "we've paused new sales of your ebooks. Anyone who already bought keeps their download — nothing changes for them, and your courses are completely unaffected."
+    : "we've paused your courses for <strong>new</strong> enrollments. Students who already enrolled keep full access — nothing changes for them."
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #18181b;">
       <p>Hi ${safeName},</p>
-      <p>Your unpaid Kurso commission of <strong>₹${amount}</strong> has gone past the grace period, so we've paused your courses for <strong>new</strong> enrollments. Students who already enrolled keep full access — nothing changes for them.</p>
+      <p>Your unpaid Kurso ${isEbook ? 'ebook ' : ''}commission of <strong>₹${amount}</strong> has gone past the grace period, so ${consequence}</p>
       <p>Pay the invoice to go live again immediately:</p>
       <p><a href="${process.env.NEXT_PUBLIC_SITE_URL}/upgrade" style="display:inline-block;padding:10px 20px;background:#f79514;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Go to billing</a></p>
       <p style="font-size: 13px; color: #71717a;">— Team Kurso</p>

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         .order('started_at', { ascending: false }),
       supabase
         .from('revenue_share_invoices')
-        .select('id, creator_id, period_start, period_end, gross_revenue, total_amount_due, status, paid_at, overdue_at')
+                .select('id, creator_id, product_type, period_start, period_end, gross_revenue, total_amount_due, status, paid_at, overdue_at, creators(name, email)')
         .order('period_start', { ascending: false })
         .limit(300),
     ])

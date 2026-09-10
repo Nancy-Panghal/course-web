@@ -152,8 +152,8 @@ export async function POST(req: NextRequest) {
   )
 
   if (!subscription) {
-    const invoice = await firstRow(
-      supabaseAdmin.from('revenue_share_invoices').select('id, creator_id, status, total_amount_due').eq('gateway_order_id', orderId)
+        const invoice = await firstRow(
+      supabaseAdmin.from('revenue_share_invoices').select('id, creator_id, product_type, status, total_amount_due').eq('gateway_order_id', orderId)
     )
 
     if (invoice) {
@@ -169,18 +169,26 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true, message: 'Already processed' })
       }
 
-      await supabaseAdmin.from('revenue_share_invoices').update({
+           await supabaseAdmin.from('revenue_share_invoices').update({
         status: 'paid',
         paid_at: new Date().toISOString(),
       }).eq('id', invoice.id)
 
-      // A course only ever goes offline here if the auto-expiry sweep
-      // already paused it for THIS invoice going overdue — paying re-opens
-      // exactly that, never a course the creator drafted themselves.
-      await supabaseAdmin.from('courses')
-        .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
-        .eq('creator_id', invoice.creator_id)
-        .eq('auto_unpublished_reason', 'revenue_share_overdue')
+      // A course/ebook only ever goes offline here if the auto-expiry
+      // sweep already paused it for THIS invoice going overdue — paying
+      // re-opens exactly that, never something the creator drafted
+      // themselves. Which table depends on which kind of invoice this was.
+      if (invoice.product_type === 'ebook') {
+        await supabaseAdmin.from('ebooks')
+          .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
+          .eq('creator_id', invoice.creator_id)
+          .eq('auto_unpublished_reason', 'ebook_revenue_share_overdue')
+      } else {
+        await supabaseAdmin.from('courses')
+          .update({ is_published: true, auto_unpublished_at: null, auto_unpublished_reason: null })
+          .eq('creator_id', invoice.creator_id)
+          .eq('auto_unpublished_reason', 'revenue_share_overdue')
+      }
 
       return NextResponse.json({ received: true, message: 'Revenue-share invoice paid' })
     }
