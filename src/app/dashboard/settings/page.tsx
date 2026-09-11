@@ -727,11 +727,17 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                <button onClick={handleSaveGateway}
-                  disabled={gwSaving || !gwWebhookSecret.trim() || PROVIDER_FIELDS[gwActiveTab].some((f) => !gwCredentials[f.key]?.trim())}
-                  className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-                  {gwSaving ? 'Verifying & saving...' : 'Verify & Connect'}
-                </button>
+                              <button onClick={handleSaveGateway}
+                disabled={gwSaving || !gwWebhookSecret.trim() || PROVIDER_FIELDS[gwActiveTab].some((f) => !gwCredentials[f.key]?.trim())}
+                className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+                {gwSaving ? 'Verifying & saving...' : 'Verify & Connect'}
+              </button>
+
+              <Link href="/contact"
+                className="flex items-center justify-center gap-1.5 mt-3 text-xs font-medium transition-colors"
+                style={{ color: 'var(--kurso-hint)' }}>
+                Have a doubt, confusion, or a problem? <span style={{ color: 'var(--kurso-primary-light)' }}>Contact us</span>
+              </Link>
               </>
             )}
           </SectionCard>
