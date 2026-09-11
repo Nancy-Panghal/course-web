@@ -79,8 +79,21 @@ export default function AdminRevenueSharePage() {
   const invoicesByCreator = new Map<string, any[]>()
   for (const inv of invoices) {
     if (!invoicesByCreator.has(inv.creator_id)) invoicesByCreator.set(inv.creator_id, [])
-    invoicesByCreator.get(inv.creator_id)!.push(inv)
+        invoicesByCreator.get(inv.creator_id)!.push(inv)
   }
+
+  // A creator can show up here two ways: an active course PAYE agreement,
+  // or ebook invoices with no course agreement at all (ebook commission
+  // applies unconditionally, so plenty of creators will only ever appear
+  // through this second path). Merge both into one list, one row each.
+  const agreementByCreator = new Map(agreements.map(a => [a.creator_id, a]))
+  const overviewCreatorIds = new Set([...agreementByCreator.keys(), ...invoicesByCreator.keys()])
+  const overviewRows = Array.from(overviewCreatorIds).map(creatorId => {
+    const agreement = agreementByCreator.get(creatorId) || null
+    const creatorInvoices = invoicesByCreator.get(creatorId) || []
+    const creatorInfo = agreement?.creators || creatorInvoices[0]?.creators || null
+    return { creatorId, agreement, creatorInvoices: creatorInvoices.slice(0, 6), creatorInfo }
+  })
 
   return (
     <div style={{ minHeight: '100vh', background: '#050505', padding: 32 }}>
@@ -100,9 +113,12 @@ export default function AdminRevenueSharePage() {
               const inv = r.revenue_share_invoices
               const monthLabel = inv?.period_start ? new Date(inv.period_start).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : ''
               return (
-                <div key={r.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16 }}>
+                                <div key={r.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16 }}>
                   <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
                     {r.creators?.name || r.creators?.email || 'Creator'} — {monthLabel}, ₹{Number(inv?.total_amount_due || 0).toLocaleString()} due
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, color: inv?.product_type === 'ebook' ? '#60a5fa' : '#f79514', background: inv?.product_type === 'ebook' ? 'rgba(96,165,250,0.12)' : 'rgba(247,149,20,0.12)' }}>
+                      {inv?.product_type === 'ebook' ? 'EBOOK' : 'COURSE'}
+                    </span>
                   </p>
                   <p style={{ color: '#71717a', fontSize: 12, marginBottom: 8 }}>
                     Collected ₹{Number(inv?.gross_revenue || 0).toLocaleString()} that month.
@@ -148,34 +164,38 @@ export default function AdminRevenueSharePage() {
           </>
         )}
 
-        {/* ── Creator overview ── */}
+                {/* ── Creator overview ── */}
         <h2 style={{ color: '#fff', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Creators on Pay As You Earn</h2>
-        {agreements.length === 0 ? (
-          <p style={{ color: '#52525b', fontSize: 13 }}>No one has opted in yet.</p>
+        {overviewRows.length === 0 ? (
+          <p style={{ color: '#52525b', fontSize: 13 }}>No one has opted in or sold anything under revenue share yet.</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {agreements.map(a => {
-              const creatorInvoices = (invoicesByCreator.get(a.creator_id) || []).slice(0, 6)
+            {overviewRows.map(({ creatorId, agreement, creatorInvoices, creatorInfo }) => {
               return (
-                <div key={a.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16 }}>
+                <div key={creatorId} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <p style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
-                      {a.creators?.name || a.creators?.email || 'Creator'}
+                      {creatorInfo?.name || creatorInfo?.email || 'Creator'}
                     </p>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: a.status === 'active' ? '#4ade80' : '#71717a' }}>
-                      {a.status}
+                    <span style={{ fontSize: 11, fontWeight: 600, color: agreement ? (agreement.status === 'active' ? '#4ade80' : '#71717a') : '#60a5fa' }}>
+                      {agreement ? agreement.status : 'ebook only'}
                     </span>
                   </div>
-                  <p style={{ color: '#71717a', fontSize: 11, marginBottom: 10 }}>
-                    {a.base_rate_percent}% up to {a.overflow_threshold_students} students, {a.overflow_rate_percent}% beyond — since {new Date(a.started_at).toLocaleDateString('en-IN')}
-                  </p>
+                  {agreement && (
+                    <p style={{ color: '#71717a', fontSize: 11, marginBottom: 10 }}>
+                      Courses: {agreement.base_rate_percent}% up to {agreement.overflow_threshold_students} students, {agreement.overflow_rate_percent}% beyond — since {new Date(agreement.started_at).toLocaleDateString('en-IN')}
+                    </p>
+                  )}
                   {creatorInvoices.length === 0 ? (
                     <p style={{ color: '#52525b', fontSize: 12 }}>No invoices yet.</p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {creatorInvoices.map(inv => (
+                                            {creatorInvoices.map(inv => (
                         <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                           <span style={{ color: '#a1a1aa' }}>
+                            <span style={{ marginRight: 6, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, color: inv.product_type === 'ebook' ? '#60a5fa' : '#f79514', background: inv.product_type === 'ebook' ? 'rgba(96,165,250,0.12)' : 'rgba(247,149,20,0.12)' }}>
+                              {inv.product_type === 'ebook' ? 'EBOOK' : 'COURSE'}
+                            </span>
                             {new Date(inv.period_start).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })} — collected ₹{Number(inv.gross_revenue).toLocaleString()}
                           </span>
                           <span style={{ fontWeight: 600, color: statusColor[inv.status] || '#a1a1aa' }}>

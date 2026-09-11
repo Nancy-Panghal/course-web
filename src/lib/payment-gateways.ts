@@ -77,7 +77,15 @@ async function verifyCashfree(credentials: Record<string, string>, environment: 
   }
 }
 
-async function verifyRazorpay(credentials: Record<string, string>) {
+async function verifyRazorpay(credentials: Record<string, string>, environment: GatewayEnvironment) {
+  const keyId = credentials.keyId || ''
+  if (environment === 'production' && keyId.startsWith('rzp_test_')) {
+    throw new GatewayVerificationError('This looks like a Razorpay TEST key (rzp_test_...), but "Live" is selected. Switch to Sandbox, or paste your live key (rzp_live_...) instead.')
+  }
+  if (environment === 'sandbox' && keyId.startsWith('rzp_live_')) {
+    throw new GatewayVerificationError('This looks like a Razorpay LIVE key (rzp_live_...), but "Sandbox" is selected. Switch to Live, or paste your test key (rzp_test_...) instead.')
+  }
+
   const auth = Buffer.from(`${credentials.keyId}:${credentials.keySecret}`).toString('base64')
   const res = await fetch('https://api.razorpay.com/v1/payments?count=1', {
     headers: { Authorization: `Basic ${auth}` },
@@ -90,7 +98,17 @@ async function verifyRazorpay(credentials: Record<string, string>) {
   }
 }
 
-async function verifyStripe(credentials: Record<string, string>) {
+async function verifyStripe(credentials: Record<string, string>, environment: GatewayEnvironment) {
+  const key = credentials.secretKey || ''
+  const isTestKey = key.startsWith('sk_test_') || key.startsWith('rk_test_')
+  const isLiveKey = key.startsWith('sk_live_') || key.startsWith('rk_live_')
+  if (environment === 'production' && isTestKey) {
+    throw new GatewayVerificationError('This looks like a Stripe TEST key (sk_test_...), but "Live" is selected. Switch to Sandbox, or paste your live secret key (sk_live_...) instead.')
+  }
+  if (environment === 'sandbox' && isLiveKey) {
+    throw new GatewayVerificationError('This looks like a Stripe LIVE key (sk_live_...), but "Sandbox" is selected. Switch to Live, or paste your test secret key (sk_test_...) instead.')
+  }
+
   const res = await fetch('https://api.stripe.com/v1/balance', {
     headers: { Authorization: `Bearer ${credentials.secretKey}` },
   })
@@ -109,8 +127,8 @@ export async function verifyGatewayCredentials(
 ) {
   requireFields(provider, credentials)
   if (provider === 'cashfree') return verifyCashfree(credentials, environment)
-  if (provider === 'razorpay') return verifyRazorpay(credentials)
-  if (provider === 'stripe') return verifyStripe(credentials)
+  if (provider === 'razorpay') return verifyRazorpay(credentials, environment)
+  if (provider === 'stripe') return verifyStripe(credentials, environment)
   throw new GatewayVerificationError('Unknown payment provider.')
 }
 

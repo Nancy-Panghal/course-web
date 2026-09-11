@@ -415,6 +415,57 @@ export default function UpgradePage() {
     }
   }
 
+    const courseInvoices = revShareInvoices.filter(inv => (inv.product_type || 'course') === 'course')
+  const ebookInvoices = revShareInvoices.filter(inv => inv.product_type === 'ebook')
+
+  function renderRevenueShareInvoiceCard(inv: any) {
+    const monthLabel = new Date(inv.period_start).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+    const pendingWaiver = revShareWaiverRequests.find(w => w.invoice_id === inv.id && w.status === 'pending')
+    const statusStyle: Record<string, { bg: string; color: string; label: string }> = {
+      pending: { bg: 'rgba(250,204,21,0.1)', color: '#facc15', label: 'Due' },
+      not_due: { bg: 'rgba(255,255,255,0.05)', color: '#71717a', label: 'Nothing earned' },
+      paid: { bg: 'rgba(74,222,128,0.1)', color: '#4ade80', label: 'Paid' },
+      waived: { bg: 'rgba(59,130,246,0.1)', color: '#60a5fa', label: 'Waived' },
+      overdue: { bg: 'rgba(239,68,68,0.1)', color: '#f87171', label: 'Overdue' },
+    }
+    const s = statusStyle[inv.status] || statusStyle.pending
+    return (
+      <div key={inv.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div className="text-sm text-white font-medium">{monthLabel}</div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>{s.label}</span>
+        </div>
+        <div className="text-xs mb-3" style={{ color: '#71717a' }}>
+          You collected ₹{Number(inv.gross_revenue).toLocaleString()} · Commission ₹{Number(inv.total_amount_due).toLocaleString()}
+        </div>
+        {inv.status === 'pending' && !pendingWaiver && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => payRevenueShareInvoice(inv.id)} disabled={payingInvoiceId === inv.id}
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))' }}>
+              {payingInvoiceId === inv.id ? 'Opening payment...' : `Pay ₹${Number(inv.total_amount_due).toLocaleString()}`}
+            </button>
+            <input
+              value={waiverReasonDraft[inv.id] || ''}
+              onChange={e => setWaiverReasonDraft(prev => ({ ...prev, [inv.id]: e.target.value }))}
+              placeholder="Slow month? Tell us why (optional)"
+              className="flex-1 min-w-[160px] px-3 py-2 rounded-lg text-xs text-white outline-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            />
+            <button onClick={() => requestRevenueShareWaiver(inv.id)} disabled={submittingWaiverFor === inv.id}
+              className="px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
+              style={{ background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {submittingWaiverFor === inv.id ? 'Sending...' : 'Request waiver'}
+            </button>
+          </div>
+        )}
+        {pendingWaiver && (
+          <p className="text-xs" style={{ color: '#60a5fa' }}>Waiver requested — your course stays live while we review it.</p>
+        )}
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -638,65 +689,36 @@ export default function UpgradePage() {
             <p className="text-xs mb-2" style={{ color: revShareMessage.isError ? '#f87171' : '#4ade80' }}>{revShareMessage.text}</p>
           )}
 
-          {revShareAgreement?.status === 'active' && (
+                    {revShareAgreement?.status === 'active' && (
             <div className="mt-6">
               <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#71717a' }}>Your invoices</div>
-              {revShareInvoices.length === 0 ? (
+              {courseInvoices.length === 0 ? (
                 <p className="text-sm" style={{ color: '#71717a' }}>Nothing yet — your first invoice appears after your first full month.</p>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {revShareInvoices.map(inv => {
-                    const monthLabel = new Date(inv.period_start).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
-                    const pendingWaiver = revShareWaiverRequests.find(w => w.invoice_id === inv.id && w.status === 'pending')
-                    const statusStyle: Record<string, { bg: string; color: string; label: string }> = {
-                      pending: { bg: 'rgba(250,204,21,0.1)', color: '#facc15', label: 'Due' },
-                      not_due: { bg: 'rgba(255,255,255,0.05)', color: '#71717a', label: 'Nothing earned' },
-                      paid: { bg: 'rgba(74,222,128,0.1)', color: '#4ade80', label: 'Paid' },
-                      waived: { bg: 'rgba(59,130,246,0.1)', color: '#60a5fa', label: 'Waived' },
-                      overdue: { bg: 'rgba(239,68,68,0.1)', color: '#f87171', label: 'Overdue' },
-                    }
-                    const s = statusStyle[inv.status] || statusStyle.pending
-                    return (
-                      <div key={inv.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-                          <div className="text-sm text-white font-medium">{monthLabel}</div>
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>{s.label}</span>
-                        </div>
-                        <div className="text-xs mb-3" style={{ color: '#71717a' }}>
-                          You collected ₹{Number(inv.gross_revenue).toLocaleString()} · Commission ₹{Number(inv.total_amount_due).toLocaleString()}
-                        </div>
-                        {inv.status === 'pending' && !pendingWaiver && (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button onClick={() => payRevenueShareInvoice(inv.id)} disabled={payingInvoiceId === inv.id}
-                              className="px-4 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-                              style={{ background: 'linear-gradient(135deg, var(--kurso-primary), var(--kurso-primary-light))' }}>
-                              {payingInvoiceId === inv.id ? 'Opening payment...' : `Pay ₹${Number(inv.total_amount_due).toLocaleString()}`}
-                            </button>
-                            <input
-                              value={waiverReasonDraft[inv.id] || ''}
-                              onChange={e => setWaiverReasonDraft(prev => ({ ...prev, [inv.id]: e.target.value }))}
-                              placeholder="Slow month? Tell us why (optional)"
-                              className="flex-1 min-w-[160px] px-3 py-2 rounded-lg text-xs text-white outline-none"
-                              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                            />
-                            <button onClick={() => requestRevenueShareWaiver(inv.id)} disabled={submittingWaiverFor === inv.id}
-                              className="px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
-                              style={{ background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.08)' }}>
-                              {submittingWaiverFor === inv.id ? 'Sending...' : 'Request waiver'}
-                            </button>
-                          </div>
-                        )}
-                        {pendingWaiver && (
-                          <p className="text-xs" style={{ color: '#60a5fa' }}>Waiver requested — your course stays live while we review it.</p>
-                        )}
-                      </div>
-                    )
-                  })}
+                  {courseInvoices.map(inv => renderRevenueShareInvoiceCard(inv))}
                 </div>
               )}
             </div>
           )}
         </div>
+
+        {/* Ebook commission — always visible, independent of course plan.
+            Ebook selling is never gated behind any plan, so this section
+            (and any invoices in it) can exist whether or not the creator
+            has ever touched course Pay As You Earn. */}
+        {ebookInvoices.length > 0 && (
+          <div className="rounded-2xl p-8 mb-12" style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+            <h2 className="text-lg font-bold text-white mb-1">Ebook commission</h2>
+            <p className="text-sm mb-6" style={{ color: '#a1a1aa' }}>
+              4% of your ebook revenue in months you collect ₹500 or more — nothing below that, and this
+              never depends on your course plan.
+            </p>
+            <div className="flex flex-col gap-3">
+              {ebookInvoices.map(inv => renderRevenueShareInvoiceCard(inv))}
+            </div>
+          </div>
+        )}
 
         {/* Subscription payments & invoices — directly below the plan cards */}
         {payments.length > 0 && (

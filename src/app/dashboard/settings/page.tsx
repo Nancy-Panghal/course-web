@@ -3,8 +3,67 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Link2, Copy } from 'lucide-react'
-import { PROVIDER_FIELDS } from '@/lib/payment-gateways'
+import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Link2, Copy, ExternalLink, Sparkles, FileCheck } from 'lucide-react'
+import { PROVIDER_FIELDS, PROVIDER_LABELS } from '@/lib/payment-gateways'
+
+// ── Setup guide content per gateway — shown in the "Get Paid" section below.
+// Event names here match exactly what src/app/api/webhooks/[provider]/route.ts
+// actually reads off each payload — don't add an event here unless that
+// route has a branch for it.
+type GatewayGuide = {
+  accountType: string
+  documents: string[]
+  dashboardSteps: string[]
+  events: string[]
+  secretHint: string
+}
+
+const GATEWAY_GUIDES: Record<'cashfree' | 'razorpay' | 'stripe', GatewayGuide> = {
+    cashfree: {
+    accountType: 'Register as an Individual / Proprietor — no company or GST registration needed to start.',
+    documents: [
+      'Your personal PAN card',
+      'Aadhaar card (or another address proof)',
+      'A bank account in your name — a savings account is fine',
+    ],
+    dashboardSteps: [
+      'Log in to your Cashfree Merchant Dashboard',
+      'Go to Developers → Webhooks',
+      'Click "Add Webhook Endpoint" and paste the URL below',
+    ],
+    events: ['Payment Success', 'Payment Failed', 'User Dropped'],
+    secretHint: 'Cashfree shows you a secret key on that same row — paste it below',
+  },
+  razorpay: {
+    accountType: 'Register as an Individual / Proprietorship — this also works without a registered company.',
+    documents: [
+      'Your personal PAN card',
+      'Aadhaar card (or another address proof)',
+      'A bank account in your name — a savings account is fine',
+    ],
+    dashboardSteps: [
+      'Log in to your Razorpay Dashboard',
+      'Go to Account & Settings → Webhooks',
+      'Click "Add New Webhook" and paste the URL below',
+    ],
+    events: ['payment.captured', 'payment.failed'],
+    secretHint: 'Razorpay shows you a "Secret" field when you create the webhook — paste it below',
+  },
+  stripe: {
+    accountType: 'Best for international students. Stripe usually expects a registered business, so it takes more setup than the other two.',
+    documents: [
+      'Business registration documents — Stripe rarely accepts a bare individual/PAN-only account in India',
+      'A bank account in your business\'s name',
+    ],
+    dashboardSteps: [
+      'Log in to your Stripe Dashboard',
+      'Go to Developers → Webhooks',
+      'Click "Add endpoint" and paste the URL below',
+    ],
+    events: ['checkout.session.completed', 'checkout.session.expired'],
+    secretHint: 'Stripe shows you a "Signing secret" starting with whsec_ after you create the endpoint — paste it below',
+  },
+}
 
 // ── OUTSIDE the page component — fixes input focus loss ──
 function InputField({ label, value, onChange, placeholder, type = 'text', disabled = false, rightElement }: {
@@ -53,7 +112,7 @@ function Toggle({ label, desc, value, onChange }: {
       style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
       <div>
         <p className="text-sm font-medium text-white">{label}</p>
-        <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>{desc}</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--kurso-hint)' }}>{desc}</p>
       </div>
       <button onClick={() => onChange(!value)}
         className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
@@ -122,13 +181,13 @@ function PublicProfileSection() {
 
   return (
     <SectionCard title="Public Profile" icon={Link2}>
-      <p className="text-xs mb-4" style={{ color: '#71717a' }}>
+      <p className="text-xs mb-4" style={{ color: 'var(--kurso-hint)' }}>
         A shareable page listing all your published courses. Set your handle once — students who buy one course can find your others here.
       </p>
       <div className="mb-3">
         <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Handle</label>
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: '#52525b' }}>kurso.in/creator/</span>
+          <span className="text-sm" style={{ color: 'var(--kurso-hint)' }}>kurso.in/creator/</span>
           <input value={slug} onChange={e => setSlug(e.target.value)} placeholder="your-name"
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
         </div>
@@ -148,7 +207,7 @@ function PublicProfileSection() {
         <label className="text-xs font-medium text-zinc-500 mb-1.5 block">GSTIN (only if you're GST-registered)</label>
         <input value={gstin} onChange={e => setGstin(e.target.value.toUpperCase())} placeholder="Leave blank if not registered"
           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 font-mono" />
-        <p className="text-[10px] mt-1" style={{ color: '#52525b' }}>
+        <p className="text-xs mt-1" style={{ color: 'var(--kurso-hint)' }}>
           If filled in, your invoices will show this GSTIN. Kurso does not calculate or add GST tax breakdowns — for full GST compliance, check with your CA.
         </p>
       </div>
@@ -159,7 +218,7 @@ function PublicProfileSection() {
         {saving ? 'Saving...' : 'Save profile'}
       </button>
       {savedSlug && (
-        <p className="text-xs mt-3" style={{ color: '#52525b' }}>
+        <p className="text-xs mt-3" style={{ color: 'var(--kurso-hint)' }}>
           Live at: <a href={`/creator/${savedSlug}`} target="_blank" style={{ color: 'var(--kurso-primary-light)' }}>kurso.in/creator/{savedSlug}</a>
         </p>
       )}
@@ -504,125 +563,178 @@ export default function SettingsPage() {
 
         {/* ── Get Paid — Payment Gateway (BYOK) ── */}
         <div id="payment-gateway">
-        <SectionCard title="Get Paid — Payment Gateway" icon={IndianRupee}>
-          {gwLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
-            <>
-              <p className="text-xs mb-4" style={{ color: '#a1a1aa' }}>
-                Connect your own payment account. Student payments settle directly to you —
-                Kurso never holds your money. Pick whichever provider you already have, or the
-                easiest to set up: Cashfree for domestic UPI/cards, Stripe or Razorpay for
-                international students.
-              </p>
+          <SectionCard title="Get Paid — Payment Gateway" icon={IndianRupee}>
+            {gwLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                <p className="text-xs mb-3" style={{ color: 'var(--kurso-hint)' }}>
+                  Connect your own payment account. Student payments settle directly to you —
+                  Kurso never holds your money. Pick whichever provider you already have, or
+                  follow the guide below for whichever you pick.
+                </p>
+                <div className="flex items-start gap-2 mb-5 p-3 rounded-xl"
+                  style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                  <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-primary-light)' }} />
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--kurso-text-secondary)' }}>
+                    Our honest take: <strong className="text-white">Cashfree is the easiest to set up</strong> if
+                    you're starting from scratch — it's also what we use ourselves for Kurso's own billing.
+                    Stripe or Razorpay work well too, especially if you already have one or teach international students.
+                  </p>
+                </div>
 
-              {gwList.length > 0 && (
-                <div className="mb-5 space-y-2">
-                  {gwList.map((g) => (
-                    <div key={g.provider} className="flex items-center gap-3 p-3 rounded-xl"
-                      style={{
-                        background: g.status === 'verified' ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.08)',
-                        border: g.status === 'verified' ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(239,68,68,0.2)',
-                      }}>
-                      {g.status === 'verified'
-                        ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
-                        : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#ef4444' }} />
-                      }
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-white capitalize">
-                          {g.provider} {g.is_default && <span className="text-xs" style={{ color: '#a1a1aa' }}>(default)</span>}
-                        </p>
-                        <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
-                          {g.status === 'verified' ? `Connected · ${g.environment}` : g.last_verification_error || 'Verification failed'}
-                        </p>
+                {gwList.length > 0 && (
+                  <div className="mb-5 space-y-2">
+                    {gwList.map((g) => (
+                      <div key={g.provider} className="flex items-center gap-3 p-3 rounded-xl"
+                        style={{
+                          background: g.status === 'verified' ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.08)',
+                          border: g.status === 'verified' ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(239,68,68,0.2)',
+                        }}>
+                        {g.status === 'verified'
+                          ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} />
+                          : <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#ef4444' }} />
+                        }
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white capitalize">
+                            {g.provider} {g.is_default && <span className="text-xs" style={{ color: '#a1a1aa' }}>(default)</span>}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
+                            {g.status === 'verified' ? `Connected · ${g.environment}` : g.last_verification_error || 'Verification failed'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2 mb-4 mt-3">
+                  {(['cashfree', 'razorpay', 'stripe'] as const).map((p) => (
+                    <button key={p} onClick={() => { setGwActiveTab(p); setGwCredentials({}); setGwError('') }}
+                                          className="flex-1 py-2 rounded-lg text-xs font-semibold capitalize"
+                      style={{
+                        background: gwActiveTab === p ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.03)',
+                        border: gwActiveTab === p ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                        color: gwActiveTab === p ? '#c4b5fd' : 'var(--kurso-text-secondary)',
+                      }}>
+                                          {p}
+                  </button>
                   ))}
                 </div>
-              )}
 
-              <div className="flex gap-2 mb-4">
-                {(['cashfree', 'razorpay', 'stripe'] as const).map((p) => (
-                  <button key={p} onClick={() => { setGwActiveTab(p); setGwCredentials({}); setGwError('') }}
-                    className="flex-1 py-2 rounded-lg text-xs font-semibold capitalize"
-                    style={{
-                      background: gwActiveTab === p ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.03)',
-                      border: gwActiveTab === p ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                      color: gwActiveTab === p ? '#c4b5fd' : '#a1a1aa',
-                    }}>
-                    {p}
+                {/* Setup guide — account type, docs, and webhook instructions for the selected gateway */}
+                <div className="mb-4 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="text-sm font-medium text-white mb-3">
+                    Setting up {PROVIDER_LABELS[gwActiveTab]}
+                  </p>
+
+                  <p className="text-xs mb-4 leading-relaxed" style={{ color: 'var(--kurso-text-secondary)' }}>
+                    {GATEWAY_GUIDES[gwActiveTab].accountType}
+                  </p>
+
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--kurso-hint)' }}>
+                    What you'll need
+                  </p>
+                  <div className="mb-4 space-y-1.5">
+                    {GATEWAY_GUIDES[gwActiveTab].documents.map((doc, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <FileCheck className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-primary-light)' }} />
+                        <p className="text-xs leading-relaxed" style={{ color: 'var(--kurso-text-secondary)' }}>{doc}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--kurso-hint)' }}>
+                    Add the webhook
+                  </p>
+                  <div className="mb-3 space-y-2">
+                    {GATEWAY_GUIDES[gwActiveTab].dashboardSteps.map((step, i) => (
+                      <div key={i} className="flex items-start gap-2.5">
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5 violet-gradient">
+                          {i + 1}
+                        </div>
+                        <p className="text-xs leading-relaxed pt-0.5" style={{ color: 'var(--kurso-text-secondary)' }}>{step}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-3">
+                    <code className="flex-1 text-xs px-3 py-2 rounded-lg truncate"
+                      style={{ background: 'rgba(0,0,0,0.3)', color: '#c4b5fd', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/${gwActiveTab}` : `/api/webhooks/${gwActiveTab}`}
+                    </code>
+                    <button onClick={handleCopyWebhookUrl} type="button"
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0"
+                      style={{
+                        background: gwUrlCopied ? 'rgba(74,222,128,0.15)' : 'rgba(139,92,246,0.15)',
+                        color: gwUrlCopied ? '#4ade80' : '#c4b5fd',
+                      }}>
+                      {gwUrlCopied ? <><CheckCircle2 className="w-3.5 h-3.5" />Copied</> : <><Copy className="w-3.5 h-3.5" />Copy</>}
+                    </button>
+                  </div>
+
+                  <p className="text-xs mb-2" style={{ color: 'var(--kurso-hint)' }}>Select these events:</p>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {GATEWAY_GUIDES[gwActiveTab].events.map((ev) => (
+                      <code key={ev} className="text-[11px] px-2 py-1 rounded-md"
+                        style={{ background: 'rgba(139,92,246,0.1)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.2)' }}>
+                        {ev}
+                      </code>
+                    ))}
+                  </div>
+
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--kurso-hint)' }}>
+                    {GATEWAY_GUIDES[gwActiveTab].secretHint}
+                  </p>
+                </div>
+
+                <div className="mb-4 flex items-center justify-between p-3 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span className="text-xs" style={{ color: '#a1a1aa' }}>Use test/sandbox keys first, switch to live when ready</span>
+                  <button onClick={() => setGwEnvironment(gwEnvironment === 'production' ? 'sandbox' : 'production')}
+                    className="text-xs font-semibold px-3 py-1 rounded-lg"
+                    style={{ background: 'rgba(139,92,246,0.15)', color: '#c4b5fd' }}>
+                    {gwEnvironment === 'production' ? 'Live' : 'Sandbox'}
                   </button>
+                </div>
+
+                {PROVIDER_FIELDS[gwActiveTab].map((field) => (
+                  <InputField key={field.key} label={field.label}
+                    value={gwCredentials[field.key] || ''}
+                    onChange={(v: string) => setGwCredentials({ ...gwCredentials, [field.key]: v })}
+                    placeholder={field.placeholder} type="password" />
                 ))}
-              </div>
+                <InputField label="Webhook signing secret (required)"
+                  value={gwWebhookSecret} onChange={setGwWebhookSecret}
+                  placeholder="Paste from your provider's webhook settings" type="password" />
 
-              {/* Webhook URL to paste into the provider's own dashboard */}
-              <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-xs mb-2" style={{ color: '#a1a1aa' }}>
-                  Add this as a webhook endpoint in your {gwActiveTab} dashboard, then paste the signing secret it gives you below:
-                </p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs px-3 py-2 rounded-lg truncate"
-                    style={{ background: 'rgba(0,0,0,0.3)', color: '#c4b5fd', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/${gwActiveTab}` : `/api/webhooks/${gwActiveTab}`}
-                  </code>
-                  <button onClick={handleCopyWebhookUrl} type="button"
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0"
-                    style={{
-                      background: gwUrlCopied ? 'rgba(74,222,128,0.15)' : 'rgba(139,92,246,0.15)',
-                      color: gwUrlCopied ? '#4ade80' : '#c4b5fd',
-                    }}>
-                    {gwUrlCopied ? <><CheckCircle2 className="w-3.5 h-3.5" />Copied</> : <><Copy className="w-3.5 h-3.5" />Copy</>}
-                  </button>
+                <div className="mb-2 mt-1 p-3 rounded-xl flex items-start gap-2"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#a1a1aa' }} />
+                  <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                    We verify these against {gwActiveTab}'s live API before saving — if they're wrong,
+                    you'll know immediately, not after your first student tries to pay.
+                  </p>
                 </div>
-              </div>
 
-              <div className="mb-4 flex items-center justify-between p-3 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <span className="text-xs" style={{ color: '#a1a1aa' }}>Use test/sandbox keys first, switch to live when ready</span>
-                <button onClick={() => setGwEnvironment(gwEnvironment === 'production' ? 'sandbox' : 'production')}
-                  className="text-xs font-semibold px-3 py-1 rounded-lg"
-                  style={{ background: 'rgba(139,92,246,0.15)', color: '#c4b5fd' }}>
-                  {gwEnvironment === 'production' ? 'Live' : 'Sandbox'}
+                {gwError && (
+                  <div className="mb-3 p-3 rounded-xl flex items-start gap-2"
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
+                    <p className="text-xs" style={{ color: '#fca5a5' }}>{gwError}</p>
+                  </div>
+                )}
+
+                <button onClick={handleSaveGateway}
+                  disabled={gwSaving || !gwWebhookSecret.trim() || PROVIDER_FIELDS[gwActiveTab].some((f) => !gwCredentials[f.key]?.trim())}
+                  className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+                  {gwSaving ? 'Verifying & saving...' : 'Verify & Connect'}
                 </button>
-              </div>
-
-              {PROVIDER_FIELDS[gwActiveTab].map((field) => (
-                <InputField key={field.key} label={field.label}
-                  value={gwCredentials[field.key] || ''}
-                  onChange={(v: string) => setGwCredentials({ ...gwCredentials, [field.key]: v })}
-                  placeholder={field.placeholder} type="password" />
-              ))}
-              <InputField label="Webhook signing secret (required)"
-                value={gwWebhookSecret} onChange={setGwWebhookSecret}
-                placeholder="Paste from your provider's webhook settings" type="password" />
-
-              <div className="mb-2 mt-1 p-3 rounded-xl flex items-start gap-2"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#a1a1aa' }} />
-                <p className="text-xs" style={{ color: '#a1a1aa' }}>
-                  We verify these against {gwActiveTab}'s live API before saving — if they're wrong,
-                  you'll know immediately, not after your first student tries to pay.
-                </p>
-              </div>
-
-              {gwError && (
-                <div className="mb-3 p-3 rounded-xl flex items-start gap-2"
-                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
-                  <p className="text-xs" style={{ color: '#fca5a5' }}>{gwError}</p>
-                </div>
-              )}
-
-              <button onClick={handleSaveGateway}
-                disabled={gwSaving || !gwWebhookSecret.trim() || PROVIDER_FIELDS[gwActiveTab].some((f) => !gwCredentials[f.key]?.trim())}
-                className="w-full py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-                {gwSaving ? 'Verifying & saving...' : 'Verify & Connect'}
-              </button>
-            </>
-          )}
-        </SectionCard>
+              </>
+            )}
+          </SectionCard>
         </div>
         <div className="mb-12" />
 
@@ -726,7 +838,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Contact link */}
-              <p className="text-xs text-center" style={{ color: '#52525b' }}>
+              <p className="text-xs text-center" style={{ color: 'var(--kurso-hint)' }}>
                 Having second thoughts?{' '}
                 <Link href="/contact" style={{ color: 'var(--kurso-primary-light)' }}>
                   Contact us
@@ -792,7 +904,7 @@ export default function SettingsPage() {
               </button>
 
               {/* Contact link */}
-              <p className="text-xs text-center mt-4" style={{ color: '#52525b' }}>
+              <p className="text-xs text-center mt-4" style={{ color: 'var(--kurso-hint)' }}>
                 If you have any issue you can{' '}
                 <Link href="/contact" style={{ color: 'var(--kurso-primary-light)' }}>
                   contact us
