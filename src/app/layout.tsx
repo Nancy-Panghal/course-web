@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     template: '%s | Kurso',
   },
   description: 'Deliver courses through WhatsApp and Telegram — no app to download. Watermarked video, anti-piracy protection, and your own branded landing page.',
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
     siteName: 'Kurso',

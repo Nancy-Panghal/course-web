@@ -271,9 +271,14 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
   const email = body.customer_email || transaction.student_email
   const phoneOrEmail = cleanedPhone || email
 
-  let student: any = null
+    let student: any = null
   if (email) student = await firstRow(supabaseAdmin.from('students').select('*').eq('email', email))
-  if (!student && cleanedPhone) student = await firstRow(supabaseAdmin.from('students').select('*').eq('phone', cleanedPhone))
+  if (!student && cleanedPhone) {
+    const phoneMatch = await firstRow(supabaseAdmin.from('students').select('*').eq('phone', cleanedPhone))
+    if (phoneMatch && (!phoneMatch.auth_id || phoneMatch.auth_id === transaction.student_auth_id)) {
+      student = phoneMatch
+    }
+  }
 
     if (student) {
     await supabaseAdmin.from('students').update({
@@ -299,13 +304,16 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
     }
   }
 
-  let existingEnrollment = await firstRow(
+    let existingEnrollment = await firstRow(
     supabaseAdmin.from('enrollments').select('*').eq('course_uuid', transaction.course_id).eq('student_id', student.id)
   )
   if (!existingEnrollment && phoneOrEmail) {
-    existingEnrollment = await firstRow(
+    const phoneMatch = await firstRow(
       supabaseAdmin.from('enrollments').select('*').eq('course_uuid', transaction.course_id).eq('phone', phoneOrEmail)
     )
+    if (phoneMatch && (!phoneMatch.student_id || phoneMatch.student_id === student.id)) {
+      existingEnrollment = phoneMatch
+    }
   }
 
   const now = new Date().toISOString()
@@ -359,15 +367,21 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
     enrollmentId = newEnrollment.id
   }
 
-  await supabaseAdmin.from('transactions').update({
-    status: 'success', rrn: body.upi_txn_id, payer_vpa: body.payer_vpa,
-    signature_hash: signature, student_id: student.id, enrollment_id: enrollmentId,
-  }).eq('id', transaction.id)
+    const existingPayment = await firstRow(
+    supabaseAdmin.from('payments').select('id').eq('enrollment_id', enrollmentId)
+  )
+  if (existingPayment) {
+    await supabaseAdmin.from('transactions').update({
+      status: 'success', rrn: body.upi_txn_id, payer_vpa: body.payer_vpa,
+      signature_hash: signature, student_id: student.id, enrollment_id: enrollmentId,
+    }).eq('id', transaction.id)
+    return NextResponse.json({ received: true, message: 'Enrollment already has a payment on record' })
+  }
 
   // Mirror into the legacy `payments` table so the existing invoice system
   // (numbering, GST, download route) keeps working unchanged.
-    const { data: course } = await supabaseAdmin.from('courses').select('name').eq('id', transaction.course_id).maybeSingle()
-    const { platformFee, creatorEarning, ratePercent } = await computeRevenueShareSplit(transaction.creator_id, body.amount ?? 0)
+  const { data: course } = await supabaseAdmin.from('courses').select('name').eq('id', transaction.course_id).maybeSingle()
+  const { platformFee, creatorEarning, ratePercent } = await computeRevenueShareSplit(transaction.creator_id, body.amount ?? 0)
   const { data: paymentRow, error: paymentInsertError } = await supabaseAdmin
     .from('payments')
     .insert({
@@ -395,27 +409,37 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
     .select('id')
     .single()
 
+  // Only mark the transaction 'success' once the receipt is actually
+  // saved — otherwise a failed insert here still leaves the transaction
+  // looking done, so Razorpay's retry gets skipped as "already processed"
+  // instead of getting a chance to fix it.
   if (paymentInsertError) {
-    console.error(`[${provider}-webhook] Failed to mirror payments row — invoice for this sale will be unavailable until fixed manually:`, paymentInsertError)
-  } else {
-    // Best-effort notifications — none of these should block the webhook
-    // from returning success, since the payment itself is already final.
-    await maybeSendInvoiceEmails({
-      paymentId: paymentRow.id,
-      creatorId: transaction.creator_id,
-      courseId: transaction.course_id,
-      studentId: student.id,
-      studentEmail: email,
-    })
-    await maybeSendCreatorEnrollmentEmail({
-      creatorId: transaction.creator_id,
-      courseId: transaction.course_id,
-      courseName: course?.name || 'a course',
-      studentName: body.customer_name,
-      studentEmail: email,
-      studentPhone: cleanedPhone,
-    })
+    console.error(`[${provider}-webhook] Failed to mirror payments row — leaving transaction pending so a retry can fix it:`, paymentInsertError)
+    return NextResponse.json({ error: 'Payment recorded, receipt pending — left unresolved for retry' }, { status: 500 })
   }
+
+  await supabaseAdmin.from('transactions').update({
+    status: 'success', rrn: body.upi_txn_id, payer_vpa: body.payer_vpa,
+    signature_hash: signature, student_id: student.id, enrollment_id: enrollmentId,
+  }).eq('id', transaction.id)
+
+  // Best-effort notifications — none of these should block the webhook
+  // from returning success, since the payment itself is already final.
+  await maybeSendInvoiceEmails({
+    paymentId: paymentRow.id,
+    creatorId: transaction.creator_id,
+    courseId: transaction.course_id,
+    studentId: student.id,
+    studentEmail: email,
+  })
+  await maybeSendCreatorEnrollmentEmail({
+    creatorId: transaction.creator_id,
+    courseId: transaction.course_id,
+    courseName: course?.name || 'a course',
+    studentName: body.customer_name,
+    studentEmail: email,
+    studentPhone: cleanedPhone,
+  })
 
   return NextResponse.json({ received: true, message: 'Enrollment activated' })
 }
@@ -428,10 +452,6 @@ async function handleFlowAEbook(transaction: any, body: NormalizedEvent, signatu
     return NextResponse.json({ received: true, message: `Marked ${body.status}` })
   }
   if (body.status !== 'success') return NextResponse.json({ received: true, message: `Ignored status: ${body.status}` })
-
-  await supabaseAdmin.from('transactions').update({
-    status: 'success', rrn: body.upi_txn_id, payer_vpa: body.payer_vpa, signature_hash: signature,
-  }).eq('id', transaction.id)
 
   const { data: ebook } = await supabaseAdmin.from('ebooks').select('title').eq('id', transaction.ebook_id).maybeSingle()
   const email = body.customer_email || transaction.student_email
@@ -462,20 +482,35 @@ async function handleFlowAEbook(transaction: any, body: NormalizedEvent, signatu
     .select('id')
     .single()
 
-  if (paymentInsertError) {
-    console.error(`[${provider}-webhook] Failed to record ebook payment — invoice unavailable until fixed manually:`, paymentInsertError)
-    if (email) {
-      await sendLoggedEmail({
-        supabase: supabaseAdmin, emailType: 'ebook_purchase_download_link', to: email,
-        subject: `Your download: ${ebook?.title || 'Your ebook'}`, creatorId: transaction.creator_id,
-        html: `<div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111"><h2>Thanks for your purchase!</h2><p>Your copy of <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> is ready.</p><a href="${downloadUrl}" style="display:inline-block;background:#f79514;color:white;padding:12px 18px;border-radius:10px;text-decoration:none">Download your ebook</a></div>`,
-      }).catch(err => console.error('[webhook-email/ebook]', err))
-    }
-    return NextResponse.json({ received: true, message: 'Ebook purchase activated (invoice pending manual fix)' })
+    if (paymentInsertError) {
+    console.error(
+      `[${provider}-webhook] Failed to record ebook payment — leaving transaction pending so a retry can fix it:`,
+      paymentInsertError
+    )
+    return NextResponse.json(
+      { error: 'Payment recorded, receipt pending — left unresolved for retry' },
+      { status: 500 }
+    )
   }
 
+  // Only mark the transaction success AFTER the payments row is safely written.
+  await supabaseAdmin
+    .from('transactions')
+    .update({
+      status: 'success',
+      rrn: body.upi_txn_id,
+      payer_vpa: body.payer_vpa,
+      signature_hash: signature,
+    })
+    .eq('id', transaction.id)
+
+  // Best-effort invoice + emails — failures here must not turn a real payment
+  // into a failed webhook response.
   try {
-    const { pdfBuffer, invoiceRow } = await generateInvoicePdfForPayment(supabaseAdmin, paymentRow.id)
+    const { pdfBuffer, invoiceRow } = await generateInvoicePdfForPayment(
+      supabaseAdmin,
+      paymentRow.id
+    )
     const base64Pdf = Buffer.from(pdfBuffer).toString('base64')
     const filename = `${invoiceRow.invoice_number}.pdf`
 
@@ -489,7 +524,9 @@ async function handleFlowAEbook(transaction: any, body: NormalizedEvent, signatu
         html: `
           <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
             <h2 style="margin:0 0 12px">Thanks for your purchase!</h2>
-            <p style="margin:0 0 16px">Your copy of <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> is ready — invoice ${invoiceRow.invoice_number} is attached.</p>
+            <p style="margin:0 0 16px">Your copy of <strong>${escapeHtml(
+              ebook?.title || 'your ebook'
+            )}</strong> is ready — invoice ${invoiceRow.invoice_number} is attached.</p>
             <a href="${downloadUrl}" style="display:inline-block;background:#f79514;color:white;padding:12px 18px;border-radius:10px;text-decoration:none">Download your ebook</a>
             <p style="margin:16px 0 0;font-size:12px;color:#666">This link is personal to you and limited to 5 downloads.</p>
           </div>
@@ -505,12 +542,18 @@ async function handleFlowAEbook(transaction: any, body: NormalizedEvent, signatu
         supabase: supabaseAdmin,
         emailType: 'creator_ebook_sale',
         to: creatorEmail,
-        subject: `New ebook sale: ${invoiceRow.invoice_number} — ₹${Number(invoiceRow.amount).toLocaleString('en-IN')}`,
+        subject: `New ebook sale: ${invoiceRow.invoice_number} — ₹${Number(
+          invoiceRow.amount
+        ).toLocaleString('en-IN')}`,
         creatorId: transaction.creator_id,
         html: `
           <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
             <h2 style="margin:0 0 12px">New ebook sale</h2>
-            <p style="margin:0 0 8px"><strong>${escapeHtml(invoiceRow.student_name || 'A reader')}</strong> bought <strong>${escapeHtml(ebook?.title || 'your ebook')}</strong> for ₹${Number(invoiceRow.amount).toLocaleString('en-IN')}.</p>
+            <p style="margin:0 0 8px"><strong>${escapeHtml(
+              invoiceRow.student_name || 'A reader'
+            )}</strong> bought <strong>${escapeHtml(
+              ebook?.title || 'your ebook'
+            )}</strong> for ₹${Number(invoiceRow.amount).toLocaleString('en-IN')}.</p>
             <p style="margin:0">Invoice ${invoiceRow.invoice_number} is attached for your records.</p>
           </div>
         `,

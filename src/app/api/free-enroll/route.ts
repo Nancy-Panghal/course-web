@@ -123,14 +123,17 @@ export async function POST(req: NextRequest) {
           .eq('student_id', student.id)
       );
     }
-    if (!existingEnrollment && phoneOrEmail) {
-      existingEnrollment = await firstRow(
+        if (!existingEnrollment && phoneOrEmail) {
+      const phoneMatch = await firstRow(
         supabaseAdmin
           .from('enrollments')
-          .select('id, payment_status, delivery_method')
+          .select('id, payment_status, delivery_method, student_id')
           .eq('course_uuid', courseId)
           .eq('phone', phoneOrEmail)
       );
+      if (phoneMatch && (!phoneMatch.student_id || phoneMatch.student_id === student?.id)) {
+        existingEnrollment = phoneMatch;
+      }
     }
 
     if (existingEnrollment && existingEnrollment.payment_status === 'paid') {
