@@ -11,7 +11,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { courseId, couponCode, studentName, studentEmail, studentPhone, returnUrl: clientReturnUrl } = await req.json()
+    const { courseId, couponCode, studentName, studentEmail, studentPhone, studentAuthId, returnUrl: clientReturnUrl } = await req.json()
     if (!courseId) {
       return NextResponse.json({ error: 'Missing course ID' }, { status: 400 })
     }
@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
       original_amount: pricing.originalAmount,
       discount_amount: pricing.discountAmount,
       payment_provider: gateway.provider,
+      student_auth_id: studentAuthId || null,
     })
     if (txnError) throw txnError
 

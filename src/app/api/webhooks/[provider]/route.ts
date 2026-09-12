@@ -275,15 +275,17 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
   if (email) student = await firstRow(supabaseAdmin.from('students').select('*').eq('email', email))
   if (!student && cleanedPhone) student = await firstRow(supabaseAdmin.from('students').select('*').eq('phone', cleanedPhone))
 
-  if (student) {
+    if (student) {
     await supabaseAdmin.from('students').update({
       email: email || undefined,
       phone: cleanedPhone || undefined,
       name: body.customer_name || student.name || undefined,
+      auth_id: student.auth_id || transaction.student_auth_id || undefined,
     }).eq('id', student.id)
   } else {
     const { data: inserted, error: insertErr } = await supabaseAdmin.from('students').insert({
       email: email || null, phone: cleanedPhone || null, name: body.customer_name || transaction.student_name || null,
+      auth_id: transaction.student_auth_id || null,
     }).select('*').single()
     if (insertErr?.code === '23505') {
       student = cleanedPhone

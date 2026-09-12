@@ -830,6 +830,7 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
           studentName: studentData?.name,
           studentEmail: studentData?.email,
           studentPhone: studentData?.phone,
+          studentAuthId: studentData?.id,
           returnUrl: window.location.href,
         }),
       })
