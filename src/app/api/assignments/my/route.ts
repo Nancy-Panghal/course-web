@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getWebAccessContext } from '@/lib/webAccess'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,10 +19,6 @@ const supabase = createClient(
 export async function GET(req: NextRequest) {
   try {
     const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim()
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-    if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const url = new URL(req.url)
     const lessonId = url.searchParams.get('lessonId')
@@ -31,10 +28,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'lessonId and enrollmentId required' }, { status: 400 })
     }
 
-    // ── Verify the enrollment belongs to this authenticated student ──
-    // Join enrollments.student_id -> students.auth_id directly so we never
-    // compare the wrong UUID spaces, and never silently allow access just
-    // because no students row exists yet for this auth user.
+    // ── Verify the request can access this enrollment, via either of two
+    // independent identity paths — a Bearer-token auth_id match, or a valid
+    // kurso_web_session cookie (bot-issued, no Kurso login) pointing at this
+    // exact enrollment. A browser can carry a Bearer token for an unrelated
+    // Supabase Auth account alongside a legitimate cookie session; requiring
+    // the Bearer token to match previously denied access even when the
+    // cookie already proved it. ──
     const { data: enrollment } = await supabase
       .from('enrollments')
       .select('id, student_id, students:student_id(auth_id)')
@@ -43,8 +43,21 @@ export async function GET(req: NextRequest) {
 
     if (!enrollment) return NextResponse.json({ assignment: null })
 
-    const enrolledAuthId = (enrollment as any)?.students?.auth_id
-    if (enrolledAuthId !== user.id) {
+    let hasAccess = false
+
+    if (token) {
+      const { data: { user } } = await supabase.auth.getUser(token)
+      const enrolledAuthId = (enrollment as any)?.students?.auth_id
+      if (user && enrolledAuthId === user.id) hasAccess = true
+    }
+
+    if (!hasAccess) {
+      const webAccess = await getWebAccessContext(req)
+      if (webAccess && webAccess.access.enrollment_id === enrollmentId) hasAccess = true
+    }
+
+    if (!hasAccess) {
+      console.warn('[assignments/my GET] denied_no_access', { lessonId, enrollmentId })
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
     
