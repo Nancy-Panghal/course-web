@@ -4,21 +4,24 @@ import { createPortal } from 'react-dom'
 import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle, Ticket, CheckCircle2 } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 
+// `length` = expected number of digits for that country's mobile number,
+// EXCLUDING the country code. Used to validate/cap the phone input instead
+// of assuming every country is 10 digits like India.
 const COUNTRIES = [
-  { name: 'India', code: '+91', flag: '🇮🇳' },
-  { name: 'United States', code: '+1', flag: '🇺🇸' },
-  { name: 'United Kingdom', code: '+44', flag: '🇬🇧' },
-  { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪' },
-  { name: 'Australia', code: '+61', flag: '🇦🇺' },
-  { name: 'Canada', code: '+1', flag: '🇨🇦' },
-  { name: 'Singapore', code: '+65', flag: '🇸🇬' },
-  { name: 'Germany', code: '+49', flag: '🇩🇪' },
-  { name: 'France', code: '+33', flag: '🇫🇷' },
-  { name: 'Saudi Arabia', code: '+966', flag: '🇸🇦' },
-  { name: 'Pakistan', code: '+92', flag: '🇵🇰' },
-  { name: 'Bangladesh', code: '+880', flag: '🇧🇩' },
-  { name: 'Nepal', code: '+977', flag: '🇳🇵' },
-  { name: 'Sri Lanka', code: '+94', flag: '🇱🇰' },
+  { name: 'India', code: '+91', flag: '🇮🇳', length: 10 },
+  { name: 'United States', code: '+1', flag: '🇺🇸', length: 10 },
+  { name: 'United Kingdom', code: '+44', flag: '🇬🇧', length: 10 },
+  { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪', length: 9 },
+  { name: 'Australia', code: '+61', flag: '🇦🇺', length: 9 },
+  { name: 'Canada', code: '+1', flag: '🇨🇦', length: 10 },
+  { name: 'Singapore', code: '+65', flag: '🇸🇬', length: 8 },
+  { name: 'Germany', code: '+49', flag: '🇩🇪', length: 11 },
+  { name: 'France', code: '+33', flag: '🇫🇷', length: 9 },
+  { name: 'Saudi Arabia', code: '+966', flag: '🇸🇦', length: 9 },
+  { name: 'Pakistan', code: '+92', flag: '🇵🇰', length: 10 },
+  { name: 'Bangladesh', code: '+880', flag: '🇧🇩', length: 10 },
+  { name: 'Nepal', code: '+977', flag: '🇳🇵', length: 10 },
+  { name: 'Sri Lanka', code: '+94', flag: '🇱🇰', length: 9 },
 ]
 
 function CountrySelector({ selected, onSelect }: { selected: any; onSelect: (c: any) => void }) {
@@ -582,8 +585,8 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
     try {
       if (authMode === 'signup') {
         const cleanedPhone = phone.trim().replace(/\D/g, '')
-        if (cleanedPhone.length !== 10) {
-          setError('Please enter a valid 10-digit mobile number')
+        if (cleanedPhone.length !== selectedCountry.length) {
+          setError(`Please enter a valid ${selectedCountry.length}-digit mobile number`)
           setLoading(false)
           return
         }
@@ -652,7 +655,7 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
   async function handlePhoneSubmit(e: React.FormEvent) {
     e.preventDefault()
     const cleanedPhone = phone.trim().replace(/\D/g, '')
-    if (cleanedPhone.length !== 10) { setError('Please enter a valid 10-digit mobile number'); return }
+    if (cleanedPhone.length !== selectedCountry.length) { setError(`Please enter a valid ${selectedCountry.length}-digit mobile number`); return }
     const phoneToStore = normalizePhone(selectedCountry.code.replace('+', '') + cleanedPhone) || cleanedPhone
     setLoading(true)
     setError('')
@@ -994,12 +997,12 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
 
               {authMode === 'signup' && (
                 <div className="flex gap-2">
-                  <CountrySelector selected={selectedCountry} onSelect={setSelectedCountry} />
+                  <CountrySelector selected={selectedCountry} onSelect={c => { setSelectedCountry(c); setPhone('') }} />
                   <div className="relative flex-1">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#52525b' }} />
                     <input type="tel" value={phone}
-                      onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 10) setPhone(v) }}
-                      placeholder="Mobile number (10 digits)" required maxLength={10}
+                      onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= selectedCountry.length) setPhone(v) }}
+                      placeholder={`Mobile number (${selectedCountry.length} digits)`} required maxLength={selectedCountry.length}
                       className="w-full pl-10 pr-4 py-3 rounded-r-xl text-sm text-white outline-none"
                       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: 'none' }}
                       onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
@@ -1061,12 +1064,12 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
             </div>
             <form onSubmit={handlePhoneSubmit} className="flex flex-col gap-4">
               <div className="flex gap-2">
-                <CountrySelector selected={selectedCountry} onSelect={setSelectedCountry} />
+                <CountrySelector selected={selectedCountry} onSelect={c => { setSelectedCountry(c); setPhone('') }} />
                 <div className="relative flex-1">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#52525b' }} />
                   <input type="tel" value={phone}
-                    onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 10) setPhone(v) }}
-                    placeholder="10 digit number" required maxLength={10}
+                    onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= selectedCountry.length) setPhone(v) }}
+                    placeholder={`${selectedCountry.length} digit number`} required maxLength={selectedCountry.length}
                     className="w-full pl-10 pr-4 py-3 rounded-r-xl text-sm text-white outline-none"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderLeft: 'none' }}
                     onFocus={e => e.target.style.borderColor = 'var(--kurso-primary)'}
