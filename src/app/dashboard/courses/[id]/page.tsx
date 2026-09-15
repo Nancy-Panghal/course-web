@@ -32,6 +32,14 @@ import {
   Award
 } from 'lucide-react'
 
+type Testimonial =
+  | { type: 'written'; name: string; text: string; rating: number; photo_url?: string }
+  | { type: 'screenshot'; image_url: string }
+
+const MAX_TESTIMONIALS = 15
+const MAX_TESTIMONIAL_IMAGE_BYTES = 5 * 1024 * 1024
+const TESTIMONIAL_IMAGE_TYPES = ['image/jpeg', 'image/png']
+
 interface Course {
   id: string
   name: string
@@ -77,7 +85,7 @@ interface Course {
   promo_video_url?: string
   promo_video_urls?: string[]
   target_audience?: string[]
-  testimonials?: { name: string; text: string; rating?: number }[]
+  testimonials?: Testimonial[]
   level?: string
   category?: string
   requirements?: string[]
@@ -2462,7 +2470,9 @@ export default function CourseManagePage({
   const [editCoInstructors, setEditCoInstructors] = useState<CoInstructor[]>([])
   const [editPromoVideoUrls, setEditPromoVideoUrls] = useState<string[]>([])
   const [editTargetAudience, setEditTargetAudience] = useState<string[]>([])
-  const [editTestimonials, setEditTestimonials] = useState<{ name: string; text: string; rating: number }[]>([])
+  const [editTestimonials, setEditTestimonials] = useState<Testimonial[]>([])
+  const [uploadingTestimonialIndex, setUploadingTestimonialIndex] = useState<number | null>(null)
+  const [testimonialUploadError, setTestimonialUploadError] = useState('')
   const [editLevel, setEditLevel] = useState('')
   const [editRequirements, setEditRequirements] = useState<string[]>([])
   const [settingsLandingConfig, setSettingsLandingConfig] = useState<LandingConfig>(DEFAULT_LANDING_CONFIG)
@@ -2583,7 +2593,7 @@ export default function CourseManagePage({
       return
     }
 
-    setUploadingImage(true)
+        setUploadingImage(true)
     try {
       const { publicUrl } = await uploadToSupabase(file, 'images')
       setEditHostImage(publicUrl)
@@ -2591,6 +2601,35 @@ export default function CourseManagePage({
       alert(err.message)
     } finally {
       setUploadingImage(false)
+    }
+  }
+
+  async function handleTestimonialFileUpload(i: number, kind: 'photo' | 'screenshot', file: File) {
+    if (!TESTIMONIAL_IMAGE_TYPES.includes(file.type)) {
+      setTestimonialUploadError('Only JPG or PNG images are allowed.')
+      return
+    }
+    if (file.size > MAX_TESTIMONIAL_IMAGE_BYTES) {
+      setTestimonialUploadError('Image must be 5MB or smaller.')
+      return
+    }
+    setTestimonialUploadError('')
+    setUploadingTestimonialIndex(i)
+    try {
+      const folder = kind === 'photo' ? `testimonials/photos/${id}` : `testimonials/screenshots/${id}`
+      const { publicUrl } = await uploadToSupabase(file, folder)
+      const n = [...editTestimonials]
+      const current = n[i]
+      if (kind === 'photo' && current.type === 'written') {
+        n[i] = { ...current, photo_url: publicUrl }
+      } else if (kind === 'screenshot' && current.type === 'screenshot') {
+        n[i] = { ...current, image_url: publicUrl }
+      }
+      setEditTestimonials(n)
+    } catch (err: any) {
+      setTestimonialUploadError(err?.message || 'Upload failed.')
+    } finally {
+      setUploadingTestimonialIndex(null)
     }
   }
 
@@ -2785,7 +2824,9 @@ export default function CourseManagePage({
         promo_video_url: editPromoVideoUrls.find(v => v.trim()) || null,
         promo_video_heading: editPromoVideoHeading.trim() || null,
         target_audience: editTargetAudience.filter(t => t.trim()),
-        testimonials: editTestimonials.filter(t => t.name.trim() && t.text.trim()),
+        testimonials: editTestimonials.filter(t =>
+          t.type === 'written' ? t.name.trim() && t.text.trim() : !!t.image_url
+        ),
         level: editLevel || null,
         requirements: editRequirements.filter(r => r.trim()),
         landing_config: (() => {
@@ -4415,7 +4456,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                         </SettingsGroup>
 
-                        {/* Testimonials */}
+                                                {/* Testimonials */}
                         <SettingsGroup
                           title="Student Testimonials"
                           description="Showcase what students are saying about your course."
@@ -4433,29 +4474,92 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                     className="absolute top-4 right-4 text-zinc-600 hover:text-red-500 transition-colors">
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
-                                  <input value={t.name}
-                                    onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], name: e.target.value }; setEditTestimonials(n) }}
-                                    placeholder="Student name"
-                                    className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8" />
-                                  <textarea value={t.text}
-                                    onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], text: e.target.value }; setEditTestimonials(n) }}
-                                    placeholder="What they said about the course..."
-                                    rows={2}
-                                    className="w-full bg-transparent text-sm text-zinc-300 outline-none resize-none" />
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm text-zinc-300">Rating:</span>
-                                    {[1, 2, 3, 4, 5].map(star => (
-                                      <button key={star} type="button"
-                                        onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star }; setEditTestimonials(n) }}
-                                        style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
-                                    ))}
-                                    <span className="text-sm text-zinc-400 ml-2">({t.rating || 5}/5)</span>
+
+                                  <div className="flex gap-2 mb-1">
+                                    <button type="button"
+                                      onClick={() => { const n = [...editTestimonials]; n[i] = { type: 'written', name: '', text: '', rating: 5 }; setEditTestimonials(n) }}
+                                      className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                                      style={{ background: t.type === 'written' ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.05)', color: t.type === 'written' ? '#fff' : 'var(--kurso-hint)' }}>
+                                      Written
+                                    </button>
+                                    <button type="button"
+                                      onClick={() => { const n = [...editTestimonials]; n[i] = { type: 'screenshot', image_url: '' }; setEditTestimonials(n) }}
+                                      className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                                      style={{ background: t.type === 'screenshot' ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.05)', color: t.type === 'screenshot' ? '#fff' : 'var(--kurso-hint)' }}>
+                                      Screenshot
+                                    </button>
                                   </div>
 
+                                  {t.type === 'written' ? (
+                                    <>
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                                          {t.photo_url ? (
+                                            <img src={t.photo_url} alt={t.name || 'Student'} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <span className="text-sm font-bold text-zinc-700">{t.name ? t.name.charAt(0).toUpperCase() : '?'}</span>
+                                          )}
+                                        </div>
+                                        <input
+                                          type="file"
+                                          id={`testimonial-photo-${i}`}
+                                          className="hidden"
+                                          accept="image/jpeg,image/png"
+                                          onChange={e => { const file = e.target.files?.[0]; if (file) handleTestimonialFileUpload(i, 'photo', file); e.target.value = '' }}
+                                          disabled={uploadingTestimonialIndex === i}
+                                        />
+                                        <label htmlFor={`testimonial-photo-${i}`}
+                                          className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all">
+                                          {uploadingTestimonialIndex === i ? 'Uploading...' : 'Upload student photo (optional)'}
+                                        </label>
+                                      </div>
+                                      <input value={t.name}
+                                        onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], name: e.target.value } as Testimonial; setEditTestimonials(n) }}
+                                        placeholder="Student name"
+                                        className="w-full bg-transparent text-sm text-white font-medium outline-none pr-8" />
+                                      <textarea value={t.text}
+                                        onChange={e => { const n = [...editTestimonials]; n[i] = { ...n[i], text: e.target.value } as Testimonial; setEditTestimonials(n) }}
+                                        placeholder="What they said about the course..."
+                                        rows={2}
+                                        className="w-full bg-transparent text-sm text-zinc-300 outline-none resize-none" />
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm text-zinc-300">Rating:</span>
+                                        {[1, 2, 3, 4, 5].map(star => (
+                                          <button key={star} type="button"
+                                            onClick={() => { const n = [...editTestimonials]; n[i] = { ...n[i], rating: star } as Testimonial; setEditTestimonials(n) }}
+                                            style={{ color: star <= (t.rating || 5) ? 'var(--kurso-accent)' : '#3f3f46', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px' }}>★</button>
+                                        ))}
+                                        <span className="text-sm text-zinc-400 ml-2">({t.rating || 5}/5)</span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="flex flex-col gap-2">
+                                      {t.image_url ? (
+                                        <img src={t.image_url} alt="Testimonial screenshot" className="w-full max-w-xs rounded-lg border border-white/10" />
+                                      ) : null}
+                                      <input
+                                        type="file"
+                                        id={`testimonial-screenshot-${i}`}
+                                        className="hidden"
+                                        accept="image/jpeg,image/png"
+                                        onChange={e => { const file = e.target.files?.[0]; if (file) handleTestimonialFileUpload(i, 'screenshot', file); e.target.value = '' }}
+                                        disabled={uploadingTestimonialIndex === i}
+                                      />
+                                      <label htmlFor={`testimonial-screenshot-${i}`}
+                                        className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white cursor-pointer hover:bg-white/10 transition-all w-fit">
+                                        {uploadingTestimonialIndex === i ? 'Uploading...' : t.image_url ? 'Replace screenshot' : 'Upload screenshot'}
+                                      </label>
+                                    </div>
+                                  )}
                                 </div>
                               ))}
-                              <button onClick={() => setEditTestimonials([...editTestimonials, { name: '', text: '', rating: 5 }])}
-                                className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Testimonial</button>
+                              {testimonialUploadError && <p className="text-xs text-red-500">{testimonialUploadError}</p>}
+                              {editTestimonials.length < MAX_TESTIMONIALS ? (
+                                <button onClick={() => setEditTestimonials([...editTestimonials, { type: 'written', name: '', text: '', rating: 5 }])}
+                                  className="text-xs text-[var(--kurso-primary-light)] hover:text-[var(--kurso-primary)] w-fit font-medium">+ Add Testimonial</button>
+                              ) : (
+                                <p className="text-xs text-zinc-500">Maximum of {MAX_TESTIMONIALS} testimonials reached (written + screenshot combined).</p>
+                              )}
                             </div>
                           </div>
                         </SettingsGroup>

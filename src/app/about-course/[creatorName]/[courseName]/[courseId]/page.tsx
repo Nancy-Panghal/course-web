@@ -19,6 +19,10 @@ function getYoutubeId(url?: string | null): string | null {
   return m ? m[1] : null
 }
 
+type Testimonial =
+  | { type: 'written'; name: string; text: string; rating?: number; photo_url?: string }
+  | { type: 'screenshot'; image_url: string }
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -199,7 +203,7 @@ export default async function AboutCoursePage({
     ? course.promo_video_urls
     : course.promo_video_url ? [course.promo_video_url] : []
   ).slice(0, 3)
-  const testimonials: { name: string; text: string; rating?: number }[] = course.testimonials || []
+  const testimonials: Testimonial[] = course.testimonials || []
   const targetAudience: string[] = course.target_audience || []
 
   const courseData = {
@@ -415,6 +419,22 @@ export default async function AboutCoursePage({
       </section>
     )
   );
+    const renderTestimonialContent = (t: Testimonial) => (
+    t.type === 'screenshot' ? (
+      <img src={t.image_url} alt="Student testimonial screenshot" style={{ width: '100%', borderRadius: 8, display: 'block' }} />
+    ) : (
+      <>
+        <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
+        <p style={{ color: c.textSecondary, fontSize: 'clamp(1rem, 1vw, 1.05rem)', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {t.photo_url && (
+            <img src={t.photo_url} alt={t.name} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+          )}
+          <p style={{ fontSize: '0.92rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
+        </div>
+      </>
+    )
+  );
   const testimonialsNode = (
     show('testimonials') && testimonials.length > 0 && (
       <section className="ak-section py-16 px-6" style={{ background: c.sectionAltBg }}>
@@ -428,9 +448,7 @@ export default async function AboutCoursePage({
             <div className={`grid gap-4 mx-auto ${testimonials.length === 1 ? 'max-w-md' : 'max-w-2xl grid-cols-1 sm:grid-cols-2'}`}>
               {testimonials.map((t, i) => (
                 <div key={i} className="ak-card p-6 flex flex-col gap-3">
-                  <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
-                  <p style={{ color: c.textSecondary, fontSize: 'clamp(1rem, 1vw, 1.05rem)', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
-                  <p style={{ fontSize: '0.92rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
+                  {renderTestimonialContent(t)}
                 </div>
               ))}
             </div>
@@ -441,11 +459,7 @@ export default async function AboutCoursePage({
                 {testimonials.map((t, i) => (
                   <div key={i} className="ak-card p-6 flex flex-col gap-3"
                     style={{ width: 300, flexShrink: 0 }}>
-                    <div className="ak-stars">{'★'.repeat(t.rating ?? 5)}{'☆'.repeat(5 - (t.rating ?? 5))}</div>
-                    <p style={{ color: c.textSecondary, fontSize: 'clamp(1rem, 1vw, 1.05rem)', lineHeight: 1.7, flex: 1 }}>"{t.text}"</p>
-                    <p style={{ fontSize: '0.92rem', fontWeight: 700, color: c.textPrimary }}>— {t.name}</p>
-
-
+                    {renderTestimonialContent(t)}
                   </div>
                 ))}
               </div>
