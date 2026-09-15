@@ -1,14 +1,16 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { supabase, getSessionOrRefresh } from '@/lib/supabase'
 import { resolveAccountType } from '@/lib/account'
 import { ensureCreatorProfile, createCreatorProfile } from '@/lib/creator'
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
+import CreatorAdminChatWidget from '@/components/CreatorAdminChatWidget'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState<any>(null)
 
@@ -65,11 +67,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     )
   }
 
-  return (
+    return (
     <>
       <div>
         {children}
       </div>
+      {/* Suppressed on Nancy's own admin pages — messaging herself there
+          would be pointless. Still shows on her other /dashboard/* pages
+          if she has her own creator profile, which is a known, low-stakes
+          gap (see handover notes). */}
+      {creator && !pathname?.startsWith('/dashboard/admin') && (
+        <CreatorAdminChatWidget creatorId={creator.id} />
+      )}
     </>
   )
 }

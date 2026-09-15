@@ -8,9 +8,13 @@
       "path": "/api/cron/live-session-reminders",
       "schedule": "0 3 * * *"
     },
-    {
+        {
       "path": "/api/cron/live-session-recording-notify",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/creator-admin-chat-retention",
+      "schedule": "30 4 * * *"
     }
   ]
 }
