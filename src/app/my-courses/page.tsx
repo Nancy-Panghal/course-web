@@ -175,22 +175,36 @@ const displayEmail = user?.email || ''
 
         const courseIds = allEnrollments.map(e => e.course_uuid)
 
-        // Fetch course metadata + published lesson counts in parallel
-        const [{ data: courseData }, { data: lessonData }] = await Promise.all([
+        // Fetch course metadata, published lesson counts, and each course's
+        // marked "last lesson" order_num in parallel. `total_lessons` on the
+        // course row is a stale column no longer kept in sync — the real
+        // total is the last-lesson mark (same value certificate issuance
+        // uses), or the published-lesson count if no lesson is marked last.
+        const [{ data: courseData }, { data: lessonData }, { data: lastLessonData }] = await Promise.all([
           supabase
             .from('courses')
-            .select('id, name, slug, host_name, creator_id, total_lessons, delivery')
+            .select('id, name, slug, host_name, creator_id, delivery')
             .in('id', courseIds),
           supabase
             .from('lessons')
             .select('course_id')
             .in('course_id', courseIds)
             .eq('is_published', true),
+          supabase
+            .from('lessons')
+            .select('course_id, order_num')
+            .in('course_id', courseIds)
+            .eq('is_last_lesson', true),
         ])
 
         const lessonCountByCourse: Record<string, number> = {}
         for (const l of lessonData || []) {
           lessonCountByCourse[l.course_id] = (lessonCountByCourse[l.course_id] || 0) + 1
+        }
+
+        const lastLessonOrderByCourse: Record<string, number> = {}
+        for (const l of lastLessonData || []) {
+          lastLessonOrderByCourse[l.course_id] = l.order_num
         }
 
         const courseById: Record<string, any> = {}
@@ -201,7 +215,7 @@ const displayEmail = user?.email || ''
             const c = courseById[e.course_uuid]
             if (!c) return null
             const published = lessonCountByCourse[e.course_uuid] || 0
-            const total = Math.max(c.total_lessons || 0, published)
+            const total = lastLessonOrderByCourse[e.course_uuid] || published
             return {
               enrollmentId: e.id,
               courseId: c.id,
