@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Shield, BookOpen, CheckCircle, Clock, TrendingUp,
   Play, ChevronRight, User, Award, LayoutDashboard,
-  LogOut, MessageCircle, Layers,Download, ExternalLink,
+  LogOut, MessageCircle, Layers, Download, ExternalLink,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { resolveAccountType } from '@/lib/account'
@@ -29,6 +29,7 @@ interface EnrolledCourse {
   whatsappTokenExpiresAt: string | null
   certificateId: string | null
   certificateUrl: string | null
+  hasRated: boolean
   telegramBotUsername: string | null
   payment_status: string
   deliveryMethod: string | null
@@ -94,10 +95,13 @@ export default function MyCoursesPage() {
   const [courses, setCourses] = useState<EnrolledCourse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [certGenerating, setCertGenerating] = useState<Set<string>>(new Set())
+    const [certGenerating, setCertGenerating] = useState<Set<string>>(new Set())
+  const [ratingDrafts, setRatingDrafts] = useState<Record<string, { rating: number; reviewText: string }>>({})
+  const [ratingSubmitting, setRatingSubmitting] = useState<Set<string>>(new Set())
+  const [ratingError, setRatingError] = useState<Record<string, string>>({})
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || ''
-const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
-const displayEmail = user?.email || ''
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
+  const displayEmail = user?.email || ''
 
   useEffect(() => {
     async function load() {
@@ -174,13 +178,15 @@ const displayEmail = user?.email || ''
         }
 
         const courseIds = allEnrollments.map(e => e.course_uuid)
+        const enrollmentIds = allEnrollments.map(e => e.id)
 
-        // Fetch course metadata, published lesson counts, and each course's
-        // marked "last lesson" order_num in parallel. `total_lessons` on the
-        // course row is a stale column no longer kept in sync — the real
-        // total is the last-lesson mark (same value certificate issuance
-        // uses), or the published-lesson count if no lesson is marked last.
-        const [{ data: courseData }, { data: lessonData }, { data: lastLessonData }] = await Promise.all([
+        // Fetch course metadata, published lesson counts, each course's
+        // marked "last lesson" order_num, and which enrollments already
+        // have a rating, all in parallel. `total_lessons` on the course
+        // row is a stale column no longer kept in sync — the real total
+        // is the last-lesson mark (same value certificate issuance uses),
+        // or the published-lesson count if no lesson is marked last.
+        const [{ data: courseData }, { data: lessonData }, { data: lastLessonData }, { data: ratingData }] = await Promise.all([
           supabase
             .from('courses')
             .select('id, name, slug, host_name, creator_id, delivery')
@@ -195,8 +201,13 @@ const displayEmail = user?.email || ''
             .select('course_id, order_num')
             .in('course_id', courseIds)
             .eq('is_last_lesson', true),
+          supabase
+            .from('course_ratings')
+            .select('enrollment_id')
+            .in('enrollment_id', enrollmentIds),
         ])
 
+        const ratedEnrollmentIds = new Set((ratingData || []).map(r => r.enrollment_id))
         const lessonCountByCourse: Record<string, number> = {}
         for (const l of lessonData || []) {
           lessonCountByCourse[l.course_id] = (lessonCountByCourse[l.course_id] || 0) + 1
@@ -233,6 +244,7 @@ const displayEmail = user?.email || ''
               whatsappTokenExpiresAt: e.whatsapp_start_token_expires_at || null,
               certificateId: e.certificate_id || null,
               certificateUrl: e.certificate_url || null,
+              hasRated: ratedEnrollmentIds.has(e.id),
               telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || null,
               payment_status: e.payment_status || 'free',
               // No-leakage: prefer the enrollment's own snapshot; fall back to the
@@ -299,9 +311,9 @@ const displayEmail = user?.email || ''
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enrollmentId: c.enrollmentId, token, expiresAt }),
-              }).catch(() => {})
+              }).catch(() => { })
             })
-            .catch(() => {})
+            .catch(() => { })
         )
       }
 
@@ -324,9 +336,9 @@ const displayEmail = user?.email || ''
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enrollmentId: c.enrollmentId, token, expiresAt }),
-              }).catch(() => {})
+              }).catch(() => { })
             })
-            .catch(() => {})
+            .catch(() => { })
         )
       }
 
@@ -351,10 +363,10 @@ const displayEmail = user?.email || ''
       )
     }
 
-    doRefresh().catch(() => {})
+    doRefresh().catch(() => { })
   }, [loading, user, courses.length])
 
-  
+
 
   function getProgress(c: EnrolledCourse) {
     if (!c.totalLessons) return 0
@@ -380,23 +392,23 @@ const displayEmail = user?.email || ''
     try {
       const payload = { enrollmentId: c.enrollmentId, courseId: c.courseId }
       console.log('[my-courses] Sending certificate request:', payload)
-      
+
       const res = await fetch(`/api/certificate/issue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      
+
       console.log('[my-courses] Response status:', res.status, res.statusText)
-      
+
       const data = await res.json()
       console.log('[my-courses] Response data:', data)
-      
+
       if (!res.ok) {
         console.error('[my-courses] API returned error:', res.status, data)
         return
       }
-      
+
       if ((data.issued || data.alreadyIssued) && data.pdfUrl) {
         console.log('[my-courses] Certificate issued successfully')
         setCourses(prev => prev.map(course =>
@@ -407,10 +419,38 @@ const displayEmail = user?.email || ''
       } else {
         console.warn('[my-courses] Certificate not ready:', data)
       }
-    } catch (err) {
+        } catch (err) {
       console.error('[my-courses] Error calling certificate API:', err)
     }
     setCertGenerating(prev => { const s = new Set(prev); s.delete(c.enrollmentId); return s })
+  }
+
+  async function submitRating(c: EnrolledCourse, rating: number, reviewText: string) {
+    setRatingSubmitting(prev => new Set(prev).add(c.enrollmentId))
+    setRatingError(prev => { const n = { ...prev }; delete n[c.enrollmentId]; return n })
+    try {
+      const res = await fetch('/api/student/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrollmentId: c.enrollmentId,
+          courseId: c.courseId,
+          rating,
+          reviewText: reviewText.trim() || null,
+        }),
+      })
+      if (res.ok) {
+        setCourses(prev => prev.map(course =>
+          course.enrollmentId === c.enrollmentId ? { ...course, hasRated: true } : course
+        ))
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setRatingError(prev => ({ ...prev, [c.enrollmentId]: data.error || 'Could not submit rating.' }))
+      }
+    } catch {
+      setRatingError(prev => ({ ...prev, [c.enrollmentId]: 'Could not submit rating. Please try again.' }))
+    }
+    setRatingSubmitting(prev => { const s = new Set(prev); s.delete(c.enrollmentId); return s })
   }
 
   function getTelegramLink(c: EnrolledCourse, botUsername?: string) {
@@ -419,7 +459,7 @@ const displayEmail = user?.email || ''
     return `https://t.me/${botUsername.replace('@', '')}?start=${c.telegramToken}`
   }
 
-  
+
   const completedCount = courses.filter(c => getProgress(c) >= 100).length
   const inProgressCount = courses.filter(c => { const p = getProgress(c); return p > 0 && p < 100 }).length
   const totalLessonsDone = courses.reduce((sum, c) => sum + c.completedLessons.length, 0)
@@ -478,8 +518,8 @@ const displayEmail = user?.email || ''
             {loading
               ? 'Loading your courses…'
               : courses.length === 0
-              ? 'No enrollments yet.'
-              : `${courses.length} course${courses.length !== 1 ? 's' : ''} · ${courses.filter(c => getProgress(c) >= 100).length} completed`
+                ? 'No enrollments yet.'
+                : `${courses.length} course${courses.length !== 1 ? 's' : ''} · ${courses.filter(c => getProgress(c) >= 100).length} completed`
             }
           </p>
         </div>
@@ -557,7 +597,8 @@ const displayEmail = user?.email || ''
                               IN PROGRESS
                             </span>
                           )}
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, letterSpacing: '0.04em',
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, letterSpacing: '0.04em',
                             background: isPaid ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)',
                             color: isPaid ? '#22c55e' : 'var(--kurso-accent)',
                             border: isPaid ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(245,158,11,0.2)',
@@ -652,7 +693,7 @@ const displayEmail = user?.email || ''
                       }}>
                         <span style={{ fontSize: 11, color: '#52525b', display: 'flex', alignItems: 'center', gap: 5 }}>
                           <svg style={{ width: 14, height: 14, color: '#25D366', flexShrink: 0 }} viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                           </svg>
                           Continue on WhatsApp
                         </span>
@@ -705,7 +746,7 @@ const displayEmail = user?.email || ''
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <a
                               href={`${c.certificateUrl}${c.certificateUrl?.includes('?') ? '&' : '?'}v=${c.enrollmentId}`}
-  
+
                               target="_blank" rel="noopener noreferrer"
                               style={{
                                 display: 'flex', alignItems: 'center', gap: 5,
@@ -747,6 +788,60 @@ const displayEmail = user?.email || ''
                             {certGenerating.has(c.enrollmentId) ? 'Generating…' : 'Get Certificate'}
                           </button>
                         </>
+                                            )}
+                    </div>
+                  )}
+
+                  {/* Rate this course — shown once a certificate exists and no rating submitted yet */}
+                  {isComplete && c.certificateUrl && !c.hasRated && (
+                    <div style={{
+                      padding: '14px 22px',
+                      borderTop: '1px solid rgba(255,255,255,0.05)',
+                      display: 'flex', flexDirection: 'column', gap: 8,
+                    }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#a1a1aa' }}>Rate this course</span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <button key={star} type="button"
+                            onClick={() => setRatingDrafts(prev => ({
+                              ...prev,
+                              [c.enrollmentId]: { rating: star, reviewText: prev[c.enrollmentId]?.reviewText || '' },
+                            }))}
+                            style={{
+                              color: star <= (ratingDrafts[c.enrollmentId]?.rating || 0) ? 'var(--kurso-accent)' : '#3f3f46',
+                              fontSize: 20, background: 'none', border: 'none', cursor: 'pointer', padding: '0 1px',
+                            }}>★</button>
+                        ))}
+                      </div>
+                      {(ratingDrafts[c.enrollmentId]?.rating || 0) > 0 && (
+                        <>
+                          <textarea
+                            value={ratingDrafts[c.enrollmentId]?.reviewText || ''}
+                            onChange={e => setRatingDrafts(prev => ({
+                              ...prev,
+                              [c.enrollmentId]: { rating: prev[c.enrollmentId]?.rating || 0, reviewText: e.target.value },
+                            }))}
+                            placeholder="Optional written feedback..."
+                            rows={2}
+                            style={{
+                              width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)',
+                              borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#e4e4e7', outline: 'none', resize: 'none',
+                            }} />
+                          <button
+                            onClick={() => submitRating(c, ratingDrafts[c.enrollmentId].rating, ratingDrafts[c.enrollmentId]?.reviewText || '')}
+                            disabled={ratingSubmitting.has(c.enrollmentId)}
+                            style={{
+                              alignSelf: 'flex-start', fontSize: 11, fontWeight: 700,
+                              color: ratingSubmitting.has(c.enrollmentId) ? '#52525b' : 'var(--kurso-primary-lighter)',
+                              background: 'none', border: '1px solid rgba(255,255,255,0.15)',
+                              padding: '5px 14px', borderRadius: 8, cursor: 'pointer',
+                            }}>
+                            {ratingSubmitting.has(c.enrollmentId) ? 'Submitting…' : 'Submit Rating'}
+                          </button>
+                        </>
+                      )}
+                      {ratingError[c.enrollmentId] && (
+                        <span style={{ fontSize: 11, color: '#f87171' }}>{ratingError[c.enrollmentId]}</span>
                       )}
                     </div>
                   )}

@@ -69,6 +69,7 @@ interface Course {
   contact_email?: string
   contact_phone?: string
   show_contact_on_landing?: boolean
+  ratings_enabled_on_landing?: boolean
   promo_video_heading?: string
   uses_external_landing_page?: boolean
   scheduled_deletion_at?: string
@@ -2430,6 +2431,7 @@ export default function CourseManagePage({
   const [editContactEmail, setEditContactEmail] = useState('')
   const [editContactPhone, setEditContactPhone] = useState('')
   const [editShowContactOnLanding, setEditShowContactOnLanding] = useState(false)
+  const [editRatingsEnabledOnLanding, setEditRatingsEnabledOnLanding] = useState(false)
   const [editPromoVideoHeading, setEditPromoVideoHeading] = useState('')
   const [editHostName, setEditHostName] = useState('')
   const [editAbout, setEditAbout] = useState('')
@@ -2530,6 +2532,7 @@ export default function CourseManagePage({
       setEditContactEmail(courseData.contact_email || '')
       setEditContactPhone(courseData.contact_phone || '')
       setEditShowContactOnLanding(!!courseData.show_contact_on_landing)
+      setEditRatingsEnabledOnLanding(!!courseData.ratings_enabled_on_landing)
       setEditPromoVideoHeading(courseData.promo_video_heading || '')
       setEditHostName(courseData.host_name || '')
       setEditInstructorTitle(courseData.instructor_title || '')
@@ -2593,7 +2596,7 @@ export default function CourseManagePage({
       return
     }
 
-        setUploadingImage(true)
+    setUploadingImage(true)
     try {
       const { publicUrl } = await uploadToSupabase(file, 'images')
       setEditHostImage(publicUrl)
@@ -2815,6 +2818,7 @@ export default function CourseManagePage({
         contact_email: editContactEmail.trim() || null,
         contact_phone: editContactPhone.trim() || null,
         show_contact_on_landing: editShowContactOnLanding,
+        ratings_enabled_on_landing: editRatingsEnabledOnLanding,
         brand_name: editBrandName.trim() || null,
         co_instructors: editCoInstructors
           .filter(ci => ci.name.trim())
@@ -2874,6 +2878,7 @@ export default function CourseManagePage({
         contact_email: editContactEmail.trim() || undefined,
         contact_phone: editContactPhone.trim() || undefined,
         show_contact_on_landing: editShowContactOnLanding,
+        ratings_enabled_on_landing: editRatingsEnabledOnLanding,
         promo_video_heading: editPromoVideoHeading.trim() || undefined,
         co_instructors: editCoInstructors.filter(ci => ci.name.trim()),
       })
@@ -3037,6 +3042,7 @@ export default function CourseManagePage({
     editContactEmail,
     editContactPhone,
     editShowContactOnLanding,
+    editRatingsEnabledOnLanding,
     editHostName,
     editInstructorTitle,
     editAbout,
@@ -3605,7 +3611,7 @@ export default function CourseManagePage({
                 </div>
 
 
-                                <LandingSectionToggle
+                <LandingSectionToggle
                   type="curriculum"
                   label="Show lesson names & modules name on your landing page."
                 />
@@ -4456,7 +4462,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                         </SettingsGroup>
 
-                                                {/* Testimonials */}
+                        {/* Testimonials */}
                         <SettingsGroup
                           title="Student Testimonials"
                           description="Showcase what students are saying about your course."
@@ -4561,6 +4567,61 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                 <p className="text-xs text-zinc-500">Maximum of {MAX_TESTIMONIALS} testimonials reached (written + screenshot combined).</p>
                               )}
                             </div>
+                          </div>
+                                                </SettingsGroup>
+
+
+                        <SettingsGroup
+                          title="Ratings & Reviews"
+                          description="Students can rate your course after completing it (once their certificate is issued). Manage replies and flag reviews from the Ratings & Reviews page in your dashboard sidebar."
+                        >
+                          <div
+                            className="flex items-center justify-between gap-4 p-4 rounded-xl"
+                            style={{
+                              background: editRatingsEnabledOnLanding
+                                ? 'rgba(var(--kurso-primary-rgb), 0.06)'
+                                : 'rgba(255,255,255,0.03)',
+                              border: editRatingsEnabledOnLanding
+                                ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
+                                : '1px solid rgba(255,255,255,0.08)',
+                            }}
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-white">
+                                Show average rating on my landing page
+                              </p>
+                              <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
+                                {editRatingsEnabledOnLanding
+                                  ? 'Students will see your average rating and review count near your course title.'
+                                  : 'Your average rating is hidden from your landing page. Ratings are still collected either way.'}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setEditRatingsEnabledOnLanding(previous => !previous)}
+                              className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
+                              style={{
+                                background: editRatingsEnabledOnLanding
+                                  ? 'var(--kurso-primary)'
+                                  : 'rgba(255,255,255,0.12)',
+                              }}
+                              aria-label={
+                                editRatingsEnabledOnLanding
+                                  ? 'Hide average rating from landing page'
+                                  : 'Show average rating on landing page'
+                              }
+                              aria-pressed={editRatingsEnabledOnLanding}
+                            >
+                              <span
+                                className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                                style={{
+                                  transform: editRatingsEnabledOnLanding
+                                    ? 'translateX(20px)'
+                                    : 'translateX(0)',
+                                }}
+                              />
+                            </button>
                           </div>
                         </SettingsGroup>
 

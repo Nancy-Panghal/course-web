@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList, Undo, Library, MessageSquareWarning } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Menu, X, Zap, IndianRupee, Ticket, Megaphone, BarChart3, ClipboardList, Undo, Library, MessageSquareWarning, Star } from 'lucide-react'
 import Logo from './Logo'
 import { supabase } from '@/lib/supabase'
 
@@ -15,6 +15,7 @@ const navItems = [
   { label: 'Q&A Moderation', href: '/dashboard/moderation', icon: MessageSquareWarning },
   { label: 'Revenue', href: '/dashboard/revenue', icon: IndianRupee },
   { label: 'Refunds', href: '/dashboard/refunds', icon: Undo },
+  { label: 'Ratings & Reviews', href: '/dashboard/ratings', icon: Star },
   { label: 'Coupons', href: '/dashboard/coupons', icon: Ticket },
   { label: 'Broadcast', href: '/dashboard/broadcast', icon: Megaphone },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },

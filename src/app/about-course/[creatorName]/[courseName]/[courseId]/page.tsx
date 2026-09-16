@@ -160,11 +160,26 @@ export default async function AboutCoursePage({
     .eq('course_id', course.id)
     .order('order_num', { ascending: true })
 
-  const { data: liveSessions } = await supabase
+    const { data: liveSessions } = await supabase
     .from('live_sessions')
     .select('id, title, description, scheduled_at, duration_minutes, join_url, recording_url')
     .eq('course_id', course.id)
     .order('scheduled_at', { ascending: true })
+
+  // Ratings summary — only queried when the creator has opted in, since it's
+  // the only place this data is used on this page.
+  let ratingsSummary: { average: number; count: number } | null = null
+  if (course.ratings_enabled_on_landing) {
+    const { data: ratingRows } = await supabase
+      .from('course_ratings')
+      .select('rating')
+      .eq('course_id', course.id)
+      .eq('flagged_for_review', false)
+    if (ratingRows && ratingRows.length > 0) {
+      const sum = ratingRows.reduce((acc, r) => acc + r.rating, 0)
+      ratingsSummary = { average: sum / ratingRows.length, count: ratingRows.length }
+    }
+  }
 
   const publishedLessons = lessons || []
   const modules = courseModules || []
@@ -903,7 +918,7 @@ export default async function AboutCoursePage({
                   </div>
                 )}
 
-                {/* Title */}
+                                {/* Title */}
                 <h1 className="fu fu2 mb-5" style={{
                   fontFamily: fonts.heading,
                   fontSize: promoVideoId ? 'clamp(1.7rem, 3.5vw, 2.8rem)' : 'clamp(2rem, 5vw, 3.2rem)',
@@ -911,6 +926,20 @@ export default async function AboutCoursePage({
                 }}>
                   {course.name}
                 </h1>
+
+                {/* Average rating badge — only when the creator has opted in and there's at least one non-flagged rating */}
+                {ratingsSummary && (
+                  <div className="fu fu2 flex mb-5" style={{ justifyContent: promoVideoId ? 'flex-start' : 'center' }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                      background: c.pillBg, border: `1px solid ${c.borderSoft}`, color: c.textSecondary,
+                    }}>
+                      <Star className="w-3.5 h-3.5" style={{ color: c.accent }} />
+                      {ratingsSummary.average.toFixed(1)} ({ratingsSummary.count} rating{ratingsSummary.count === 1 ? '' : 's'})
+                    </span>
+                  </div>
+                )}
 
                 {/* Description */}
                 {course.description && (
