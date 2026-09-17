@@ -14,7 +14,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { LogOut } from 'lucide-react'
-import { supabase, getSessionOrRefresh } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 interface ImpersonationState {
   creatorId: string
@@ -69,17 +69,27 @@ export default function ImpersonationBanner() {
     if (!state || exiting) return
     setExiting(true)
     try {
+      // Revoke first, independent of the admin session — this is what
+      // was silently failing before: revoking used to happen only after
+      // restoring the admin's session, using the admin's bearer token,
+      // and a failed revoke was swallowed instead of surfaced, so the
+      // impersonation session just sat active until its 45-minute expiry.
+      try {
+        const res = await fetch(`/api/admin/impersonate/${state.creatorId}?sessionId=${state.sessionId}`, {
+          method: 'DELETE',
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          console.error('[ImpersonationBanner] revoke failed', res.status, body)
+        }
+      } catch (revokeErr) {
+        console.error('[ImpersonationBanner] revoke request failed', revokeErr)
+      }
+
       const rawReturn = sessionStorage.getItem(RETURN_SESSION_KEY)
       if (rawReturn) {
         const { access_token, refresh_token } = JSON.parse(rawReturn)
         await supabase.auth.setSession({ access_token, refresh_token })
-        const { session } = await getSessionOrRefresh()
-        if (session?.access_token) {
-          await fetch(`/api/admin/impersonate/${state.creatorId}?sessionId=${state.sessionId}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }).catch(() => {})
-        }
       }
     } finally {
       sessionStorage.removeItem(STORAGE_KEY)

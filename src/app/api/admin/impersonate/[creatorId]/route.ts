@@ -81,14 +81,16 @@ export async function POST(
   }
 }
 
+// No requireAdmin() here on purpose: exiting reliably — even if the
+// admin's own bearer token has gone stale by the time Exit is clicked —
+// matters more than gating this one call. sessionId is an unguessable
+// UUID the browser already holds and isn't exposed anywhere else; all
+// it can do is end one already-live impersonation session early.
 export async function DELETE(
   req: NextRequest,
   props: { params: Promise<{ creatorId: string }> }
 ) {
   try {
-    const admin = await requireAdmin(req, supabase)
-    if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
     const { creatorId } = await props.params
     const sessionId = req.nextUrl.searchParams.get('sessionId')
     if (!sessionId) return NextResponse.json({ error: 'sessionId is required' }, { status: 400 })
@@ -98,6 +100,7 @@ export async function DELETE(
       .update({ revoked_at: new Date().toISOString() })
       .eq('id', sessionId)
       .eq('creator_id', creatorId)
+      .is('revoked_at', null)
     if (error) throw error
 
     return NextResponse.json({ success: true })
