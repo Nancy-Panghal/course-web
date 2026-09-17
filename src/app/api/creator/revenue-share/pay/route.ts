@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createKursoSubscriptionOrder, KursoCashfreeError } from '@/lib/kurso-cashfree'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
+import { isImpersonationActive, IMPERSONATION_BLOCK_MESSAGE } from '@/lib/impersonation-guard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,10 @@ export async function POST(req: NextRequest) {
     const { data: userData, error: userErr } = await supabase.auth.getUser(token)
     if (userErr || !userData.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const creatorId = userData.user.id
+
+    if (await isImpersonationActive(creatorId)) {
+      return NextResponse.json({ error: IMPERSONATION_BLOCK_MESSAGE }, { status: 403 })
+    }
 
     const { invoiceId } = await req.json()
     if (!invoiceId) return NextResponse.json({ error: 'invoiceId is required' }, { status: 400 })

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isImpersonationActive, IMPERSONATION_BLOCK_MESSAGE } from '@/lib/impersonation-guard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,10 @@ export async function DELETE(req: NextRequest) {
     }
 
     const creatorId = user.id
+
+    if (await isImpersonationActive(creatorId)) {
+      return NextResponse.json({ error: IMPERSONATION_BLOCK_MESSAGE }, { status: 403 })
+    }
 
     // 2. Get all course IDs belonging to this creator
     const { data: courses, error: coursesError } = await supabase

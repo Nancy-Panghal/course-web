@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isImpersonationActive, IMPERSONATION_BLOCK_MESSAGE } from '@/lib/impersonation-guard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,6 +18,10 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+    }
+
+    if (await isImpersonationActive(user.id)) {
+      return NextResponse.json({ error: IMPERSONATION_BLOCK_MESSAGE }, { status: 403 })
     }
 
     const deletionDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()

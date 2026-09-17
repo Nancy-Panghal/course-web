@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getAuthenticatedCreator } from '@/app/api/razorpay/subscription-auth'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
+import { isImpersonationActive, IMPERSONATION_BLOCK_MESSAGE } from '@/lib/impersonation-guard'
 import {
   GatewayProvider,
   GatewayVerificationError,
@@ -21,6 +22,9 @@ export async function GET(req: NextRequest) {
   try {
     const { creator, error } = await getAuthenticatedCreator(req)
     if (error || !creator) return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 })
+    if (await isImpersonationActive(creator.id)) {
+      return NextResponse.json({ error: IMPERSONATION_BLOCK_MESSAGE }, { status: 403 })
+    }
 
     const { data, error: dbError } = await supabase
       .from('creator_payment_gateways')
@@ -41,6 +45,9 @@ export async function POST(req: NextRequest) {
   try {
     const { creator, error } = await getAuthenticatedCreator(req)
     if (error || !creator) return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 })
+    if (await isImpersonationActive(creator.id)) {
+      return NextResponse.json({ error: IMPERSONATION_BLOCK_MESSAGE }, { status: 403 })
+    }
 
     const body = await req.json()
     const provider = body.provider as GatewayProvider
@@ -115,6 +122,9 @@ export async function DELETE(req: NextRequest) {
   try {
     const { creator, error } = await getAuthenticatedCreator(req)
     if (error || !creator) return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 })
+    if (await isImpersonationActive(creator.id)) {
+      return NextResponse.json({ error: IMPERSONATION_BLOCK_MESSAGE }, { status: 403 })
+    }
 
     const provider = req.nextUrl.searchParams.get('provider') as GatewayProvider
     if (!VALID_PROVIDERS.includes(provider)) {

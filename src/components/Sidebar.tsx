@@ -94,15 +94,15 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 h-screen overflow-y-auto fixed left-0 top-0 z-40"
-        style={{background:'#0a0a0a', borderRight:'1px solid rgba(255,255,255,0.06)'}}>
+      <aside className="hidden md:flex flex-col w-56 overflow-y-auto fixed left-0 z-40"
+        style={{background:'#0a0a0a', borderRight:'1px solid rgba(255,255,255,0.06)', top:'var(--kurso-banner-offset, 0px)', height:'calc(100vh - var(--kurso-banner-offset, 0px))'}}>
         <SidebarContent />
       </aside>
 
       {/* Mobile toggle */}
       <button
-        className="md:hidden fixed top-4 left-4 z-50 w-10 h-10 rounded-xl flex items-center justify-center"
-        style={{background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.1)'}}
+        className="md:hidden fixed left-4 z-50 w-10 h-10 rounded-xl flex items-center justify-center"
+        style={{background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.1)', top:'calc(1rem + var(--kurso-banner-offset, 0px))'}}
         onClick={() => setMobileOpen(!mobileOpen)}
       >
         {mobileOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
@@ -110,7 +110,7 @@ export default function Sidebar() {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40">
+        <div className="md:hidden fixed left-0 right-0 bottom-0 z-40" style={{top:'var(--kurso-banner-offset, 0px)'}}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
           <aside className="absolute left-0 top-0 bottom-0 w-56 flex flex-col overflow-y-auto"
             style={{background:'#0a0a0a', borderRight:'1px solid rgba(255,255,255,0.06)'}}>

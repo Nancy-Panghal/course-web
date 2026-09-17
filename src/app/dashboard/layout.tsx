@@ -7,6 +7,7 @@ import { ensureCreatorProfile, createCreatorProfile } from '@/lib/creator'
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
 import CreatorAdminChatWidget from '@/components/CreatorAdminChatWidget'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -58,17 +59,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 violet-gradient rounded-xl animate-pulse-glow" />
-          <p className="text-xs" style={{ color: '#a1a1aa' }}>Loading...</p>
+      <>
+        <ImpersonationBanner />
+        <div className="min-h-screen bg-black flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-10 h-10 violet-gradient rounded-xl animate-pulse-glow" />
+            <p className="text-xs" style={{ color: '#a1a1aa' }}>Loading...</p>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
     return (
     <>
+      <ImpersonationBanner />
       <div>
         {children}
       </div>
