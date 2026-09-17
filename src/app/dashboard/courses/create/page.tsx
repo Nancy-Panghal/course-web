@@ -531,7 +531,7 @@ export default function CreateCoursePage() {
                     }}
                   />
 
-                  <Field label="Refund Window (days)" hint="How many days after purchase a student can request a refund. Set to 0 for no refunds.">
+                  <Field label="Refund Window (days)" hint={`Students can request a refund within ${refundWindowDays || 0} day${refundWindowDays === '1' ? '' : 's'} of enrolling. Set to 0 for no refunds.`}>
                     <Input value={refundWindowDays} onChange={setRefundWindowDays} placeholder="7" type="number" />
                   </Field>
 

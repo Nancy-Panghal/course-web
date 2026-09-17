@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
 
     const { data: course, error: courseErr } = await supabase
       .from('courses')
-      .select('id, name, creator_id, delivery, host_name')
+      .select('id, name, creator_id, delivery, host_name, refund_window_days')
       .eq('id', courseId)
       .maybeSingle()
     if (courseErr) throw courseErr
@@ -291,6 +291,7 @@ export async function POST(req: NextRequest) {
           delivery_method: effectiveDeliveryMethod,
           is_test: false,
           source: 'migrated',
+          refund_window_days: course?.refund_window_days ?? 0,
         })
         // A collision here means another row (or a previous import run)
         // already claimed this exact phone/course pair or payment_id —

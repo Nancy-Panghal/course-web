@@ -1202,13 +1202,12 @@ export default async function AboutCoursePage({
               </>
             )}
           </Link>
-          {(course.refund_policy_text || course.refund_window_days > 0) && (
+          {course.refund_policy_text && (
             <p className="mb-4" style={{ color: mutedSoft, fontSize: 'clamp(0.92rem, 0.9vw, 0.98rem)', lineHeight: 1.7, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
-              {course.refund_policy_text
-                ? course.refund_policy_text
-                : `Refunds accepted within ${course.refund_window_days} day${course.refund_window_days === 1 ? '' : 's'} of purchase.`}
+              {course.refund_policy_text}
             </p>
           )}
+
           {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path || (course.show_contact_on_landing && (course.contact_email || course.contact_phone))) && (
             <div className="mb-4 flex items-center justify-center flex-wrap gap-x-5 gap-y-1.5">
               {course.refund_policy_storage_path && (

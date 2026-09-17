@@ -17,19 +17,18 @@ export type ActionResult =
 export async function checkCourseRefundEligibility(enrollmentId: string): Promise<{ eligible: boolean; reason?: string }> {
   const { data: enrollment } = await supabase
     .from('enrollments')
-    .select('id, course_uuid, payment_status, enrolled_at')
+    .select('id, payment_status, enrolled_at, refund_window_days')
     .eq('id', enrollmentId)
     .maybeSingle()
 
   if (!enrollment || enrollment.payment_status !== 'paid') return { eligible: false, reason: 'Not a paid enrollment' }
 
-  const { data: course } = await supabase
-    .from('courses')
-    .select('refund_window_days')
-    .eq('id', enrollment.course_uuid)
-    .maybeSingle()
-
-  const windowDays = course?.refund_window_days ?? 0
+  // The refund window is snapshotted onto the enrollment at the moment of
+  // payment (see api/webhooks/[provider]/route.ts) — this deliberately does
+  // NOT re-read the course's current setting, so a creator changing it later
+  // never retroactively shortens or lengthens what an already-paid student
+  // was promised.
+  const windowDays = enrollment.refund_window_days ?? 0
   if (windowDays <= 0) return { eligible: false, reason: 'This course does not accept refunds' }
 
   const daysSince = (Date.now() - new Date(enrollment.enrolled_at).getTime()) / (1000 * 60 * 60 * 24)

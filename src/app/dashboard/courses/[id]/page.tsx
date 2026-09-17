@@ -4004,7 +4004,11 @@ export default function CourseManagePage({
                           <input value={editRefundWindowDays} onChange={e => setEditRefundWindowDays(e.target.value)} type="number"
                             placeholder="7"
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
-                          <p className="text-base mt-1" style={{ color: 'var(--kurso-hint)' }}>0 = no refunds accepted</p>
+                          <p className="text-base mt-1" style={{ color: 'var(--kurso-hint)' }}>
+                            {Number(editRefundWindowDays) > 0
+                              ? `Students can request a refund within ${editRefundWindowDays} day${editRefundWindowDays === '1' ? '' : 's'} of enrolling.`
+                              : '0 = no refunds accepted'}
+                          </p>
                         </div>
                       </div>
                       {/* Make this entire course free toggle */}

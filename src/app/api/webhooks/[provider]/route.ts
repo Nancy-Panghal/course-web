@@ -321,12 +321,15 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
 
   const { data: deliveryCourse } = await supabaseAdmin
     .from('courses')
-    .select('delivery')
+    .select('delivery, refund_window_days')
     .eq('id', transaction.course_id)
     .maybeSingle()
 
   const enrollmentDeliveryMethod = deliveryCourse?.delivery || 'both'
-
+  // Snapshot the refund window at the moment of payment, so a later change
+  // to the course's setting never retroactively shortens or lengthens what
+  // a student who already paid was promised.
+  const enrollmentRefundWindowDays = deliveryCourse?.refund_window_days ?? 0
   if (existingEnrollment) {
     enrollmentId = existingEnrollment.id
 
@@ -343,6 +346,7 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
           last_web_sync: now,
           delivery_method:
             existingEnrollment.delivery_method || enrollmentDeliveryMethod,
+          refund_window_days: enrollmentRefundWindowDays,
         })
         .eq('id', enrollmentId)
     } else if (existingEnrollment.delivery_method == null) {
@@ -362,6 +366,7 @@ async function handleFlowA(transaction: any, body: NormalizedEvent, signature: s
       phone: phoneOrEmail,
       last_web_sync: now,
       delivery_method: enrollmentDeliveryMethod,
+      refund_window_days: enrollmentRefundWindowDays,
     }).select('id').single()
     if (enrollErr) throw enrollErr
     enrollmentId = newEnrollment.id
