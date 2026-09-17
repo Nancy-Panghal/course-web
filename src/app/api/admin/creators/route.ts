@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('creators')
-      .select('id, name, payout_account_status, payout_account_holder')
+      .select('id, name, payout_account_status')
       .order('name', { ascending: true })
 
     if (error) throw error

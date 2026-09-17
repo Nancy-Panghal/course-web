@@ -15,7 +15,6 @@ interface CreatorRow {
   id: string
   name: string
   payout_account_status?: string | null
-  payout_account_holder?: string | null
 }
 
 export default function AdminCreatorsPage() {
