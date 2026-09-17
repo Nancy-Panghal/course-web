@@ -14,6 +14,7 @@ import { Loader2, LogIn, Search, ShieldAlert, User } from 'lucide-react'
 interface CreatorRow {
   id: string
   name: string
+  email: string
   payout_account_status?: string | null
 }
 
@@ -80,7 +81,6 @@ export default function AdminCreatorsPage() {
       const { error: otpError } = await supabase.auth.verifyOtp({
         type: 'magiclink',
         token_hash: json.tokenHash,
-        email: json.email,
       })
       if (otpError) throw otpError
 
@@ -99,9 +99,11 @@ export default function AdminCreatorsPage() {
     }
   }
 
-  const filtered = creators.filter(c =>
-    c.id !== selfId && (c.name || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = creators.filter(c => {
+    if (c.id === selfId) return false
+    const q = search.toLowerCase()
+    return (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q)
+  })
 
   if (loading) {
     return (
@@ -147,7 +149,7 @@ export default function AdminCreatorsPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search creators…"
+            placeholder="Search by name or email…"
             className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm text-white outline-none"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
           />
@@ -168,6 +170,7 @@ export default function AdminCreatorsPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-white truncate">{c.name || 'Unnamed creator'}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--kurso-text-muted)' }}>{c.email}</p>
                   {c.payout_account_status && (
                     <p className="text-[11px] truncate" style={{ color: 'var(--kurso-text-muted)' }}>
                       Payout: {c.payout_account_status}
