@@ -23,6 +23,7 @@ interface LiveSession {
 
 interface Module {
   name: string
+  description?: string | null
   lessons: Lesson[]
 }
 
@@ -250,6 +251,20 @@ export default function CurriculumAccordion({
                         padding: '4px 0',
                       }}
                     >
+                                            {mod.description && (
+                        <p
+                          className="px-5 py-3 text-sm"
+                          style={{
+                            color: textSecondary,
+                            lineHeight: 1.7,
+                            whiteSpace: 'pre-line',
+                            overflowWrap: 'anywhere',
+                            borderBottom: mod.lessons.length > 0 ? `1px solid ${lessonSep}` : 'none',
+                          }}
+                        >
+                          {mod.description}
+                        </p>
+                      )}
                       {mod.lessons.map((lesson, j) => (
                         <div
                           key={j}

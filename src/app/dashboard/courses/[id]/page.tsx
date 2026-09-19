@@ -136,6 +136,16 @@ interface CourseModule {
   name: string
   order_num: number
   planned_lessons: number
+  description?: string | null
+}
+
+// Max length of a module's optional "Details" text. Also enforced by a CHECK
+// constraint on course_modules.description in the database.
+const MODULE_DETAILS_MAX_WORDS = 500
+
+function countWords(text: string): number {
+  const t = text.trim()
+  return t ? t.split(/\s+/).length : 0
 }
 
 // Folders that hold video content — these upload to R2 instead of Supabase.
@@ -318,6 +328,119 @@ function AddModuleModal({
           </div>
         </form>
       </div>
+    </div>
+  )
+}
+
+// ── MODULE DETAILS EDITOR ──
+// Optional "Details" text for a module, shown to students inside that module's
+// expanded row on the landing page. Sits directly under the module name in the
+// lessons tab: click to edit, Save writes to course_modules.description.
+function ModuleDetailsEditor({
+  mod,
+  onSaved,
+}: {
+  mod: CourseModule
+  onSaved: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const words = countWords(value)
+  const overLimit = words > MODULE_DETAILS_MAX_WORDS
+
+  function startEditing() {
+    setValue(mod.description || '')
+    setError('')
+    setEditing(true)
+  }
+
+  async function handleSave() {
+    if (overLimit) return
+    setSaving(true)
+    setError('')
+    const trimmed = value.trim()
+    const { error: updateError } = await supabase
+      .from('course_modules')
+      .update({ description: trimmed || null })
+      .eq('id', mod.id)
+    setSaving(false)
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+    setEditing(false)
+    onSaved()
+  }
+
+  return (
+    <div className="mb-3">
+      {editing ? (
+        <div className="flex flex-col gap-2">
+          <textarea
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            rows={4}
+            placeholder="Optional — what students will learn in this module. Shown on your course page."
+            className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none resize-y"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: `1px solid ${overLimit ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`,
+            }}
+          />
+                    <p className="text-xs" style={{ color: 'var(--kurso-hint)' }}>
+            Optional — shown to students on your course page to help them decide.
+          </p>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs" style={{ color: overLimit ? '#ef4444' : '#a6a6ab' }}>
+              {words} / {MODULE_DETAILS_MAX_WORDS} words
+            </span>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setEditing(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                Cancel
+              </button>
+              <button type="button" onClick={handleSave} disabled={saving || overLimit}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-white violet-gradient hover:opacity-90 disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+          {error && (
+            <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>
+          )}
+        </div>
+      ) : mod.description ? (
+        <div className="flex items-start gap-3">
+          <p className="text-xs flex-1 min-w-0"
+            style={{
+              color: '#a6a6ab',
+              lineHeight: 1.6,
+              whiteSpace: 'pre-line',
+              overflowWrap: 'anywhere',
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}>
+            {mod.description}
+          </p>
+          <button type="button" onClick={startEditing}
+            className="text-xs flex-shrink-0 underline"
+            style={{ color: 'var(--kurso-primary-light)' }}>
+            Edit details
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={startEditing}
+          className="text-xs"
+          style={{ color: 'var(--kurso-primary-light)' }}>
+          + Add details
+        </button>
+      )}
     </div>
   )
 }
@@ -3613,7 +3736,7 @@ export default function CourseManagePage({
 
                 <LandingSectionToggle
                   type="curriculum"
-                  label="Show lesson names & modules name on your landing page."
+                  label="Show lesson names, module names & module details on your landing page."
                 />
 
                 {/* Keep students engaged while you're still uploading */}
@@ -3673,6 +3796,8 @@ export default function CourseManagePage({
                               + Lesson
                             </button>
                           </div>
+
+                                                    <ModuleDetailsEditor mod={module} onSaved={fetchModules} />
 
                           <div className="flex flex-col gap-3">
                             {moduleLessons.length === 0 ? (
