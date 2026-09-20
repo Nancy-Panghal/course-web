@@ -20,8 +20,8 @@ export const LANDING_SECTION_TYPES = [
   'instructor',
   'testimonials',
   'custom',
-  'howItWorks',
   'faq',
+  'howItWorks',
   'disclaimer',
   'finalCta',
 ] as const
@@ -156,7 +156,7 @@ export type LandingConfig = {
    *  section), above the price/button. Plain text only, same sanitizer as
    *  custom sections. Defaults to a friendly nudge so a course that's never
    *  touched this still shows something reasonable rather than a blank bar. */
-    finalCtaText: string
+  finalCtaText: string
   /** 'text' = show `finalCtaText`; 'countdown' = show the `urgency`
    *  countdown/seats in the sticky bar instead. */
   finalCtaMode: FinalCtaMode
@@ -188,7 +188,7 @@ export const LANDING_SECTION_META: Record<
   instructor: { label: 'Instructor', description: 'Photo, title and bio', icon: 'UserCircle', category: 'core' },
   testimonials: { label: 'Testimonials', description: 'Student reviews and star ratings', icon: 'Star', category: 'growth' },
   custom: { label: 'Custom section', description: 'A text section you write yourself', icon: 'FileText', category: 'engagement' },
-  howItWorks: { label: 'How it works', description: 'Enroll → WhatsApp/Telegram → Learn steps', icon: 'Workflow', category: 'engagement' },
+  howItWorks: { label: 'How it works', description: 'One-line note on how lessons are delivered (WhatsApp / Telegram + web)', icon: 'Workflow', category: 'engagement' },
   faq: { label: 'FAQ', description: 'Frequently asked questions', icon: 'HelpCircle', category: 'engagement' },
 
   disclaimer: { label: 'Disclaimer', description: 'Optional compliance / legal / safety notice — place it wherever it needs to legally sit on the page', icon: 'AlertTriangle', category: 'compliance' },
@@ -322,7 +322,7 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
     }
   }
 
-    const normalized: LandingConfig = {
+  const normalized: LandingConfig = {
     sections,
     bonuses: Array.isArray(input.bonuses)
       ? input.bonuses
@@ -353,7 +353,7 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
         .split(/\s+/)
         .slice(0, MAX_FINAL_CTA_WORDS)
         .join(' ')
-            return cleaned || DEFAULT_FINAL_CTA_TEXT
+      return cleaned || DEFAULT_FINAL_CTA_TEXT
     })(),
     finalCtaMode: pickEnum((input as any).finalCtaMode, ['text', 'countdown'] as const, 'text'),
   }
@@ -390,7 +390,7 @@ export function getRenderableSections(config: LandingConfig): LandingSectionType
 export function hasUrgencyContent(urgency: LandingUrgencyConfig): boolean {
   const hasCountdown = !!urgency.endAt && !Number.isNaN(new Date(urgency.endAt).getTime()) && new Date(urgency.endAt).getTime() > Date.now()
   const hasSeats = typeof urgency.seatsAvailable === 'number' && urgency.seatsAvailable >= 0
-    return hasCountdown || hasSeats
+  return hasCountdown || hasSeats
 }
 
 /** What the sticky bar should render in countdown mode, or null when it

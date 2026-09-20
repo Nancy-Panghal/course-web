@@ -6,6 +6,7 @@
 // as heading + paragraph blocks (see src/lib/policyDocs.ts for the format).
 
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Shield, ArrowLeft } from 'lucide-react'
@@ -22,6 +23,13 @@ function getDocPath(course: any, t: PolicyDocType): string | null {
   if (t === 'refund') return course.refund_policy_storage_path || null
   if (t === 'terms') return course.terms_storage_path || null
   return course.privacy_storage_path || null
+}
+
+// A creator's own refund/terms/privacy text, linked from their course page
+// footer. No reason for it to appear in search — and without this it inherited
+// the homepage's title, description and canonical.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
 }
 
 export default async function CoursePolicyPage({

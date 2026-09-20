@@ -37,6 +37,8 @@ export async function generateMetadata({
   return {
     title,
     description,
+    // Otherwise inherits the root layout's `canonical: '/'` (homepage).
+    alternates: { canonical: `/ebook/${ebookId}` },
     robots: ebook.is_published ? { index: true, follow: true } : { index: false, follow: false },
     openGraph: { type: 'website', title, description, images: [{ url: image }] },
     twitter: { card: 'summary_large_image', title, description, images: [image] },

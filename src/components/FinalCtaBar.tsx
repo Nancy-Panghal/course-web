@@ -32,9 +32,8 @@ import type { FinalCtaCountdown } from '@/lib/landing-config'
  * tokens the page's own sticky top nav uses, plus the accent tokens for the
  * countdown tiles), so it matches whichever of the 12 landing themes the
  * creator picked instead of always being a flat black bar. The Enroll button
- * itself intentionally stays Kurso's brand orange gradient (via
- * CoursePageClient) regardless of theme, matching every other Enroll button
- * on this page.
+ * (via CoursePageClient) uses the theme's accent gradient too, through the
+ * brand variables set on the landing page root (see brandVars.ts).
  *
  * Mobile: the message (or the countdown block) and the Enroll button each
  * take their own row below the `sm` breakpoint. In countdown mode the label

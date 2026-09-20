@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/refund-policy',
   },
+  robots: {
+    index: false,
+    follow: true,
+  },
 }
 
 export default function RefundPolicyLayout({ children }: { children: React.ReactNode }) {

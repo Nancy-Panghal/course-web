@@ -65,7 +65,13 @@
 }
 
 .violet-gradient {
-  background: linear-gradient(135deg, var(--kurso-accent-soft) 0%, var(--kurso-accent) 100%);
+  background: var(--kurso-btn-gradient, linear-gradient(135deg, var(--kurso-accent-soft) 0%, var(--kurso-accent) 100%));
+}
+
+/* Inside a themed landing page (see lib/landing-themes/brandVars.ts) the button
+   text color can differ per theme — e.g. dark text on very light gradients. */
+[data-brand-scope] .violet-gradient {
+  color: var(--kurso-btn-text, #fff);
 }
 
 .grid-bg {

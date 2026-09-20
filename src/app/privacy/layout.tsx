@@ -11,6 +11,13 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/privacy',
   },
+  // Legal pages stay public (footer links, payment-gateway / Meta reviews)
+  // but don't belong in search results. NOT blocked in robots.ts on purpose —
+  // Google has to be able to crawl the page to see this tag.
+  robots: {
+    index: false,
+    follow: true,
+  },
 }
 
 export default function PrivacyLayout({ children }: { children: React.ReactNode }) {

@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle, Ticket, CheckCircle2, LayoutGrid } from 'lucide-react'
 import { slugify } from '@/lib/utils'
+import { useBrandVars } from '@/components/BrandVarsContext'
 
 // `length` = expected number of digits for that country's mobile number,
 // EXCLUDING the country code. Used to validate/cap the phone input instead
@@ -336,7 +337,9 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
   const [error, setError] = useState('')
   const [checkoutOrder, setCheckoutOrder] = useState<any>(null)
   const [checkingStatus, setCheckingStatus] = useState(false)
-  const [checkingAuth, setCheckingAuth] = useState(true)
+    const [checkingAuth, setCheckingAuth] = useState(true)
+  // Theme colors of the landing page this popup was opened from (null elsewhere).
+  const brandVars = useBrandVars()
 
   // Auth fields
   const [name, setName] = useState('')
@@ -907,8 +910,8 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
   // ── Loading ──────────────────────────────────────────────────────
   if (checkingAuth) {
     const loadingModal = (
-      <div className="fixed inset-0 z-50 flex items-center justify-center"
-        style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center" data-brand-scope
+        style={{ ...brandVars, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
         <div className="w-10 h-10 violet-gradient rounded-xl animate-pulse-glow" />
       </div>
     )
@@ -916,8 +919,8 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
   }
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-brand-scope
+      style={{ ...brandVars, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
       <div className="w-full max-w-md rounded-2xl overflow-hidden"
         style={{ background: '#0a0a0a', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
 
@@ -1158,7 +1161,7 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
               </button>
               <p className="text-center text-xs" style={{ color: '#98989b', fontSize: '1.1rem' }}>
                 Already enrolled?{' '}
-                <a href="/my-courses" style={{ color: '#8453f7', fontSize: '1.1rem' }}>View my courses →</a>
+                <a href="/my-courses" style={{ color: 'var(--kurso-primary-light)', fontSize: '1.1rem' }}>View my courses →</a>
               </p>
             </div>
           </div>

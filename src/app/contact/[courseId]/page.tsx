@@ -6,6 +6,7 @@
 // Mirrors src/app/policy/[courseId]/[type]/page.tsx.
 
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Shield, ArrowLeft, Mail, Phone } from 'lucide-react'
@@ -16,6 +17,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+// Per-course contact page linked from the course footer — keep it out of
+// search (it used to inherit the homepage's title, description and canonical).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 export default async function CourseContactPage({
   params,

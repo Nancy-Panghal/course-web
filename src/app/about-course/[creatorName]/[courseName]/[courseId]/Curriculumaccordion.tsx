@@ -53,7 +53,7 @@ export interface CurriculumThemeFonts {
 
 function contentIcon(type: string, accentText: string) {
   if (type === 'video') return <Play className="w-3.5 h-3.5" style={{ color: accentText }} />
-  if (type === 'pdf') return <FileText className="w-3.5 h-3.5" style={{ color: 'var(--kurso-accent)' }} />
+  if (type === 'pdf') return <FileText className="w-3.5 h-3.5" style={{ color: 'var(--kurso-primary-light)' }} />
   if (type === 'audio') return <Mic className="w-3.5 h-3.5" style={{ color: '#34d399' }} />
   return <BookOpen className="w-3.5 h-3.5" style={{ color: '#60a5fa' }} />
 }
