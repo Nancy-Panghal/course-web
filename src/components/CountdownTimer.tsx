@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * Ticking countdown for the landing page urgency banner — boxed digit
@@ -18,21 +18,36 @@ export default function CountdownTimer({
   boxShadowColor,
   numberColor = '#ffffff',
   labelColor,
+  onExpire,
 }: {
   endAt: string
   accentGradient: string
   boxShadowColor: string
   numberColor?: string
   labelColor?: string
+  /** Called once when the countdown reaches zero while the page is open. */
+  onExpire?: () => void
 }) {
   const [remainingMs, setRemainingMs] = useState<number | null>(null)
+  const onExpireRef = useRef(onExpire)
+  const expiredFiredRef = useRef(false)
+
+  useEffect(() => {
+    onExpireRef.current = onExpire
+  }, [onExpire])
 
   useEffect(() => {
     const target = new Date(endAt).getTime()
     if (Number.isNaN(target)) return
+    expiredFiredRef.current = false
 
     function tick() {
-      setRemainingMs(Math.max(0, target - Date.now()))
+      const remaining = Math.max(0, target - Date.now())
+      setRemainingMs(remaining)
+      if (remaining === 0 && !expiredFiredRef.current) {
+        expiredFiredRef.current = true
+        onExpireRef.current?.()
+      }
     }
     tick()
     const id = setInterval(tick, 1000)
@@ -52,7 +67,7 @@ export default function CountdownTimer({
     : [[hours, 'Hrs'], [minutes, 'Min'], [seconds, 'Sec']]
 
   return (
-    <div style={{ display: 'inline-flex', gap: 8, fontVariantNumeric: 'tabular-nums' }}>
+    <div style={{ display: 'inline-flex', gap: 'clamp(4px, 1.4vw, 8px)', fontVariantNumeric: 'tabular-nums' }}>
       {units.map(([value, label], i) => (
         <div key={i} style={{ textAlign: 'center' }}>
           <div
@@ -60,10 +75,10 @@ export default function CountdownTimer({
               background: accentGradient,
               boxShadow: `0 4px 16px ${boxShadowColor}`,
               borderRadius: 10,
-              minWidth: 46,
-              padding: '7px 4px',
+              minWidth: 'clamp(34px, 9vw, 46px)',
+              padding: 'clamp(4px, 1.3vw, 7px) 3px',
               fontWeight: 800,
-              fontSize: '1.05rem',
+              fontSize: 'clamp(0.85rem, 2.6vw, 1.05rem)',
               color: numberColor,
               lineHeight: 1,
             }}
@@ -72,12 +87,12 @@ export default function CountdownTimer({
           </div>
           <div
             style={{
-              fontSize: '0.62rem',
+              fontSize: 'clamp(0.54rem, 1.6vw, 0.62rem)',
               fontWeight: 700,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               color: labelColor,
-              marginTop: 5,
+              marginTop: 'clamp(3px, 1vw, 5px)',
             }}
           >
             {label}

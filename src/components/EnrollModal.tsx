@@ -1,7 +1,8 @@
 "use client"
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle, Ticket, CheckCircle2 } from 'lucide-react'
+import Link from 'next/link'
+import { X, Mail, User, Phone, Eye, EyeOff, Shield, Lock, ArrowRight, Search, ChevronDown, Play, MessageCircle, Ticket, CheckCircle2, LayoutGrid } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 
 // `length` = expected number of digits for that country's mobile number,
@@ -250,6 +251,9 @@ interface CourseData {
   creatorId: string
   telegramBotUsername?: string
   is_free_course?: boolean
+  /** Creator's storefront handle — only set when they have other published
+   *  courses. Note `creatorSlug` above is actually the COURSE slug. */
+  moreCoursesSlug?: string
 }
 
 interface Props {
@@ -920,7 +924,7 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b"
           style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          <div>
+          <div className="min-w-0">
             <h2 className="font-semibold text-white">
               {step === 'auth' && 'Enroll in Course'}
               {step === 'phone' && 'Add Your Number'}
@@ -931,11 +935,25 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
             </h2>
             <p className="text-xs mt-0.5" style={{ color: '#52525b' }}>{course.name}</p>
           </div>
-          <button onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg"
-            style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
-            <X className="w-4 h-4" />
-          </button>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+            {/* Only on the first step and while nothing is submitting — leaving
+                mid-payment or mid-signup would drop the student's progress. */}
+            {step === 'auth' && !loading && course.moreCoursesSlug && (
+              <Link
+                href={`/creator/${course.moreCoursesSlug}?from=${course.id}`}
+                aria-label="More courses"
+                className="h-8 px-2.5 min-[380px]:px-3 flex items-center gap-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-opacity hover:opacity-80"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden min-[380px]:inline">More Courses</span>
+              </Link>
+            )}
+            <button onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-lg"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* ── AUTH ── */}

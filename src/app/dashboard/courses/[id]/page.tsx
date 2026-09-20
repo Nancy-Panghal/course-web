@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { slugify, renumberLessons, getNextLessonOrder, renumberModules, getNextModuleOrder, applyLessonReorder } from '@/lib/utils'
 import Link from 'next/link'
 import LandingPageDesigner from '@/components/LandingPageDesigner'
+import CountdownEndPicker from '@/components/CountdownEndPicker'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
 import TestCourseModal from '@/components/TestCourseModal'
@@ -390,7 +391,7 @@ function ModuleDetailsEditor({
               border: `1px solid ${overLimit ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`,
             }}
           />
-                    <p className="text-xs" style={{ color: 'var(--kurso-hint)' }}>
+          <p className="text-xs" style={{ color: 'var(--kurso-hint)' }}>
             Optional — shown to students on your course page to help them decide.
           </p>
           <div className="flex items-center justify-between gap-3">
@@ -3797,7 +3798,7 @@ export default function CourseManagePage({
                             </button>
                           </div>
 
-                                                    <ModuleDetailsEditor mod={module} onSaved={fetchModules} />
+                          <ModuleDetailsEditor mod={module} onSaved={fetchModules} />
 
                           <div className="flex flex-col gap-3">
                             {moduleLessons.length === 0 ? (
@@ -4288,6 +4289,39 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
 
                         {isFinalCtaEnabled && (
                           <div className="mt-3">
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">What should the bar show?</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {([
+                                { value: 'text', label: 'Static message' },
+                                { value: 'countdown', label: 'Countdown timer' },
+                              ] as const).map(opt => {
+                                const active = settingsLandingConfig.finalCtaMode === opt.value
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    aria-pressed={active}
+                                    onClick={() => setSettingsLandingConfig(prev => ({ ...prev, finalCtaMode: opt.value }))}
+                                    className="py-2.5 rounded-xl text-sm font-medium transition-all"
+                                    style={{
+                                      background: active ? 'rgba(var(--kurso-primary-rgb), 0.12)' : 'rgba(255,255,255,0.04)',
+                                      border: active ? '1px solid rgba(var(--kurso-primary-rgb), 0.35)' : '1px solid rgba(255,255,255,0.1)',
+                                      color: active ? 'var(--kurso-primary-light)' : '#a1a1aa',
+                                    }}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            <p className="text-xs mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
+                              Static message shows your own text next to the Enroll button. Countdown timer shows a live countdown (and, if you want, how many seats are left) instead.
+                            </p>
+                          </div>
+                        )}
+
+                        {isFinalCtaEnabled && settingsLandingConfig.finalCtaMode === 'text' && (
+                          <div className="mt-3">
                             <label className="text-sm font-semibold text-zinc-300 mb-2 block">Sticky bar message</label>
                             <input
                               value={settingsLandingConfig.finalCtaText}
@@ -4305,6 +4339,45 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                             <p className="text-xs mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
                               Up to 50 words. Shown next to the price on the sticky bar. Leave blank to use: "{DEFAULT_FINAL_CTA_TEXT}"
                             </p>
+                          </div>
+                        )}
+
+                        {isFinalCtaEnabled && settingsLandingConfig.finalCtaMode === 'countdown' && (
+                          <div className="mt-3 flex flex-col gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="sm:col-span-2">
+                                <CountdownEndPicker
+                                  value={settingsLandingConfig.urgency.endAt}
+                                  onChange={value => updateUrgency('endAt', value)} />
+                              </div>
+                              <div>
+                                <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
+                                <input value={settingsLandingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
+                                  placeholder="Enrollment closes in" maxLength={40}
+                                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                              </div>
+                              <div>
+                                <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
+                                <input type="number" min={0} value={settingsLandingConfig.urgency.seatsAvailable ?? ''}
+                                  onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
+                                  placeholder="Leave blank to hide"
+                                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                              </div>
+                              <div>
+                                <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats label</label>
+                                <input value={settingsLandingConfig.urgency.seatsLabel} onChange={e => updateUrgency('seatsLabel', e.target.value)}
+                                  placeholder="seats left at this price" maxLength={30}
+                                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
+                              </div>
+                            </div>
+                            <p className="text-xs" style={{ color: 'var(--kurso-hint)' }}>
+                              Fill in an end time, a seats number, or both. Leave seats blank to hide it. When the countdown ends (or nothing is filled in), the bar goes back to your static message.
+                            </p>
+                            {settingsLandingConfig.urgency.endAt && new Date(settingsLandingConfig.urgency.endAt).getTime() <= Date.now() && (
+                              <p className="text-sm" style={{ color: 'rgb(237, 152, 128)' }}>
+                                ⚠ This date is the past date — the countdown won't show on the live page until you set a future date.
+                              </p>
+                            )}
                           </div>
                         )}
                       </SettingsGroup>
@@ -4697,7 +4770,7 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                               )}
                             </div>
                           </div>
-                                                </SettingsGroup>
+                        </SettingsGroup>
 
 
                         <SettingsGroup
@@ -5033,46 +5106,6 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                           </div>
                         </SettingsGroup>
 
-
-                        <SettingsGroup
-                          title="Countdown & Seats"
-                          description="Show seats availability in certain time period. You can change countdown label and seats label next to time & seats."
-                        >
-
-                          <LandingSectionToggle type="urgency" />
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown ends at</label>
-                              <input type="datetime-local" value={settingsLandingConfig.urgency.endAt}
-                                onChange={e => updateUrgency('endAt', e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white" />
-                            </div>
-                            <div>
-                              <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
-                              <input value={settingsLandingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
-                                placeholder="Enrollment closes in"
-                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                            </div>
-                            <div>
-                              <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
-                              <input type="number" min={0} value={settingsLandingConfig.urgency.seatsAvailable ?? ''}
-                                onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
-                                placeholder="Leave blank to hide"
-                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                            </div>
-                            <div>
-                              <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats label</label>
-                              <input value={settingsLandingConfig.urgency.seatsLabel} onChange={e => updateUrgency('seatsLabel', e.target.value)}
-                                placeholder="seats left at this price"
-                                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                            </div>
-                          </div>
-                          {settingsLandingConfig.urgency.endAt && new Date(settingsLandingConfig.urgency.endAt).getTime() <= Date.now() && (
-                            <p className="text-sm -mt-2" style={{ color: 'rgb(237, 152, 128)' }}>
-                              ⚠ This date is the past date — the countdown won't show on the live page until you set a future date.
-                            </p>
-                          )}
-                        </SettingsGroup>
 
                       </>
                     )}

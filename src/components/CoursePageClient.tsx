@@ -17,8 +17,11 @@ interface CourseData {
   creatorName: string
   creatorId: string
   telegramBotUsername?: string
-  is_free_course?: boolean
+    is_free_course?: boolean
   isPublished?: boolean
+  /** Creator's storefront handle. Set only when the creator has other
+   *  published courses; the enroll modal shows "More Courses" when present. */
+  moreCoursesSlug?: string
 }
 
 interface Props {

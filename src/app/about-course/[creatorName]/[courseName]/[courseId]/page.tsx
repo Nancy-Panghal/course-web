@@ -1,8 +1,7 @@
-import { Shield, CheckCircle, Lock, BookOpen, Play, Zap, Globe, Calendar, Timer, Send, Star, Users, Award, ChevronRight, Target, Gift, AlertTriangle } from 'lucide-react'
+import { Shield, CheckCircle, Lock, BookOpen, Play, Zap, Globe, Calendar, Timer, Send, Star, Users, Award, ChevronRight, Target, Gift, AlertTriangle, LayoutGrid } from 'lucide-react'
 import { Fragment, type ReactNode } from 'react'
 import type { Metadata } from 'next'
-import { normalizeLandingConfig, getRenderableSectionEntries, hasUrgencyContent, getVideoEmbedUrl, type LandingSectionType, type LandingCustomSection } from '@/lib/landing-config'
-import CountdownTimer from '@/components/CountdownTimer'
+import { normalizeLandingConfig, getRenderableSectionEntries, getFinalCtaCountdown, getVideoEmbedUrl, type LandingSectionType, type LandingCustomSection } from '@/lib/landing-config'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
@@ -147,6 +146,23 @@ export default async function AboutCoursePage({
     .eq('id', course.creator_id)
     .single()
 
+  // "More Courses" links (top nav + enroll modal) only make sense when this
+  // creator has at least one OTHER published course — otherwise the
+  // storefront they lead to would just list the page you're already on.
+  const { count: otherPublishedCount } = await supabase
+    .from('courses')
+    .select('id', { count: 'exact', head: true })
+    .eq('creator_id', course.creator_id)
+    .eq('is_published', true)
+    .eq('hide_from_storefront', false)
+    .neq('id', course.id)
+  const moreCoursesSlug =
+    creatorProfile?.creator_slug && (otherPublishedCount ?? 0) > 0
+      ? (creatorProfile.creator_slug as string)
+      : undefined
+  // `?from=` makes the storefront reuse THIS course's theme + fonts.
+  const moreCoursesHref = moreCoursesSlug ? `/creator/${moreCoursesSlug}?from=${course.id}` : ''
+
   const { data: lessons } = await supabase
     .from('lessons')
     .select('id, title, content_type, order_num, duration, is_published, content_url, module_id')
@@ -160,7 +176,7 @@ export default async function AboutCoursePage({
     .eq('course_id', course.id)
     .order('order_num', { ascending: true })
 
-    const { data: liveSessions } = await supabase
+  const { data: liveSessions } = await supabase
     .from('live_sessions')
     .select('id, title, description, scheduled_at, duration_minutes, join_url, recording_url')
     .eq('course_id', course.id)
@@ -187,7 +203,7 @@ export default async function AboutCoursePage({
   const groupedModules =
     modules.length > 0
       ? modules.map(mod => ({
-                name: mod.name,
+        name: mod.name,
         ...(mod.description ? { description: mod.description as string } : {}),
         lessons: publishedLessons.filter((l: any) => l.module_id === mod.id),
       }))
@@ -233,6 +249,7 @@ export default async function AboutCoursePage({
     telegramBotUsername: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || creatorProfile?.telegram_bot_username || '',
     is_free_course: course.is_free_course ?? false,
     isPublished: course.is_published,
+    moreCoursesSlug,
   }
 
   const statsNode = (
@@ -329,17 +346,23 @@ export default async function AboutCoursePage({
       </section>
     )
   );
-  // Instructor #1 always comes from the original host_name/about_creator/
+  // Instructor #1 comes from the original host_name/about_creator/
   // host_image/instructor_title columns — those are left untouched since
   // they're relied on elsewhere (certificates, slugs, emails). Any extra
   // instructors a creator adds live in the separate `co_instructors` column
   // and are appended after the primary one, display-only.
+  //
+  // Nothing is invented: no placeholder name, title or bio. The primary
+  // instructor only appears when the creator filled in a title, photo or bio
+  // — `host_name` alone doesn't count, because it is auto-filled from the
+  // account's display name when a course is created.
   const primaryInstructor = {
-    name: course.host_name || creatorProfile?.name || 'Course Creator',
-    title: course.instructor_title || 'Course Instructor',
+    name: (course.host_name || '').toString().trim(),
+    title: (course.instructor_title || '').toString().trim(),
     image: course.host_image || '',
-    bio: course.about_creator || 'Expert instructor dedicated to helping you master this subject and achieve your goals.',
+    bio: (course.about_creator || '').toString().trim(),
   }
+  const hasPrimaryInstructor = Boolean(primaryInstructor.title || primaryInstructor.image || primaryInstructor.bio)
   const coInstructors: (typeof primaryInstructor)[] = Array.isArray(course.co_instructors)
     ? course.co_instructors
       .filter((i: any) => i && typeof i.name === 'string' && i.name.trim().length > 0)
@@ -350,10 +373,10 @@ export default async function AboutCoursePage({
         bio: (i.bio || '').toString(),
       }))
     : []
-  const allInstructors = [primaryInstructor, ...coInstructors]
+  const allInstructors = [...(hasPrimaryInstructor ? [primaryInstructor] : []), ...coInstructors]
 
   const instructorNode = (
-    show('instructor') && (
+    show('instructor') && allInstructors.length > 0 && (
       <section className="ak-section py-18 px-6" style={{ background: c.bg }}>
         <div className="max-w-4xl mx-auto">
           <h2 className="ak-section-title text-center mb-12">
@@ -382,19 +405,25 @@ export default async function AboutCoursePage({
                         )}
                       </div>
                       <div className="text-center">
-                        <p style={{ fontFamily: fonts.heading, fontSize: '1rem', fontWeight: 800, color: c.textPrimary }}>
-                          {inst.name}
-                        </p>
-                        <p style={{ fontSize: '0.72rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4 }}>
-                          {inst.title}
-                        </p>
+                        {inst.name && (
+                          <p style={{ fontFamily: fonts.heading, fontSize: '1rem', fontWeight: 800, color: c.textPrimary }}>
+                            {inst.name}
+                          </p>
+                        )}
+                        {inst.title && (
+                          <p style={{ fontSize: '0.72rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4 }}>
+                            {inst.title}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
-                      <p style={{ color: c.textSecondary, fontSize: 'clamp(1.02rem, 1.1vw, 1.08rem)', lineHeight: 1.8 }}>
-                        {inst.bio}
-                      </p>
-                    </div>
+                    {inst.bio && (
+                      <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
+                        <p style={{ color: c.textSecondary, fontSize: 'clamp(1.02rem, 1.1vw, 1.08rem)', lineHeight: 1.8 }}>
+                          {inst.bio}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -416,12 +445,16 @@ export default async function AboutCoursePage({
                       </div>
                     )}
                   </div>
-                  <p style={{ fontFamily: fonts.heading, fontSize: 'clamp(1rem, 1.1vw, 1.05rem)', fontWeight: 800, color: c.textPrimary }}>
-                    {inst.name}
-                  </p>
-                  <p style={{ fontSize: '0.68rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4, marginBottom: 10 }}>
-                    {inst.title}
-                  </p>
+                  {inst.name && (
+                    <p style={{ fontFamily: fonts.heading, fontSize: 'clamp(1rem, 1.1vw, 1.05rem)', fontWeight: 800, color: c.textPrimary }}>
+                      {inst.name}
+                    </p>
+                  )}
+                  {inst.title && (
+                    <p style={{ fontSize: '0.68rem', fontWeight: 700, color: c.accentText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 4, marginBottom: 10 }}>
+                      {inst.title}
+                    </p>
+                  )}
                   {inst.bio && (
                     <p style={{ color: c.textSecondary, fontSize: 'clamp(0.98rem, 1vw, 1.05rem)', lineHeight: 1.7 }}>
                       {inst.bio}
@@ -435,7 +468,7 @@ export default async function AboutCoursePage({
       </section>
     )
   );
-    const renderTestimonialContent = (t: Testimonial) => (
+  const renderTestimonialContent = (t: Testimonial) => (
     t.type === 'screenshot' ? (
       <img src={t.image_url} alt="Student testimonial screenshot" style={{ width: '100%', borderRadius: 8, display: 'block' }} />
     ) : (
@@ -658,62 +691,7 @@ export default async function AboutCoursePage({
     )
   }
 
-  const hasCountdown = !!landingConfig.urgency.endAt
-  const hasSeats = typeof landingConfig.urgency.seatsAvailable === 'number'
 
-  const urgencyNode = (
-    show('urgency') && hasUrgencyContent(landingConfig.urgency) && (
-      <section className="ak-section py-10 px-6" style={{ background: c.sectionAltBg }}>
-        <div className="max-w-3xl mx-auto">
-          <div className="ak-glow rounded-3xl overflow-hidden flex flex-col sm:flex-row"
-            style={{ background: c.cardBg, border: `1px solid ${c.accentBorder}` }}>
-
-            {hasCountdown && (
-              <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-7">
-                <div className="flex items-center gap-2">
-                  <Timer className="w-4 h-4" style={{ color: c.accentText }} />
-                  <span style={{ fontSize: 'clamp(0.88rem, 0.9vw, 0.95rem)', color: c.textSecondary, fontWeight: 600 }}>
-                    {landingConfig.urgency.label}
-                  </span>
-                </div>
-                <CountdownTimer
-                  endAt={landingConfig.urgency.endAt}
-                  accentGradient={c.accentGradient}
-                  boxShadowColor={c.accentGradientShadow}
-                  labelColor={c.textMuted}
-                />
-              </div>
-            )}
-
-            {hasCountdown && hasSeats && (
-              <div className="w-full h-px sm:w-px sm:h-auto flex-shrink-0" style={{ background: c.border }} />
-            )}
-
-            {hasSeats && (
-              <div className="flex-1 flex flex-col items-center justify-center gap-1.5 px-6 py-7">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" style={{ color: c.accentText }} />
-                  {landingConfig.urgency.seatsAvailable! <= 5 && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
-                        style={{ background: c.accentText }} />
-                      <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: c.accentText }} />
-                    </span>
-                  )}
-                </div>
-                <p style={{ fontSize: '1.9rem', fontWeight: 800, color: c.textPrimary, lineHeight: 1, fontFamily: fonts.heading }}>
-                  {landingConfig.urgency.seatsAvailable}
-                </p>
-                <p style={{ fontSize: 'clamp(0.88rem, 0.9vw, 0.95rem)', color: c.textSecondary, fontWeight: 500, textAlign: 'center' }}>
-                  {landingConfig.urgency.seatsLabel}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-    )
-  )
 
   const videosNode = (
     show('videos') && promoVideos.length > 0 && (
@@ -747,7 +725,6 @@ export default async function AboutCoursePage({
 
   const sectionNodes: Partial<Record<LandingSectionType, ReactNode>> = {
     videos: videosNode,
-    urgency: urgencyNode,
     stats: statsNode,
     target: targetNode,
     learn: learnNode,
@@ -871,11 +848,11 @@ export default async function AboutCoursePage({
 
         {/* ── NAV ── */}
         <nav className="ak-nav sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5 min-w-0">
             {course.brand_logo_url ? (
               <>
                 <img src={course.brand_logo_url} alt={brandDisplayName} className="h-7 max-w-[140px] object-contain" />
-                <span className="text-sm font-bold tracking-tight hidden sm:block" style={{ color: c.textPrimary }}>
+                <span className="text-sm font-bold tracking-tight truncate hidden sm:block" style={{ color: c.textPrimary }}>
                   {brandDisplayName}
                 </span>
               </>
@@ -884,12 +861,25 @@ export default async function AboutCoursePage({
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.accentGradient }}>
                   <Shield className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-sm font-bold tracking-tight" style={{ color: c.textPrimary }}>{brandDisplayName}</span>
+                <span className="text-sm font-bold tracking-tight truncate" style={{ color: c.textPrimary }}>{brandDisplayName}</span>
               </>
             )}
           </Link>
-          <div style={{ maxWidth: 200 }}>
-            <CoursePageClient course={courseData} variant="nav" />
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div style={{ maxWidth: 200 }}>
+              <CoursePageClient course={courseData} variant="nav" />
+            </div>
+            {moreCoursesHref && (
+              <Link
+                href={moreCoursesHref}
+                aria-label="More courses"
+                className="inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-2 rounded-lg px-2.5 sm:px-4 text-sm font-medium whitespace-nowrap transition-opacity hover:opacity-80"
+                style={{ color: c.textPrimary, background: c.accentSoft, border: `1px solid ${c.accentBorder}` }}
+              >
+                <LayoutGrid className="w-4 h-4" style={{ color: c.accentText }} />
+                <span className="hidden sm:inline">More Courses</span>
+              </Link>
+            )}
           </div>
         </nav>
 
@@ -919,7 +909,7 @@ export default async function AboutCoursePage({
                   </div>
                 )}
 
-                                {/* Title */}
+                {/* Title */}
                 <h1 className="fu fu2 mb-5" style={{
                   fontFamily: fonts.heading,
                   fontSize: promoVideoId ? 'clamp(1.7rem, 3.5vw, 2.8rem)' : 'clamp(2rem, 5vw, 3.2rem)',
@@ -1000,7 +990,7 @@ export default async function AboutCoursePage({
                     <div className="flex justify-center" style={{ width: '100%', maxWidth: 360 }}>
                       <CoursePageClient course={courseData} variant="cta" />
                     </div>
-                                      </div>
+                  </div>
                 )}
               </div>
 
@@ -1062,7 +1052,7 @@ export default async function AboutCoursePage({
                   <div className="flex justify-center" style={{ width: '100%', maxWidth: 360 }}>
                     <CoursePageClient course={courseData} variant="cta" />
                   </div>
-                  
+
                 </div>
               </div>
             )}
@@ -1120,7 +1110,7 @@ export default async function AboutCoursePage({
               <CoursePageClient course={courseData} variant="cta" />
             </div>
 
-            
+
           </div>
         </section>
 
@@ -1133,7 +1123,9 @@ export default async function AboutCoursePage({
             <FinalCtaBar
               course={courseData}
               text={landingConfig.finalCtaText}
-              colors={{ navBg: c.navBg, navBorder: c.navBorder, textPrimary: c.textPrimary, textMuted: c.textMuted }}
+              colors={{ navBg: c.navBg, navBorder: c.navBorder, textPrimary: c.textPrimary, textMuted: c.textMuted, accentText: c.accentText, accentGradient: c.accentGradient, accentGradientShadow: c.accentGradientShadow }}
+              countdown={getFinalCtaCountdown(landingConfig)}
+              headingFont={fonts.heading}
             />
           </>
         )}
@@ -1186,8 +1178,8 @@ export default async function AboutCoursePage({
             </div>
           )}
         </footer>
-                {show('finalCta') && (
-          <div aria-hidden className="h-[120px] sm:h-[96px]" />
+        {show('finalCta') && (
+          <div aria-hidden style={{ height: 'calc(var(--final-cta-h, 120px) - 24px)' }} />
         )}
       </div>
     </DraftGate>

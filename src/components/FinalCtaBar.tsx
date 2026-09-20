@@ -1,35 +1,59 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { Timer } from 'lucide-react'
 import CoursePageClient from '@/components/CoursePageClient'
+import CountdownTimer from '@/components/CountdownTimer'
 import type { LandingThemeColors } from '@/lib/landing-themes/types'
+import type { FinalCtaCountdown } from '@/lib/landing-config'
 
 /**
  * FinalCtaBar — the "Final CTA" landing-page section.
  *
  * This is the sticky, full-width row pinned to the bottom of the viewport
- * while a visitor scrolls the course landing page, showing a short nudge
- * message plus the price and an Enroll button at all times. Gated by the
- * `finalCta` entry in landing-config.ts's `sections` list — same toggle
- * system as every other section, no separate on/off flag. The toggle
- * itself is surfaced in course settings, next to the free-course toggle,
- * along with an editable message field (default: "Enroll to polish your
- * skills!").
+ * while a visitor scrolls the course landing page, showing either a short
+ * nudge message or a live countdown, plus an Enroll button at all times.
+ * Gated by the `finalCta` entry in landing-config.ts's `sections` list —
+ * same toggle system as every other section, no separate on/off flag. The
+ * toggle itself is surfaced in course settings, next to the free-course
+ * toggle.
+ *
+ * Two modes, chosen in course settings (`finalCtaMode`):
+ *  - 'text' (default): the creator's message (default: "Enroll to polish
+ *    your skills!").
+ *  - 'countdown': the closing countdown and/or seats-left counter that used
+ *    to be its own "Countdown & Seats" section. The parent passes `countdown`
+ *    only when there is something live to show; otherwise this falls back to
+ *    the static message. If a live countdown reaches zero while the page is
+ *    open, the bar drops back to seats-only / the static message too.
  *
  * Themed using the SAME LandingThemeColors object every other section on
  * this page uses (`navBg`/`navBorder`/`textPrimary`/`textMuted` — the same
- * tokens the page's own sticky top nav uses), so it matches whichever of
- * the 12 landing themes the creator picked instead of always being a flat
- * black bar. The Enroll button itself intentionally stays Kurso's brand
- * orange gradient (via CoursePageClient) regardless of theme, matching
- * every other Enroll button on this page.
+ * tokens the page's own sticky top nav uses, plus the accent tokens for the
+ * countdown tiles), so it matches whichever of the 12 landing themes the
+ * creator picked instead of always being a flat black bar. The Enroll button
+ * itself intentionally stays Kurso's brand orange gradient (via
+ * CoursePageClient) regardless of theme, matching every other Enroll button
+ * on this page.
  *
- * Mobile: the message and the price+button group each wrap independently
- * (flex-wrap on the outer row) so on narrow screens the message drops to
- * its own line above price+button, rather than truncating or overflowing.
- * Neither price nor the button ever wrap away from each other.
+ * Mobile: the message (or the countdown block) and the Enroll button each
+ * take their own row below the `sm` breakpoint. In countdown mode the label
+ * + seats text sit on the left and the timer tiles on the right of ONE row,
+ * and the tiles scale down fluidly with screen width, so the bar stays about
+ * as tall as a two-line static message instead of growing.
+ *
+ * Spacer: the bar is position:fixed, so the page needs empty room at its very
+ * bottom or the bar would cover the footer. The bar's height changes with
+ * mode, message length and screen width, so it measures itself and publishes
+ * the result as the CSS variable `--final-cta-h` on <html>; the landing page's
+ * spacer div reads that variable instead of guessing a fixed height.
  *
  * Reuses CoursePageClient's `nav` variant for the actual button so the
  * creator/enrolled/loading/guest states (and the enroll modal itself)
  * stay in exactly one place instead of being reimplemented here.
  */
+
+type FinalCtaColors = Pick<LandingThemeColors, 'navBg' | 'navBorder' | 'textPrimary' | 'textMuted' | 'accentText' | 'accentGradient' | 'accentGradientShadow'>
 
 type FinalCtaCourse = {
     id: string
@@ -41,19 +65,51 @@ type FinalCtaCourse = {
     telegramBotUsername?: string
     is_free_course?: boolean
     isPublished?: boolean
+    moreCoursesSlug?: string
 }
 
 export default function FinalCtaBar({
     course,
     text,
     colors,
+    countdown = null,
+    headingFont,
 }: {
     course: FinalCtaCourse
     text: string
-    colors: Pick<LandingThemeColors, 'navBg' | 'navBorder' | 'textPrimary' | 'textMuted'>
+    colors: FinalCtaColors
+    countdown?: FinalCtaCountdown | null
+    /** The landing theme's heading font stack — used for the label and the
+     *  seats number so they match the rest of the page's headings. */
+    headingFont?: string
 }) {
+    // Flips to true when a live countdown hits zero while the page is open,
+    // so the bar never shows a label with no timer next to it.
+    const [expired, setExpired] = useState(false)
+    const barRef = useRef<HTMLDivElement>(null)
+
+    // Publish this bar's real height so the page's bottom spacer matches it.
+    useEffect(() => {
+        const el = barRef.current
+        if (!el) return
+        const root = document.documentElement
+        const publish = () => root.style.setProperty('--final-cta-h', `${el.offsetHeight}px`)
+        publish()
+        const observer = new ResizeObserver(publish)
+        observer.observe(el)
+        return () => {
+            observer.disconnect()
+            root.style.removeProperty('--final-cta-h')
+        }
+    }, [])
+
+    const showTimer = !!countdown?.endAt && !expired
+    const showSeats = countdown?.seatsAvailable != null
+    const showCountdown = !!countdown && (showTimer || showSeats)
+
     return (
         <div
+            ref={barRef}
             style={{
                 position: 'fixed',
                 left: 0,
@@ -66,24 +122,88 @@ export default function FinalCtaBar({
                 background: colors.navBg,
                 backdropFilter: 'blur(16px)',
                 borderTop: `1px solid ${colors.navBorder}`,
-            }}
-        >
-                        <div
-                className="mx-auto flex flex-col sm:flex-row items-center justify-center gap-x-10 gap-y-3"
-                style={{ maxWidth: 1080, padding: '16px 20px' }}
-            >
+            }}>
+            <div
+                className={`mx-auto flex flex-col sm:flex-row items-center justify-center gap-y-3 ${showCountdown ? 'sm:gap-x-14 lg:gap-x-24' : 'gap-x-10'}`}
+                style={{ maxWidth: 1080, padding: showCountdown ? '12px 20px' : '16px 20px' }}>
+                {showCountdown && countdown ? (
+                    // Phone: label on the left with the timer tiles on the right, seats
+                    // on a row below (left side). Laptop: label + seats stacked on the
+                    // left, tiles next to them, then a wide gap before the Enroll button.
+                    <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 w-full min-w-0 text-left sm:w-auto sm:grid-cols-[auto_auto] sm:justify-center sm:gap-x-8 sm:gap-y-1">
+                        {showTimer && (
+                            <p
+                                className="flex items-center gap-2 col-start-1 row-start-1 text-balance"
+                                style={{
+                                    fontFamily: headingFont,
+                                    fontSize: 'clamp(1rem, 2.6vw, 1.3rem)',
+                                    fontWeight: 700,
+                                    letterSpacing: '-0.01em',
+                                    lineHeight: 1.25,
+                                    color: colors.textPrimary,
+                                }}>
+                                <Timer className="w-5 h-5 flex-shrink-0" style={{ color: colors.accentText }} />
+                                <span>{countdown.label}</span>
+                            </p>
+                        )}
+                        {showTimer && (
+                            <div className={`flex-shrink-0 col-start-2 row-start-1 sm:row-start-1${showSeats ? ' sm:row-span-2' : ''}`}>
+                                <CountdownTimer
+                                    endAt={countdown.endAt}
+                                    accentGradient={colors.accentGradient}
+                                    boxShadowColor={colors.accentGradientShadow}
+                                    labelColor={colors.textMuted}
+                                    onExpire={() => setExpired(true)} />
+                            </div>
+                        )}
+                        {showSeats && (
+                            <p
+                                className={`flex items-center gap-2 col-span-2${showTimer ? ' row-start-2 justify-start sm:col-span-1 sm:col-start-1' : ' justify-center'}`}
+                                style={{ lineHeight: 1.2 }}>
+                                {countdown.seatsAvailable! <= 5 && (
+                                    <span className="relative inline-flex h-2.5 w-2.5 flex-shrink-0">
+                                        <span
+                                            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                                            style={{ background: colors.accentText }} />
+                                        <span
+                                            className="relative inline-flex rounded-full h-2.5 w-2.5"
+                                            style={{ background: colors.accentText }} />
+                                    </span>
+                                )}
                                 <span
-                    className="font-semibold text-center sm:text-left w-full sm:w-auto sm:flex-1 sm:max-w-[620px] min-w-0"
-                    style={{
-                        fontSize: 'clamp(1rem, 3vw, 1.25rem)',
-                        lineHeight: 1.42,
-                        color: colors.textPrimary,
-                    }}
-                >
-                    {text}
-                </span>
+                                    style={{
+                                        fontFamily: headingFont,
+                                        fontSize: showTimer ? 'clamp(1.15rem, 2.8vw, 1.4rem)' : 'clamp(1.7rem, 5vw, 2.2rem)',
+                                        fontWeight: 800,
+                                        lineHeight: 1,
+                                        color: colors.accentText,
+                                    }}>
+                                    {countdown.seatsAvailable}
+                                </span>
+                                <span
+                                    style={{
+                                        fontSize: showTimer ? 'clamp(0.92rem, 2.3vw, 1.02rem)' : 'clamp(1rem, 2.6vw, 1.2rem)',
+                                        fontWeight: showTimer ? 500 : 600,
+                                        color: showTimer ? colors.textMuted : colors.textPrimary,
+                                    }}>
+                                    {countdown.seatsLabel}
+                                </span>
+                            </p>
+                        )}
+                    </div>
+                ) : (
+                    <span
+                        className="font-semibold text-center sm:text-left w-full sm:w-auto sm:flex-1 sm:max-w-[620px] min-w-0"
+                        style={{
+                            fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+                            lineHeight: 1.42,
+                            color: colors.textPrimary,
+                        }}>
+                        {text}
+                    </span>
+                )}
 
-                                <div className="w-full sm:w-auto sm:max-w-xs [&>a]:w-full [&>a]:!py-3 [&>a]:!text-base [&>a]:justify-center [&>button]:w-full [&>button]:!py-3 [&>button]:!text-base [&>button]:justify-center [&>div]:w-full">
+                <div className="w-full sm:w-auto sm:max-w-xs [&>a]:w-full [&>a]:!py-3 [&>a]:!text-base [&>a]:justify-center [&>button]:w-full [&>button]:!py-3 [&>button]:!text-base [&>button]:justify-center [&>div]:w-full">
                     <CoursePageClient course={course} variant="nav" />
                 </div>
             </div>

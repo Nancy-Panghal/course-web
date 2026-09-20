@@ -3,8 +3,10 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, MessageCircle, IndianRupee, CheckCircle2, AlertCircle, Link2, Copy, ExternalLink, Sparkles, FileCheck } from 'lucide-react'
+import { User, Bell, Shield, AlertTriangle, Check, X, Trash2, Clock, IndianRupee, CheckCircle2, AlertCircle, Link2, Copy, ExternalLink, Sparkles, FileCheck, Info } from 'lucide-react'
 import { PROVIDER_FIELDS, PROVIDER_LABELS } from '@/lib/payment-gateways'
+import CourseFallbackTile from '@/components/CourseFallbackTile'
+import { getCourseCardImage } from '@/lib/landing-config'
 
 // ── Setup guide content per gateway — shown in the "Get Paid" section below.
 // Event names here match exactly what src/app/api/webhooks/[provider]/route.ts
@@ -124,17 +126,58 @@ function Toggle({ label, desc, value, onChange }: {
   )
 }
 
+type ProfileCourse = {
+  id: string
+  name: string
+  cover_image_url: string | null
+  hide_from_storefront: boolean
+  landing_theme: string | null
+  landing_font_pair: string | null
+  promo_video_urls: unknown
+  promo_video_url: string | null
+}
+
+// Small info note used next to the Public Profile / Course thumbnails headings.
+function ExternalSiteNote() {
+  return (
+    <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs leading-relaxed"
+      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#a1a1aa' }}>
+      <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-primary-light)' }} />
+      <span>
+        <span className="text-white font-medium">Using your own landing page or website for your courses?</span>{' '}
+        Then there is nothing for you to set up here.
+      </span>
+    </div>
+  )
+}
+
+// Same `lessons` bucket + `images` folder the course photo uploads already use.
+async function uploadCourseThumbnail(file: File): Promise<string> {
+  const ext = file.name.split('.').pop()
+  const path = `images/${Math.random().toString(36).substring(2)}-${Date.now()}.${ext}`
+  const { error } = await supabase.storage
+    .from('lessons')
+    .upload(path, file, { cacheControl: '3600', upsert: false })
+  if (error) throw new Error(error.message)
+  return supabase.storage.from('lessons').getPublicUrl(path).data.publicUrl
+}
+
 function PublicProfileSection() {
   const [token, setToken] = useState('')
+  const [userId, setUserId] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [slug, setSlug] = useState('')
   const [savedSlug, setSavedSlug] = useState('')
-  const [bio, setBio] = useState('')
   const [businessAddress, setBusinessAddress] = useState('')
   const [gstin, setGstin] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+
+  // Course thumbnails + "show on courses page" — each change saves on its own.
+  const [courses, setCourses] = useState<ProfileCourse[]>([])
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [courseErrors, setCourseErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     async function load() {
@@ -144,11 +187,28 @@ function PublicProfileSection() {
 
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data } = await supabase.from('creators').select('creator_slug, creator_bio, creator_business_address, creator_gstin').eq('id', user.id).maybeSingle()
+        setUserId(user.id)
+        const { data } = await supabase.from('creators').select('creator_slug, creator_business_address, creator_gstin').eq('id', user.id).maybeSingle()
         if (data?.creator_slug) { setSlug(data.creator_slug); setSavedSlug(data.creator_slug) }
-        if (data?.creator_bio) setBio(data.creator_bio)
         if (data?.creator_business_address) setBusinessAddress(data.creator_business_address)
         if (data?.creator_gstin) setGstin(data.creator_gstin)
+
+        const { data: courseRows } = await supabase
+          .from('courses')
+          .select('id, name, cover_image_url, hide_from_storefront, landing_theme, landing_font_pair, promo_video_urls, promo_video_url')
+          .eq('creator_id', user.id)
+          .eq('is_published', true) // only live courses — drafts aren't listed anywhere public
+          .order('created_at', { ascending: false })
+        setCourses((courseRows || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          cover_image_url: c.cover_image_url || null,
+          hide_from_storefront: c.hide_from_storefront === true,
+          landing_theme: c.landing_theme || null,
+          landing_font_pair: c.landing_font_pair || null,
+          promo_video_urls: c.promo_video_urls,
+          promo_video_url: c.promo_video_url || null,
+        })))
       }
       setLoading(false)
     }
@@ -163,7 +223,7 @@ function PublicProfileSection() {
       const res = await fetch('/api/creator/public-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ slug, bio, businessAddress, gstin }),
+        body: JSON.stringify({ slug, businessAddress, gstin }),
       })
       const d = await res.json()
       if (!res.ok) { setError(d.error || 'Could not save.'); return }
@@ -177,26 +237,75 @@ function PublicProfileSection() {
     }
   }
 
+  async function saveCourse(id: string, patch: Partial<Pick<ProfileCourse, 'cover_image_url' | 'hide_from_storefront'>>): Promise<boolean> {
+    setBusyId(id)
+    setCourseErrors(prev => ({ ...prev, [id]: '' }))
+    // .select() so a write blocked by row-level security (0 rows) is caught
+    // instead of looking like a success.
+    const { data, error: updateError } = await supabase
+      .from('courses')
+      .update(patch)
+      .eq('id', id)
+      .eq('creator_id', userId)
+      .select('id')
+    setBusyId(null)
+    if (updateError || !data || data.length === 0) {
+      setCourseErrors(prev => ({ ...prev, [id]: updateError?.message || 'Could not save this change. Please try again.' }))
+      return false
+    }
+    setCourses(list => list.map(c => (c.id === id ? { ...c, ...patch } : c)))
+    return true
+  }
+
+  async function handleThumbnailUpload(id: string, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // lets the same file be picked again later
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setCourseErrors(prev => ({ ...prev, [id]: 'Please choose an image file (JPG, PNG or WebP).' }))
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setCourseErrors(prev => ({ ...prev, [id]: 'Image must be 2MB or smaller.' }))
+      return
+    }
+    setBusyId(id)
+    setCourseErrors(prev => ({ ...prev, [id]: '' }))
+    try {
+      const url = await uploadCourseThumbnail(file)
+      await saveCourse(id, { cover_image_url: url })
+    } catch (err: any) {
+      setBusyId(null)
+      setCourseErrors(prev => ({ ...prev, [id]: err?.message || 'Upload failed. Please try again.' }))
+    }
+  }
+
   if (loading) return null
+
+  const listedLiveCount = courses.filter(c => !c.hide_from_storefront).length
 
   return (
     <SectionCard title="Public Profile" icon={Link2}>
-      <p className="text-xs mb-4" style={{ color: 'var(--kurso-hint)' }}>
-        A shareable page listing all your published courses. Set your handle once — students who buy one course can find your others here.
-      </p>
-      <div className="mb-3">
+      <div className="p-4 rounded-xl mb-5"
+        style={{ background: 'rgba(var(--kurso-primary-rgb), 0.06)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.15)' }}>
+        <p className="text-sm font-medium text-white mb-1">Your courses page</p>
+        <p className="text-xs leading-relaxed" style={{ color: '#a1a1aa' }}>
+          Once you have more than one live course, a <span className="text-white">More Courses</span> button appears at the top of each of your course landing pages, and inside the enroll pop-up. It takes students to your courses page (kurso.in/creator/your-handle), where they can browse and open your other courses. That page uses the colours and fonts of the course they came from. With only one live course, the button stays hidden.
+        </p>
+      </div>
+
+      <div className="mb-5"><ExternalSiteNote /></div>
+
+      <div className="mb-4">
         <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Handle</label>
         <div className="flex items-center gap-2">
           <span className="text-sm" style={{ color: 'var(--kurso-hint)' }}>kurso.in/creator/</span>
           <input value={slug} onChange={e => setSlug(e.target.value)} placeholder="your-name"
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
+            className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50" />
         </div>
-      </div>
-      <div className="mb-4">
-        <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Bio</label>
-        <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3}
-          placeholder="Tell students a bit about yourself..."
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 resize-none" />
+        <p className="text-xs mt-1" style={{ color: 'var(--kurso-hint)' }}>
+          Required — the More Courses button can't show until you save a handle.
+        </p>
       </div>
       <div className="mb-4">
         <label className="text-xs font-medium text-zinc-500 mb-1.5 block">Business Address (shown on invoices)</label>
@@ -222,6 +331,96 @@ function PublicProfileSection() {
           Live at: <a href={`/creator/${savedSlug}`} target="_blank" style={{ color: 'var(--kurso-primary-light)' }}>kurso.in/creator/{savedSlug}</a>
         </p>
       )}
+
+      {/* ── Course thumbnails + visibility ── */}
+      <div className="mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <h3 className="text-sm font-semibold text-white mb-1">Course thumbnails</h3>
+        <p className="text-xs leading-relaxed mb-1" style={{ color: 'var(--kurso-hint)' }}>
+          Pick a course below and upload an image — it becomes that course's thumbnail on your courses page. Use a landscape 16:9 image (for example 1280×720), JPG, PNG or WebP, up to 2MB. Changes save automatically.
+        </p>
+        <p className="text-xs leading-relaxed mb-4" style={{ color: 'var(--kurso-hint)' }}>
+          No image? We use your promo video's thumbnail if it's a YouTube link, otherwise a tile in your course's landing page colours with the course name on it (as shown in the previews below).
+        </p>
+        <div className="mb-4"><ExternalSiteNote /></div>
+
+        {courses.length === 0 ? (
+          <p className="text-xs" style={{ color: '#71717a' }}>
+            You don't have any live courses yet. Once you publish a course, it will show up here.
+          </p>
+        ) : (
+          <>
+            <p className="text-xs mb-3" style={{ color: listedLiveCount >= 2 ? '#4ade80' : '#a1a1aa' }}>
+              {listedLiveCount >= 2
+                ? `${listedLiveCount} live courses are on your courses page — the More Courses button is showing on your landing pages.`
+                : `Only ${listedLiveCount} live course${listedLiveCount === 1 ? ' is' : 's are'} on your courses page right now — the More Courses button appears once there are two or more.`}
+            </p>
+            <div className="flex flex-col gap-3">
+              {courses.map(course => {
+                const busy = busyId === course.id
+                const preview = getCourseCardImage(course)
+                return (
+                  <div key={course.id} className="rounded-xl p-4"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="relative w-full sm:w-40 aspect-video rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                        {preview ? (
+                          <img src={preview.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <CourseFallbackTile name={course.name} themeId={course.landing_theme} fontPairId={course.landing_font_pair} compact />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-sm font-medium text-white truncate">{course.name}</p>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
+                            Live
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 mb-3">
+                          <input type="file" id={`thumb-${course.id}`} className="hidden" accept="image/*"
+                            disabled={busy} onChange={e => handleThumbnailUpload(course.id, e)} />
+                          <label htmlFor={`thumb-${course.id}`}
+                            className={`inline-flex items-center px-4 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-white transition-all ${busy ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'}`}>
+                            {busy ? 'Saving...' : course.cover_image_url ? 'Change image' : 'Upload image'}
+                          </label>
+                          {course.cover_image_url && !busy && (
+                            <button type="button" onClick={() => saveCourse(course.id, { cover_image_url: null })}
+                              className="text-xs text-zinc-500 hover:text-red-500">
+                              Remove
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-white">Show on courses page</p>
+                            <p className="text-[11px] mt-0.5" style={{ color: 'var(--kurso-hint)' }}>
+                              Turn off to keep this course out of the list. It stays live — anyone with its link can still open it.
+                            </p>
+                          </div>
+                          <button type="button" disabled={busy}
+                            onClick={() => saveCourse(course.id, { hide_from_storefront: !course.hide_from_storefront })}
+                            aria-label={course.hide_from_storefront ? 'Show on courses page' : 'Hide from courses page'}
+                            className="relative w-11 h-6 rounded-full transition-all flex-shrink-0 disabled:opacity-50"
+                            style={{ background: !course.hide_from_storefront ? 'var(--kurso-primary)' : 'rgba(255,255,255,0.1)' }}>
+                            <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                              style={{ left: !course.hide_from_storefront ? '24px' : '4px' }} />
+                          </button>
+                        </div>
+                        {courseErrors[course.id] && (
+                          <p className="text-xs mt-2" style={{ color: '#fca5a5' }}>{courseErrors[course.id]}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </div>
     </SectionCard>
   )
 }
@@ -519,18 +718,7 @@ export default function SettingsPage() {
           />
         </SectionCard>
 
-        <PublicProfileSection />
-
-        <SectionCard title="Telegram Delivery" icon={MessageCircle}>
-          <div className="p-4 rounded-xl"
-            style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
-            <p className="text-sm font-medium text-white mb-1">Telegram delivery is managed centrally.</p>
-            <p className="text-xs leading-relaxed" style={{ color: '#a1a1aa' }}>
-              Your students can access lessons on Telegram after enrollment. No setup needed — the shared Kurso bot handles delivery automatically.
-            </p>
-          </div>
-        </SectionCard>
-
+                <PublicProfileSection />
 
         <SectionCard title="Email Notifications" icon={Bell}>
           <Toggle

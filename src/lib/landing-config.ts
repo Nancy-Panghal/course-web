@@ -10,7 +10,6 @@
 
 export const LANDING_SECTION_TYPES = [
   'hero',
-  'urgency',
   'stats',
   'target',
   'learn',
@@ -88,14 +87,64 @@ export function getVideoEmbedUrl(url: string): string | null {
   return null
 }
 
-/** Countdown timer + seats-remaining urgency block. Content only —
- *  whether it's shown/where it sits is controlled by its entry in
- *  `sections` (type: 'urgency'), same as every other section. */
+/** Still image for a video URL, or null when there isn't a reliable one.
+ *  Only YouTube has a predictable public thumbnail URL — Vimeo would need
+ *  an API call — so Vimeo (and anything unrecognised) returns null and the
+ *  caller shows its own fallback. `hqdefault` is used because, unlike
+ *  `maxresdefault`, it exists for every video; it is 4:3 with black bars,
+ *  so callers should show it with `object-fit: cover` in a 16:9 box. */
+export function getVideoThumbnailUrl(url: string): string | null {
+  if (typeof url !== 'string') return null
+  const yt = url.match(/(?:v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/)
+  return yt ? `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg` : null
+}
+
+/** The image a course card should show, or null when the card should fall
+ *  back to the generated tile. Order: the thumbnail the creator uploaded
+ *  (Settings → Public Profile), then the first YouTube promo video's still.
+ *  `kind` lets callers tell a real upload from a video still (e.g. to add a
+ *  play badge to the latter). Single source of truth for the storefront page
+ *  and the settings preview. */
+export function getCourseCardImage(course: {
+  cover_image_url?: string | null
+  promo_video_urls?: unknown
+  promo_video_url?: string | null
+}): { url: string; kind: 'cover' | 'video' } | null {
+  if (course.cover_image_url) return { url: course.cover_image_url, kind: 'cover' }
+  const urls: string[] =
+    Array.isArray(course.promo_video_urls) && course.promo_video_urls.length > 0
+      ? (course.promo_video_urls as string[])
+      : course.promo_video_url
+        ? [course.promo_video_url]
+        : []
+  for (const u of urls) {
+    const thumb = getVideoThumbnailUrl(u)
+    if (thumb) return { url: thumb, kind: 'video' }
+  }
+  return null
+}
+
+/** Countdown timer + seats-remaining content. It is no longer its own page
+ *  section — it is shown inside the sticky Final CTA bar when
+ *  `finalCtaMode` is 'countdown'. */
 export type LandingUrgencyConfig = {
   endAt: string // ISO datetime string, empty = no countdown shown
   label: string // e.g. "Enrollment closes in"
   seatsAvailable: number | null // null = don't show seats-left
   seatsLabel: string // e.g. "seats left at this price"
+}
+
+/** What the sticky Final CTA bar shows: the creator's own text message, or a
+ *  live countdown (+ optional seats-left) built from `urgency`. */
+export type FinalCtaMode = 'text' | 'countdown'
+
+/** Countdown data handed to the sticky bar. `endAt` is '' when the countdown
+ *  has already ended or was never set (the bar then shows seats only). */
+export type FinalCtaCountdown = {
+  endAt: string
+  label: string
+  seatsAvailable: number | null
+  seatsLabel: string
 }
 
 export type LandingConfig = {
@@ -107,7 +156,10 @@ export type LandingConfig = {
    *  section), above the price/button. Plain text only, same sanitizer as
    *  custom sections. Defaults to a friendly nudge so a course that's never
    *  touched this still shows something reasonable rather than a blank bar. */
-  finalCtaText: string
+    finalCtaText: string
+  /** 'text' = show `finalCtaText`; 'countdown' = show the `urgency`
+   *  countdown/seats in the sticky bar instead. */
+  finalCtaMode: FinalCtaMode
   customSections: LandingCustomSection[]
   /** 'square' = compact cards side by side (today's 2+ instructor look).
    *  'rectangle' = wide fixed-width card, height grows with bio text, one
@@ -125,28 +177,27 @@ export const LANDING_SECTION_META: Record<
   LandingSectionType,
   { label: string; description: string; icon: string; locked?: boolean; category: 'core' | 'engagement' | 'growth' | 'compliance' }
 > = {
-  hero:         { label: 'Hero',                 description: 'Title, description, price and main CTA',       icon: 'Rocket',       locked: true,  category: 'core' },
-  videos:       { label: 'Videos',                description: 'Up to 3 YouTube or Vimeo videos, shown after the hero', icon: 'PlayCircle', category: 'core' },
-  urgency:      { label: 'Countdown & Seats',     description: 'Optional urgency banner — closing countdown and/or seats-left counter', icon: 'Timer', category: 'growth' },
-  stats:        { label: 'Quick Stats',           description: 'Duration, language and level pills',           icon: 'BarChart3',    category: 'core' },
-  target:       { label: 'Who is this for?',      description: 'Target audience bullet list',                  icon: 'Target',       category: 'engagement' },
-  learn:        { label: "What you'll learn",     description: 'Learning outcomes checklist',                  icon: 'CheckCircle2', category: 'engagement' },
-  requirements: { label: 'Requirements',          description: 'Prerequisites list',                           icon: 'ListChecks',   category: 'engagement' },
-  bonuses:      { label: 'Bonuses',                description: 'Extra resources, templates or perks included', icon: 'Gift',         category: 'growth' },
-  curriculum:   { label: 'Curriculum',             description: 'Module & lesson accordion',                    icon: 'BookOpen',     category: 'core' },
-  instructor:   { label: 'Instructor',             description: 'Photo, title and bio',                         icon: 'UserCircle',   category: 'core' },
-  testimonials: { label: 'Testimonials',           description: 'Student reviews and star ratings',             icon: 'Star',         category: 'growth' },
-  custom:       { label: 'Custom section',          description: 'A text section you write yourself',           icon: 'FileText',     category: 'engagement' },
-  howItWorks:   { label: 'How it works',           description: 'Enroll → WhatsApp/Telegram → Learn steps',    icon: 'Workflow',     category: 'engagement' },
-  faq:          { label: 'FAQ',                    description: 'Frequently asked questions',                   icon: 'HelpCircle',   category: 'engagement' },
-  
-  disclaimer:   { label: 'Disclaimer',             description: 'Optional compliance / legal / safety notice — place it wherever it needs to legally sit on the page', icon: 'AlertTriangle', category: 'compliance' },
-  finalCta:     { label: 'Final CTA',              description: 'Closing enrollment call-to-action',            icon: 'Zap',          category: 'core' },
+  hero: { label: 'Hero', description: 'Title, description, price and main CTA', icon: 'Rocket', locked: true, category: 'core' },
+  videos: { label: 'Videos', description: 'Up to 3 YouTube or Vimeo videos, shown after the hero', icon: 'PlayCircle', category: 'core' },
+  stats: { label: 'Quick Stats', description: 'Duration, language and level pills', icon: 'BarChart3', category: 'core' },
+  target: { label: 'Who is this for?', description: 'Target audience bullet list', icon: 'Target', category: 'engagement' },
+  learn: { label: "What you'll learn", description: 'Learning outcomes checklist', icon: 'CheckCircle2', category: 'engagement' },
+  requirements: { label: 'Requirements', description: 'Prerequisites list', icon: 'ListChecks', category: 'engagement' },
+  bonuses: { label: 'Bonuses', description: 'Extra resources, templates or perks included', icon: 'Gift', category: 'growth' },
+  curriculum: { label: 'Curriculum', description: 'Module & lesson accordion', icon: 'BookOpen', category: 'core' },
+  instructor: { label: 'Instructor', description: 'Photo, title and bio', icon: 'UserCircle', category: 'core' },
+  testimonials: { label: 'Testimonials', description: 'Student reviews and star ratings', icon: 'Star', category: 'growth' },
+  custom: { label: 'Custom section', description: 'A text section you write yourself', icon: 'FileText', category: 'engagement' },
+  howItWorks: { label: 'How it works', description: 'Enroll → WhatsApp/Telegram → Learn steps', icon: 'Workflow', category: 'engagement' },
+  faq: { label: 'FAQ', description: 'Frequently asked questions', icon: 'HelpCircle', category: 'engagement' },
+
+  disclaimer: { label: 'Disclaimer', description: 'Optional compliance / legal / safety notice — place it wherever it needs to legally sit on the page', icon: 'AlertTriangle', category: 'compliance' },
+  finalCta: { label: 'Final CTA', description: 'Closing enrollment call-to-action', icon: 'Zap', category: 'core' },
 }
 
 /** Sections that are hidden by default until a creator opts in — everything
  *  else defaults to visible so existing courses look unchanged. */
-const OPT_IN_BY_DEFAULT: LandingSectionType[] = ['bonuses', 'disclaimer', 'urgency']
+const OPT_IN_BY_DEFAULT: LandingSectionType[] = ['bonuses', 'disclaimer']
 
 export const DEFAULT_LANDING_CONFIG: LandingConfig = {
   // 'custom' is excluded here — unlike every other type, it isn't a fixed
@@ -155,9 +206,10 @@ export const DEFAULT_LANDING_CONFIG: LandingConfig = {
   bonuses: [],
   disclaimer: { title: 'Important information', text: '' },
   urgency: { endAt: '', label: 'Enrollment closes in', seatsAvailable: null, seatsLabel: 'seats left at this price' },
-    customSections: [],
+  customSections: [],
   instructorLayout: 'square',
   finalCtaText: DEFAULT_FINAL_CTA_TEXT,
+  finalCtaMode: 'text',
 }
 
 /**
@@ -214,8 +266,8 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
   // so the order-list validation below can check customId against real ids.
   const customSections: LandingCustomSection[] = (Array.isArray((input as any).customSections)
     ? (input as any).customSections
-        .filter((item: any): item is Record<string, unknown> => !!item && typeof item === 'object' && typeof item.id === 'string' && item.id.trim().length > 0)
-        .map((item: any) => normalizeCustomSection(item))
+      .filter((item: any): item is Record<string, unknown> => !!item && typeof item === 'object' && typeof item.id === 'string' && item.id.trim().length > 0)
+      .map((item: any) => normalizeCustomSection(item))
     : []
   ).slice(0, MAX_CUSTOM_SECTIONS_PER_COURSE)
   const customIds = new Set(customSections.map(s => s.id))
@@ -241,9 +293,9 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
     .map((item: any) => ({
       type: item.type,
       enabled:
-  LANDING_SECTION_META[item.type as LandingSectionType].locked
-    ? true
-    : item.enabled !== false,
+        LANDING_SECTION_META[item.type as LandingSectionType].locked
+          ? true
+          : item.enabled !== false,
       ...(item.type === 'custom' ? { customId: item.customId } : {}),
     }))
 
@@ -270,18 +322,18 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
     }
   }
 
-  return {
+    const normalized: LandingConfig = {
     sections,
     bonuses: Array.isArray(input.bonuses)
       ? input.bonuses
-          .filter((item): item is LandingBonusItem => !!item && typeof item.title === 'string' && item.title.trim().length > 0)
-          .map(item => ({ title: item.title, description: item.description || '' }))
+        .filter((item): item is LandingBonusItem => !!item && typeof item.title === 'string' && item.title.trim().length > 0)
+        .map(item => ({ title: item.title, description: item.description || '' }))
       : [],
     disclaimer: {
       title: (input.disclaimer?.title || DEFAULT_LANDING_CONFIG.disclaimer.title).toString(),
       text: (input.disclaimer?.text || '').toString(),
     },
-    
+
     urgency: {
       endAt: typeof input.urgency?.endAt === 'string' ? input.urgency.endAt : '',
       label: (input.urgency?.label || DEFAULT_LANDING_CONFIG.urgency.label).toString(),
@@ -291,19 +343,33 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
           : null,
       seatsLabel: (input.urgency?.seatsLabel || DEFAULT_LANDING_CONFIG.urgency.seatsLabel).toString(),
     },
-        customSections,
+    customSections,
     instructorLayout: pickEnum((input as any).instructorLayout, ['square', 'rectangle'] as const, 'square'),
     finalCtaText: (() => {
       const raw = typeof (input as any).finalCtaText === 'string' ? (input as any).finalCtaText : ''
       const cleaned = sanitizeCustomSectionText(raw)
-  .replace(/\n/g, ' ')
-  .trim()
-  .split(/\s+/)
-  .slice(0, MAX_FINAL_CTA_WORDS)
-  .join(' ')
-      return cleaned || DEFAULT_FINAL_CTA_TEXT
+        .replace(/\n/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .slice(0, MAX_FINAL_CTA_WORDS)
+        .join(' ')
+            return cleaned || DEFAULT_FINAL_CTA_TEXT
     })(),
+    finalCtaMode: pickEnum((input as any).finalCtaMode, ['text', 'countdown'] as const, 'text'),
   }
+
+  // Migration: 'urgency' used to be its own toggleable page section. Courses
+  // that had it switched on (and never chose a bar mode) carry their countdown
+  // over into the sticky bar automatically, and the bar is switched on so the
+  // countdown they configured doesn't silently disappear.
+  const storedMode = (input as any).finalCtaMode
+  const legacyUrgency = (configured as any[]).find(s => s && s.type === 'urgency')
+  if (storedMode !== 'text' && storedMode !== 'countdown' && legacyUrgency?.enabled === true && hasUrgencyContent(normalized.urgency)) {
+    normalized.finalCtaMode = 'countdown'
+    normalized.sections = normalized.sections.map(s => (s.type === 'finalCta' ? { ...s, enabled: true } : s))
+  }
+
+  return normalized
 }
 
 /** Ordered, enabled-only section ENTRIES (not just types) — the live
@@ -324,5 +390,18 @@ export function getRenderableSections(config: LandingConfig): LandingSectionType
 export function hasUrgencyContent(urgency: LandingUrgencyConfig): boolean {
   const hasCountdown = !!urgency.endAt && !Number.isNaN(new Date(urgency.endAt).getTime()) && new Date(urgency.endAt).getTime() > Date.now()
   const hasSeats = typeof urgency.seatsAvailable === 'number' && urgency.seatsAvailable >= 0
-  return hasCountdown || hasSeats
+    return hasCountdown || hasSeats
+}
+
+/** What the sticky bar should render in countdown mode, or null when it
+ *  should just show the static message (mode is 'text', or there is no live
+ *  countdown and no seats value to show). */
+export function getFinalCtaCountdown(config: LandingConfig): FinalCtaCountdown | null {
+  if (config.finalCtaMode !== 'countdown') return null
+  const { endAt, label, seatsAvailable, seatsLabel } = config.urgency
+  const endTime = endAt ? new Date(endAt).getTime() : NaN
+  const countdownIsLive = !Number.isNaN(endTime) && endTime > Date.now()
+  const hasSeats = typeof seatsAvailable === 'number' && seatsAvailable >= 0
+  if (!countdownIsLive && !hasSeats) return null
+  return { endAt: countdownIsLive ? endAt : '', label, seatsAvailable: hasSeats ? seatsAvailable : null, seatsLabel }
 }
