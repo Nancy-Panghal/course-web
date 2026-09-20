@@ -1,7 +1,7 @@
 import { Shield, CheckCircle, Lock, BookOpen, Play, Zap, Globe, Calendar, Timer, Send, Star, Users, Award, ChevronRight, Target, Gift, AlertTriangle, LayoutGrid } from 'lucide-react'
 import { Fragment, type ReactNode } from 'react'
 import type { Metadata } from 'next'
-import { normalizeLandingConfig, getRenderableSectionEntries, getFinalCtaCountdown, getVideoEmbedUrl, type LandingSectionType, type LandingCustomSection } from '@/lib/landing-config'
+import { normalizeLandingConfig, getRenderableSectionEntries, getFinalCtaCountdown, getEnrollButtonText, getFinalCtaButtonText, getVideoEmbedUrl, type LandingSectionType, type LandingCustomSection } from '@/lib/landing-config'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
@@ -141,6 +141,7 @@ export default async function AboutCoursePage({
   // (the old flat boolean map) is passed as a legacy fallback so courses configured
   // before this feature existed keep rendering exactly as before until re-saved.
   const landingConfig = normalizeLandingConfig(course.landing_config, course.landing_sections)
+  const enrollButtonText = getEnrollButtonText(landingConfig)
   const renderableEntries = getRenderableSectionEntries(landingConfig)
   const enabledTypes = new Set(renderableEntries.map(e => e.type))
   const show = (key: LandingSectionType) => enabledTypes.has(key)
@@ -873,8 +874,8 @@ export default async function AboutCoursePage({
             )}
           </Link>
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <div style={{ maxWidth: 200 }}>
-              <CoursePageClient course={courseData} variant="nav" />
+            <div style={{ maxWidth: 'min(240px, 60vw)' }}>
+              <CoursePageClient course={courseData} variant="nav" buttonText={enrollButtonText} />
             </div>
             {moreCoursesHref && (
               <Link
@@ -1133,6 +1134,7 @@ export default async function AboutCoursePage({
               colors={{ navBg: c.navBg, navBorder: c.navBorder, textPrimary: c.textPrimary, textMuted: c.textMuted, accentText: c.accentText, accentGradient: c.accentGradient, accentGradientShadow: c.accentGradientShadow }}
               countdown={getFinalCtaCountdown(landingConfig)}
               headingFont={fonts.heading}
+              buttonText={getFinalCtaButtonText(landingConfig)}
             />
           </>
         )}

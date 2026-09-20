@@ -73,6 +73,7 @@ export default function FinalCtaBar({
     colors,
     countdown = null,
     headingFont,
+    buttonText,
 }: {
     course: FinalCtaCourse
     text: string
@@ -81,6 +82,8 @@ export default function FinalCtaBar({
     /** The landing theme's heading font stack — used for the label and the
      *  seats number so they match the rest of the page's headings. */
     headingFont?: string
+    /** Label for the Enroll button in this bar (the creator's sticky-bar text). */
+    buttonText?: string
 }) {
     // Flips to true when a live countdown hits zero while the page is open,
     // so the bar never shows a label with no timer next to it.
@@ -203,7 +206,7 @@ export default function FinalCtaBar({
                 )}
 
                 <div className="w-full sm:w-auto sm:max-w-xs [&>a]:w-full [&>a]:!py-3 [&>a]:!text-base [&>a]:justify-center [&>button]:w-full [&>button]:!py-3 [&>button]:!text-base [&>button]:justify-center [&>div]:w-full">
-                    <CoursePageClient course={course} variant="nav" />
+                    <CoursePageClient course={course} variant="nav" buttonText={buttonText} />
                 </div>
             </div>
         </div>

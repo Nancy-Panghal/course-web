@@ -27,9 +27,13 @@ interface CourseData {
 interface Props {
   course: CourseData
   variant: 'nav' | 'card' | 'cta'
+  /** Creator-chosen label. Used ONLY for the paid-course `nav` button (the top
+   *  bar and the sticky bar). Free courses keep "Enroll Free" and the `cta`
+   *  price button keeps "Enroll for ₹…", whatever is passed here. */
+  buttonText?: string
 }
 
-export default function CoursePageClient({ course, variant }: Props) {
+export default function CoursePageClient({ course, variant, buttonText }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [showTestModal, setShowTestModal] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
@@ -212,13 +216,15 @@ export default function CoursePageClient({ course, variant }: Props) {
   return (
     <>
       <button onClick={() => setShowModal(true)}
-        className={`flex items-center justify-center gap-2 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all ${variant === 'nav' ? 'px-4 py-2 text-sm' :
+        className={`flex items-center justify-center gap-2 max-w-full rounded-xl font-semibold text-white violet-gradient hover:opacity-90 glow transition-all ${variant === 'nav' ? 'px-4 py-2 text-sm' :
           variant === 'cta' ? 'px-8 py-4 text-lg' : 'w-full py-3 text-base'
           }`}>
-                {variant === 'nav' ? (course.is_free_course ? 'Enroll Free' : 'Enroll Now') :
-          variant === 'cta' ? (course.is_free_course ? 'Enroll for Free' : `Enroll for ₹${course.price.toLocaleString()}`) :
-            (course.is_free_course ? 'Enroll Now — Free' : `Enroll Now — ₹${course.price.toLocaleString()}`)}
-        <ArrowRight className={variant === 'nav' ? 'w-4 h-4' : 'w-5 h-5'} />
+        <span className="truncate">
+          {(variant === 'nav' && !course.is_free_course && buttonText) || (variant === 'nav' ? (course.is_free_course ? 'Enroll Free' : 'Enroll Now') :
+            variant === 'cta' ? (course.is_free_course ? 'Enroll for Free' : `Enroll for ₹${course.price.toLocaleString()}`) :
+              (course.is_free_course ? 'Enroll Now — Free' : `Enroll Now — ₹${course.price.toLocaleString()}`))}
+        </span>
+        <ArrowRight className={variant === 'nav' ? 'w-4 h-4 flex-shrink-0' : 'w-5 h-5 flex-shrink-0'} />
       </button>
 
       {showModal && (

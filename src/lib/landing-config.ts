@@ -59,6 +59,13 @@ export const MAX_PROMO_VIDEOS = 3
 export const MAX_FINAL_CTA_WORDS = 50
 export const DEFAULT_FINAL_CTA_TEXT = 'Enroll to polish your skills!'
 
+/** Text on the landing page's Enroll buttons. Deliberately short: the
+ *  narrowest button (top nav on a phone) is ~200px wide, and 20 characters
+ *  of semibold text is about the most that fits there without being cut off. */
+export const DEFAULT_ENROLL_BUTTON_TEXT = 'Enroll Now'
+export const MAX_ENROLL_BUTTON_WORDS = 4
+export const MAX_ENROLL_BUTTON_CHARS = 20
+
 export type LandingCustomSection = {
   id: string
   heading: string
@@ -160,6 +167,11 @@ export type LandingConfig = {
   /** 'text' = show `finalCtaText`; 'countdown' = show the `urgency`
    *  countdown/seats in the sticky bar instead. */
   finalCtaMode: FinalCtaMode
+  /** Text on the Enroll button in the top bar and the sticky bar (paid
+   *  courses only). '' = use DEFAULT_ENROLL_BUTTON_TEXT. */
+  enrollButtonText: string
+  /** Text on the sticky bar's button ONLY. '' = same as enrollButtonText. */
+  finalCtaButtonText: string
   customSections: LandingCustomSection[]
   /** 'square' = compact cards side by side (today's 2+ instructor look).
    *  'rectangle' = wide fixed-width card, height grows with bio text, one
@@ -210,6 +222,8 @@ export const DEFAULT_LANDING_CONFIG: LandingConfig = {
   instructorLayout: 'square',
   finalCtaText: DEFAULT_FINAL_CTA_TEXT,
   finalCtaMode: 'text',
+  enrollButtonText: '',
+  finalCtaButtonText: '',
 }
 
 /**
@@ -233,6 +247,21 @@ const CUSTOM_STYLES = ['plain', 'card'] as const
 const CUSTOM_BACKGROUNDS = ['theme', 'custom'] as const
 const CUSTOM_SPACINGS = ['compact', 'normal', 'roomy'] as const
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
+
+/** Clean a creator-typed button label: plain text, one line, at most
+ *  MAX_ENROLL_BUTTON_WORDS words and MAX_ENROLL_BUTTON_CHARS characters.
+ *  Returns '' when nothing usable is left (meaning "use the default"). */
+function cleanButtonText(raw: unknown): string {
+  const text = typeof raw === 'string' ? raw : ''
+  return sanitizeCustomSectionText(text)
+    .replace(/\n/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .slice(0, MAX_ENROLL_BUTTON_WORDS)
+    .join(' ')
+    .slice(0, MAX_ENROLL_BUTTON_CHARS)
+    .trim()
+}
 
 function pickEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback
@@ -356,6 +385,8 @@ export function normalizeLandingConfig(value: unknown, legacyFlatSections?: Reco
       return cleaned || DEFAULT_FINAL_CTA_TEXT
     })(),
     finalCtaMode: pickEnum((input as any).finalCtaMode, ['text', 'countdown'] as const, 'text'),
+    enrollButtonText: cleanButtonText((input as any).enrollButtonText),
+    finalCtaButtonText: cleanButtonText((input as any).finalCtaButtonText),
   }
 
   // Migration: 'urgency' used to be its own toggleable page section. Courses
@@ -404,4 +435,15 @@ export function getFinalCtaCountdown(config: LandingConfig): FinalCtaCountdown |
   const hasSeats = typeof seatsAvailable === 'number' && seatsAvailable >= 0
   if (!countdownIsLive && !hasSeats) return null
   return { endAt: countdownIsLive ? endAt : '', label, seatsAvailable: hasSeats ? seatsAvailable : null, seatsLabel }
+}
+
+/** Label for the landing page's Enroll buttons (nav, main button). */
+export function getEnrollButtonText(config: LandingConfig): string {
+  return config.enrollButtonText || DEFAULT_ENROLL_BUTTON_TEXT
+}
+
+/** Label for the sticky bar's button: its own text if the creator set one,
+ *  otherwise the same as every other Enroll button. */
+export function getFinalCtaButtonText(config: LandingConfig): string {
+  return config.finalCtaButtonText || getEnrollButtonText(config)
 }

@@ -16,6 +16,7 @@ import { PLAN_ORDER, planCoversDeliveryMethod, type SubscriptionPlanId } from '@
 import {
   DEFAULT_LANDING_CONFIG, normalizeLandingConfig, MAX_CUSTOM_SECTION_IMAGES,
   MAX_FINAL_CTA_WORDS, DEFAULT_FINAL_CTA_TEXT,
+  MAX_ENROLL_BUTTON_WORDS, MAX_ENROLL_BUTTON_CHARS, DEFAULT_ENROLL_BUTTON_TEXT,
   type LandingConfig, type LandingSectionEntry, type LandingCustomSection,
   type LandingSectionType,
 } from '@/lib/landing-config'
@@ -4236,6 +4237,36 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                     )}
 
 
+                    {!course.uses_external_landing_page && (
+                      <SettingsGroup
+                        title="Enroll button text"
+                        description="The words on the Enroll button at the top of your page and in the sticky bar. The big price button ('Enroll for ₹…') and free-course buttons ('Enroll Free') keep their own wording.">
+                        <div>
+                          <label className="text-sm font-semibold text-zinc-300 mb-2 block">Button text</label>
+                          <input
+                            value={settingsLandingConfig.enrollButtonText}
+                            maxLength={MAX_ENROLL_BUTTON_CHARS}
+                            onChange={e => {
+                              const value = e.target.value
+                              const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0
+                              if (wordCount <= MAX_ENROLL_BUTTON_WORDS) {
+                                setSettingsLandingConfig(prev => ({ ...prev, enrollButtonText: value }))
+                              }
+                            }}
+                            placeholder={DEFAULT_ENROLL_BUTTON_TEXT}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
+                          <p className="text-xs mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
+                            Up to {MAX_ENROLL_BUTTON_WORDS} words and {MAX_ENROLL_BUTTON_CHARS} characters ({settingsLandingConfig.enrollButtonText.length}/{MAX_ENROLL_BUTTON_CHARS}). Leave blank to use: "{DEFAULT_ENROLL_BUTTON_TEXT}"
+                          </p>
+                          {editIsFreeCourse && (
+                            <p className="text-xs mt-1.5" style={{ color: 'rgb(237, 152, 128)' }}>
+                              This course is free, so its buttons keep saying "Enroll Free" whatever you type here.
+                            </p>
+                          )}
+                        </div>
+                      </SettingsGroup>
+                    )}
+
                     {/* Sticky Enroll Bar (Final CTA) toggle — only relevant
                          on Kurso's own hosted landing page; a creator using
                          their own external landing page never sees this
@@ -4378,6 +4409,27 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                 ⚠ This date is the past date — the countdown won't show on the live page until you set a future date.
                               </p>
                             )}
+                          </div>
+                        )}
+
+                        {isFinalCtaEnabled && (
+                          <div className="mt-3">
+                            <label className="text-sm font-semibold text-zinc-300 mb-2 block">Sticky bar button text</label>
+                            <input
+                              value={settingsLandingConfig.finalCtaButtonText}
+                              maxLength={MAX_ENROLL_BUTTON_CHARS}
+                              onChange={e => {
+                                const value = e.target.value
+                                const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0
+                                if (wordCount <= MAX_ENROLL_BUTTON_WORDS) {
+                                  setSettingsLandingConfig(prev => ({ ...prev, finalCtaButtonText: value }))
+                                }
+                              }}
+                              placeholder={settingsLandingConfig.enrollButtonText || DEFAULT_ENROLL_BUTTON_TEXT}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--kurso-primary)]" />
+                            <p className="text-xs mt-1.5" style={{ color: 'var(--kurso-hint)' }}>
+                              Only for the button in this bar ({settingsLandingConfig.finalCtaButtonText.length}/{MAX_ENROLL_BUTTON_CHARS}). Leave blank to use your button text above.
+                            </p>
                           </div>
                         )}
                       </SettingsGroup>
