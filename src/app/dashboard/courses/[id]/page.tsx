@@ -9,6 +9,10 @@ import LandingPageDesigner from '@/components/LandingPageDesigner'
 import CountdownEndPicker from '@/components/CountdownEndPicker'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
+import SocialLinksEditor from '@/components/SocialLinksEditor'
+import { parseSocialLinks, getSocialLinksErrors, cleanSocialLinks, type SocialLink } from '@/lib/social-links'
+import ContactDetailsEditor from '@/components/ContactDetailsEditor'
+import { parseContactDetails, getContactDetailsErrors, cleanContactDetails, type ContactDetail } from '@/lib/contact-details'
 import TestCourseModal from '@/components/TestCourseModal'
 import SectionDivider from '@/components/SectionDivider'
 import { getEffectivePlanId } from '@/lib/kurso-checkout'
@@ -68,10 +72,9 @@ interface Course {
   refund_policy_storage_path?: string
   terms_storage_path?: string
   privacy_storage_path?: string
-  contact_email?: string
-  contact_phone?: string
-  show_contact_on_landing?: boolean
+  contact_details?: ContactDetail[]
   ratings_enabled_on_landing?: boolean
+  social_links?: SocialLink[]
   promo_video_heading?: string
   uses_external_landing_page?: boolean
   scheduled_deletion_at?: string
@@ -2553,10 +2556,9 @@ export default function CourseManagePage({
   const [editTermsPath, setEditTermsPath] = useState('')
   const [editPrivacyPath, setEditPrivacyPath] = useState('')
   const [uploadingPolicyDoc, setUploadingPolicyDoc] = useState<PolicyDocType | null>(null)
-  const [editContactEmail, setEditContactEmail] = useState('')
-  const [editContactPhone, setEditContactPhone] = useState('')
-  const [editShowContactOnLanding, setEditShowContactOnLanding] = useState(false)
+  const [editContactDetails, setEditContactDetails] = useState<ContactDetail[]>([])
   const [editRatingsEnabledOnLanding, setEditRatingsEnabledOnLanding] = useState(false)
+  const [editSocialLinks, setEditSocialLinks] = useState<SocialLink[]>([])
   const [editPromoVideoHeading, setEditPromoVideoHeading] = useState('')
   const [editHostName, setEditHostName] = useState('')
   const [editAbout, setEditAbout] = useState('')
@@ -2654,10 +2656,9 @@ export default function CourseManagePage({
       setEditRefundPolicyPath(courseData.refund_policy_storage_path || '')
       setEditTermsPath(courseData.terms_storage_path || '')
       setEditPrivacyPath(courseData.privacy_storage_path || '')
-      setEditContactEmail(courseData.contact_email || '')
-      setEditContactPhone(courseData.contact_phone || '')
-      setEditShowContactOnLanding(!!courseData.show_contact_on_landing)
+      setEditContactDetails(parseContactDetails(courseData.contact_details))
       setEditRatingsEnabledOnLanding(!!courseData.ratings_enabled_on_landing)
+      setEditSocialLinks(parseSocialLinks(courseData.social_links))
       setEditPromoVideoHeading(courseData.promo_video_heading || '')
       setEditHostName(courseData.host_name || '')
       setEditInstructorTitle(courseData.instructor_title || '')
@@ -2900,6 +2901,14 @@ export default function CourseManagePage({
 
   async function updateSettings(): Promise<boolean> {
     setSavingSettings(true)
+    // Social links are only written when every link is valid; otherwise the last
+    // saved value stays in the database and the rest of the settings still save.
+    const socialHasErrors = getSocialLinksErrors(editSocialLinks).hasErrors
+    const cleanedSocialLinks = cleanSocialLinks(editSocialLinks)
+    // Contact details are only written when every entry is valid; otherwise the
+    // last saved value stays in the database and the rest of the settings still save.
+    const contactHasErrors = getContactDetailsErrors(editContactDetails).hasErrors
+    const cleanedContactDetails = cleanContactDetails(editContactDetails)
     const { error } = await supabase
       .from('courses')
       .update({
@@ -2940,9 +2949,8 @@ export default function CourseManagePage({
         refund_policy_storage_path: editRefundPolicyPath || null,
         terms_storage_path: editTermsPath || null,
         privacy_storage_path: editPrivacyPath || null,
-        contact_email: editContactEmail.trim() || null,
-        contact_phone: editContactPhone.trim() || null,
-        show_contact_on_landing: editShowContactOnLanding,
+        ...(contactHasErrors ? {} : { contact_details: cleanedContactDetails }),
+        ...(socialHasErrors ? {} : { social_links: cleanedSocialLinks }),
         ratings_enabled_on_landing: editRatingsEnabledOnLanding,
         brand_name: editBrandName.trim() || null,
         co_instructors: editCoInstructors
@@ -3000,9 +3008,8 @@ export default function CourseManagePage({
         refund_policy_storage_path: editRefundPolicyPath || undefined,
         terms_storage_path: editTermsPath || undefined,
         privacy_storage_path: editPrivacyPath || undefined,
-        contact_email: editContactEmail.trim() || undefined,
-        contact_phone: editContactPhone.trim() || undefined,
-        show_contact_on_landing: editShowContactOnLanding,
+        ...(contactHasErrors ? {} : { contact_details: cleanedContactDetails }),
+        ...(socialHasErrors ? {} : { social_links: cleanedSocialLinks }),
         ratings_enabled_on_landing: editRatingsEnabledOnLanding,
         promo_video_heading: editPromoVideoHeading.trim() || undefined,
         co_instructors: editCoInstructors.filter(ci => ci.name.trim()),
@@ -3164,10 +3171,9 @@ export default function CourseManagePage({
     editRefundPolicyPath,
     editTermsPath,
     editPrivacyPath,
-    editContactEmail,
-    editContactPhone,
-    editShowContactOnLanding,
+    editContactDetails,
     editRatingsEnabledOnLanding,
+    editSocialLinks,
     editHostName,
     editInstructorTitle,
     editAbout,
@@ -4953,68 +4959,17 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                         </SettingsGroup>
 
                         <SettingsGroup
-                          title="Contact Information"
-                          description="Add an email or phone students can reach you on."
+                          title="Contact details"
+                          description="Add up to 2 phone numbers and 2 email addresses. Choose where each one appears on your landing page."
                         >
+                          <ContactDetailsEditor value={editContactDetails} onChange={setEditContactDetails} />
+                        </SettingsGroup>
 
-                          <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-                            <input type="email" value={editContactEmail} onChange={e => setEditContactEmail(e.target.value)}
-                              placeholder="you@example.com"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
-                            <input type="tel" value={editContactPhone} onChange={e => setEditContactPhone(e.target.value)}
-                              placeholder="+91 98765 43210"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600" />
-                          </div>
-
-                          <div
-                            className="flex items-center justify-between gap-4 mt-2 p-4 rounded-xl"
-                            style={{
-                              background: editShowContactOnLanding
-                                ? 'rgba(var(--kurso-primary-rgb), 0.06)'
-                                : 'rgba(255,255,255,0.03)',
-                              border: editShowContactOnLanding
-                                ? '1px solid rgba(var(--kurso-primary-rgb), 0.25)'
-                                : '1px solid rgba(255,255,255,0.08)',
-                            }}
-                          >
-                            <div>
-                              <p className="text-sm font-semibold text-white">
-                                Show this on my landing page
-                              </p>
-
-                              <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>
-                                {editShowContactOnLanding
-                                  ? "Students will see a Contact link in your website's footer."
-                                  : 'This Contact link is hidden from your landing page.'}
-                              </p>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => setEditShowContactOnLanding(previous => !previous)}
-                              className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200"
-                              style={{
-                                background: editShowContactOnLanding
-                                  ? 'var(--kurso-primary)'
-                                  : 'rgba(255,255,255,0.12)',
-                              }}
-                              aria-label={
-                                editShowContactOnLanding
-                                  ? 'Hide contact link'
-                                  : 'Show contact link'
-                              }
-                              aria-pressed={editShowContactOnLanding}
-                            >
-                              <span
-                                className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                                style={{
-                                  transform: editShowContactOnLanding
-                                    ? 'translateX(20px)'
-                                    : 'translateX(0)',
-                                }}
-                              />
-                            </button>
-                          </div>
+                        <SettingsGroup
+                          title="Social links"
+                          description="Add your social media pages. Each one shows up as a logo button in your landing page footer — one link per platform."
+                        >
+                          <SocialLinksEditor value={editSocialLinks} onChange={setEditSocialLinks} />
                         </SettingsGroup>
 
                         <SettingsGroup

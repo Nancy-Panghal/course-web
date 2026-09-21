@@ -9,7 +9,9 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { Shield, ArrowLeft, Mail, Phone } from 'lucide-react'
+import { Shield, ArrowLeft } from 'lucide-react'
+import ContactDetails from '@/components/ContactDetails'
+import { getRenderableContactDetails } from '@/lib/contact-details'
 import { getLandingTheme } from '@/lib/landing-themes'
 import { getFontPairOverride } from '@/lib/landing-themes/fontPairs'
 
@@ -33,12 +35,15 @@ export default async function CourseContactPage({
 
   const { data: course } = await supabase
     .from('courses')
-    .select('id, name, host_name, brand_name, brand_logo_url, landing_theme, landing_font_pair, contact_email, contact_phone, show_contact_on_landing')
+    .select('id, name, host_name, brand_name, brand_logo_url, landing_theme, landing_font_pair, contact_details')
     .eq('id', courseId)
     .single()
 
   if (!course) notFound()
-  if (!course.show_contact_on_landing || (!course.contact_email && !course.contact_phone)) notFound()
+  // Only entries the creator chose to show somewhere on the landing page.
+  const contacts = getRenderableContactDetails(course.contact_details)
+    .filter(d => d.show_below_description || d.show_in_footer)
+  if (contacts.length === 0) notFound()
 
   const theme = getLandingTheme(course.landing_theme)
   const c = theme.colors
@@ -81,22 +86,7 @@ export default async function CourseContactPage({
           Reach {brandName} directly about {course.name}
         </p>
 
-        <div className="flex flex-col gap-4">
-          {course.contact_email && (
-            <a href={`mailto:${course.contact_email}`} className="flex items-center gap-3 px-5 py-4 rounded-xl"
-              style={{ border: `1px solid ${c.border}` }}>
-              <Mail className="w-5 h-5" style={{ color: c.accentText }} />
-              <span style={{ color: c.textSecondary }}>{course.contact_email}</span>
-            </a>
-          )}
-          {course.contact_phone && (
-            <a href={`tel:${course.contact_phone}`} className="flex items-center gap-3 px-5 py-4 rounded-xl"
-              style={{ border: `1px solid ${c.border}` }}>
-              <Phone className="w-5 h-5" style={{ color: c.accentText }} />
-              <span style={{ color: c.textSecondary }}>{course.contact_phone}</span>
-            </a>
-          )}
-        </div>
+                <ContactDetails entries={contacts} variant="block" colors={c} headingFont={fonts.heading} />
       </div>
     </div>
   )

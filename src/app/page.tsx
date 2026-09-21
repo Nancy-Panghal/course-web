@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import {
   GraduationCap, MessageCircle, Send, ListChecks, LayoutDashboard,
   Award, Lock, Wallet, Video, CheckCircle, ArrowRight, Play, Sparkles,
-  ChevronDown, Terminal, RefreshCw, ShieldCheck, Smartphone
+  ChevronDown, Terminal, RefreshCw, ShieldCheck, Smartphone, Settings2,
+  Globe, Wand2
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { supabase, getSessionOrRefresh } from '@/lib/supabase'
@@ -105,10 +106,35 @@ const engagementShowcaseImages = [
   { src: '/showcase/webLesson.png', alt: 'Lesson delivered via web player' },
 ]
 
+// Nothing for the creator to register or configure on the messaging side —
+// Kurso runs one bot infrastructure behind the scenes so creators never touch
+// a WhatsApp Business account, a Meta developer console, or an API key for
+// messaging. This is a real operational choice (a single, carefully managed
+// setup on our end), presented here as the plain benefit it is for a creator.
+const noSetupPoints = [
+  { icon: Settings2, title: 'No WhatsApp Business account', desc: "You don't register anything with Meta — we already have the infrastructure running." },
+  { icon: Lock, title: 'No API keys to manage', desc: 'Nothing to generate, rotate, or keep secret on the messaging side. That part is entirely on us.' },
+  { icon: MessageCircle, title: 'Pick a platform, that\u2019s it', desc: 'WhatsApp, Telegram, or both — choose it in your course settings and delivery is live immediately.' },
+  { icon: RefreshCw, title: 'No ongoing upkeep', desc: 'No renewing tokens, no reconnecting an account. It keeps working while you focus on your course.' },
+]
+
+// The landing-page builder, positioned as genuinely low-decision — a direct
+// answer to how much configuration other course tools ask a creator to do
+// before they can publish anything.
+const builderSteps = [
+  { num: '01', title: 'Pick your sections', desc: 'Turn on what you want — curriculum, testimonials, FAQs, pricing, and more. Leave off what you don\u2019t need.' },
+  { num: '02', title: 'Add your content', desc: 'Course description, what students will learn, testimonials, FAQs — fill in what you already have.' },
+  { num: '03', title: 'Preview as you go', desc: 'Your page updates live while you add details — no separate preview step, no guessing how it\u2019ll look.' },
+]
+
 const faqs = [
   {
     q: 'Do my students need to download an app?',
     a: 'No. Lessons are delivered straight into WhatsApp or Telegram — apps your students already have open. Tapping a lesson link opens it on a secure web page for that lesson only; nothing extra to install or log into.',
+  },
+  {
+    q: 'Do I need to set up a WhatsApp Business account myself?',
+    a: "No. Kurso runs the WhatsApp and Telegram bot infrastructure entirely on our side — you don't need a WhatsApp Business account, a Meta developer account, or any messaging API keys. Just pick a platform in your course settings and delivery is live.",
   },
   {
     q: 'How do payments work — do you hold my money?',
@@ -125,6 +151,10 @@ const faqs = [
   {
     q: 'I already have a landing page for my course — do I need to switch?',
     a: 'No. Keep your existing page and just swap in our lightweight enrollment code block for checkout. Upload your lessons and details on the Kurso dashboard, and delivery goes live on WhatsApp, Telegram, or both.',
+  },
+  {
+    q: 'Do I need to buy a domain?',
+    a: "Only if you want one. Hosting your course page natively on Kurso means there's nothing to buy or configure — it's live on a Kurso link immediately. If you already have your own website and domain, keep it and just swap your checkout button for our lightweight code block.",
   },
   {
     q: 'How is my course content protected from piracy?',
@@ -380,7 +410,7 @@ export default function HomePage() {
           </h1>
 
           <p className="text-text-2 text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-light">
-            Kurso sends each lesson straight to your students' WhatsApp or Telegram — quizzes, notes,
+            Kurso sends each lesson link straight into your students' WhatsApp or Telegram chat — quizzes, notes,
             assignments and certificates included. No app to download, no dashboard to learn. Just
             the chats they already check.
           </p>
@@ -570,6 +600,38 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── NOTHING TO REGISTER ── */}
+      <section className="py-24 px-6 border-b border-border">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 glass border border-violet-500/20 rounded-full px-4 py-2 mb-4">
+              <Settings2 className="w-3 h-3 text-violet-400" />
+              <span className="text-sm text-text-2">The messaging side is entirely on us</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Nothing to register. <span className="gradient-text">Nothing to configure.</span>
+            </h2>
+            <p className="text-text-2 text-lg max-w-2xl mx-auto font-light leading-relaxed">
+              You don't need a WhatsApp Business account, a Meta developer console, or any messaging
+              API keys. Kurso already runs that infrastructure — you just pick a platform in your
+              course settings, and delivery is live.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {noSetupPoints.map((p, i) => (
+              <div key={i} className="glass rounded-2xl p-5 border border-border text-center">
+                <div className="w-10 h-10 violet-gradient rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <p.icon className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="font-semibold text-white mb-1.5 text-sm">{p.title}</h3>
+                <p className="text-text-2 text-xs leading-relaxed">{p.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── BRING YOUR OWN LANDING PAGE ── */}
       <section id="embed" className="py-24 px-6 border-b border-border">
         <div className="max-w-6xl mx-auto">
@@ -584,7 +646,8 @@ export default function HomePage() {
             <p className="text-text-2 text-lg max-w-2xl mx-auto font-light leading-relaxed">
               Don't rebuild what already works. Swap in our enrollment code block, upload your lessons
               and course details, and your course goes live — delivered on WhatsApp, Telegram, or both,
-              whichever your students actually use.
+              whichever your students actually use. Already have your own domain? Keep it exactly as
+              it is — nothing about your website changes except the checkout button.
             </p>
           </div>
 
@@ -604,6 +667,67 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── BUILD NATIVELY ON KURSO ── */}
+      <section className="py-24 px-6 border-b border-border">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 glass border border-violet-500/20 rounded-full px-4 py-2 mb-6">
+                <Wand2 className="w-3 h-3 text-violet-400" />
+                <span className="text-sm text-text-2">No landing page yet?</span>
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">
+                Fewer decisions.<br /><span className="gradient-text">Just add your content.</span>
+              </h2>
+              <p className="text-text-2 mb-8 font-light leading-relaxed">
+                Building a course page on Kurso doesn't mean learning a design tool or working through
+                a long settings menu first. Pick your sections, fill in what you already have, and
+                watch your page take shape as you go.
+              </p>
+              <div className="flex flex-col gap-8 mb-10">
+                {builderSteps.map((s, i) => <StepCard key={i} {...s} />)}
+              </div>
+              <div className="flex items-start gap-3 glass rounded-xl p-4 border border-border">
+                <Globe className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--kurso-primary-light)' }} />
+                <p className="text-text-2 text-sm leading-relaxed">
+                  No domain to buy or configure — your page is live on a Kurso link the moment you're
+                  ready, with your own domain always an option later if you want one.
+                </p>
+              </div>
+            </div>
+
+            {/* Visual: a lightweight "live preview" mock */}
+            <div className="relative">
+              <div className="glass rounded-2xl p-6 glow animate-float" style={{ border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)' }}>
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                  <span className="text-xs ml-2" style={{ color: '#52525b' }}>Live preview</span>
+                </div>
+                <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="h-24 flex items-center justify-center violet-gradient">
+                    <span className="text-white font-semibold text-sm">Your Course Name</span>
+                  </div>
+                  <div className="p-4 flex flex-col gap-2.5">
+                    {['Course description', 'What students will learn', 'Testimonials', 'FAQs'].map((row, i) => (
+                      <div key={i} className="flex items-center gap-2.5 rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                        <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--kurso-primary-light)' }} />
+                        <span className="text-xs" style={{ color: '#e4e4e7' }}>{row}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="absolute -bottom-5 -left-5 rounded-xl px-5 py-3 glow" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)', backdropFilter: 'blur(12px)' }}>
+                <div className="text-xs mb-1" style={{ color: '#a1a1aa' }}>Updates as you type</div>
+                <div className="text-sm font-bold gradient-text">No separate preview step</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── NO APPS TO DOWNLOAD ── */}
       <section className="py-24 px-6 border-b border-border">
         <div className="max-w-5xl mx-auto">
@@ -617,8 +741,8 @@ export default function HomePage() {
             </h2>
             <p className="text-text-2 text-lg max-w-2xl mx-auto font-light leading-relaxed">
               WhatsApp and Telegram are already open on your students' phones all day — that's where they
-              stay engaged, so that's where we meet them. The moment a lesson is ready, our bot sends it
-              straight into the chat. They tap the link, it opens on a secure Kurso web player — video,
+              stay engaged, so that's where we meet them. The moment a lesson is ready, our bot sends the
+              link straight into the chat. They tap it, it opens on a secure Kurso web player — video,
               notes, quiz, everything — then they head right back to the conversation they were already in.
             </p>
           </div>

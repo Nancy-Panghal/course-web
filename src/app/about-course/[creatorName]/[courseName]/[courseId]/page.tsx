@@ -8,6 +8,10 @@ import { notFound } from 'next/navigation'
 import { slugify } from '@/lib/utils'
 import CoursePageClient from '@/components/CoursePageClient'
 import FinalCtaBar from '@/components/FinalCtaBar'
+import SocialLinks from '@/components/SocialLinks'
+import { getRenderableSocialLinks } from '@/lib/social-links'
+import ContactDetails from '@/components/ContactDetails'
+import { getRenderableContactDetails } from '@/lib/contact-details'
 import CurriculumAccordion from './Curriculumaccordion'
 import DraftGate from '@/components/DraftGate'
 import { getLandingTheme } from '@/lib/landing-themes'
@@ -247,6 +251,11 @@ export default async function AboutCoursePage({
   ).slice(0, 3)
   const testimonials: Testimonial[] = course.testimonials || []
   const targetAudience: string[] = course.target_audience || []
+  const socialLinks = getRenderableSocialLinks(course.social_links)
+  // Contact details: each entry independently chooses below-description and/or footer.
+  const contactDetails = getRenderableContactDetails(course.contact_details)
+  const belowDescriptionContacts = contactDetails.filter(d => d.show_below_description)
+  const footerContacts = contactDetails.filter(d => d.show_in_footer)
 
   const courseData = {
     id: course.id,
@@ -971,35 +980,14 @@ export default async function AboutCoursePage({
                     ))}
                   </div>
                 )}
-
-                {/* Price row — only shown here when there's NO video */}
-                {!promoVideoId && (
-                  <div className="fu fu4 flex items-baseline gap-3 mb-5" style={{ justifyContent: 'center' }}>
-                    <span style={{
-                      fontFamily: fonts.heading,
-                      fontSize: 'clamp(1.9rem, 3.5vw, 2.6rem)', fontWeight: 900, color: c.textPrimary, lineHeight: 1,
-                    }}>
-                      {course.is_free_course ? 'Free' : `₹${course.price?.toLocaleString()}`}
-                    </span>
-                    {discount > 0 && (
-                      <>
-                        <span style={{ fontSize: '1.05rem', color: c.textFaint, textDecoration: 'line-through' }}>₹{course.original_price?.toLocaleString()}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(74,222,128,0.10)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.22)' }}>
-                          {discount}% OFF
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* CTA — only shown here when there's NO video */}
-                {!promoVideoId && (
-                  <div className="fu fu5 flex flex-col items-center gap-3 mb-5" style={{ width: '100%' }}>
-                    <div className="flex justify-center" style={{ width: '100%', maxWidth: 360 }}>
-                      <CoursePageClient course={courseData} variant="cta" />
-                    </div>
-                  </div>
-                )}
+                {/* Contact details — "below the description" placement */}
+                <ContactDetails
+                  entries={belowDescriptionContacts}
+                  variant="block"
+                  colors={c}
+                  headingFont={fonts.heading}
+                  className="fu fu5"
+                />
               </div>
 
               {/* Right: promo video */}
@@ -1057,10 +1045,6 @@ export default async function AboutCoursePage({
                       </>
                     )}
                   </div>
-                  <div className="flex justify-center" style={{ width: '100%', maxWidth: 360 }}>
-                    <CoursePageClient course={courseData} variant="cta" />
-                  </div>
-
                 </div>
               </div>
             )}
@@ -1162,7 +1146,7 @@ export default async function AboutCoursePage({
             </p>
           )}
 
-          {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path || (course.show_contact_on_landing && (course.contact_email || course.contact_phone))) && (
+          {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path || footerContacts.length > 0) && (
             <div className="mb-4 flex items-center justify-center flex-wrap gap-x-5 gap-y-1.5">
               {course.refund_policy_storage_path && (
                 <a href={`/policy/${course.id}/refund`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Refund Policy</a>
@@ -1173,11 +1157,10 @@ export default async function AboutCoursePage({
               {course.privacy_storage_path && (
                 <a href={`/policy/${course.id}/privacy`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Privacy Policy</a>
               )}
-              {course.show_contact_on_landing && (course.contact_email || course.contact_phone) && (
-                <a href={`/contact/${course.id}`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Contact</a>
-              )}
+              <ContactDetails entries={footerContacts} variant="footer" colors={c} headingFont={fonts.heading} mutedColor={mutedSoft} />
             </div>
           )}
+          <SocialLinks links={socialLinks} colors={c} className="mb-4" />
           {creatorProfile?.creator_slug && (
             <div className="mb-4 text-center">
               <a href={`/creator/${creatorProfile.creator_slug}`}

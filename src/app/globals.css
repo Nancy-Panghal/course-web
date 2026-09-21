@@ -23,6 +23,7 @@
   --kurso-primary-light: #f8a537;    /* +15% toward white */
   --kurso-primary-lighter: #faba66;  /* +35% toward white */
   --kurso-primary-lightest: #fbcf95; /* +55% toward white */
+  --kurso-primary-deep: #d9720d;     /* -15% toward black — gives buttons real depth instead of two similar-toned stops */
   --kurso-primary-rgb: 247, 149, 20; /* same as --kurso-primary, as r,g,b for rgba() */
 
   /* Secondary — paired with primary in the logo-mark gradient */
@@ -65,7 +66,15 @@
 }
 
 .violet-gradient {
-  background: var(--kurso-btn-gradient, linear-gradient(135deg, var(--kurso-accent-soft) 0%, var(--kurso-accent) 100%));
+  background: var(--kurso-btn-gradient, linear-gradient(135deg, var(--kurso-primary-deep) 0%, var(--kurso-primary) 50%, var(--kurso-primary-light) 100%));
+}
+
+.nav-link {
+  color: var(--kurso-text-secondary);
+  transition: color 0.2s ease;
+}
+.nav-link:hover {
+  color: var(--kurso-primary-light);
 }
 
 /* Inside a themed landing page (see lib/landing-themes/brandVars.ts) the button
