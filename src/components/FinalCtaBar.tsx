@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Timer } from 'lucide-react'
 import CoursePageClient from '@/components/CoursePageClient'
 import CountdownTimer from '@/components/CountdownTimer'
 import type { LandingThemeColors } from '@/lib/landing-themes/types'
@@ -52,8 +51,7 @@ import type { FinalCtaCountdown } from '@/lib/landing-config'
  * stay in exactly one place instead of being reimplemented here.
  */
 
-type FinalCtaColors = Pick<LandingThemeColors, 'navBg' | 'navBorder' | 'textPrimary' | 'textMuted' | 'accentText' | 'accentGradient' | 'accentGradientShadow'>
-
+type FinalCtaColors = Pick<LandingThemeColors, 'navBg' | 'navBorder' | 'textPrimary' | 'textMuted' | 'accentText' | 'accentSoft' | 'accentBorder'>
 type FinalCtaCourse = {
     id: string
     name: string
@@ -126,42 +124,23 @@ export default function FinalCtaBar({
                 borderTop: `1px solid ${colors.navBorder}`,
             }}>
             <div
-                className={`mx-auto flex flex-col sm:flex-row items-center justify-center gap-y-3 ${showCountdown ? 'sm:gap-x-14 lg:gap-x-24' : 'gap-x-10'}`}
+                className={`mx-auto flex flex-col sm:flex-row items-center gap-y-3 ${showCountdown ? 'sm:justify-between sm:gap-x-10' : 'justify-center gap-x-10'}`}
                 style={{ maxWidth: 1080, padding: showCountdown ? '12px 20px' : '16px 20px' }}>
                 {showCountdown && countdown ? (
-                    // Phone: label on the left with the timer tiles on the right, seats
-                    // on a row below (left side). Laptop: label + seats stacked on the
-                    // left, tiles next to them, then a wide gap before the Enroll button.
-                    <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 w-full min-w-0 text-left sm:w-auto sm:grid-cols-[auto_auto] sm:justify-center sm:gap-x-8 sm:gap-y-1">
+                    // No label anymore — just the tiles, and the seats-left count next
+                    // to them when both are set. Wraps to its own line on narrow phones.
+                    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 w-full min-w-0 sm:w-auto sm:justify-start">
                         {showTimer && (
-                            <p
-                                className="flex items-center gap-2 col-start-1 row-start-1 text-balance"
-                                style={{
-                                    fontFamily: headingFont,
-                                    fontSize: 'clamp(1rem, 2.6vw, 1.3rem)',
-                                    fontWeight: 700,
-                                    letterSpacing: '-0.01em',
-                                    lineHeight: 1.25,
-                                    color: colors.textPrimary,
-                                }}>
-                                <Timer className="w-5 h-5 flex-shrink-0" style={{ color: colors.accentText }} />
-                                <span>{countdown.label}</span>
-                            </p>
-                        )}
-                        {showTimer && (
-                            <div className={`flex-shrink-0 col-start-2 row-start-1 sm:row-start-1${showSeats ? ' sm:row-span-2' : ''}`}>
-                                <CountdownTimer
-                                    endAt={countdown.endAt}
-                                    accentGradient={colors.accentGradient}
-                                    boxShadowColor={colors.accentGradientShadow}
-                                    labelColor={colors.textMuted}
-                                    onExpire={() => setExpired(true)} />
-                            </div>
+                            <CountdownTimer
+                                endAt={countdown.endAt}
+                                tileBg={colors.accentSoft}
+                                tileBorder={colors.accentBorder}
+                                numberColor={colors.accentText}
+                                labelColor={colors.textMuted}
+                                onExpire={() => setExpired(true)} />
                         )}
                         {showSeats && (
-                            <p
-                                className={`flex items-center gap-2 col-span-2${showTimer ? ' row-start-2 justify-start sm:col-span-1 sm:col-start-1' : ' justify-center'}`}
-                                style={{ lineHeight: 1.2 }}>
+                            <p className="flex items-center gap-2" style={{ lineHeight: 1.2 }}>
                                 {countdown.seatsAvailable! <= 5 && (
                                     <span className="relative inline-flex h-2.5 w-2.5 flex-shrink-0">
                                         <span

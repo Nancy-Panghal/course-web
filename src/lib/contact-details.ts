@@ -188,3 +188,35 @@ export function contactHref(entry: Pick<ContactDetail, 'type' | 'value'>): strin
   if (entry.type === 'email') return `mailto:${v}`
   return `tel:${v.startsWith('+') ? '+' : ''}${v.replace(/\D/g, '')}`
 }
+// ── Grouping (for display only) ────────────────────────────────────
+
+export interface ContactGroup {
+  type: ContactType
+  /** '' when this group's entries have no shared message. */
+  message: string
+  /** 1 entry normally; 2 when both phones (or both emails) share one message. */
+  entries: ContactDetail[]
+}
+
+/** Groups entries so that two phones (or two emails) with the exact same
+ *  custom message render as one group instead of repeating the message.
+ *  Entries with no message, or a message no other entry shares, each stay
+ *  their own group of one. Order of first appearance is preserved. */
+export function groupContactDetails(entries: ContactDetail[]): ContactGroup[] {
+  const groups: ContactGroup[] = []
+  const indexByKey = new Map<string, number>()
+  for (const entry of entries) {
+    const msg = entry.message.trim()
+    if (msg) {
+      const key = `${entry.type}|${msg.toLowerCase()}`
+      const existing = indexByKey.get(key)
+      if (existing !== undefined) {
+        groups[existing].entries.push(entry)
+        continue
+      }
+      indexByKey.set(key, groups.length)
+    }
+    groups.push({ type: entry.type, message: msg, entries: [entry] })
+  }
+  return groups
+}

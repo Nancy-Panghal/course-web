@@ -4,9 +4,15 @@ import { useEffect, useRef, useState } from 'react'
 
 /**
  * Ticking countdown for the landing page urgency banner — boxed digit
- * style (each unit in its own accent-gradient tile with a label
- * underneath), matching the visual language real course-selling landing
- * pages use for deadline timers, instead of a single inline text string.
+ * style (each unit in its own tile with a label underneath), matching the
+ * visual language real course-selling landing pages use for deadline
+ * timers, instead of a single inline text string.
+ *
+ * Tiles are a soft, low-opacity tint of the course's accent color (not
+ * the bold accent gradient used for buttons) — the numbers stay readable
+ * against it in every theme because `numberColor` is meant to be the
+ * theme's own `accentText` token, which already resolves to a light color
+ * on dark themes and a dark color on light themes.
  *
  * Renders nothing until mounted (avoids an SSR/client text mismatch), and
  * renders nothing once the target time has passed — never gets stuck
@@ -14,16 +20,19 @@ import { useEffect, useRef, useState } from 'react'
  */
 export default function CountdownTimer({
   endAt,
-  accentGradient,
-  boxShadowColor,
-  numberColor = '#ffffff',
+  tileBg,
+  tileBorder,
+  numberColor,
   labelColor,
   onExpire,
 }: {
   endAt: string
-  accentGradient: string
-  boxShadowColor: string
-  numberColor?: string
+  /** Soft tile background — pass the theme's accentSoft, not accentGradient. */
+  tileBg: string
+  /** Tile border — pass the theme's accentBorder. */
+  tileBorder: string
+  /** Digit color — pass the theme's accentText so it stays readable on tileBg. */
+  numberColor: string
   labelColor?: string
   /** Called once when the countdown reaches zero while the page is open. */
   onExpire?: () => void
@@ -72,8 +81,8 @@ export default function CountdownTimer({
         <div key={i} style={{ textAlign: 'center' }}>
           <div
             style={{
-              background: accentGradient,
-              boxShadow: `0 4px 16px ${boxShadowColor}`,
+              background: tileBg,
+              border: `1px solid ${tileBorder}`,
               borderRadius: 10,
               minWidth: 'clamp(34px, 9vw, 46px)',
               padding: 'clamp(4px, 1.3vw, 7px) 3px',

@@ -1,5 +1,5 @@
 import { Shield, CheckCircle, Lock, BookOpen, Play, Zap, Globe, Calendar, Timer, Send, Star, Users, Award, ChevronRight, Target, Gift, AlertTriangle, LayoutGrid } from 'lucide-react'
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, type ReactNode, type CSSProperties } from 'react'
 import type { Metadata } from 'next'
 import { normalizeLandingConfig, getRenderableSectionEntries, getFinalCtaCountdown, getEnrollButtonText, getFinalCtaButtonText, getVideoEmbedUrl, type LandingSectionType, type LandingCustomSection } from '@/lib/landing-config'
 import Link from 'next/link'
@@ -256,6 +256,10 @@ export default async function AboutCoursePage({
   const contactDetails = getRenderableContactDetails(course.contact_details)
   const belowDescriptionContacts = contactDetails.filter(d => d.show_below_description)
   const footerContacts = contactDetails.filter(d => d.show_in_footer)
+  // Footer layout: one column per group that actually has content, so the
+  // row is 1, 2 or 3 columns and stacks to a single centered column on mobile.
+  const hasPolicyLinks = !!(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path)
+  const footerColumnCount = [hasPolicyLinks, footerContacts.length > 0, socialLinks.length > 0].filter(Boolean).length
 
   const courseData = {
     id: course.id,
@@ -1115,7 +1119,7 @@ export default async function AboutCoursePage({
             <FinalCtaBar
               course={courseData}
               text={landingConfig.finalCtaText}
-              colors={{ navBg: c.navBg, navBorder: c.navBorder, textPrimary: c.textPrimary, textMuted: c.textMuted, accentText: c.accentText, accentGradient: c.accentGradient, accentGradientShadow: c.accentGradientShadow }}
+              colors={{ navBg: c.navBg, navBorder: c.navBorder, textPrimary: c.textPrimary, textMuted: c.textMuted, accentText: c.accentText, accentSoft: c.accentSoft, accentBorder: c.accentBorder }}
               countdown={getFinalCtaCountdown(landingConfig)}
               headingFont={fonts.heading}
               buttonText={getFinalCtaButtonText(landingConfig)}
@@ -1146,28 +1150,53 @@ export default async function AboutCoursePage({
             </p>
           )}
 
-          {(course.refund_policy_storage_path || course.terms_storage_path || course.privacy_storage_path || footerContacts.length > 0) && (
-            <div className="mb-4 flex items-center justify-center flex-wrap gap-x-5 gap-y-1.5">
-              {course.refund_policy_storage_path && (
-                <a href={`/policy/${course.id}/refund`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Refund Policy</a>
-              )}
-              {course.terms_storage_path && (
-                <a href={`/policy/${course.id}/terms`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Terms &amp; Conditions</a>
-              )}
-              {course.privacy_storage_path && (
-                <a href={`/policy/${course.id}/privacy`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Privacy Policy</a>
-              )}
-              <ContactDetails entries={footerContacts} variant="footer" colors={c} headingFont={fonts.heading} mutedColor={mutedSoft} />
-            </div>
-          )}
-          <SocialLinks links={socialLinks} colors={c} className="mb-4" />
-          {creatorProfile?.creator_slug && (
-            <div className="mb-4 text-center">
-              <a href={`/creator/${creatorProfile.creator_slug}`}
-                style={{ color: c.accentText, fontSize: '0.9rem', fontWeight: 600 }}>
-                See more courses from {course.host_name || 'this creator'} →
-              </a>
-            </div>
+          {footerColumnCount > 0 && (
+            <>
+              <style>{`
+                .ak-footer-cols { display: flex; flex-direction: column; align-items: center; gap: 28px; text-align: center; }
+                @media (min-width: 640px) {
+                  .ak-footer-cols[data-cols="2"], .ak-footer-cols[data-cols="3"] {
+                    display: grid; grid-template-columns: repeat(var(--ak-footer-cols), minmax(150px, 1fr));
+                    align-items: start; text-align: left; gap: 40px;
+                  }
+                  .ak-footer-cols[data-cols="2"] { max-width: 460px; }
+                  .ak-footer-cols[data-cols="3"] { max-width: 660px; }
+                }
+                .ak-footer-col-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 4px; }
+              `}</style>
+              <div
+                className="mb-6 mx-auto ak-footer-cols"
+                data-cols={footerColumnCount}
+                style={{ '--ak-footer-cols': footerColumnCount, maxWidth: footerColumnCount === 1 ? 320 : undefined } as CSSProperties}
+              >
+                {hasPolicyLinks && (
+                  <div className="flex flex-col items-center sm:items-start gap-2">
+                    <span className="ak-footer-col-label" style={{ color: c.textMuted }}>Policies</span>
+                    {course.refund_policy_storage_path && (
+                      <a href={`/policy/${course.id}/refund`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Refund Policy</a>
+                    )}
+                    {course.terms_storage_path && (
+                      <a href={`/policy/${course.id}/terms`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Terms &amp; Conditions</a>
+                    )}
+                    {course.privacy_storage_path && (
+                      <a href={`/policy/${course.id}/privacy`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Privacy Policy</a>
+                    )}
+                  </div>
+                )}
+                {footerContacts.length > 0 && (
+                  <div className="flex flex-col items-center sm:items-start gap-2">
+                    <span className="ak-footer-col-label" style={{ color: c.textMuted }}>Contact</span>
+                    <ContactDetails entries={footerContacts} variant="footer" colors={c} headingFont={fonts.heading} mutedColor={mutedSoft} />
+                  </div>
+                )}
+                {socialLinks.length > 0 && (
+                  <div className="flex flex-col items-center sm:items-start gap-2">
+                    <span className="ak-footer-col-label" style={{ color: c.textMuted }}>Follow</span>
+                    <SocialLinks links={socialLinks} textColor={c.textPrimary} />
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </footer>
         {show('finalCta') && (

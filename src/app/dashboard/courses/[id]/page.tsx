@@ -4388,12 +4388,6 @@ Message us on WhatsApp with your order email and we'll process it within 5 busin
                                   onChange={value => updateUrgency('endAt', value)} />
                               </div>
                               <div>
-                                <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Countdown label</label>
-                                <input value={settingsLandingConfig.urgency.label} onChange={e => updateUrgency('label', e.target.value)}
-                                  placeholder="Enrollment closes in" maxLength={40}
-                                  className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 text-white placeholder:text-zinc-600" />
-                              </div>
-                              <div>
                                 <label className="text-[13px] block mb-1.5" style={{ color: '#a1a1aa' }}>Seats available</label>
                                 <input type="number" min={0} value={settingsLandingConfig.urgency.seatsAvailable ?? ''}
                                   onChange={e => updateUrgency('seatsAvailable', e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)))}
