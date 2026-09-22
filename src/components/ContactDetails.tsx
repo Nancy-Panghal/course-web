@@ -60,23 +60,24 @@ export default function ContactDetails({
   if (!entries || entries.length === 0) return null
   const groups = groupContactDetails(entries)
 
-  if (variant === 'footer') {
+   if (variant === 'footer') {
     return (
-      <>
+      <div className="flex flex-col gap-3.5">
         {groups.map((group, gi) => {
           const Icon = group.type === 'phone' ? Phone : Mail
           return (
             <div
               key={gi}
-              className="flex items-start gap-2 text-left"
-              style={{ fontSize: '0.88rem', lineHeight: 1.5 }}
+              className="flex items-start gap-2.5 text-left"
+              style={{ fontSize: '0.88rem', lineHeight: 1.6 }}
             >
-              <Icon
-                className="flex-shrink-0"
-                aria-hidden
-                style={{ width: 14, height: 14, marginTop: '0.22rem', color: colors.accentText }}
-              />
-              <span className="flex flex-col" style={{ overflowWrap: 'anywhere' }}>
+              <span
+                className="flex flex-shrink-0 items-center justify-center rounded-full"
+                style={{ width: 22, height: 22, marginTop: '0.05rem', background: colors.accentSoft }}
+              >
+                <Icon aria-hidden style={{ width: 12, height: 12, color: colors.accentText }} />
+              </span>
+              <span className="flex flex-col gap-0.5" style={{ overflowWrap: 'anywhere' }}>
                 {group.message && (
                   <span style={{ color: mutedColor || colors.textMuted }}>{group.message}</span>
                 )}
@@ -84,6 +85,7 @@ export default function ContactDetails({
                   <a
                     key={i}
                     href={contactHref(entry)}
+                    className="ak-footer-link"
                     style={{ color: colors.textSecondary, fontWeight: 600 }}
                   >
                     <ValueText entry={entry} />
@@ -93,7 +95,7 @@ export default function ContactDetails({
             </div>
           )
         })}
-      </>
+      </div>
     )
   }
 

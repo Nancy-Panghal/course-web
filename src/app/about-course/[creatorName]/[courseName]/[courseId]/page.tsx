@@ -1153,49 +1153,60 @@ export default async function AboutCoursePage({
           {footerColumnCount > 0 && (
             <>
               <style>{`
-                .ak-footer-cols { display: flex; flex-direction: column; align-items: center; gap: 28px; text-align: center; }
+                .ak-footer-divider { height: 1px; max-width: 680px; margin: 8px auto 32px; background: ${c.border}; }
+                .ak-footer-cols { display: flex; flex-direction: column; align-items: center; gap: 36px; text-align: center; }
                 @media (min-width: 640px) {
                   .ak-footer-cols[data-cols="2"], .ak-footer-cols[data-cols="3"] {
                     display: grid; grid-template-columns: repeat(var(--ak-footer-cols), minmax(150px, 1fr));
-                    align-items: start; text-align: left; gap: 40px;
+                    align-items: start; text-align: left; gap: 56px;
                   }
-                  .ak-footer-cols[data-cols="2"] { max-width: 460px; }
-                  .ak-footer-cols[data-cols="3"] { max-width: 660px; }
+                  .ak-footer-cols[data-cols="2"] { max-width: 480px; }
+                  .ak-footer-cols[data-cols="3"] { max-width: 680px; }
                 }
-                .ak-footer-col-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 4px; }
+                .ak-footer-col-label {
+                  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+                  display: inline-block; padding-bottom: 8px; margin-bottom: 6px;
+                  border-bottom: 2px solid ${c.accentBorder}; color: ${c.accentText};
+                }
+                .ak-footer-link { text-decoration: none; transition: opacity 0.15s ease, text-decoration-color 0.15s ease; text-underline-offset: 3px; }
+                .ak-footer-link:hover { opacity: 0.7; text-decoration: underline; }
               `}</style>
+              <div className="ak-footer-divider" />
               <div
-                className="mb-6 mx-auto ak-footer-cols"
+                className="mb-8 mx-auto ak-footer-cols"
                 data-cols={footerColumnCount}
                 style={{ '--ak-footer-cols': footerColumnCount, maxWidth: footerColumnCount === 1 ? 320 : undefined } as CSSProperties}
               >
                 {hasPolicyLinks && (
-                  <div className="flex flex-col items-center sm:items-start gap-2">
-                    <span className="ak-footer-col-label" style={{ color: c.textMuted }}>Policies</span>
+                  <div className="flex flex-col items-center sm:items-start gap-2.5">
+                    <span className="ak-footer-col-label">Policies</span>
                     {course.refund_policy_storage_path && (
-                      <a href={`/policy/${course.id}/refund`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Refund Policy</a>
+                      <a href={`/policy/${course.id}/refund`} className="ak-footer-link" style={{ color: mutedSoft, fontSize: '0.88rem' }}>Refund Policy</a>
                     )}
                     {course.terms_storage_path && (
-                      <a href={`/policy/${course.id}/terms`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Terms &amp; Conditions</a>
+                      <a href={`/policy/${course.id}/terms`} className="ak-footer-link" style={{ color: mutedSoft, fontSize: '0.88rem' }}>Terms &amp; Conditions</a>
                     )}
                     {course.privacy_storage_path && (
-                      <a href={`/policy/${course.id}/privacy`} style={{ color: mutedSoft, fontSize: '0.88rem' }}>Privacy Policy</a>
+                      <a href={`/policy/${course.id}/privacy`} className="ak-footer-link" style={{ color: mutedSoft, fontSize: '0.88rem' }}>Privacy Policy</a>
                     )}
                   </div>
                 )}
                 {footerContacts.length > 0 && (
-                  <div className="flex flex-col items-center sm:items-start gap-2">
-                    <span className="ak-footer-col-label" style={{ color: c.textMuted }}>Contact</span>
+                  <div className="flex flex-col items-center sm:items-start gap-3">
+                    <span className="ak-footer-col-label">Contact</span>
                     <ContactDetails entries={footerContacts} variant="footer" colors={c} headingFont={fonts.heading} mutedColor={mutedSoft} />
                   </div>
                 )}
                 {socialLinks.length > 0 && (
-                  <div className="flex flex-col items-center sm:items-start gap-2">
-                    <span className="ak-footer-col-label" style={{ color: c.textMuted }}>Follow</span>
+                  <div className="flex flex-col items-center sm:items-start gap-2.5">
+                    <span className="ak-footer-col-label">Follow</span>
                     <SocialLinks links={socialLinks} textColor={c.textPrimary} />
                   </div>
                 )}
               </div>
+              <p style={{ color: c.textFaint, fontSize: '0.78rem' }}>
+                &copy; {new Date().getFullYear()} {brandDisplayName}. All rights reserved.
+              </p>
             </>
           )}
         </footer>

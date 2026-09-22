@@ -131,13 +131,25 @@ export default function FinalCtaBar({
                     // to them when both are set. Wraps to its own line on narrow phones.
                     <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 w-full min-w-0 sm:w-auto sm:justify-start">
                         {showTimer && (
-                            <CountdownTimer
-                                endAt={countdown.endAt}
-                                tileBg={colors.accentSoft}
-                                tileBorder={colors.accentBorder}
-                                numberColor={colors.accentText}
-                                labelColor={colors.textMuted}
-                                onExpire={() => setExpired(true)} />
+                            <div className="flex items-center gap-4">
+                                <span
+                                    style={{
+                                        fontFamily: headingFont,
+                                        fontSize: 'clamp(0.92rem, 2.3vw, 1.02rem)',
+                                        fontWeight: 600,
+                                        color: colors.textMuted,
+                                        whiteSpace: 'nowrap',
+                                    }}>
+                                    Closes in
+                                </span>
+                                <CountdownTimer
+                                    endAt={countdown.endAt}
+                                    tileBg={colors.accentSoft}
+                                    tileBorder={colors.accentBorder}
+                                    numberColor={colors.accentText}
+                                    labelColor={colors.textMuted}
+                                    onExpire={() => setExpired(true)} />
+                            </div>
                         )}
                         {showSeats && (
                             <p className="flex items-center gap-2" style={{ lineHeight: 1.2 }}>
