@@ -406,7 +406,8 @@ export default function HomePage() {
             Your Course, Delivered on{' '}
             <span className="gradient-text">WhatsApp</span>
             {' '}&{' '}
-            <span className="gradient-text">Telegram</span>
+            <span className="gradient-text">Telegram </span>
+            With Piracy Protection
           </h1>
 
           <p className="text-text-2 text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-light">
