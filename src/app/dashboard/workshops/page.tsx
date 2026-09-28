@@ -24,6 +24,7 @@ interface Registration {
   payment_mode: string
   payment_status: string
   utr_reference: string | null
+  amount_paid: number | null
 }
 
 export default function WorkshopsPage() {
@@ -145,7 +146,7 @@ export default function WorkshopsPage() {
     if (!registrations[workshopId]) {
       const { data } = await supabase
         .from('workshop_registrations')
-        .select('id, name, email, phone, payment_mode, payment_status, utr_reference')
+        .select('id, name, email, phone, payment_mode, payment_status, utr_reference, amount_paid')
         .eq('workshop_id', workshopId)
         .order('created_at', { ascending: false })
       setRegistrations(prev => ({ ...prev, [workshopId]: data || [] }))
@@ -300,7 +301,7 @@ export default function WorkshopsPage() {
                               <div className="min-w-0">
                                 <p className="text-sm text-white truncate">{r.name} · {r.phone}</p>
                                 <p className="text-xs" style={{ color: '#71717a' }}>
-                                  {r.payment_mode}{r.utr_reference ? ` · UTR ${r.utr_reference}` : ''}
+                                  {r.payment_mode}{r.utr_reference ? ` · UTR ${r.utr_reference}` : ''}{r.amount_paid ? ` · ₹${r.amount_paid} paid online` : ''}
                                 </p>
                               </div>
                               {r.payment_status === 'confirmed' ? (

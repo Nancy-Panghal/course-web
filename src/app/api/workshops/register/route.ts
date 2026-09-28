@@ -3,45 +3,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { normalizePhone } from '@/lib/phone'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
+import { countHeldSpots } from '@/lib/workshops'
+import { notifyWorkshopConfirmed } from '@/lib/workshop-notify'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function sendWorkshopConfirmation(
-  phone: string,
-  workshop: { title: string; date_time: string; zoom_link: string | null }
-) {
-  const baseUrl = process.env.WHATSAPP_BOT_URL
-  const secret = process.env.INTERNAL_BOT_SECRET
-  if (!baseUrl || !secret) {
-    console.warn(`[workshops/register] bot URL/secret not configured, skipping confirmation send to ${phone}`)
-    return
-  }
-  const dateTimeLabel = new Date(workshop.date_time).toLocaleString('en-IN', {
-    weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
-  })
-  try {
-    const res = await fetch(`${baseUrl}/internal/send-workshop-confirmation`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-      body: JSON.stringify({
-        phone,
-        workshopTitle: workshop.title,
-        dateTimeLabel,
-        zoomLink: workshop.zoom_link || 'Link will follow shortly',
-      }),
-    })
-    if (!res.ok) {
-      console.error('[workshops/register] bot rejected confirmation send:', res.status, await res.text().catch(() => ''))
-    }
-  } catch (err) {
-    console.error('[workshops/register] failed to reach whatsapp bot:', err)
-  }
-}
-
-// POST — create (or find) a registration for a workshop.
+// POST — free registration, or the first step of a manual-UPI registration.
+// (Online-gateway payments go through /api/workshops/checkout/create-order.)
 export async function POST(req: NextRequest) {
   try {
     const { workshopId, name, email, phone: rawPhone, paymentMode } = await req.json()
@@ -60,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const { data: workshop, error: workshopError } = await supabaseAdmin
       .from('workshops')
-      .select('id, title, date_time, price, capacity, zoom_link, status')
+      .select('id, price, capacity, status')
       .eq('id', workshopId)
       .maybeSingle()
 
@@ -75,57 +46,77 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This workshop does not require payment' }, { status: 400 })
     }
 
-    // Already registered? Don't re-insert or reset an already-confirmed row.
     const { data: existing } = await supabaseAdmin
       .from('workshop_registrations')
-      .select('id, payment_status')
+      .select('id, payment_status, payment_mode, telegram_link_token')
       .eq('workshop_id', workshopId)
       .eq('phone', phone)
       .maybeSingle()
 
+    // Already confirmed — never re-insert or reset.
     if (existing?.payment_status === 'confirmed') {
-      return NextResponse.json({ registrationId: existing.id, paymentStatus: 'confirmed', alreadyRegistered: true })
+      return NextResponse.json({
+        registrationId: existing.id,
+        paymentStatus: 'confirmed',
+        telegramToken: existing.telegram_link_token,
+        alreadyRegistered: true,
+      })
     }
 
-    if (!existing && workshop.capacity != null) {
-      // Capacity check only on a brand-new row — an existing pending/confirmed
-      // registration already holds its spot regardless of later capacity edits.
-      const { count } = await supabaseAdmin
-        .from('workshop_registrations')
-        .select('id', { count: 'exact', head: true })
-        .eq('workshop_id', workshopId)
-        .in('payment_status', ['confirmed', 'pending_confirmation'])
-      if ((count || 0) >= workshop.capacity) {
+    // Capacity: check for brand-new rows, and for an existing row that was an
+    // online-checkout attempt (its hold may have expired and been given away).
+    if (workshop.capacity != null && (!existing || existing.payment_mode === 'gateway')) {
+      const held = await countHeldSpots(supabaseAdmin, workshopId, existing?.id)
+      if (held >= workshop.capacity) {
         return NextResponse.json({ error: 'This workshop is fully booked' }, { status: 409 })
       }
     }
 
     const paymentStatus = paymentMode === 'free' ? 'confirmed' : 'pending_confirmation'
     let registrationId: string
+    let telegramToken: string
 
     if (existing) {
       const { error: updateError } = await supabaseAdmin
         .from('workshop_registrations')
-        .update({ name, email: email || null, payment_mode: paymentMode, payment_status: paymentStatus })
+        .update({
+          name,
+          email: email || null,
+          payment_mode: paymentMode,
+          payment_status: paymentStatus,
+          payment_attempted_at: null,
+        })
         .eq('id', existing.id)
       if (updateError) throw updateError
       registrationId = existing.id
+      telegramToken = existing.telegram_link_token
     } else {
       const { data: inserted, error: insertError } = await supabaseAdmin
         .from('workshop_registrations')
-        .insert({ workshop_id: workshopId, name, email: email || null, phone, payment_mode: paymentMode, payment_status: paymentStatus })
-        .select('id')
+        .insert({
+          workshop_id: workshopId,
+          name,
+          email: email || null,
+          phone,
+          payment_mode: paymentMode,
+          payment_status: paymentStatus,
+        })
+        .select('id, telegram_link_token')
         .single()
       if (insertError) throw insertError
       registrationId = inserted.id
+      telegramToken = inserted.telegram_link_token
     }
 
     if (paymentStatus === 'confirmed') {
-      await sendWorkshopConfirmation(phone, workshop)
-      await supabaseAdmin.from('workshop_registrations').update({ confirmed_at: new Date().toISOString() }).eq('id', registrationId)
+      await supabaseAdmin
+        .from('workshop_registrations')
+        .update({ confirmed_at: new Date().toISOString() })
+        .eq('id', registrationId)
+      await notifyWorkshopConfirmed(registrationId)
     }
 
-    return NextResponse.json({ registrationId, paymentStatus })
+    return NextResponse.json({ registrationId, paymentStatus, telegramToken })
   } catch (err: any) {
     return friendlyErrorResponse(err, 'workshops/register POST')
   }

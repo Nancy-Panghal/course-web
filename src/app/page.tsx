@@ -402,7 +402,7 @@ export default function HomePage() {
             <span className="text-sm text-text-2">Free to build & test · No card required</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-6">
+          <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
             Your Course, Delivered on{' '}
             <span className="gradient-text">WhatsApp</span>
             {' '}&{' '}

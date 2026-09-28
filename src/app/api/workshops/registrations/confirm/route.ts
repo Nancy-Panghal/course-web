@@ -4,38 +4,14 @@ import { createClient } from '@supabase/supabase-js'
 import { getAuthenticatedCreator } from '@/app/api/razorpay/subscription-auth'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
 import { isImpersonationActive, IMPERSONATION_BLOCK_MESSAGE } from '@/lib/impersonation-guard'
+import { notifyWorkshopConfirmed } from '@/lib/workshop-notify'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function sendWorkshopConfirmation(
-  phone: string,
-  workshop: { title: string; date_time: string; zoom_link: string | null }
-) {
-  const baseUrl = process.env.WHATSAPP_BOT_URL
-  const secret = process.env.INTERNAL_BOT_SECRET
-  if (!baseUrl || !secret) {
-    console.warn(`[workshops/confirm] bot URL/secret not configured, skipping send to ${phone}`)
-    return
-  }
-  const dateTimeLabel = new Date(workshop.date_time).toLocaleString('en-IN', {
-    weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
-  })
-  try {
-    const res = await fetch(`${baseUrl}/internal/send-workshop-confirmation`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-      body: JSON.stringify({ phone, workshopTitle: workshop.title, dateTimeLabel, zoomLink: workshop.zoom_link || 'Link will follow shortly' }),
-    })
-    if (!res.ok) console.error('[workshops/confirm] bot rejected send:', res.status, await res.text().catch(() => ''))
-  } catch (err) {
-    console.error('[workshops/confirm] failed to reach whatsapp bot:', err)
-  }
-}
-
-// POST — creator manually marks a pending UPI registration as paid.
+// POST — creator manually marks a pending registration as paid.
 export async function POST(req: NextRequest) {
   try {
     const { creator, error } = await getAuthenticatedCreator(req)
@@ -49,16 +25,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing registration ID' }, { status: 400 })
     }
 
-    // Ownership check goes through the workshop — registrations don't
-    // carry creator_id themselves.
+    // Ownership goes through the workshop — registrations don't carry creator_id.
     const { data: registration, error: fetchError } = await supabaseAdmin
       .from('workshop_registrations')
-      .select('id, phone, payment_status, workshops!inner(id, creator_id, title, date_time, zoom_link)')
+      .select('id, payment_status, workshops!inner(creator_id)')
       .eq('id', registrationId)
       .maybeSingle()
     if (fetchError) throw fetchError
 
-    const workshop = (registration as any)?.workshops
+    const rawWorkshop = (registration as any)?.workshops
+    const workshop = Array.isArray(rawWorkshop) ? rawWorkshop[0] : rawWorkshop
     if (!registration || !workshop || workshop.creator_id !== creator.id) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 })
     }
@@ -72,7 +48,7 @@ export async function POST(req: NextRequest) {
       .eq('id', registrationId)
     if (updateError) throw updateError
 
-    await sendWorkshopConfirmation(registration.phone, workshop)
+    await notifyWorkshopConfirmed(registrationId)
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {

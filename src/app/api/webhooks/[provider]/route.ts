@@ -6,6 +6,7 @@ import { normalizePhone } from '@/lib/phone'
 import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 import { generateInvoicePdfForPayment } from '@/lib/invoice'
 import { computeRevenueShareSplit } from '@/lib/revenueShare'
+import { notifyWorkshopConfirmed } from '@/lib/workshop-notify'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -238,9 +239,13 @@ async function handleStripe(rawBody: string, req: NextRequest) {
 // ── Shared dispatcher — routes to course vs ebook handler ─────────
 async function dispatchFlowA(transaction: any, body: NormalizedEvent, signature: string, provider: string) {
   try {
-    return transaction.product_type === 'ebook'
-      ? await handleFlowAEbook(transaction, body, signature, provider)
-      : await handleFlowA(transaction, body, signature, provider)
+    if (transaction.product_type === 'ebook') {
+      return await handleFlowAEbook(transaction, body, signature, provider)
+    }
+    if (transaction.product_type === 'workshop') {
+      return await handleFlowAWorkshop(transaction, body, signature, provider)
+    }
+    return await handleFlowA(transaction, body, signature, provider)
   } catch (err: any) {
     // Payment was genuinely verified but OUR processing failed — leave the
     // record 'pending' rather than guessing, log the real error, and
@@ -570,6 +575,80 @@ async function handleFlowAEbook(transaction: any, body: NormalizedEvent, signatu
   }
 
   return NextResponse.json({ received: true, message: 'Ebook purchase activated' })
+}
+
+// ── Flow A: workshop registration ──────────────────────────────────
+// Signature is already verified by the provider handler before we get here.
+// Workshop payments are recorded on `transactions` + the registration row only —
+// deliberately NOT in `payments` / invoices / revenue-share.
+async function handleFlowAWorkshop(transaction: any, body: NormalizedEvent, signature: string, provider: string) {
+  if (transaction.status === 'success') return NextResponse.json({ received: true, message: 'Already processed' })
+  if (body.status === 'failed' || body.status === 'expired') {
+    await supabaseAdmin.from('transactions').update({ status: body.status }).eq('id', transaction.id)
+    return NextResponse.json({ received: true, message: `Marked ${body.status}` })
+  }
+  if (body.status !== 'success') return NextResponse.json({ received: true, message: `Ignored status: ${body.status}` })
+
+  const registrationId = transaction.workshop_registration_id
+  if (!registrationId) {
+    console.error(`[${provider}-webhook] workshop transaction ${transaction.id} has no workshop_registration_id — leaving pending`)
+    return NextResponse.json({ error: 'Registration link missing — left pending for reconciliation' }, { status: 500 })
+  }
+
+  const now = new Date().toISOString()
+  const amountPaid = Math.round(Number(transaction.amount))
+
+  // Guarded transition: only rows NOT already confirmed come back, so a
+  // webhook retry (or a creator who already tapped "Mark Paid") never
+  // triggers a second notification.
+  const { data: transitioned, error: registrationError } = await supabaseAdmin
+    .from('workshop_registrations')
+    .update({
+      payment_status: 'confirmed',
+      payment_mode: 'gateway',
+      transaction_id: transaction.id,
+      amount_paid: amountPaid,
+      confirmed_at: now,
+    })
+    .eq('id', registrationId)
+    .neq('payment_status', 'confirmed')
+    .select('id')
+
+  if (registrationError) {
+    console.error(`[${provider}-webhook] Failed to confirm workshop registration — leaving transaction pending so a retry can fix it:`, registrationError)
+    return NextResponse.json({ error: 'Registration update failed — left pending for retry' }, { status: 500 })
+  }
+
+  const justConfirmed = !!transitioned && transitioned.length > 0
+  if (!justConfirmed) {
+    // Already confirmed earlier — still attach the payment details.
+    await supabaseAdmin
+      .from('workshop_registrations')
+      .update({ transaction_id: transaction.id, amount_paid: amountPaid })
+      .eq('id', registrationId)
+  }
+
+  // Only mark the transaction success AFTER the registration is safely updated.
+  await supabaseAdmin
+    .from('transactions')
+    .update({
+      status: 'success',
+      rrn: body.upi_txn_id,
+      payer_vpa: body.payer_vpa,
+      signature_hash: signature,
+    })
+    .eq('id', transaction.id)
+
+  if (justConfirmed) {
+    try {
+      await notifyWorkshopConfirmed(registrationId)
+    } catch (err) {
+      // Best-effort — a failed message must not turn a real payment into a failed webhook.
+      console.error('[webhook-workshop-notify]', err)
+    }
+  }
+
+  return NextResponse.json({ received: true, message: 'Workshop registration confirmed' })
 }
 
 // ── Notification emails ──────────────────────────────────────────

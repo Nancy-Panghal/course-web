@@ -1,18 +1,15 @@
 // src/app/w/[creatorSlug]/[workshopSlug]/page.tsx
 //
-// Public workshop registration page. Mirrors src/app/creator/[slug]/page.tsx:
-// server component, direct service-role Supabase read, notFound() when
-// missing. Unlike course enrollment, this needs no Supabase Auth signup —
-// WorkshopRegisterForm captures name/email/WhatsApp directly.
-//
-// zoom_link is intentionally NEVER selected here — it's only ever sent to a
-// CONFIRMED registrant via WhatsApp (see /api/workshops/register and
-// /api/workshops/registrations/confirm), never exposed on this public page.
+// Public workshop registration page (server component). zoom_link is
+// intentionally NEVER selected here — it only goes to a CONFIRMED registrant
+// via WhatsApp/Telegram.
 
 import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import type { Metadata } from 'next'
 import WorkshopRegisterForm from '@/components/WorkshopRegisterForm'
+import { getCreatorCheckoutGateway } from '@/lib/gateway-checkout'
+import { countHeldSpots } from '@/lib/workshops'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,7 +56,7 @@ export default async function WorkshopRegisterPage({
 
   const { data: creator } = await supabase
     .from('creators')
-    .select('id, name, upi_id, upi_display_name')
+    .select('id, name, upi_id, upi_display_name, telegram_bot_username')
     .eq('creator_slug', creatorSlug)
     .maybeSingle()
 
@@ -77,12 +74,19 @@ export default async function WorkshopRegisterPage({
 
   let spotsLeft: number | null = null
   if (workshop.capacity != null) {
-    const { count } = await supabase
-      .from('workshop_registrations')
-      .select('id', { count: 'exact', head: true })
-      .eq('workshop_id', workshop.id)
-      .in('payment_status', ['confirmed', 'pending_confirmation'])
-    spotsLeft = Math.max(0, workshop.capacity - (count || 0))
+    const held = await countHeldSpots(supabase, workshop.id)
+    spotsLeft = Math.max(0, workshop.capacity - held)
+  }
+
+  // Only matters for paid workshops. A misconfigured/undecryptable gateway
+  // must not take the whole page down — it just disables the online option.
+  let gatewayEnabled = false
+  if (workshop.price > 0) {
+    try {
+      gatewayEnabled = !!(await getCreatorCheckoutGateway(creator.id))
+    } catch (err) {
+      console.error('[workshop page] gateway lookup failed for creator', creator.id, err)
+    }
   }
 
   const dateLabel = new Date(workshop.date_time).toLocaleString('en-IN', {
@@ -116,10 +120,13 @@ export default async function WorkshopRegisterPage({
 
           <WorkshopRegisterForm
             workshopId={workshop.id}
+            workshopTitle={workshop.title}
             price={workshop.price}
             isFull={spotsLeft === 0}
             upiId={creator.upi_id}
             upiDisplayName={creator.upi_display_name || creator.name}
+            gatewayEnabled={gatewayEnabled}
+            telegramBotUsername={creator.telegram_bot_username || null}
           />
         </div>
       </div>
