@@ -229,7 +229,7 @@ async function runRevenueShareSweep(now: Date, results: {
         .select('gross_amount, platform_fee')
         .eq('creator_id', agreement.creator_id)
         .eq('status', 'paid')
-        .not('course_id', 'is', null)
+        .in('product_type', ['course', 'workshop'])
         .gte('paid_at', `${start}T00:00:00.000Z`)
         .lte('paid_at', `${end}T23:59:59.999Z`)
       if (payErr) throw payErr
@@ -352,10 +352,19 @@ async function runRevenueShareSweep(now: Date, results: {
             .eq('creator_id', invoice.creator_id)
             .eq('is_published', true)
         } else {
+          // This invoice covers course AND workshop revenue (same PAYE
+          // agreement, same rate) — overdue pauses NEW enrollments and
+          // NEW workshop registrations. Anyone already enrolled or
+          // registered keeps full access. Ebooks are never touched here.
           await supabase.from('courses')
             .update({ is_published: false, auto_unpublished_at: now.toISOString(), auto_unpublished_reason: 'revenue_share_overdue' })
             .eq('creator_id', invoice.creator_id)
             .eq('is_published', true)
+
+          await supabase.from('workshops')
+            .update({ status: 'draft', auto_unpublished_at: now.toISOString(), auto_unpublished_reason: 'revenue_share_overdue' })
+            .eq('creator_id', invoice.creator_id)
+            .eq('status', 'published')
         }
 
         results.revenueShareOverdueUnpublished++
@@ -381,7 +390,7 @@ function revenueShareReminderEmailHtml({ name, amount, daysLeft, isEbook }: { na
   const safeName = escapeHtml(name || 'there')
   const consequence = isEbook
     ? 'or new ebook sales pause (anyone who already bought keeps their download either way)'
-    : 'or your courses pause for new enrollments (existing students keep full access either way)'
+    : 'or your courses and workshops pause for new enrollments/registrations (existing students keep full access either way)'
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #18181b;">
       <p>Hi ${safeName},</p>
@@ -397,7 +406,7 @@ function revenueShareOverdueEmailHtml({ name, amount, isEbook }: { name: string;
   const safeName = escapeHtml(name || 'there')
   const consequence = isEbook
     ? "we've paused new sales of your ebooks. Anyone who already bought keeps their download — nothing changes for them, and your courses are completely unaffected."
-    : "we've paused your courses for <strong>new</strong> enrollments. Students who already enrolled keep full access — nothing changes for them."
+    : "we've paused your courses and workshops for <strong>new</strong> enrollments/registrations. Anyone who already enrolled or registered keeps full access — nothing changes for them."
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #18181b;">
       <p>Hi ${safeName},</p>

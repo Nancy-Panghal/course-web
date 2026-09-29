@@ -579,8 +579,8 @@ async function handleFlowAEbook(transaction: any, body: NormalizedEvent, signatu
 
 // ── Flow A: workshop registration ──────────────────────────────────
 // Signature is already verified by the provider handler before we get here.
-// Workshop payments are recorded on `transactions` + the registration row only —
-// deliberately NOT in `payments` / invoices / revenue-share.
+// Mirrors handleFlowAEbook's payments/invoice/email shape, with the platform
+// fee fixed at 0 — no PAYE agreement applies to workshops (see revenueShare.ts).
 async function handleFlowAWorkshop(transaction: any, body: NormalizedEvent, signature: string, provider: string) {
   if (transaction.status === 'success') return NextResponse.json({ received: true, message: 'Already processed' })
   if (body.status === 'failed' || body.status === 'expired') {
@@ -594,6 +594,12 @@ async function handleFlowAWorkshop(transaction: any, body: NormalizedEvent, sign
     console.error(`[${provider}-webhook] workshop transaction ${transaction.id} has no workshop_registration_id — leaving pending`)
     return NextResponse.json({ error: 'Registration link missing — left pending for reconciliation' }, { status: 500 })
   }
+
+  const { data: workshop } = await supabaseAdmin
+    .from('workshops')
+    .select('title')
+    .eq('id', transaction.workshop_id)
+    .maybeSingle()
 
   const now = new Date().toISOString()
   const amountPaid = Math.round(Number(transaction.amount))
@@ -628,7 +634,56 @@ async function handleFlowAWorkshop(transaction: any, body: NormalizedEvent, sign
       .eq('id', registrationId)
   }
 
-  // Only mark the transaction success AFTER the registration is safely updated.
+  // Dedup on retry — mirrors the course flow's existingPayment check.
+  const existingPayment = await firstRow(
+    supabaseAdmin.from('payments').select('id').eq('workshop_registration_id', registrationId)
+  )
+  if (existingPayment) {
+    await supabaseAdmin.from('transactions').update({
+      status: 'success', rrn: body.upi_txn_id, payer_vpa: body.payer_vpa, signature_hash: signature,
+    }).eq('id', transaction.id)
+    return NextResponse.json({ received: true, message: 'Registration already has a payment on record' })
+  }
+
+  const email = body.customer_email || transaction.student_email
+
+  // Same treatment as courses — same PAYE agreement, same base/overflow
+  // rate. A creator with no active agreement still gets platformFee: 0
+  // here, exactly like a course-only creator does.
+  const { platformFee, creatorEarning, ratePercent } = await computeRevenueShareSplit(transaction.creator_id, body.amount ?? 0, 'workshop')
+  const { data: paymentRow, error: paymentInsertError } = await supabaseAdmin
+    .from('payments')
+    .insert({
+      creator_id: transaction.creator_id,
+      product_type: 'workshop',
+      workshop_id: transaction.workshop_id,
+      workshop_registration_id: registrationId,
+      provider,
+      provider_payment_id: body.upi_txn_id,
+      provider_order_id: body.order_id,
+      buyer_name: body.customer_name || transaction.student_name || null,
+      buyer_email: email || null,
+      buyer_phone: body.customer_mobile || transaction.student_phone || null,
+      currency: 'INR',
+      gross_amount: body.amount,
+      discount_amount: 0,
+      net_amount: body.amount,
+      platform_fee: platformFee,
+      creator_earning: creatorEarning,
+      revenue_share_rate_percent: ratePercent,
+      status: 'paid',
+      metadata: { source: `${provider}_webhook` },
+      paid_at: now,
+    })
+    .select('id')
+    .single()
+
+  if (paymentInsertError) {
+    console.error(`[${provider}-webhook] Failed to record workshop payment — leaving transaction pending so a retry can fix it:`, paymentInsertError)
+    return NextResponse.json({ error: 'Payment recorded, receipt pending — left unresolved for retry' }, { status: 500 })
+  }
+
+  // Only mark the transaction success AFTER the payments row is safely written.
   await supabaseAdmin
     .from('transactions')
     .update({
@@ -646,6 +701,61 @@ async function handleFlowAWorkshop(transaction: any, body: NormalizedEvent, sign
       // Best-effort — a failed message must not turn a real payment into a failed webhook.
       console.error('[webhook-workshop-notify]', err)
     }
+  }
+
+  // Best-effort invoice + emails — failures here must not turn a real
+  // payment into a failed webhook response.
+  try {
+    const { pdfBuffer, invoiceRow } = await generateInvoicePdfForPayment(supabaseAdmin, paymentRow.id)
+    const base64Pdf = Buffer.from(pdfBuffer).toString('base64')
+    const filename = `${invoiceRow.invoice_number}.pdf`
+
+    if (email) {
+      await sendLoggedEmail({
+        supabase: supabaseAdmin,
+        emailType: 'workshop_registration_confirmation',
+        to: email,
+        subject: `You're registered: ${workshop?.title || 'Workshop'}`,
+        creatorId: transaction.creator_id,
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+            <h2 style="margin:0 0 12px">You're in!</h2>
+            <p style="margin:0 0 16px">Your spot for <strong>${escapeHtml(
+              workshop?.title || 'the workshop'
+            )}</strong> is confirmed — invoice ${invoiceRow.invoice_number} is attached. Join details will follow on WhatsApp.</p>
+          </div>
+        `,
+        attachments: [{ filename, content: base64Pdf }],
+      })
+    }
+
+    const { data } = await supabaseAdmin.auth.admin.getUserById(transaction.creator_id)
+    const creatorEmail = data?.user?.email
+    if (creatorEmail) {
+      await sendLoggedEmail({
+        supabase: supabaseAdmin,
+        emailType: 'creator_workshop_sale',
+        to: creatorEmail,
+        subject: `New workshop registration: ${invoiceRow.invoice_number} — ₹${Number(
+          invoiceRow.amount
+        ).toLocaleString('en-IN')}`,
+        creatorId: transaction.creator_id,
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;color:#111">
+            <h2 style="margin:0 0 12px">New workshop registration</h2>
+            <p style="margin:0 0 8px"><strong>${escapeHtml(
+              invoiceRow.student_name || 'A student'
+            )}</strong> paid <strong>₹${Number(invoiceRow.amount).toLocaleString('en-IN')}</strong> for <strong>${escapeHtml(
+              workshop?.title || invoiceRow.course_name
+            )}</strong>.</p>
+            <p style="margin:0">Invoice ${invoiceRow.invoice_number} is attached for your records.</p>
+          </div>
+        `,
+        attachments: [{ filename, content: base64Pdf }],
+      })
+    }
+  } catch (err) {
+    console.error('[webhook-email/workshop-invoice]', err)
   }
 
   return NextResponse.json({ received: true, message: 'Workshop registration confirmed' })

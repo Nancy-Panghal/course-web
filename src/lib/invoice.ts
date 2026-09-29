@@ -7,7 +7,7 @@ export async function getOrCreateInvoice(supabase: SupabaseClient, paymentId: st
 
   const { data: payment } = await supabase
     .from('payments')
-    .select('id, enrollment_id, creator_id, course_id, ebook_id, product_type, gross_amount, discount_amount, net_amount, buyer_name, buyer_email')
+    .select('id, enrollment_id, creator_id, course_id, ebook_id, workshop_id, product_type, gross_amount, discount_amount, net_amount, buyer_name, buyer_email')
     .eq('id', paymentId)
     .maybeSingle()
   if (!payment) throw new Error('Payment not found for invoice generation')
@@ -16,6 +16,9 @@ export async function getOrCreateInvoice(supabase: SupabaseClient, paymentId: st
   if (payment.product_type === 'ebook') {
     const { data: ebook } = await supabase.from('ebooks').select('title').eq('id', payment.ebook_id).maybeSingle()
     itemName = ebook?.title || 'Ebook'
+  } else if (payment.product_type === 'workshop') {
+    const { data: workshop } = await supabase.from('workshops').select('title').eq('id', payment.workshop_id).maybeSingle()
+    itemName = workshop?.title || 'Workshop'
   } else {
     const { data: course } = await supabase.from('courses').select('name').eq('id', payment.course_id).maybeSingle()
     itemName = course?.name || 'Course'
@@ -34,8 +37,9 @@ export async function getOrCreateInvoice(supabase: SupabaseClient, paymentId: st
       creator_id: payment.creator_id,
       payment_id: payment.id,
       enrollment_id: payment.enrollment_id || null,
-      product_type: payment.product_type || 'course',
+       product_type: payment.product_type || 'course',
       ebook_id: payment.ebook_id || null,
+      workshop_id: payment.workshop_id || null,
       invoice_number: invoiceNumber,
       invoice_sequence_num: seqResult,
       student_name: payment.buyer_name || 'Student',

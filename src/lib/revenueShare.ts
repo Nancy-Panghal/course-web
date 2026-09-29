@@ -34,13 +34,23 @@ export type RevenueShareSplit = {
 }
 
 /**
- * Computes how much of a single course-sale goes to Kurso as commission.
+ * Computes how much of a single sale goes to Kurso as commission.
  * Returns platformFee: 0 for any creator without an active Pay-As-You-Earn
  * agreement — every flat-plan creator, and every payment recorded before
  * this feature existed, is completely unaffected. This is the only place
  * that decides the split; the webhook just calls it and stores the result.
+ *
+ * productType controls which paid-customer count decides the tier. Course
+ * and workshop counts are tracked SEPARATELY on purpose — a creator who
+ * has crossed the threshold on courses doesn't get bumped to the overflow
+ * rate on workshops just because of that, and vice versa. Both counts are
+ * still measured against the same agreement's rate/threshold numbers.
  */
-export async function computeRevenueShareSplit(creatorId: string, grossAmount: number): Promise<RevenueShareSplit> {
+export async function computeRevenueShareSplit(
+  creatorId: string,
+  grossAmount: number,
+  productType: 'course' | 'workshop' = 'course'
+): Promise<RevenueShareSplit> {
   const { data: agreement } = await supabase
     .from('revenue_share_agreements')
     .select('base_rate_percent, overflow_rate_percent, overflow_threshold_students')
@@ -50,12 +60,18 @@ export async function computeRevenueShareSplit(creatorId: string, grossAmount: n
 
   if (!agreement) return { platformFee: 0, creatorEarning: grossAmount, ratePercent: null }
 
-  const { count } = await supabase
-    .from('enrollments')
-    .select('id', { count: 'exact', head: true })
-    .eq('creator_id', creatorId)
-    .eq('payment_status', 'paid')
-    .eq('is_test', false)
+  const { count } = productType === 'workshop'
+    ? await supabase
+        .from('workshop_registrations')
+        .select('id, workshops!inner(creator_id)', { count: 'exact', head: true })
+        .eq('payment_status', 'confirmed')
+        .eq('workshops.creator_id', creatorId)
+    : await supabase
+        .from('enrollments')
+        .select('id', { count: 'exact', head: true })
+        .eq('creator_id', creatorId)
+        .eq('payment_status', 'paid')
+        .eq('is_test', false)
 
   const overThreshold = (count || 0) > (agreement.overflow_threshold_students ?? REVENUE_SHARE_STUDENT_THRESHOLD)
   const ratePercent = overThreshold
