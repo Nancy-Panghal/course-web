@@ -30,6 +30,10 @@ export default function WorkshopRegisterForm({
   const [method, setMethod] = useState<PayMethod>(gatewayEnabled ? 'gateway' : 'upi_manual')
   const [registrationId, setRegistrationId] = useState('')
   const [telegramToken, setTelegramToken] = useState('')
+  const [refCode, setRefCode] = useState('')
+  const [txnId, setTxnId] = useState('')
+  const [referralLink, setReferralLink] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -42,12 +46,15 @@ export default function WorkshopRegisterForm({
     const params = new URLSearchParams(window.location.search)
     const tg = params.get('tg')
     if (tg) setTelegramToken(tg)
+    const ref = params.get('ref')
+    if (ref) setRefCode(ref)
     if (params.get('status') === 'cancelled') {
       setError('Payment was cancelled. You can try again below.')
       return
     }
     const orderId = params.get('order_id')
     if (!orderId) return
+    setTxnId(orderId)
     setStep('checking')
     pollOrderStatus(orderId).then((result) => {
       if (result === 'success') {
@@ -63,7 +70,7 @@ export default function WorkshopRegisterForm({
     const res = await fetch('/api/workshops/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workshopId, name, email: email || null, phone: fullPhone, paymentMode }),
+      body: JSON.stringify({ workshopId, name, email: email || null, phone: fullPhone, paymentMode, ref: refCode || null }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Registration failed')
@@ -77,15 +84,17 @@ export default function WorkshopRegisterForm({
     const res = await fetch('/api/workshops/checkout/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workshopId, name, email, phone: fullPhone }),
+      body: JSON.stringify({ workshopId, name, email, phone: fullPhone, ref: refCode || null }),
     })
     const data = await res.json()
     if (!res.ok || data.error) throw new Error(data.error || 'Could not start the payment')
 
     if (data.telegramToken) setTelegramToken(data.telegramToken)
+    if (data.registrationId) setRegistrationId(data.registrationId)
     if (data.alreadyRegistered) { setStep('success'); return }
 
     const { clientTxnId, order } = data
+    setTxnId(clientTxnId)
 
     if (order.provider === 'cashfree') {
       const cashfree = await loadCashfreeSdk(order.mode)
@@ -120,6 +129,31 @@ export default function WorkshopRegisterForm({
     }
 
     throw new Error('Unsupported payment method.')
+  }
+
+  // Once the registrant is confirmed, fetch their personal referral link.
+  useEffect(() => {
+    if (step !== 'success' || referralLink) return
+    const qs = registrationId
+      ? `registrationId=${encodeURIComponent(registrationId)}`
+      : txnId ? `orderId=${encodeURIComponent(txnId)}` : ''
+    if (!qs) return
+    let cancelled = false
+    fetch(`/api/workshops/referral-link?${qs}`)
+      .then(res => res.json())
+      .then(data => { if (!cancelled && data?.link) setReferralLink(data.link) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [step, registrationId, txnId, referralLink])
+
+  async function copyReferralLink() {
+    try {
+      await navigator.clipboard.writeText(referralLink)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      // Clipboard blocked — the link is still visible on screen to copy by hand.
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -210,6 +244,25 @@ export default function WorkshopRegisterForm({
           You're registered! We've sent the Zoom link to your WhatsApp.
         </div>
         {telegramCta}
+        {referralLink && (
+          <div className="mt-4 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-sm font-semibold text-white mb-1">Know someone who'd love this?</p>
+            <p className="text-xs mb-3" style={{ color: '#a1a1aa' }}>Share your personal link — friends who join through it are credited to you.</p>
+            <p className="text-xs break-all mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', color: '#d4d4d8' }}>{referralLink}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={copyReferralLink}
+                className="py-2.5 rounded-xl text-xs font-semibold"
+                style={{ background: 'rgba(255,255,255,0.06)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {linkCopied ? 'Copied ✓' : 'Copy link'}
+              </button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(`Join me at ${workshopTitle}: ${referralLink}`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="py-2.5 rounded-xl text-xs font-semibold text-center text-white violet-gradient hover:opacity-90">
+                Share on WhatsApp
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -289,6 +342,10 @@ export default function WorkshopRegisterForm({
           style={{ background: 'rgba(255,255,255,0.05)' }}
         />
       </div>
+
+      <p className="text-xs -mt-2" style={{ color: '#71717a' }}>
+        We'll message this number on WhatsApp about your registration{!isFree ? ', including payment reminders' : ''}.
+      </p>
 
       {!isFree && gatewayEnabled && hasUpi && (
         <div className="grid grid-cols-2 gap-2">

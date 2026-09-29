@@ -4,6 +4,7 @@
 // Sends WhatsApp always, and Telegram too if the registrant linked their chat.
 import { createClient } from '@supabase/supabase-js'
 import { formatWorkshopDateTime } from '@/lib/workshops'
+import { getOrCreateReferralLink } from '@/lib/referrals'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,6 +57,15 @@ export async function notifyWorkshopConfirmed(
 
   const dateTimeLabel = formatWorkshopDateTime(workshop.date_time)
 
+  // Mint the student's referral link now that they're confirmed. Best-effort:
+  // a failure here must never stop the confirmation message going out.
+  let referralLink: string | null = null
+  try {
+    referralLink = (await getOrCreateReferralLink(supabaseAdmin, registrationId))?.link ?? null
+  } catch (err) {
+    console.error('[workshop-notify] referral link failed for', registrationId, err)
+  }
+
   const [whatsapp, telegram] = await Promise.all([
     postToBot(
       process.env.WHATSAPP_BOT_URL,
@@ -65,6 +75,7 @@ export async function notifyWorkshopConfirmed(
         workshopTitle: workshop.title,
         dateTimeLabel,
         zoomLink: workshop.zoom_link || 'Link will follow shortly',
+        referralLink,
       },
       'whatsapp'
     ),
@@ -78,6 +89,7 @@ export async function notifyWorkshopConfirmed(
             workshopTitle: workshop.title,
             dateTimeLabel,
             zoomLink: workshop.zoom_link || null,
+            referralLink,
           },
           'telegram'
         )

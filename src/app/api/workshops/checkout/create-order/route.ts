@@ -8,6 +8,7 @@ import { getCreatorCheckoutGateway, createCheckoutOrder, CheckoutOrderError } fr
 import { friendlyErrorResponse } from '@/lib/payment-errors'
 import { normalizePhone } from '@/lib/phone'
 import { countHeldSpots } from '@/lib/workshops'
+import { resolveReferralCodeId } from '@/lib/referrals'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,7 +17,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { workshopId, name, email, phone: rawPhone } = await req.json()
+    const { workshopId, name, email, phone: rawPhone, ref } = await req.json()
 
     if (!workshopId || !name?.trim() || !rawPhone) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
     // Existing registration for this phone?
     const { data: existing } = await supabase
       .from('workshop_registrations')
-      .select('id, payment_status, telegram_link_token')
+      .select('id, payment_status, telegram_link_token, referred_by_code_id')
       .eq('workshop_id', workshopId)
       .eq('phone', phone)
       .maybeSingle()
@@ -91,6 +92,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Referral attribution (?ref= on the workshop link). Invalid/self codes resolve to null.
+    const referredByCodeId = await resolveReferralCodeId(supabase, workshopId, ref, phone)
+
     const now = new Date().toISOString()
     let registrationId: string
     let telegramToken: string
@@ -104,6 +108,8 @@ export async function POST(req: NextRequest) {
           payment_mode: 'gateway',
           payment_status: 'pending_confirmation',
           payment_attempted_at: now,
+          // First referrer wins — a later link never overwrites an earlier one.
+          ...(referredByCodeId && !existing.referred_by_code_id ? { referred_by_code_id: referredByCodeId } : {}),
         })
         .eq('id', existing.id)
       if (updateError) throw updateError
@@ -120,6 +126,7 @@ export async function POST(req: NextRequest) {
           payment_mode: 'gateway',
           payment_status: 'pending_confirmation',
           payment_attempted_at: now,
+          referred_by_code_id: referredByCodeId,
         })
         .select('id, telegram_link_token')
         .single()

@@ -39,6 +39,13 @@ export default function WorkshopsPage() {
   const [upiSaving, setUpiSaving] = useState(false)
   const [upiSaved, setUpiSaved] = useState(false)
 
+  // Payment reminders (WhatsApp nudges to unpaid registrants)
+  const [nudgeEnabled, setNudgeEnabled] = useState(false)
+  const [nudgeSavedEnabled, setNudgeSavedEnabled] = useState(false)
+  const [nudgeNote, setNudgeNote] = useState('')
+  const [nudgeSaving, setNudgeSaving] = useState(false)
+  const [nudgeSaved, setNudgeSaved] = useState(false)
+
   // Create form
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -55,6 +62,10 @@ export default function WorkshopsPage() {
   const [registrations, setRegistrations] = useState<Record<string, Registration[]>>({})
   const [confirming, setConfirming] = useState<string | null>(null)
 
+  // Referral stats: confirmed-via-student-link count per workshop, and who referred each registration
+  const [referralCounts, setReferralCounts] = useState<Record<string, number>>({})
+  const [referredBy, setReferredBy] = useState<Record<string, string>>({})
+
   useEffect(() => {
     load()
   }, [])
@@ -64,17 +75,23 @@ export default function WorkshopsPage() {
     if (!user) { setLoading(false); return }
 
     const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) setToken(session.access_token)
+    if (session?.access_token) {
+      setToken(session.access_token)
+      loadReferralStats(session.access_token)
+    }
 
     const { data: creator } = await supabase
       .from('creators')
-      .select('creator_slug, upi_id, upi_display_name')
+      .select('creator_slug, upi_id, upi_display_name, nudge_enabled, nudge_note')
       .eq('id', user.id)
       .maybeSingle()
     if (creator) {
       setCreatorSlug(creator.creator_slug || '')
       setUpiId(creator.upi_id || '')
       setUpiDisplayName(creator.upi_display_name || '')
+      setNudgeEnabled(!!creator.nudge_enabled)
+      setNudgeSavedEnabled(!!creator.nudge_enabled)
+      setNudgeNote(creator.nudge_note || '')
     }
 
     const { data } = await supabase
@@ -85,6 +102,18 @@ export default function WorkshopsPage() {
 
     setWorkshops(data || [])
     setLoading(false)
+  }
+
+  async function loadReferralStats(accessToken: string) {
+    try {
+      const res = await fetch('/api/workshops/referrals', { headers: { Authorization: `Bearer ${accessToken}` } })
+      if (!res.ok) return
+      const data = await res.json()
+      setReferralCounts(data.counts || {})
+      setReferredBy(data.referredBy || {})
+    } catch {
+      // Stats are a bonus — the page works without them.
+    }
   }
 
   async function handleSaveUpi() {
@@ -98,6 +127,29 @@ export default function WorkshopsPage() {
       .eq('id', user.id)
     setUpiSaving(false)
     if (!error) { setUpiSaved(true); setTimeout(() => setUpiSaved(false), 2000) }
+  }
+
+  async function handleSaveNudge() {
+    setNudgeSaving(true)
+    setNudgeSaved(false)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setNudgeSaving(false); return }
+    // Turning reminders ON stamps the moment — only registrations made after it are ever nudged.
+    const turningOn = nudgeEnabled && !nudgeSavedEnabled
+    const { error } = await supabase
+      .from('creators')
+      .update({
+        nudge_enabled: nudgeEnabled,
+        nudge_note: nudgeNote.replace(/\s+/g, ' ').trim() || null,
+        ...(turningOn ? { nudge_enabled_at: new Date().toISOString() } : {}),
+      })
+      .eq('id', user.id)
+    setNudgeSaving(false)
+    if (!error) {
+      setNudgeSavedEnabled(nudgeEnabled)
+      setNudgeSaved(true)
+      setTimeout(() => setNudgeSaved(false), 2000)
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -167,6 +219,7 @@ export default function WorkshopsPage() {
           ...prev,
           [workshopId]: prev[workshopId].map(r => r.id === registrationId ? { ...r, payment_status: 'confirmed' } : r),
         }))
+        loadReferralStats(token)
       }
     } finally {
       setConfirming(null)
@@ -216,6 +269,42 @@ export default function WorkshopsPage() {
             className="px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
             style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lightest)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
             {upiSaving ? 'Saving…' : upiSaved ? 'Saved ✓' : 'Save'}
+          </button>
+        </div>
+
+        {/* Payment reminders */}
+        <div className="rounded-2xl p-5 mb-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Payment reminders</h3>
+              <p className="text-xs mt-1" style={{ color: '#71717a' }}>
+                Sends up to 2 WhatsApp reminders (about 2 hours and 24 hours after they register) to people who signed up
+                for a paid workshop but haven't paid. Only sent between 9am and 9pm IST, and never to someone who has
+                already submitted a UTR. Applies to registrations made after you switch this on.
+              </p>
+            </div>
+            <button type="button" onClick={() => setNudgeEnabled(v => !v)}
+              aria-pressed={nudgeEnabled}
+              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={nudgeEnabled
+                ? { background: 'rgba(74,222,128,0.15)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)' }
+                : { background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+              {nudgeEnabled ? 'On' : 'Off'}
+            </button>
+          </div>
+          <input
+            value={nudgeNote} onChange={e => setNudgeNote(e.target.value)} maxLength={120}
+            placeholder="Optional note in the message, e.g. Seats are filling fast"
+            className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none mb-1"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+          />
+          <p className="text-xs mb-3" style={{ color: '#52525b' }}>
+            The rest of the message wording is fixed (WhatsApp requires pre-approved templates). {nudgeNote.length}/120
+          </p>
+          <button onClick={handleSaveNudge} disabled={nudgeSaving}
+            className="px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+            style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lightest)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
+            {nudgeSaving ? 'Saving…' : nudgeSaved ? 'Saved ✓' : 'Save'}
           </button>
         </div>
 
@@ -274,6 +363,7 @@ export default function WorkshopsPage() {
                         {new Date(w.date_time).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                         {' · '}{w.price > 0 ? `₹${w.price}` : 'Free'}
                         {w.capacity != null ? ` · cap ${w.capacity}` : ''}
+                        {referralCounts[w.id] ? ` · ${referralCounts[w.id]} referred by students` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -301,7 +391,7 @@ export default function WorkshopsPage() {
                               <div className="min-w-0">
                                 <p className="text-sm text-white truncate">{r.name} · {r.phone}</p>
                                 <p className="text-xs" style={{ color: '#71717a' }}>
-                                  {r.payment_mode}{r.utr_reference ? ` · UTR ${r.utr_reference}` : ''}{r.amount_paid ? ` · ₹${r.amount_paid} paid online` : ''}
+                                  {r.payment_mode}{r.utr_reference ? ` · UTR ${r.utr_reference}` : ''}{r.amount_paid ? ` · ₹${r.amount_paid} paid online` : ''}{referredBy[r.id] ? ` · referred by ${referredBy[r.id]}` : ''}
                                 </p>
                               </div>
                               {r.payment_status === 'confirmed' ? (
