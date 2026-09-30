@@ -159,7 +159,8 @@ export default function WorkshopRegisterForm({
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  // FormEvent is deprecated in @types/react 19.2+
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setError('')
     const cleanedPhone = phone.trim().replace(/\D/g, '')
@@ -184,7 +185,7 @@ export default function WorkshopRegisterForm({
     }
   }
 
-  async function handleUtrSubmit(e: React.FormEvent) {
+  async function handleUtrSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!utr.trim()) { setError('Please enter your UPI transaction reference (UTR)'); return }
     setError('')

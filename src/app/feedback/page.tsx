@@ -11,7 +11,9 @@ export default function FeedbackPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+  // FormEvent is deprecated in @types/react 19.2+ — use
+  // SyntheticEvent<HTMLFormElement> for form onSubmit handlers instead.
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError('')

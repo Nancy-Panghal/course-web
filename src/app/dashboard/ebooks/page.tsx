@@ -98,7 +98,8 @@ export default function EbooksPage() {
     setTimeout(() => setCopiedId(prev => (prev === eb.id ? null : prev)), 2000)
   }
 
-    async function handleCreate(e: React.FormEvent) {
+ 
+    async function handleCreate(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setCreateError(''); setCreateSuccess('')
     if (!title.trim() || !price || !pdfFile) { setCreateError('Title, price, and a PDF file are required.'); return }

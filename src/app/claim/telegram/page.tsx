@@ -32,7 +32,8 @@ function ClaimTelegramInner() {
   const [deepLink, setDeepLink] = useState<string | null>(null)
   const [linking, setLinking] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setError('')
     setResult(null)

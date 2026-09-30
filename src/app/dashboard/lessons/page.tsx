@@ -20,7 +20,8 @@ function AddLessonModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+ 
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError('')

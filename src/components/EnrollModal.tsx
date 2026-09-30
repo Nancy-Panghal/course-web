@@ -585,7 +585,10 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
     })
   }
 
-  async function handleEmailAuth(e: React.FormEvent) {
+  // FormEvent is deprecated in @types/react 19.2+ — it was only ever an
+  // alias for SyntheticEvent<T>. Use SyntheticEvent<HTMLFormElement> for
+  // form onSubmit handlers instead, everywhere in this codebase.
+  async function handleEmailAuth(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError('')
@@ -659,7 +662,7 @@ export default function EnrollModal({ onClose, course, resumeOrderId }: Props) {
     setLoading(false)
   }
 
-  async function handlePhoneSubmit(e: React.FormEvent) {
+  async function handlePhoneSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     const cleanedPhone = phone.trim().replace(/\D/g, '')
     if (cleanedPhone.length !== selectedCountry.length) { setError(`Please enter a valid ${selectedCountry.length}-digit mobile number`); return }

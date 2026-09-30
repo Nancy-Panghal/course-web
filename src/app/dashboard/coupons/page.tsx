@@ -140,7 +140,8 @@ export default function CouponsPage() {
     setSuccess('')
   }
 
-  async function createCoupon(e: React.FormEvent) {
+ 
+  async function createCoupon(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setError('')
     setSuccess('')

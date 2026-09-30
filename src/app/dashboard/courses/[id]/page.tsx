@@ -266,7 +266,8 @@ function AddModuleModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+ 
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!name.trim()) {
       setError('Module name is required.')
@@ -1953,7 +1954,7 @@ function LiveSessionsTab({ courseId, token }: { courseId: string; token: string 
     setShowForm(true)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!fTitle.trim() || !fDate || !fTime || !fJoinUrl.trim()) {
       setError('Title, date, time and join URL are required.')

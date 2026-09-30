@@ -243,7 +243,8 @@ export default function WorkshopsPage() {
     }
   }
 
-  async function handleCreate(e: React.FormEvent) {
+ 
+  async function handleCreate(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setCreateError('')
     if (!title.trim() || !dateTime) {
