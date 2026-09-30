@@ -1,42 +1,128 @@
 # Kurso
 
-Kurso is a course-selling platform for creators — a lightweight alternative to Graphy, Learnyst, Classplus, or Tagmango, built for the Indian creator market.
+Kurso is a course-delivery platform built for creators who want to sell and
+deliver courses without students ever installing a separate app. Content is
+delivered through WhatsApp and Telegram — the apps students already have open
+— alongside a normal web dashboard and storefront.
 
-Live at **[kurso.in](https://www.kurso.in/)**.
+This repository is the web application: the public storefront, the creator
+dashboard, the admin panel, and every API route. Two companion repositories
+handle the messaging side: `Whatsapp-bot` and `telegram-bot`. All three work
+together — see `ARCHITECTURE.md` for how.
 
-A creator signs up, uploads their course content, sets a price, and shares a link. Students pay, get access, and go through their lessons, assignments, quizzes, and certificates — all from one dashboard the creator controls.
+## What the product actually does
 
-## What it does
+**For creators:**
+- Create courses (video lessons, PDFs, ebooks, quizzes, assignments) and set
+  a price, or give it away free.
+- Run live sessions (Zoom links) with automatic reminder messages before they
+  start.
+- Run one-off paid or free workshops with their own registration page,
+  online or manual-UPI payment, and automatic WhatsApp/Telegram reminders.
+- Accept payment through their own Cashfree, Razorpay, or Stripe account
+  (bring-your-own-gateway — the platform never touches student payments
+  directly for course/workshop sales).
+- Offer coupons, referral links, and ebook sales alongside courses.
+- Deliver lessons automatically over WhatsApp and/or Telegram once a student
+  enrolls — no student-side app install, no student-side account required
+  beyond a phone number.
+- See analytics, manage students (including CSV import/export), moderate
+  Q&A and ratings, issue certificates, and run broadcast announcements to
+  every enrolled student at once.
+- Optionally track ad performance via Meta Pixel + Conversions API on their
+  workshop pages.
 
-- **Course builder** — creators can generate a course landing page in minutes without having to design one from scratch, or embed the Kurso checkout link into a landing page they already have. Courses are structured into modules and lessons (video, PDF, text, live sessions), with drafts that can be published when ready and edited as the creator goes.
-- **Content protection** — videos and PDFs are watermarked per-student and served through signed, time-limited URLs instead of public links, so shared content can be traced back to the student.
-- **Payments, your way (BYOK)** — instead of locking creators into one payment processor, Kurso lets each creator connect their own Razorpay or Cashfree account. Money goes straight to them; Kurso never sits in the middle of the payout.
-- **Assignments & quizzes** — students submit assignments and take quizzes tied to lessons; creators review and grade from the dashboard.
-- **Certificates** — auto-generated on course completion, with the creator's branding, a signature, and a QR code that verifies the certificate is genuine.
-- **Analytics & student management** — creators can see enrollments, revenue, and student progress, and export data when they need it.
-- **Delivery beyond the website** — once a creator adds a course and a student enrolls, lessons and notifications are delivered automatically on WhatsApp and Telegram as well as the website (see the two companion bots below), with no extra setup needed from the creator.
+**For students:**
+- Enroll on the web, then receive lessons as WhatsApp or Telegram messages —
+  no app to download.
+- Take quizzes, submit assignments, and ask questions, all through the same
+  channel they enrolled with.
+- Get a shareable certificate on completion.
 
-## Tech stack
+**Business model:**
+Creators are on a flat monthly subscription (varies by which delivery
+channels they use — web+Telegram, web+WhatsApp, or all three), billed
+through the platform's own Cashfree account, OR an opt-in
+"Pay As You Earn" revenue-share plan instead of a flat fee, where the
+platform takes a small percentage only on what a creator actually sells
+through their course, ebook, and workshop revenue. See `src/lib/revenueShare.ts`
+for the exact mechanism.
 
-- **Framework**: Next.js (App Router) + TypeScript
-- **Database & Auth**: Supabase (PostgreSQL)
-- **Hosting**: Vercel
-- **File storage**: Cloudflare R2
-- **Caching / rate limiting**: Upstash Redis
-- **Messaging**: Meta WhatsApp Business API, Telegram
-- **Email**: Resend
-- **Payments**: Razorpay and Cashfree (creator-connected via BYOK), plus Cashfree for Kurso's own subscription billing
-- **Styling**: Tailwind CSS
+## The admin panel
 
-## Related repos
+There is no separate admin app — it lives inside this same dashboard, gated
+by an email allow-list (`ADMIN_EMAILS`, see `.env.example`). An operator
+whose logged-in email matches that list sees an extra `/dashboard/admin/*`
+section:
 
-Kurso delivers course content over chat apps in addition to the website:
+- **Creators** (`/dashboard/admin/creators`) — lists every creator, and lets
+  the operator "log in as" any one of them (a genuine, time-limited
+  impersonation session, not a data copy) for support and debugging. See
+  `src/lib/impersonation-guard.ts` and `/api/admin/impersonate/[creatorId]`.
+- **Chat** (`/dashboard/admin/chat`) — a support inbox for the in-dashboard
+  chat widget every creator sees. Every creator conversation, unread-first.
+- **Revenue share** (`/dashboard/admin/revenue-share`) — manages PAYE
+  agreements per creator and reviews the monthly auto-generated invoices
+  (course, workshop, and ebook revenue are billed on this same mechanism;
+  see `ARCHITECTURE.md`).
+- **Subscription extensions / refunds** (`/dashboard/admin/subscription-extensions`,
+  `/dashboard/admin/subscription-refunds`) — approves or denies creator
+  requests for a subscription extension or refund.
+- **TDS tracker** (`/dashboard/admin/tds`) — tracks tax-deduction-at-source
+  bookkeeping relevant to Indian creator payouts.
+- **Messages** (`/dashboard/admin/messages`) — broader operator messaging
+  tools alongside the per-creator chat inbox.
 
-- [**telegram-bot**](https://github.com/Nancy-Panghal/telegram-bot) — sends lessons, quizzes, and assignment prompts to students on Telegram.
-- [**Whatsapp-bot**](https://github.com/Nancy-Panghal/Whatsapp-bot) — same idea, over WhatsApp, using Meta's official WhatsApp Business API.
+Everything else under `/dashboard/*` (courses, ebooks, workshops, students,
+coupons, analytics, ratings, refunds, moderation, broadcast, assignments,
+lessons, revenue, settings) is the ordinary creator-facing dashboard — every
+creator gets these, not just the operator.
 
-Both bots share this app's Supabase database and use signed links to fetch content, so a student's progress stays in sync no matter which channel they use.
+## Repository layout
+src/app/ Next.js App Router — pages and API routes
+src/app/api/ Every backend route (payments, webhooks, cron jobs, bots' internal API)
+src/app/dashboard/ Creator dashboard (and /dashboard/admin/* for the operator panel)
+src/app/w/ Public workshop registration pages
+src/app/course/ Public course landing pages
+src/app/creator/ A creator's public storefront (all their courses/ebooks/workshops)
+src/components/ Shared React components
+src/lib/ Business logic — payments, phone normalization, signing, revenue share, etc.
 
-## Project status
+## Setup
 
-Kurso is a working, self-built platform, currently not processing live customer payments yet. It's built and maintained solo, end to end — product, backend, and the two bot integrations above.
+See `SETUP.md` for how to provision every third-party account this project
+depends on (Supabase, Cloudflare R2, Meta/WhatsApp, Telegram, payment
+gateways, email, AI) and `.env.example` for the full list of environment
+variables, each explained.
+
+Once every account exists and `.env.local` is filled in:
+
+```bash
+npm install
+npm run dev
+```
+
+The two bot repositories (`Whatsapp-bot`, `telegram-bot`) need to be running
+and reachable at the URLs this project's env vars point to
+(`WHATSAPP_BOT_URL`, `TELEGRAM_BOT_URL`) for lesson delivery, reminders, and
+workshop notifications to work. They're independent Node/Express services —
+see each repo's own README.
+
+## A few things worth knowing before you touch the code
+
+- **Database changes are manual.** There are no migration files in this
+  repo. Every schema change so far has been a hand-run SQL statement in the
+  Supabase SQL editor. Get a current schema export before assuming anything
+  about the database shape from the code alone.
+- **Two independent student-login systems exist at once**: a bot-issued
+  cookie session, and a normal Supabase Auth (Google login) session. Most
+  protected routes have to check both, independently — see
+  `ARCHITECTURE.md`.
+- **Phone number formatting is inconsistent on purpose, and it matters.**
+  Indian numbers are stored as a bare 10 digits, no country code. Every
+  other country's numbers keep their full country code. Meta's webhook
+  sends numbers as `91XXXXXXXXXX`, which has to be stripped at the boundary.
+  Get this wrong anywhere and WhatsApp delivery silently breaks for a subset
+  of users. `src/lib/phone.ts` and `Whatsapp-bot/phone.js` are the only two
+  places that should ever normalize a phone number — never re-implement
+  this logic elsewhere.

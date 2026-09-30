@@ -260,7 +260,7 @@ export default function CreatorAdminChatWidget({ creatorId }: { creatorId: strin
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">Kurso Support</p>
                 <p className="text-xs truncate" style={{ color: 'var(--kurso-text-muted)' }}>
-                  {adminTyping ? 'Typing…' : 'Message Nancy/Nivan directly'}
+                  {adminTyping ? 'Typing…' : 'Message the Kurso team directly'}
                 </p>
               </div>
             </div>
@@ -285,7 +285,7 @@ export default function CreatorAdminChatWidget({ creatorId }: { creatorId: strin
             ) : messages.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-center px-6">
                 <p className="text-sm" style={{ color: 'var(--kurso-text-muted)' }}>
-                  👋 Have a question or need help with your Kurso account? Send Nancy/Nivan a message — they'll reply right here.
+                  👋 Have a question or need help with your Kurso account? Send us a message — we'll reply right here.
                 </p>
               </div>
             ) : (
