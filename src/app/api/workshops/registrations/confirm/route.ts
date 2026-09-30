@@ -5,6 +5,7 @@ import { getAuthenticatedCreator } from '@/app/api/razorpay/subscription-auth'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
 import { isImpersonationActive, IMPERSONATION_BLOCK_MESSAGE } from '@/lib/impersonation-guard'
 import { notifyWorkshopConfirmed } from '@/lib/workshop-notify'
+import { scheduleWorkshopMetaEvent } from '@/lib/workshop-meta-events'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,6 +50,9 @@ export async function POST(req: NextRequest) {
     if (updateError) throw updateError
 
     await notifyWorkshopConfirmed(registrationId)
+
+    // Meta Purchase (server side), after the response. Skipped automatically unless it is a paid, confirmed registration.
+    scheduleWorkshopMetaEvent({ registrationId, eventName: 'Purchase' })
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {

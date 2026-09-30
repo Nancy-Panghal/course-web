@@ -2,6 +2,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { loadCashfreeSdk, loadRazorpaySdk, pollOrderStatus } from '@/lib/checkout-client'
+import { trackMetaLead } from '@/components/MetaPixel'
 
 interface Props {
   workshopId: string
@@ -77,6 +78,7 @@ export default function WorkshopRegisterForm({
 
     setRegistrationId(data.registrationId)
     if (data.telegramToken) setTelegramToken(data.telegramToken)
+    if (data.metaLeadEventId) trackMetaLead(data.metaLeadEventId, workshopTitle)
     setStep(data.paymentStatus === 'confirmed' ? 'success' : 'pay')
   }
 
@@ -91,6 +93,7 @@ export default function WorkshopRegisterForm({
 
     if (data.telegramToken) setTelegramToken(data.telegramToken)
     if (data.registrationId) setRegistrationId(data.registrationId)
+    if (data.metaLeadEventId) trackMetaLead(data.metaLeadEventId, workshopTitle)
     if (data.alreadyRegistered) { setStep('success'); return }
 
     const { clientTxnId, order } = data

@@ -9,6 +9,7 @@ import { friendlyErrorResponse } from '@/lib/payment-errors'
 import { normalizePhone } from '@/lib/phone'
 import { countHeldSpots } from '@/lib/workshops'
 import { resolveReferralCodeId } from '@/lib/referrals'
+import { scheduleWorkshopMetaEvent, getMetaRequestContext, leadEventId } from '@/lib/workshop-meta-events'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -172,7 +173,10 @@ export async function POST(req: NextRequest) {
       await supabase.from('transactions').update({ gateway_order_id: gatewayOrderId }).eq('id', transactionId)
       await supabase.from('workshop_registrations').update({ transaction_id: transactionId }).eq('id', registrationId)
 
-      return NextResponse.json({ clientTxnId: transactionId, registrationId, telegramToken, order })
+      // Meta Lead (server side) — the registration exists as soon as checkout starts.
+      scheduleWorkshopMetaEvent({ registrationId, eventName: 'Lead', context: getMetaRequestContext(req) })
+
+      return NextResponse.json({ clientTxnId: transactionId, registrationId, telegramToken, order, metaLeadEventId: leadEventId(registrationId) })
     } catch (err: any) {
       await supabase
         .from('transactions')

@@ -7,6 +7,7 @@ import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 import { generateInvoicePdfForPayment } from '@/lib/invoice'
 import { computeRevenueShareSplit } from '@/lib/revenueShare'
 import { notifyWorkshopConfirmed } from '@/lib/workshop-notify'
+import { scheduleWorkshopMetaEvent } from '@/lib/workshop-meta-events'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -693,6 +694,9 @@ async function handleFlowAWorkshop(transaction: any, body: NormalizedEvent, sign
       signature_hash: signature,
     })
     .eq('id', transaction.id)
+
+  // Meta Purchase (server side), after the response. Idempotent per registration, so webhook retries can't double-count.
+  scheduleWorkshopMetaEvent({ registrationId, eventName: 'Purchase' })
 
   if (justConfirmed) {
     try {

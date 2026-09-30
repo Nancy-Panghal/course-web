@@ -46,6 +46,17 @@ export default function WorkshopsPage() {
   const [nudgeSaving, setNudgeSaving] = useState(false)
   const [nudgeSaved, setNudgeSaved] = useState(false)
 
+  // Meta Pixel + Conversions API
+  interface MetaStats { sentLead: number; sentPurchase: number; failed: number; skipped: number; pending: number; lastError: string | null }
+  const [metaPixelId, setMetaPixelId] = useState('')
+  const [metaToken, setMetaToken] = useState('')
+  const [metaTestCode, setMetaTestCode] = useState('')
+  const [metaHasToken, setMetaHasToken] = useState(false)
+  const [metaSaved, setMetaSaved] = useState(false)
+  const [metaStats, setMetaStats] = useState<MetaStats | null>(null)
+  const [metaBusy, setMetaBusy] = useState<'save' | 'remove' | 'retry' | null>(null)
+  const [metaMessage, setMetaMessage] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
+
   // Create form
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -78,6 +89,7 @@ export default function WorkshopsPage() {
     if (session?.access_token) {
       setToken(session.access_token)
       loadReferralStats(session.access_token)
+      loadMetaSettings(session.access_token)
     }
 
     const { data: creator } = await supabase
@@ -127,6 +139,85 @@ export default function WorkshopsPage() {
       .eq('id', user.id)
     setUpiSaving(false)
     if (!error) { setUpiSaved(true); setTimeout(() => setUpiSaved(false), 2000) }
+  }
+
+  async function loadMetaSettings(accessToken: string) {
+    try {
+      const res = await fetch('/api/workshops/meta-settings', { headers: { Authorization: `Bearer ${accessToken}` } })
+      if (!res.ok) return
+      const data = await res.json()
+      setMetaPixelId(data.pixelId || '')
+      setMetaHasToken(!!data.hasToken)
+      setMetaTestCode(data.testEventCode || '')
+      setMetaSaved(!!data.pixelId)
+      setMetaStats(data.stats || null)
+    } catch {
+      // Optional feature — the page works without it.
+    }
+  }
+
+  async function handleSaveMeta() {
+    if (!token) return
+    setMetaBusy('save')
+    setMetaMessage(null)
+    try {
+      const res = await fetch('/api/workshops/meta-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ pixelId: metaPixelId, accessToken: metaToken, testEventCode: metaTestCode }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setMetaMessage({ kind: 'error', text: data.error || 'Could not save' }); return }
+      setMetaToken('')
+      setMetaHasToken(!!data.hasToken)
+      setMetaSaved(true)
+      if (data.verification?.ok) {
+        setMetaMessage({ kind: 'ok', text: `Saved. Meta confirmed access to your pixel${data.verification.name ? ` "${data.verification.name}"` : ''}.` })
+      } else if (data.verification) {
+        setMetaMessage({ kind: 'warn', text: `Saved, but Meta couldn't confirm this token: ${data.verification.error}. Events may fail — check the status below after a registration.` })
+      } else {
+        setMetaMessage({ kind: 'warn', text: 'Saved. Add the access token as well to also send server-side events.' })
+      }
+      loadMetaSettings(token)
+    } finally {
+      setMetaBusy(null)
+    }
+  }
+
+  async function handleRemoveMeta() {
+    if (!token || !window.confirm('Remove your Meta Pixel setup? Tracking on your workshop pages will stop.')) return
+    setMetaBusy('remove')
+    setMetaMessage(null)
+    try {
+      const res = await fetch('/api/workshops/meta-settings', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) {
+        setMetaPixelId(''); setMetaToken(''); setMetaTestCode(''); setMetaHasToken(false); setMetaSaved(false); setMetaStats(null)
+      }
+    } finally {
+      setMetaBusy(null)
+    }
+  }
+
+  async function handleRetryMeta() {
+    if (!token) return
+    setMetaBusy('retry')
+    setMetaMessage(null)
+    try {
+      const res = await fetch('/api/workshops/meta-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'retry' }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setMetaMessage({ kind: 'error', text: data.error || 'Retry failed' }); return }
+      setMetaStats(data.stats || null)
+      setMetaMessage({
+        kind: data.failed > 0 ? 'warn' : 'ok',
+        text: data.attempted === 0 ? 'Nothing to retry.' : `Retried ${data.attempted}: ${data.sent} sent, ${data.failed} still failing.`,
+      })
+    } finally {
+      setMetaBusy(null)
+    }
   }
 
   async function handleSaveNudge() {
@@ -270,6 +361,74 @@ export default function WorkshopsPage() {
             style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lightest)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
             {upiSaving ? 'Saving…' : upiSaved ? 'Saved ✓' : 'Save'}
           </button>
+        </div>
+
+        {/* Meta Pixel + Conversions API */}
+        <div className="rounded-2xl p-5 mb-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+          <h3 className="text-sm font-semibold text-white">Meta Pixel &amp; Conversions API</h3>
+          <p className="text-xs mt-1 mb-3" style={{ color: '#71717a' }}>
+            Tracks registrations (Lead) and confirmed payments (Purchase) for your Facebook/Instagram ads. Only your workshop
+            pages are tracked. The pixel alone gives you Leads from the browser; add the access token to also send server-side
+            events, including Purchase.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <input value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} inputMode="numeric"
+              placeholder="Pixel ID (digits only)"
+              className="px-4 py-2.5 rounded-xl text-sm text-white outline-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+            <input value={metaTestCode} onChange={e => setMetaTestCode(e.target.value)}
+              placeholder="Test event code (optional)"
+              className="px-4 py-2.5 rounded-xl text-sm text-white outline-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+          </div>
+          <input value={metaToken} onChange={e => setMetaToken(e.target.value)} type="password" autoComplete="off"
+            placeholder={metaHasToken ? 'Access token saved — paste a new one only to replace it' : 'Conversions API access token'}
+            className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none mb-2"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+          {metaTestCode.trim() && (
+            <p className="text-xs mb-2" style={{ color: '#f59e0b' }}>
+              While a test event code is set, Meta treats events as tests and they won't help your ads. Clear it once testing is done.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={handleSaveMeta} disabled={metaBusy !== null || !metaPixelId.trim()}
+              className="px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+              style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lightest)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.3)' }}>
+              {metaBusy === 'save' ? 'Saving…' : 'Save'}
+            </button>
+            {metaSaved && (
+              <button onClick={handleRemoveMeta} disabled={metaBusy !== null}
+                className="px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {metaBusy === 'remove' ? 'Removing…' : 'Remove'}
+              </button>
+            )}
+          </div>
+          {metaMessage && (
+            <p className="text-xs mt-3" style={{ color: metaMessage.kind === 'ok' ? '#4ade80' : metaMessage.kind === 'warn' ? '#f59e0b' : '#ef4444' }}>
+              {metaMessage.text}
+            </p>
+          )}
+          {metaStats && (
+            <div className="mt-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                Last 30 days: {metaStats.sentLead} Lead and {metaStats.sentPurchase} Purchase events sent to Meta
+                {metaStats.failed > 0 ? ` · ${metaStats.failed} failed` : ''}
+                {metaStats.skipped > 0 ? ` · ${metaStats.skipped} skipped` : ''}
+                {metaStats.pending > 0 ? ` · ${metaStats.pending} in progress` : ''}
+              </p>
+              {metaStats.failed > 0 && (
+                <div className="mt-2">
+                  {metaStats.lastError && <p className="text-xs mb-2" style={{ color: '#ef4444' }}>Latest error: {metaStats.lastError}</p>}
+                  <button onClick={handleRetryMeta} disabled={metaBusy !== null}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+                    style={{ background: 'rgba(var(--kurso-primary-rgb), 0.18)', color: 'var(--kurso-primary-lightest)' }}>
+                    {metaBusy === 'retry' ? 'Retrying…' : 'Retry failed events'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Payment reminders */}

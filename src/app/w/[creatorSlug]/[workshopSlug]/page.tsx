@@ -10,6 +10,7 @@ import type { Metadata } from 'next'
 import WorkshopRegisterForm from '@/components/WorkshopRegisterForm'
 import { getCreatorCheckoutGateway } from '@/lib/gateway-checkout'
 import { countHeldSpots } from '@/lib/workshops'
+import MetaPixel from '@/components/MetaPixel'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -89,6 +90,19 @@ export default async function WorkshopRegisterPage({
     }
   }
 
+  // Creator's Meta Pixel (optional). A settings problem must never take the page down.
+  let metaPixelId: string | null = null
+  try {
+    const { data: metaSettings } = await supabase
+      .from('creator_meta_settings')
+      .select('pixel_id')
+      .eq('creator_id', creator.id)
+      .maybeSingle()
+    metaPixelId = metaSettings?.pixel_id ?? null
+  } catch (err) {
+    console.error('[workshop page] meta pixel lookup failed for creator', creator.id, err)
+  }
+
   const dateLabel = new Date(workshop.date_time).toLocaleString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
@@ -96,6 +110,7 @@ export default async function WorkshopRegisterPage({
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
+      {metaPixelId && <MetaPixel pixelId={metaPixelId} />}
       <div className="w-full max-w-md">
         <div className="rounded-2xl p-6 md:p-8 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
           <p className="text-xs font-semibold mb-2" style={{ color: 'var(--kurso-primary-light)' }}>

@@ -6,6 +6,7 @@ import { friendlyErrorResponse } from '@/lib/payment-errors'
 import { countHeldSpots } from '@/lib/workshops'
 import { notifyWorkshopConfirmed } from '@/lib/workshop-notify'
 import { resolveReferralCodeId } from '@/lib/referrals'
+import { scheduleWorkshopMetaEvent, getMetaRequestContext, leadEventId } from '@/lib/workshop-meta-events'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -123,7 +124,10 @@ export async function POST(req: NextRequest) {
       await notifyWorkshopConfirmed(registrationId)
     }
 
-    return NextResponse.json({ registrationId, paymentStatus, telegramToken })
+    // Meta Lead (server side). Runs after the response is sent — a Meta problem can never block a registration.
+    scheduleWorkshopMetaEvent({ registrationId, eventName: 'Lead', context: getMetaRequestContext(req) })
+
+    return NextResponse.json({ registrationId, paymentStatus, telegramToken, metaLeadEventId: leadEventId(registrationId) })
   } catch (err: any) {
     return friendlyErrorResponse(err, 'workshops/register POST')
   }
