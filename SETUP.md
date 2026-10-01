@@ -47,9 +47,18 @@ This is the most involved setup step. In order:
 4. From API Setup, copy the Phone Number ID and generate a permanent
    System User access token (temporary tokens expire in 24 hours and are
    not usable for a live deployment).
-5. Set up the webhook: point it at `<your-whatsapp-bot-url>/webhook/whatsapp`,
-   enter the same verify token you set as `META_WEBHOOK_VERIFY_TOKEN`, and
-   subscribe to the `messages` field.
+5. Set up the webhook: point it at `<your-whatsapp-bot-url>/webhook/whatsapp`.
+   Pick `META_WEBHOOK_VERIFY_TOKEN` yourself — any random string works here,
+   Meta has no character restriction, but a 32–64 character random value is
+   good practice:
+
+```bash
+   openssl rand -hex 32
+```
+
+   Set that same value in both the bot's environment and Meta's webhook
+   config field, then subscribe to the `messages` field.
+   
 6. Create and submit each message template this platform sends (see the
    template name variables in `Whatsapp-bot/.env.example`) for Meta's
    approval before they'll actually send in production.
@@ -64,8 +73,28 @@ one.
 
 ## 6. Telegram bot (~5 minutes)
 Message @BotFather on Telegram, run `/newbot`, choose a name and username.
-BotFather returns the bot token immediately. Set the bot's webhook to
-`<your-telegram-bot-url>/webhook` using Telegram's `setWebhook` API call.
+BotFather returns the bot token immediately.
+
+Pick `TELEGRAM_WEBHOOK_SECRET` yourself — a random 32–64 character string,
+letters, numbers, underscores, and hyphens only (Telegram rejects anything
+else). Generate one with:
+
+```bash
+openssl rand -hex 32
+```
+
+Set it in the bot's environment, THEN register the webhook with that same
+value included — this step matters, not just the env var:
+
+```bash
+curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<your-telegram-bot-url>/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+```
+
+**If `secret_token` is left out of this call, Telegram never sends the
+verification header, and the bot will silently reject every single
+incoming message with a 401** — it'll look completely broken with no
+obvious cause. Setting the env var without this `setWebhook` call is not
+enough.
 
 ## 7. Payment gateways
 - **Platform's own Cashfree account** (for billing creators): sign up at
