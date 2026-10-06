@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js'
 import { signVideoUrl, signPdfUrl, TTL } from '@/lib/signer'
 import { isLessonFree } from '@/lib/freeLesson'
 import { getWebAccessContext } from '@/lib/webAccess'
+import { getLessonLock } from '@/lib/moduleLock'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,9 +78,14 @@ export async function POST(req: NextRequest) {
     // ignore a perfectly valid path (a), incorrectly denying access. Now we
     // check both and grant access if either succeeds.
     let hasAccess = isFree
+    // enrolled_at of every enrollment that actually proved access (used for the module release lock below)
+    const enrolledAts: (string | null)[] = []
 
     const webAccessOk = !!(webAccess && webAccess.courseId === lesson.course_id)
-    if (webAccessOk) hasAccess = true
+    if (webAccessOk) {
+      hasAccess = true
+      enrolledAts.push(webAccess?.enrollment?.enrolled_at ?? null)
+    }
 
     if (!hasAccess && userId !== 'web') {
       // Single query — check enrollment by student auth_id join
@@ -96,7 +102,7 @@ export async function POST(req: NextRequest) {
 
       const { data: enrollment, error: enrollmentErr } = student?.id ? await supabase
         .from('enrollments')
-        .select('id')
+        .select('id, enrolled_at')
         .eq('student_id', student.id)
         .eq('course_uuid', lesson.course_id)
         .eq('payment_status', 'paid')
@@ -107,7 +113,10 @@ export async function POST(req: NextRequest) {
         console.warn('[content/sign] enrollment_lookup_missing_or_failed', { lessonId, studentId: student?.id, courseId: lesson.course_id, message: enrollmentErr.message })
       }
 
-      if (enrollment) hasAccess = true
+      if (enrollment) {
+        hasAccess = true
+        enrolledAts.push(enrollment.enrolled_at ?? null)
+      }
     }
 
     if (!hasAccess) {
@@ -121,6 +130,18 @@ export async function POST(req: NextRequest) {
 
     
 
+    // Module release schedule (drip). Applies only when access was proven through
+    // an enrollment and the lesson isn't free (a free preview / free course is open
+    // to everyone, so there's nothing to hold back).
+    if (!isFree && enrolledAts.length > 0) {
+      const lock = await getLessonLock(supabase, lessonId, enrolledAts)
+      if (lock.locked) {
+        return NextResponse.json(
+          { error: 'This module is not unlocked yet', reason: 'module_locked', unlockAt: lock.unlockAt, moduleName: lock.moduleName },
+          { status: 403 }
+        )
+      }
+    }
     // Log access for piracy detection (web path)
     // Fire and forget — never block content delivery for logging
     void supabase.from('lesson_access_logs').insert({

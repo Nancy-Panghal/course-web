@@ -95,7 +95,16 @@ async function getSignedContentUrl(lessonId: string, type: 'video' | 'pdf'): Pro
     },
     body: JSON.stringify({ lessonId, type }),
   })
-  if (!res.ok) throw new Error('Failed to get signed URL')
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    if (body?.reason === 'module_locked') {
+      const err: any = new Error('Module locked')
+      err.code = 'module_locked'
+      err.unlockAt = body.unlockAt ?? null
+      throw err
+    }
+    throw new Error('Failed to get signed URL')
+  }
   const { url, expiresAt } = await res.json()
   return { url, expiresAt: expiresAt || null }
 }
@@ -210,6 +219,7 @@ export default function CourseLearnPage() {
   const [creatorProfile, setCreatorProfile] = useState<any>(null)
   const [contentUrl, setContentUrl] = useState<string | null>(null)
   const [loadingContent, setLoadingContent] = useState(false)
+  const [moduleLock, setModuleLock] = useState<{ unlockAt: string | null } | null>(null)
   const [savingProgress, setSavingProgress] = useState(false)
   const [demoTelegramToken, setDemoTelegramToken] = useState('')
   const [generatingDemoToken, setGeneratingDemoToken] = useState(false)
@@ -532,6 +542,7 @@ export default function CourseLearnPage() {
   // Only video/pdf lessons have signable content — assignment/quiz/live
   // lessons render their own dedicated UI further down instead.
   useEffect(() => {
+    setModuleLock(null)
     if (!currentLesson || !canAccess) { setContentUrl(null); return }
     const isRecordedLive = currentLesson.content_type === 'live' && !!currentLesson.video_storage_path
     if (currentLesson.content_type !== 'video' && currentLesson.content_type !== 'pdf' && !isRecordedLive) {
@@ -558,8 +569,13 @@ export default function CourseLearnPage() {
             if (msLeft > 0) refreshTimer = setTimeout(load, msLeft)
           }
         })
-        .catch(() => {
+        .catch((err: any) => {
           if (cancelled) return
+          if (err?.code === 'module_locked') {
+            setModuleLock({ unlockAt: err.unlockAt ?? null })
+            setLoadingContent(false)
+            return
+          }
           // First failure is very often the Supabase client's session not
           // having finished hydrating yet on a fresh page load (not a real
           // network/auth problem) — retry once, shortly, before giving up.
@@ -1125,6 +1141,16 @@ export default function CourseLearnPage() {
                     ) : (
                       <p style={{ color: '#71717a', fontSize: 14 }}>Live class details haven't been added yet. Check back soon.</p>
                     )}
+                  </div>
+                ) : moduleLock ? (
+                  <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 24, padding: 24, textAlign: 'center', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <Lock className="w-8 h-8" style={{ color: 'var(--kurso-primary-light)' }} />
+                    <p style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>This module isn&apos;t unlocked yet</p>
+                    <p style={{ color: '#a1a1aa', fontSize: 13 }}>
+                      {moduleLock.unlockAt
+                        ? `It unlocks on ${new Date(moduleLock.unlockAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })} IST.`
+                        : 'Check back soon.'}
+                    </p>
                   </div>
                 ) : loadingContent ? (
                   <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>

@@ -23,6 +23,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyLessonPageUrl, signVideoUrl, signPdfUrl, encodeFingerprint, signLessonResourceUrl } from '@/lib/signer'
 import { renderLessonPage } from '@/lib/lessonPageHtml'
+import { getLessonLock } from '@/lib/moduleLock'
+import { isLessonFree } from '@/lib/freeLesson'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,7 +80,7 @@ export async function GET(req: NextRequest) {
   const { data: lesson } = await supabase
     .from('lessons')
     .select(`
-      id, title, content_type, order_num, duration, is_published, course_id,
+      id, title, content_type, order_num, duration, is_published, course_id, is_free,
       summary_url, notes_url, quiz_questions, qa_enabled,
       assignment_prompt, assignment_required, assignment_file_url, assignment_file_name,
       content_url, live_scheduled_at, live_recording_url, live_duration_minutes
@@ -95,20 +97,32 @@ export async function GET(req: NextRequest) {
 
   const { data: course } = await supabase
     .from('courses')
-    .select('id, name, host_name, creator_id')
+    .select('id, name, host_name, creator_id, is_free_course')
     .eq('id', courseId)
     .single()
 
   let studentName = `User ${identity.slice(-6)}`
   const { data: enrollment } = await supabase
     .from('enrollments')
-    .select('phone, payment_status, completed_lessons, quiz_results')
+    .select('phone, payment_status, enrolled_at, completed_lessons, quiz_results')
     .eq('telegram_chat_id', identity)
     .eq('course_uuid', courseId)
     .limit(1)
     .single()
 
   if (enrollment?.phone) studentName = enrollment.phone
+
+  // Module release schedule (drip). Links signed before a module was locked stay
+  // cryptographically valid for their 2h lifetime, so the lock is enforced here too.
+  if (!isLessonFree({ is_free: lesson.is_free ?? false }, { is_free_course: course?.is_free_course ?? false })) {
+    const lock = await getLessonLock(supabase, lessonId, [enrollment?.enrolled_at ?? null])
+    if (lock.locked) {
+      return new NextResponse(moduleLockedHtml(lock.unlockAt), {
+        status: 403,
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache, private' },
+      })
+    }
+  }
 
   logAccess(lessonId, courseId, identity)
 
@@ -196,6 +210,17 @@ function invalidLinkHtml() {
   <style>body{background:#080808;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:24px}</style></head>
   <body><div><div style="font-size:48px;margin-bottom:16px">⚠️</div><h2 style="margin-bottom:12px">Link Not Valid</h2>
   <p style="color:#71717a;margin-bottom:24px">This lesson link could not be verified. Go back to Telegram and tap the lesson button to get a fresh link. If this keeps happening, please let your instructor know — there may be a configuration issue.</p>
+  </div></body></html>`
+}
+
+function moduleLockedHtml(unlockAt: string) {
+  const when = new Date(unlockAt).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  })
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not unlocked yet</title>
+  <style>body{background:#080808;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:24px}</style></head>
+  <body><div><div style="font-size:48px;margin-bottom:16px">🔒</div><h2 style="margin-bottom:12px">This module isn't unlocked yet</h2>
+  <p style="color:#71717a">It unlocks on ${when} IST.</p>
   </div></body></html>`
 }
 

@@ -17,6 +17,8 @@ import { escapeHtml, sendLoggedEmail } from '@/lib/email'
 import { issueCertificate, type CertTemplate } from '@/lib/certificate'
 import { normalizePhone } from '@/lib/phone'
 import { getWebAccessContext } from '@/lib/webAccess'
+import { getLessonLock } from '@/lib/moduleLock'
+import { isLessonFree } from '@/lib/freeLesson'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,6 +56,7 @@ export async function POST(req: NextRequest) {
     id,
     course_uuid,
     payment_status,
+    enrolled_at,
     completed_lessons,
     current_lesson,
     quiz_results,
@@ -90,6 +93,41 @@ export async function POST(req: NextRequest) {
       }
     }
 
+
+        // ── Module release schedule (drip) ────────────────────────────
+    // A lesson whose module is still locked for this student can't be marked
+    // complete — otherwise progress (and the certificate) could skip the schedule.
+    // Free lessons / free courses are never held back. Fails open on missing data.
+    const { data: lessonRow } = await supabase
+      .from('lessons')
+      .select('id, is_free')
+      .eq('course_id', courseId)
+      .eq('order_num', lessonNum)
+      .maybeSingle()
+
+    if (lessonRow) {
+      const { data: courseRow } = await supabase
+        .from('courses')
+        .select('is_free_course')
+        .eq('id', courseId)
+        .maybeSingle()
+
+      const free = isLessonFree(
+        { is_free: lessonRow.is_free ?? false },
+        { is_free_course: courseRow?.is_free_course ?? false }
+      )
+      if (!free) {
+        const lock = await getLessonLock(supabase, lessonRow.id, [enrollment.enrolled_at])
+        if (lock.locked) {
+          return NextResponse.json(
+            { error: 'This module is not unlocked yet', reason: 'module_locked', unlockAt: lock.unlockAt, moduleName: lock.moduleName },
+            { status: 403 }
+          )
+        }
+      }
+    }
+
+    
     // ── Update completed_lessons (idempotent) ─────────────────────
     const completed: number[] = Array.isArray(enrollment.completed_lessons)
       ? [...enrollment.completed_lessons]

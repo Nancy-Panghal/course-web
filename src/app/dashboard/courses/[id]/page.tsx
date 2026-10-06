@@ -9,6 +9,8 @@ import LandingPageDesigner from '@/components/LandingPageDesigner'
 import CountdownEndPicker from '@/components/CountdownEndPicker'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
+import { ReleaseScheduleCard, ModuleReleaseControl } from '@/components/ReleaseSchedule'
+import { normalizeDeliveryMode, normalizeUnlockTime, type DeliveryMode } from '@/lib/releaseSchedule'
 import SocialLinksEditor from '@/components/SocialLinksEditor'
 import { parseSocialLinks, getSocialLinksErrors, cleanSocialLinks, type SocialLink } from '@/lib/social-links'
 import ContactDetailsEditor from '@/components/ContactDetailsEditor'
@@ -56,6 +58,8 @@ interface Course {
   host_name: string
   about_creator: string
   delivery: string
+  delivery_mode?: DeliveryMode
+  delivery_unlock_time?: string
   total_lessons: number
   language: string[]
   is_published: boolean
@@ -142,6 +146,8 @@ interface CourseModule {
   order_num: number
   planned_lessons: number
   description?: string | null
+  unlock_date?: string | null
+  unlock_after_days?: number | null
 }
 
 // Max length of a module's optional "Details" text. Also enforced by a CHECK
@@ -3759,6 +3765,16 @@ export default function CourseManagePage({
                   </Link>
                 </p>
 
+                {/* Release schedule (drip) */}
+                {course && (
+                  <ReleaseScheduleCard
+                    courseId={id}
+                    mode={normalizeDeliveryMode(course.delivery_mode)}
+                    unlockTime={normalizeUnlockTime(course.delivery_unlock_time)}
+                    onChange={next => setCourse(prev => (prev ? { ...prev, ...next } : prev))}
+                  />
+                )}
+
                 {/* Lesson list */}
                 {lessons.length === 0 && modules.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center glass"
@@ -3807,6 +3823,15 @@ export default function CourseManagePage({
                           </div>
 
                           <ModuleDetailsEditor mod={module} onSaved={fetchModules} />
+
+                          <ModuleReleaseControl
+                            moduleId={module.id}
+                            mode={normalizeDeliveryMode(course?.delivery_mode)}
+                            unlockDate={module.unlock_date}
+                            unlockAfterDays={module.unlock_after_days}
+                            defaultTime={normalizeUnlockTime(course?.delivery_unlock_time)}
+                            onSaved={fetchModules}
+                          />
 
                           <div className="flex flex-col gap-3">
                             {moduleLessons.length === 0 ? (
