@@ -684,6 +684,12 @@ export default function WorkshopSettingsPage({ params }: { params: Promise<{ id:
           <div className="flex flex-col gap-6">
             <FormCard title="Theme" description="Colors, background and heading style for your whole page.">
               <ThemePicker value={form.theme} onChange={v => set('theme', v)} />
+              {published && creatorSlug && (
+                <a href={`${pagePath}?theme=${encodeURIComponent(form.theme)}`} target="_blank" rel="noopener noreferrer"
+                  className="self-start text-sm font-medium underline" style={{ color: 'var(--kurso-primary-lightest)' }}>
+                  Preview this theme on your live page (shows your saved page)
+                </a>
+              )}
             </FormCard>
 
             <FormCard title="Font style" description="Pick the typeface for headings. Body text stays easy to read.">

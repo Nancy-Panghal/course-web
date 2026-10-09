@@ -140,3 +140,42 @@ export function workshopStatusLabel(status: string | null | undefined): string {
     default: return status || 'Draft'
   }
 }
+
+// ─── Is registration open? (single source of truth) ─────────────────────────
+// Used by the public page AND by both registration API routes, so the page
+// can never show a form that the server would then refuse (or the reverse).
+
+/** Workshops saved before a duration existed are treated as this long. */
+export const DEFAULT_WORKSHOP_DURATION_MINUTES = 120
+
+export type WorkshopRegistrationState = 'open' | 'closed' | 'ended'
+
+/** When the workshop finishes: start time + duration. */
+export function workshopEndsAt(dateTime: string, durationMinutes?: number | null): Date {
+  const minutes = durationMinutes && durationMinutes > 0 ? durationMinutes : DEFAULT_WORKSHOP_DURATION_MINUTES
+  return new Date(new Date(dateTime).getTime() + minutes * 60000)
+}
+
+/**
+ * - 'ended'  : the workshop is over.
+ * - 'closed' : the creator's optional "registration closes" time has passed.
+ * - 'open'   : otherwise, including after the start time while it is still running.
+ * An unreadable date never blocks registration (it stays 'open').
+ */
+export function getWorkshopRegistrationState(
+  w: { date_time: string; duration_minutes?: number | null; registration_closes_at?: string | null },
+  now: Date = new Date()
+): WorkshopRegistrationState {
+  const ends = workshopEndsAt(w.date_time, w.duration_minutes).getTime()
+  if (Number.isFinite(ends) && now.getTime() >= ends) return 'ended'
+  if (w.registration_closes_at) {
+    const closes = new Date(w.registration_closes_at).getTime()
+    if (Number.isFinite(closes) && now.getTime() >= closes) return 'closed'
+  }
+  return 'open'
+}
+
+/** Message for a visitor (page) or an API response. */
+export function registrationClosedMessage(state: Exclude<WorkshopRegistrationState, 'open'>): string {
+  return state === 'ended' ? 'This workshop has ended.' : 'Registration for this workshop is closed.'
+}

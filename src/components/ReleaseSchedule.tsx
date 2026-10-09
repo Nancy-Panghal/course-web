@@ -170,6 +170,8 @@ export function ModuleReleaseControl({
   const [daysDraft, setDaysDraft] = useState(unlockAfterDays == null ? '' : String(unlockAfterDays))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Pending confirmation: non-null when saving would re-lock an already-open module.
+  const [pendingIso, setPendingIso] = useState<string | null>(null)
 
   useEffect(() => {
     const p = istPartsFromIso(unlockDate)
@@ -188,33 +190,52 @@ export function ModuleReleaseControl({
   const daysDirty = daysDraft !== (unlockAfterDays == null ? '' : String(unlockAfterDays))
   const dirty = mode === 'fixed_calendar' ? dateDirty : daysDirty
 
-  async function handleSave() {
-    setError('')
-    let patch: { unlock_date?: string | null; unlock_after_days?: number | null }
+  // Whether this module is currently open to students right now.
+  const isCurrentlyOpen =
+    mode === 'fixed_calendar' && !!unlockDate && new Date(unlockDate).getTime() <= Date.now()
 
-    if (mode === 'fixed_calendar') {
-      if (dateDraft === '') {
-        patch = { unlock_date: null }
-      } else {
-        const iso = istPartsToIso(dateDraft, timeDraft || fallbackTime)
-        if (!iso) { setError('Pick a valid date and time.'); return }
-        patch = { unlock_date: iso }
-      }
-    } else {
-      if (daysDraft.trim() === '') {
-        patch = { unlock_after_days: null }
-      } else {
-        const n = Number(daysDraft)
-        if (!Number.isInteger(n) || n < 0 || n > 3650) { setError('Enter a whole number of days, 0 or more.'); return }
-        patch = { unlock_after_days: n }
-      }
-    }
-
+  async function commit(iso: string | null, days?: number | null) {
     setSaving(true)
+    setError('')
+    const patch: { unlock_date?: string | null; unlock_after_days?: number | null } =
+      mode === 'fixed_calendar'
+        ? { unlock_date: iso }
+        : { unlock_after_days: days ?? null }
     const { error: updateError } = await supabase.from('course_modules').update(patch).eq('id', moduleId)
     setSaving(false)
     if (updateError) { setError(updateError.message); return }
     onSaved()
+  }
+
+  async function handleSave() {
+    setError('')
+    setPendingIso(null)
+
+    if (mode === 'fixed_calendar') {
+      if (dateDraft === '') {
+        // Clearing a date on an already-open module: confirm re-lock (actually unschedules
+        // it, which makes it open to everyone — so clearing is safe, no warning needed).
+        await commit(null)
+        return
+      }
+      const iso = istPartsToIso(dateDraft, timeDraft || fallbackTime)
+      if (!iso) { setError('Pick a valid date and time.'); return }
+      // If the module is currently open and the new date is in the future, this will
+      // re-lock it for students who already have access — confirm before saving.
+      if (isCurrentlyOpen && new Date(iso).getTime() > Date.now()) {
+        setPendingIso(iso)
+        return
+      }
+      await commit(iso)
+    } else {
+      if (daysDraft.trim() === '') {
+        await commit(null, null)
+        return
+      }
+      const n = Number(daysDraft)
+      if (!Number.isInteger(n) || n < 0 || n > 3650) { setError('Enter a whole number of days, 0 or more.'); return }
+      await commit(null, n)
+    }
   }
 
   const unscheduled = mode === 'fixed_calendar' ? !savedParts : unlockAfterDays == null
@@ -223,6 +244,29 @@ export function ModuleReleaseControl({
   return (
     <div className="mb-3 rounded-xl p-3"
       style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+
+      {/* Already-open re-lock confirmation — same style as the calendar's confirm dialog */}
+      {pendingIso && (
+        <div role="alertdialog" className="mb-3 rounded-xl p-3"
+          style={{ background: 'rgba(250,204,21,0.08)', border: '1px solid rgba(250,204,21,0.25)' }}>
+          <p className="text-xs" style={{ color: '#fde047' }}>
+            This module is already open to students. Setting a future date will lock it again, including for students who have already started it. Are you sure?
+          </p>
+          <div className="flex gap-2 mt-2">
+            <button type="button"
+              onClick={() => { const iso = pendingIso; setPendingIso(null); void commit(iso) }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white violet-gradient hover:opacity-90">
+              Yes, re-lock it
+            </button>
+            <button type="button" onClick={() => setPendingIso(null)}
+              className="px-3 py-1.5 rounded-lg text-xs"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-white">
           {mode === 'fixed_calendar' ? '📅 Unlocks on' : '💧 Unlocks'}
@@ -230,9 +274,9 @@ export function ModuleReleaseControl({
 
         {mode === 'fixed_calendar' ? (
           <>
-            <input type="date" value={dateDraft} onChange={e => setDateDraft(e.target.value)}
+            <input type="date" value={dateDraft} onChange={e => { setDateDraft(e.target.value); setPendingIso(null) }}
               className="px-2.5 py-1.5 rounded-lg text-xs text-white outline-none" style={inputStyle} />
-            <input type="time" value={timeDraft} onChange={e => setTimeDraft(e.target.value)}
+            <input type="time" value={timeDraft} onChange={e => { setTimeDraft(e.target.value); setPendingIso(null) }}
               disabled={dateDraft === ''}
               className="px-2.5 py-1.5 rounded-lg text-xs text-white outline-none disabled:opacity-50" style={inputStyle} />
             <span className="text-xs" style={{ color: 'var(--kurso-hint)' }}>IST</span>
@@ -246,7 +290,7 @@ export function ModuleReleaseControl({
           </>
         )}
 
-        {dirty && (
+        {dirty && !pendingIso && (
           <button type="button" onClick={handleSave} disabled={saving}
             className="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium text-white violet-gradient hover:opacity-90 disabled:opacity-50">
             {saving ? 'Saving...' : 'Save'}

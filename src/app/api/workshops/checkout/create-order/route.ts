@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getCreatorCheckoutGateway, createCheckoutOrder, CheckoutOrderError } from '@/lib/gateway-checkout'
 import { friendlyErrorResponse } from '@/lib/payment-errors'
 import { normalizePhone } from '@/lib/phone'
-import { countHeldSpots } from '@/lib/workshops'
+import { countHeldSpots, getWorkshopRegistrationState, registrationClosedMessage } from '@/lib/workshops'
 import { resolveReferralCodeId } from '@/lib/referrals'
 import { scheduleWorkshopMetaEvent, getMetaRequestContext, leadEventId } from '@/lib/workshop-meta-events'
 
@@ -33,12 +33,17 @@ export async function POST(req: NextRequest) {
 
     const { data: workshop, error: workshopError } = await supabase
       .from('workshops')
-      .select('id, title, slug, price, capacity, status, creator_id')
+      .select('id, title, slug, price, capacity, status, creator_id, date_time, duration_minutes, registration_closes_at')
       .eq('id', workshopId)
       .maybeSingle()
     if (workshopError) throw workshopError
     if (!workshop || workshop.status !== 'published') {
       return NextResponse.json({ error: 'This workshop is not open for registration' }, { status: 404 })
+    }
+    const registrationState = getWorkshopRegistrationState(workshop)
+    if (registrationState !== 'open') {
+      console.warn('[workshop create-order] blocked, registration', registrationState, 'for workshop', workshopId)
+      return NextResponse.json({ error: registrationClosedMessage(registrationState) }, { status: 409 })
     }
 
     const amount = Number(workshop.price)

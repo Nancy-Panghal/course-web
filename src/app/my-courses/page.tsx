@@ -511,9 +511,20 @@ export default function MyCoursesPage() {
               <p style={{ fontSize: 13, color: '#71717a', margin: 0 }}>{displayEmail}</p>
             </div>
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '16px 0 4px' }}>
-            My Learning
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', margin: '16px 0 4px' }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: 0 }}>
+              My Learning
+            </h1>
+            <Link href="/my-schedule" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, fontWeight: 700, color: 'var(--kurso-primary-lighter)',
+              textDecoration: 'none', padding: '5px 12px', borderRadius: 8,
+              background: 'rgba(var(--kurso-primary-rgb), 0.1)',
+              border: '1px solid rgba(var(--kurso-primary-rgb), 0.2)',
+            }}>
+              📅 My Schedule
+            </Link>
+          </div>
           <p style={{ fontSize: 13, color: '#52525b', margin: 0 }}>
             {loading
               ? 'Loading your courses…'

@@ -18,7 +18,22 @@ interface Props {
 type Step = 'form' | 'pay' | 'checking' | 'success' | 'pending'
 type PayMethod = 'gateway' | 'upi_manual'
 
-const inputStyle = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }
+// Colors come from CSS variables the public workshop page sets from the creator's
+// theme (--ws-*), so this form reads correctly on dark AND light themes. The
+// fallbacks are the original dark-page values, used if the form is ever rendered
+// without that wrapper. Helper text is never dimmer than --ws-muted.
+const inputStyle = {
+  background: 'var(--ws-field-bg, rgba(255,255,255,0.05))',
+  border: '1px solid var(--ws-field-border, rgba(255,255,255,0.1))',
+  color: 'var(--ws-text, #ffffff)',
+}
+const NOTICE_STYLE = { background: 'var(--ws-field-bg, rgba(255,255,255,0.05))', color: 'var(--ws-secondary, #d4d4d8)' }
+const SECONDARY_BTN_STYLE = { background: 'var(--ws-field-bg, rgba(255,255,255,0.06))', color: 'var(--ws-text, #e4e4e7)', border: '1px solid var(--ws-field-border, rgba(255,255,255,0.1))' }
+const SUCCESS_STYLE = { background: 'var(--ws-success-bg, rgba(74,222,128,0.1))', color: 'var(--ws-success, #4ade80)', border: '1px solid var(--ws-success-border, rgba(74,222,128,0.2))' }
+const TEXT = { color: 'var(--ws-text, #ffffff)' }
+const SECONDARY = { color: 'var(--ws-secondary, #d4d4d8)' }
+const MUTED = { color: 'var(--ws-muted, #a1a1aa)' }
+const DANGER = { color: 'var(--ws-danger, #ef4444)' }
 
 export default function WorkshopRegisterForm({
   workshopId, workshopTitle, price, isFull, upiId, upiDisplayName, gatewayEnabled, telegramBotUsername,
@@ -211,7 +226,7 @@ export default function WorkshopRegisterForm({
       href={`https://t.me/${telegramBotUsername.replace('@', '')}?start=ws_${telegramToken}`}
       target="_blank" rel="noopener noreferrer"
       className="block w-full text-center mt-3 py-3 rounded-xl text-sm font-semibold"
-      style={{ background: 'rgba(255,255,255,0.06)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}
+      style={SECONDARY_BTN_STYLE}
     >
       Get updates on Telegram too
     </a>
@@ -219,7 +234,7 @@ export default function WorkshopRegisterForm({
 
   if (isFull && step === 'form') {
     return (
-      <div className="p-4 rounded-xl text-sm text-center" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+      <div className="p-4 rounded-xl text-sm text-center" style={NOTICE_STYLE}>
         This workshop is fully booked.
       </div>
     )
@@ -227,7 +242,7 @@ export default function WorkshopRegisterForm({
 
   if (noPaymentAvailable && step === 'form') {
     return (
-      <div className="p-4 rounded-xl text-sm text-center" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+      <div className="p-4 rounded-xl text-sm text-center" style={NOTICE_STYLE}>
         The creator hasn't set up payments for this workshop yet. Please contact them directly.
       </div>
     )
@@ -235,7 +250,7 @@ export default function WorkshopRegisterForm({
 
   if (step === 'checking') {
     return (
-      <div className="p-4 rounded-xl text-sm text-center" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+      <div className="p-4 rounded-xl text-sm text-center" style={NOTICE_STYLE}>
         Confirming your payment…
       </div>
     )
@@ -244,24 +259,24 @@ export default function WorkshopRegisterForm({
   if (step === 'success') {
     return (
       <div>
-        <div className="p-4 rounded-xl text-sm text-center" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}>
+        <div className="p-4 rounded-xl text-sm text-center" style={SUCCESS_STYLE}>
           You're registered! We've sent the Zoom link to your WhatsApp.
         </div>
         {telegramCta}
         {referralLink && (
-          <div className="mt-4 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <p className="text-sm font-semibold text-white mb-1">Know someone who'd love this?</p>
-            <p className="text-xs mb-3" style={{ color: '#a1a1aa' }}>Share your personal link — friends who join through it are credited to you.</p>
-            <p className="text-xs break-all mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', color: '#d4d4d8' }}>{referralLink}</p>
+          <div className="mt-4 p-4 rounded-xl" style={{ background: 'var(--ws-field-bg, rgba(255,255,255,0.04))', border: '1px solid var(--ws-field-border, rgba(255,255,255,0.08))' }}>
+            <p className="text-sm font-semibold mb-1" style={TEXT}>Know someone who'd love this?</p>
+            <p className="text-[13px] mb-3" style={MUTED}>Share your personal link — friends who join through it are credited to you.</p>
+            <p className="text-[13px] break-all mb-3 px-3 py-2 rounded-lg" style={NOTICE_STYLE}>{referralLink}</p>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={copyReferralLink}
-                className="py-2.5 rounded-xl text-xs font-semibold"
-                style={{ background: 'rgba(255,255,255,0.06)', color: '#e4e4e7', border: '1px solid rgba(255,255,255,0.1)' }}>
+                className="py-2.5 rounded-xl text-[13px] font-semibold"
+                style={SECONDARY_BTN_STYLE}>
                 {linkCopied ? 'Copied ✓' : 'Copy link'}
               </button>
               <a href={`https://wa.me/?text=${encodeURIComponent(`Join me at ${workshopTitle}: ${referralLink}`)}`}
                 target="_blank" rel="noopener noreferrer"
-                className="py-2.5 rounded-xl text-xs font-semibold text-center text-white violet-gradient hover:opacity-90">
+                className="py-2.5 rounded-xl text-[13px] font-semibold text-center text-white violet-gradient hover:opacity-90">
                 Share on WhatsApp
               </a>
             </div>
@@ -274,7 +289,7 @@ export default function WorkshopRegisterForm({
   if (step === 'pending') {
     return (
       <div>
-        <div className="p-4 rounded-xl text-sm text-center" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
+        <div className="p-4 rounded-xl text-sm text-center" style={NOTICE_STYLE}>
           Got it — we'll confirm your spot on WhatsApp once your payment is verified.
         </div>
         {telegramCta}
@@ -289,34 +304,34 @@ export default function WorkshopRegisterForm({
     return (
       <form onSubmit={handleUtrSubmit} className="space-y-4">
         <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(var(--kurso-primary-rgb), 0.08)', border: '1px solid rgba(var(--kurso-primary-rgb), 0.15)' }}>
-          <p className="text-white font-semibold mb-1">Pay ₹{price.toLocaleString()} via UPI</p>
+          <p className="font-semibold mb-1" style={TEXT}>Pay ₹{price.toLocaleString()} via UPI</p>
           {upiId ? (
             <>
-              <p className="text-xs mb-3" style={{ color: '#a1a1aa' }}>
-                UPI ID: <span className="text-white">{upiId}</span> ({upiDisplayName})
+              <p className="text-[13px] mb-3" style={MUTED}>
+                UPI ID: <span style={TEXT}>{upiId}</span> ({upiDisplayName})
               </p>
               <a href={upiLink} className="block w-full text-center py-3 rounded-xl text-sm font-semibold text-white violet-gradient hover:opacity-90">
                 Pay with UPI app
               </a>
             </>
           ) : (
-            <p className="text-xs" style={{ color: '#ef4444' }}>
+            <p className="text-[13px]" style={DANGER}>
               This creator hasn't set up UPI payments yet. Please contact them directly.
             </p>
           )}
         </div>
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: '#a1a1aa' }}>
+          <label className="block text-[13px] mb-1.5" style={SECONDARY}>
             After paying, enter your UPI transaction reference (UTR)
           </label>
           <input
             value={utr} onChange={e => setUtr(e.target.value)}
             placeholder="12-digit UTR / reference number"
-            className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+            className="ws-field w-full px-4 py-3 rounded-xl text-sm outline-none"
             style={inputStyle}
           />
         </div>
-        {error && <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>}
+        {error && <p className="text-[13px]" role="alert" style={DANGER}>{error}</p>}
         <button type="submit" disabled={loading}
           className="w-full py-3.5 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
           {loading ? 'Saving…' : 'Submit reference'}
@@ -330,24 +345,24 @@ export default function WorkshopRegisterForm({
       <input
         value={name} onChange={e => setName(e.target.value)} required
         placeholder="Full name"
-        className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={inputStyle}
+        className="ws-field w-full px-4 py-3 rounded-xl text-sm outline-none" style={inputStyle}
       />
       <input
         value={email} onChange={e => setEmail(e.target.value)} type="email"
         placeholder={!isFree && method === 'gateway' ? 'Email (required for online payment)' : 'Email (optional)'}
-        className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={inputStyle}
+        className="ws-field w-full px-4 py-3 rounded-xl text-sm outline-none" style={inputStyle}
       />
-      <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-        <span className="flex items-center px-3 text-sm font-semibold" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>+91</span>
+      <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--ws-field-border, rgba(255,255,255,0.1))' }}>
+        <span className="flex items-center px-3 text-sm font-semibold" style={NOTICE_STYLE}>+91</span>
         <input
           value={phone} onChange={e => setPhone(e.target.value)} required
           placeholder="WhatsApp number" inputMode="numeric" maxLength={10}
-          className="flex-1 px-4 py-3 text-sm text-white outline-none"
-          style={{ background: 'rgba(255,255,255,0.05)' }}
+          className="ws-field flex-1 px-4 py-3 text-sm outline-none"
+          style={{ background: 'var(--ws-field-bg, rgba(255,255,255,0.05))', ...TEXT }}
         />
       </div>
 
-      <p className="text-xs -mt-2" style={{ color: '#71717a' }}>
+      <p className="text-[13px] -mt-2" style={MUTED}>
         We'll message this number on WhatsApp about your registration{!isFree ? ', including payment reminders' : ''}.
       </p>
 
@@ -361,18 +376,18 @@ export default function WorkshopRegisterForm({
               key={value} type="button" onClick={() => setMethod(value)}
               className="p-3 rounded-xl text-left"
               style={{
-                background: method === value ? 'rgba(var(--kurso-primary-rgb), 0.12)' : 'rgba(255,255,255,0.04)',
-                border: method === value ? '1px solid rgba(var(--kurso-primary-rgb), 0.4)' : '1px solid rgba(255,255,255,0.08)',
+                background: method === value ? 'rgba(var(--kurso-primary-rgb), 0.12)' : 'var(--ws-field-bg, rgba(255,255,255,0.04))',
+                border: method === value ? '1px solid rgba(var(--kurso-primary-rgb), 0.4)' : '1px solid var(--ws-field-border, rgba(255,255,255,0.08))',
               }}
             >
-              <p className="text-sm font-semibold text-white">{label}</p>
-              <p className="text-xs" style={{ color: '#a1a1aa' }}>{hint}</p>
+              <p className="text-sm font-semibold" style={TEXT}>{label}</p>
+              <p className="text-[13px]" style={MUTED}>{hint}</p>
             </button>
           ))}
         </div>
       )}
 
-      {error && <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>}
+      {error && <p className="text-[13px]" role="alert" style={DANGER}>{error}</p>}
       <button type="submit" disabled={loading}
         className="w-full py-3.5 rounded-xl font-semibold text-white violet-gradient hover:opacity-90 disabled:opacity-50">
         {loading
