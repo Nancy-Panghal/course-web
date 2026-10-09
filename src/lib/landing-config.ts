@@ -251,7 +251,8 @@ const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
 /** Clean a creator-typed button label: plain text, one line, at most
  *  MAX_ENROLL_BUTTON_WORDS words and MAX_ENROLL_BUTTON_CHARS characters.
  *  Returns '' when nothing usable is left (meaning "use the default"). */
-function cleanButtonText(raw: unknown): string {
+// Exported so workshop-landing-config.ts can reuse it (no behavior change for courses).
+export function cleanButtonText(raw: unknown): string {
   const text = typeof raw === 'string' ? raw : ''
   return sanitizeCustomSectionText(text)
     .replace(/\n/g, ' ')
@@ -263,11 +264,13 @@ function cleanButtonText(raw: unknown): string {
     .trim()
 }
 
-function pickEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+// Exported so workshop-landing-config.ts can reuse it (no behavior change for courses).
+export function pickEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback
 }
 
-function normalizeCustomSection(item: Record<string, unknown>): LandingCustomSection {
+// Exported so workshop-landing-config.ts can reuse it (no behavior change for courses).
+export function normalizeCustomSection(item: Record<string, unknown>): LandingCustomSection {
   const backgroundColor = typeof item.backgroundColor === 'string' && HEX_COLOR_RE.test(item.backgroundColor) ? item.backgroundColor : '#000000'
   const images = Array.isArray(item.images)
     ? item.images.filter((v): v is string => typeof v === 'string' && /^https:\/\//.test(v)).slice(0, MAX_CUSTOM_SECTION_IMAGES)

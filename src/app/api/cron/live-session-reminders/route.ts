@@ -38,16 +38,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// WhatsApp only. Telegram live reminders (24h and 1h) are sent by the Telegram bot itself,
+// on its own 5-minute timer — it has no /internal/send-reminder endpoint, so calling it
+// from here only produced a 404 per student (and would double-send if one were ever added).
 async function sendViaBot(
-  channel: 'whatsapp' | 'telegram',
   phone: string,
   fields: { lessonTitle: string; courseName: string; timeLabel: string; joinUrl: string },
-) {
-  const baseUrl = channel === 'whatsapp' ? process.env.WHATSAPP_BOT_URL : process.env.TELEGRAM_BOT_URL
+): Promise<boolean> {
+  const baseUrl = process.env.WHATSAPP_BOT_URL
   const secret = process.env.INTERNAL_BOT_SECRET
   if (!baseUrl || !secret) {
-    console.warn(`[live-reminders] ${channel} bot URL/secret not configured, skipping send to ${phone}`)
-    return
+    console.warn(`[live-reminders] whatsapp bot URL/secret not configured, skipping send to ${phone}`)
+    return false
   }
   try {
     const res = await fetch(`${baseUrl}/internal/send-reminder`, {
@@ -56,10 +58,13 @@ async function sendViaBot(
       body: JSON.stringify({ phone, kind: '24h', ...fields }),
     })
     if (!res.ok) {
-      console.error(`[live-reminders] ${channel} bot rejected reminder for ${phone}:`, res.status, await res.text().catch(() => ''))
+      console.error(`[live-reminders] whatsapp bot rejected reminder for ${phone}:`, res.status, await res.text().catch(() => ''))
+      return false
     }
+    return true
   } catch (err) {
-    console.error(`[live-reminders] failed to send via ${channel}:`, err)
+    console.error('[live-reminders] failed to send via whatsapp:', err)
+    return false
   }
 }
 
@@ -86,9 +91,10 @@ export async function GET(req: NextRequest) {
       .lte('live_scheduled_at', windowEnd)
 
     if (lessonsError) throw lessonsError
-    if (!dueLessons?.length) return NextResponse.json({ ok: true, sent: 0 })
+    if (!dueLessons?.length) return NextResponse.json({ ok: true, sent: 0, failed: 0 })
 
     let sentCount = 0
+    let failedCount = 0
 
     for (const lesson of dueLessons) {
       const { data: students, error: studentsError } = await supabase
@@ -106,26 +112,28 @@ export async function GET(req: NextRequest) {
       const courseName = (lesson as any).courses?.name || 'your course'
       const fullDateLabel = new Date(lesson.live_scheduled_at).toLocaleString('en-IN', {
         weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+        // Vercel runs in UTC: without this a 10:00 AM IST class was announced as "4:30 am".
+        timeZone: 'Asia/Kolkata',
       })
 
       for (const s of students || []) {
         const channel = (s as any).students?.reminder_channel
-        if (channel !== 'whatsapp' && channel !== 'telegram') continue
+        if (channel !== 'whatsapp') continue // Telegram students are reminded by the Telegram bot itself
         if (!s.phone) continue
 
-        await sendViaBot(channel, s.phone, {
+        const ok = await sendViaBot(s.phone, {
           lessonTitle: lesson.title,
           courseName,
           timeLabel: fullDateLabel,
           joinUrl: lesson.live_join_url,
         })
-        sentCount++
+        ok ? sentCount++ : failedCount++
       }
 
       await supabase.from('lessons').update({ reminder_24h_sent_at: new Date().toISOString() }).eq('id', lesson.id)
     }
 
-    return NextResponse.json({ ok: true, sent: sentCount })
+    return NextResponse.json({ ok: true, sent: sentCount, failed: failedCount })
   } catch (err: any) {
     console.error('[live-reminders]', err)
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 })

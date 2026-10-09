@@ -187,3 +187,19 @@ export function renderNewLinkEmail(i: { studentName?: string | null; courseName:
     ),
   }
 }
+
+
+export function renderInactivityNudgeEmail(i: { studentName?: string | null; courseName: string; lessonTitle?: string | null; link: string }) {
+  const where = i.lessonTitle
+    ? `You were on <strong>${escapeHtml(i.lessonTitle)}</strong> in ${escapeHtml(i.courseName)}.`
+    : `<strong>${escapeHtml(i.courseName)}</strong> is waiting for you.`
+  return {
+    subject: `Pick up where you left off — ${i.courseName}`,
+    html: wrap(
+      `<p style="margin:0 0 12px">Hi ${escapeHtml(i.studentName || 'there')},</p>` +
+        `<p style="margin:0 0 16px">No rush at all — just leaving this here for whenever you're ready. ${where}</p>` +
+        button(i.link, 'Continue →') +
+        footer
+    ),
+  }
+}

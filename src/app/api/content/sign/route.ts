@@ -80,11 +80,14 @@ export async function POST(req: NextRequest) {
     let hasAccess = isFree
     // enrolled_at of every enrollment that actually proved access (used for the module release lock below)
     const enrolledAts: (string | null)[] = []
+    // ids of those same enrollments, so opening a lesson can count as activity
+    const enrollmentIds: string[] = []
 
     const webAccessOk = !!(webAccess && webAccess.courseId === lesson.course_id)
     if (webAccessOk) {
       hasAccess = true
       enrolledAts.push(webAccess?.enrollment?.enrolled_at ?? null)
+      if (webAccess?.enrollment?.id) enrollmentIds.push(webAccess.enrollment.id)
     }
 
     if (!hasAccess && userId !== 'web') {
@@ -116,6 +119,7 @@ export async function POST(req: NextRequest) {
       if (enrollment) {
         hasAccess = true
         enrolledAts.push(enrollment.enrolled_at ?? null)
+        if (enrollment.id) enrollmentIds.push(enrollment.id)
       }
     }
 
@@ -142,6 +146,18 @@ export async function POST(req: NextRequest) {
         )
       }
     }
+    // Opening a lesson counts as activity. Without this, a student who studies on the web
+    // (e.g. from an email link, with no Telegram chat) only refreshes last_accessed when they
+    // tick a lesson done, and the inactivity nudge would wrongly treat them as gone quiet.
+    // Runs after the lock check (blocked attempts don't count); fire and forget.
+    if (enrollmentIds.length > 0) {
+      void supabase
+        .from('enrollments')
+        .update({ last_accessed: new Date().toISOString() })
+        .in('id', enrollmentIds)
+        .then(() => {}, () => {})
+    }
+
     // Log access for piracy detection (web path)
     // Fire and forget — never block content delivery for logging
     void supabase.from('lesson_access_logs').insert({

@@ -10,6 +10,7 @@ import CountdownEndPicker from '@/components/CountdownEndPicker'
 import CoInstructorsEditor, { type CoInstructor } from '@/components/CoInstructorsEditor'
 import DeliveryMethodPicker from '@/components/DeliveryMethodPicker'
 import { ReleaseScheduleCard, ModuleReleaseControl } from '@/components/ReleaseSchedule'
+import ReleaseCalendar from '@/components/ReleaseCalendar'
 import { normalizeDeliveryMode, normalizeUnlockTime, type DeliveryMode } from '@/lib/releaseSchedule'
 import SocialLinksEditor from '@/components/SocialLinksEditor'
 import { parseSocialLinks, getSocialLinksErrors, cleanSocialLinks, type SocialLink } from '@/lib/social-links'
@@ -3775,6 +3776,23 @@ export default function CourseManagePage({
                   />
                 )}
 
+                {/* Release calendar: shared month grid (fixed dates) or per-student timeline (drip) */}
+                {course && (
+                  <ReleaseCalendar
+                    mode={normalizeDeliveryMode(course.delivery_mode)}
+                    unlockTime={normalizeUnlockTime(course.delivery_unlock_time)}
+                    modules={modules}
+                    onSaved={fetchModules}
+                    onJumpToModule={moduleId => {
+                      const el = document.getElementById(`module-${moduleId}`)
+                      if (!el) return
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      el.style.outline = '2px solid var(--kurso-primary)'
+                      setTimeout(() => { el.style.outline = '' }, 1600)
+                    }}
+                  />
+                )}
+
                 {/* Lesson list */}
                 {lessons.length === 0 && modules.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center glass"
@@ -3794,7 +3812,7 @@ export default function CourseManagePage({
                     {modules.map(module => {
                       const moduleLessons = lessons.filter(lesson => lesson.module_id === module.id)
                       return (
-                        <div key={module.id} className="rounded-2xl p-4 transition-all"
+                        <div key={module.id} id={`module-${module.id}`} className="rounded-2xl p-4 transition-all"
                           style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div className="flex items-center justify-between mb-3 gap-3">
                             <div className="flex-1 min-w-0">

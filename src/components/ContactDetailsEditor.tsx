@@ -18,7 +18,7 @@ import {
 } from '@/lib/contact-details'
 
 const INPUT_CLASS =
-  'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[var(--kurso-primary)]'
+  'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-400 focus:border-[var(--kurso-primary)]'
 
 const CONFIG: Record<ContactType, {
   heading: string

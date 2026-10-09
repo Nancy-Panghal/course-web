@@ -51,6 +51,17 @@ const FONT_PAIR_MAP: Record<Exclude<FontPairId, 'theme-default'>, FontPairOverri
   },
 }
 
+/** Labels shown in the font picker, in display order. Shared so every designer
+ *  (course and workshop) offers exactly the same choices. */
+export const FONT_PAIR_OPTIONS: { id: FontPairId; label: string; desc: string }[] = [
+  { id: 'theme-default', label: 'Theme Default', desc: 'Uses the font included with your theme' },
+  { id: 'playfair-dm', label: 'Playfair · DM Sans', desc: 'Elegant serif + clean modern sans' },
+  { id: 'fraunces-inter', label: 'Fraunces · Inter', desc: 'Editorial serif + versatile sans' },
+  { id: 'space-inter', label: 'Space Grotesk · Inter', desc: 'Techy geometric headings' },
+  { id: 'outfit-inter', label: 'Outfit · Inter', desc: 'Friendly rounded headings' },
+  { id: 'dm-inter', label: 'DM Serif · Inter', desc: 'Compact serif + crisp body' },
+]
+
 /**
  * Returns the font override for a given font pair ID.
  * Returns null when 'theme-default' is selected (meaning use the theme's own fonts).

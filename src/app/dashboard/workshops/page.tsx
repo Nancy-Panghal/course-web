@@ -1,10 +1,11 @@
 // src/app/dashboard/workshops/page.tsx
 'use client'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import { supabase } from '@/lib/supabase'
-import { slugify } from '@/lib/utils'
-import { Plus, Calendar, Users, Check, ExternalLink } from 'lucide-react'
+import { Plus, Calendar, Users, Check, ExternalLink, Pencil } from 'lucide-react'
+import { formatWorkshopDateTime, workshopStatusLabel } from '@/lib/workshops'
 
 interface Workshop {
   id: string
@@ -57,16 +58,7 @@ export default function WorkshopsPage() {
   const [metaBusy, setMetaBusy] = useState<'save' | 'remove' | 'retry' | null>(null)
   const [metaMessage, setMetaMessage] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
 
-  // Create form
-  const [showCreate, setShowCreate] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState('')
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [dateTime, setDateTime] = useState('')
-  const [price, setPrice] = useState('0')
-  const [capacity, setCapacity] = useState('')
-  const [zoomLink, setZoomLink] = useState('')
+  // Creating a workshop now happens on /dashboard/workshops/create
 
   // Expanded registrations per workshop
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -244,45 +236,6 @@ export default function WorkshopsPage() {
   }
 
  
-  async function handleCreate(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setCreateError('')
-    if (!title.trim() || !dateTime) {
-      setCreateError('Title and date/time are required')
-      return
-    }
-    setCreating(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setCreating(false); return }
-
-    const baseSlug = slugify(title)
-    const { data: existingSlug } = await supabase
-      .from('workshops')
-      .select('id')
-      .eq('creator_id', user.id)
-      .eq('slug', baseSlug)
-      .maybeSingle()
-    const finalSlug = existingSlug ? `${baseSlug}-${Date.now()}` : baseSlug
-
-    const { error } = await supabase.from('workshops').insert({
-      creator_id: user.id,
-      title: title.trim(),
-      slug: finalSlug,
-      description: description.trim() || null,
-      date_time: new Date(dateTime).toISOString(),
-      price: parseInt(price) || 0,
-      capacity: capacity ? parseInt(capacity) : null,
-      zoom_link: zoomLink.trim() || null,
-      status: 'published',
-    })
-
-    setCreating(false)
-    if (error) { setCreateError(error.message); return }
-
-    setTitle(''); setDescription(''); setDateTime(''); setPrice('0'); setCapacity(''); setZoomLink('')
-    setShowCreate(false)
-    load()
-  }
 
   async function toggleExpand(workshopId: string) {
     if (expanded === workshopId) { setExpanded(null); return }
@@ -329,17 +282,17 @@ export default function WorkshopsPage() {
               {workshops.length} workshop{workshops.length !== 1 ? 's' : ''} created
             </p>
           </div>
-          <button onClick={() => setShowCreate(v => !v)}
+          <Link href="/dashboard/workshops/create"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 glow">
             <Plus className="w-4 h-4" />
             New Workshop
-          </button>
+          </Link>
         </div>
 
         {/* UPI settings */}
         <div className="rounded-2xl p-5 mb-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
           <h3 className="text-sm font-semibold text-white mb-3">UPI payout details</h3>
-          <p className="text-xs mb-3" style={{ color: '#71717a' }}>
+          <p className="text-xs mb-3" style={{ color: 'var(--kurso-text-muted)' }}>
             Used to show students where to pay for paid workshops. This isn't a payment gateway — students pay you
             directly and you confirm manually once you see it land.
           </p>
@@ -367,7 +320,7 @@ export default function WorkshopsPage() {
         {/* Meta Pixel + Conversions API */}
         <div className="rounded-2xl p-5 mb-6 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
           <h3 className="text-sm font-semibold text-white">Meta Pixel &amp; Conversions API</h3>
-          <p className="text-xs mt-1 mb-3" style={{ color: '#71717a' }}>
+          <p className="text-xs mt-1 mb-3" style={{ color: 'var(--kurso-text-muted)' }}>
             Tracks registrations (Lead) and confirmed payments (Purchase) for your Facebook/Instagram ads. Only your workshop
             pages are tracked. The pixel alone gives you Leads from the browser; add the access token to also send server-side
             events, including Purchase.
@@ -437,7 +390,7 @@ export default function WorkshopsPage() {
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
               <h3 className="text-sm font-semibold text-white">Payment reminders</h3>
-              <p className="text-xs mt-1" style={{ color: '#71717a' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--kurso-text-muted)' }}>
                 Sends up to 2 WhatsApp reminders (about 2 hours and 24 hours after they register) to people who signed up
                 for a paid workshop but haven't paid. Only sent between 9am and 9pm IST, and never to someone who has
                 already submitted a UTR. Applies to registrations made after you switch this on.
@@ -458,7 +411,7 @@ export default function WorkshopsPage() {
             className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none mb-1"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
           />
-          <p className="text-xs mb-3" style={{ color: '#52525b' }}>
+          <p className="text-xs mb-3" style={{ color: 'var(--kurso-text-muted)' }}>
             The rest of the message wording is fixed (WhatsApp requires pre-approved templates). {nudgeNote.length}/120
           </p>
           <button onClick={handleSaveNudge} disabled={nudgeSaving}
@@ -468,36 +421,7 @@ export default function WorkshopsPage() {
           </button>
         </div>
 
-        {/* Create form */}
-        {showCreate && (
-          <form onSubmit={handleCreate} className="rounded-2xl p-5 mb-6 glass space-y-3" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Workshop title" required
-              className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)" rows={2}
-              className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none resize-none"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input type="datetime-local" value={dateTime} onChange={e => setDateTime(e.target.value)} required
-                className="px-4 py-2.5 rounded-xl text-sm text-white outline-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-              <input type="number" min={0} value={price} onChange={e => setPrice(e.target.value)} placeholder="Price (₹, 0 = free)"
-                className="px-4 py-2.5 rounded-xl text-sm text-white outline-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-              <input type="number" min={1} value={capacity} onChange={e => setCapacity(e.target.value)} placeholder="Capacity (optional)"
-                className="px-4 py-2.5 rounded-xl text-sm text-white outline-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            </div>
-            <input value={zoomLink} onChange={e => setZoomLink(e.target.value)} placeholder="Zoom link"
-              className="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            {createError && <p className="text-xs" style={{ color: '#ef4444' }}>{createError}</p>}
-            <button type="submit" disabled={creating}
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-white violet-gradient hover:opacity-90 disabled:opacity-50">
-              {creating ? 'Creating…' : 'Publish workshop'}
-            </button>
-          </form>
-        )}
+
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
@@ -518,15 +442,26 @@ export default function WorkshopsPage() {
                 <div key={w.id} className="rounded-2xl p-5 glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
-                      <h3 className="font-semibold text-white">{w.title}</h3>
+                      <h3 className="font-semibold text-white">
+                        {w.title}
+                        {w.status !== 'published' && (
+                          <span className="ml-2 align-middle text-[12px] font-medium px-2 py-0.5 rounded-full"
+                            style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--kurso-text-secondary)' }}>{workshopStatusLabel(w.status)}</span>
+                        )}
+                      </h3>
                       <p className="text-xs mt-1" style={{ color: '#a1a1aa' }}>
-                        {new Date(w.date_time).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                        {formatWorkshopDateTime(w.date_time)} IST
                         {' · '}{w.price > 0 ? `₹${w.price}` : 'Free'}
                         {w.capacity != null ? ` · cap ${w.capacity}` : ''}
                         {referralCounts[w.id] ? ` · ${referralCounts[w.id]} referred by students` : ''}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={`/dashboard/workshops/${w.id}`}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
+                        style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--kurso-text-secondary)' }}>
+                        <Pencil className="w-3.5 h-3.5" /> Edit
+                      </Link>
                       <a href={registerUrl} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: '#a1a1aa' }}>
                         <ExternalLink className="w-3.5 h-3.5" /> View page
@@ -542,7 +477,7 @@ export default function WorkshopsPage() {
                   {expanded === w.id && (
                     <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                       {(registrations[w.id] || []).length === 0 ? (
-                        <p className="text-xs" style={{ color: '#52525b' }}>No registrations yet.</p>
+                        <p className="text-xs" style={{ color: 'var(--kurso-text-muted)' }}>No registrations yet.</p>
                       ) : (
                         <div className="space-y-2">
                           {(registrations[w.id] || []).map(r => (
@@ -550,7 +485,7 @@ export default function WorkshopsPage() {
                               style={{ background: 'rgba(255,255,255,0.03)' }}>
                               <div className="min-w-0">
                                 <p className="text-sm text-white truncate">{r.name} · {r.phone}</p>
-                                <p className="text-xs" style={{ color: '#71717a' }}>
+                                <p className="text-xs" style={{ color: 'var(--kurso-text-muted)' }}>
                                   {r.payment_mode}{r.utr_reference ? ` · UTR ${r.utr_reference}` : ''}{r.amount_paid ? ` · ₹${r.amount_paid} paid online` : ''}{referredBy[r.id] ? ` · referred by ${referredBy[r.id]}` : ''}
                                 </p>
                               </div>
