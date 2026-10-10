@@ -92,7 +92,7 @@ const TESTIMONIAL_IMAGE = { maxBytes: 5 * 1024 * 1024, allowedTypes: ['image/jpe
 
 const EMPTY_FORM: WorkshopForm = {
   title: '', tagline: '', description: '',
-  date: '', time: '', duration: '60',
+  date: '', time: '', duration: '60', closesDate: '', closesTime: '',
   pricing: 'free', price: '', originalPrice: '', capacity: '',
   hostName: '', hostTitle: '', zoomLink: '', takeaways: [''],
   hostImage: '', aboutHost: '', coHosts: [], audience: [''], bring: [''], agenda: [], faq: [],
@@ -112,9 +112,10 @@ const strList = (v: unknown): string[] => {
 /** Database row -> form state. Tolerant of null / missing columns. */
 function rowToForm(row: any): WorkshopForm {
   const { date, time } = row.date_time ? isoToISTParts(row.date_time) : { date: '', time: '' }
+  const closes = row.registration_closes_at ? isoToISTParts(row.registration_closes_at) : { date: '', time: '' }
   return {
     title: str(row.title), tagline: str(row.tagline), description: str(row.description),
-    date, time,
+    date, time, closesDate: closes.date, closesTime: closes.time,
     // Older workshops have no duration: show 60 min. It is saved on the next Save.
     duration: String(row.duration_minutes || 60),
     pricing: row.price > 0 ? 'paid' : 'free',
@@ -241,7 +242,8 @@ export default function WorkshopSettingsPage({ params }: { params: Promise<{ id:
     setError('')
 
     const dateTimeChanged = form.date !== savedForm.date || form.time !== savedForm.time
-    const fields = validateWorkshopFields(form, { requireFutureStart: dateTimeChanged, minSeats: heldSpots })
+    const closesChanged = form.closesDate !== savedForm.closesDate || form.closesTime !== savedForm.closesTime
+    const fields = validateWorkshopFields(form, { requireFutureStart: dateTimeChanged, minSeats: heldSpots, requireFutureClose: closesChanged })
     if (!fields.ok) { setError(fields.error); setTab(fields.section); return }
     const content = validateWorkshopContent(form)
     if (!content.ok) { setError(content.error); setTab(content.section); return }
@@ -486,6 +488,19 @@ export default function WorkshopSettingsPage({ params }: { params: Promise<{ id:
                   </p>
                 </div>
               )}
+
+              <FormField label="Registration closes" tag="optional"
+                hint="Leave empty to keep registration open until the workshop ends. After this time the page shows “Registration is closed”.">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-center">
+                  <TextInput aria-label="Registration closes, date" type="date" value={form.closesDate ?? ''} onChange={v => set('closesDate', v)} placeholder="" />
+                  <TextInput aria-label="Registration closes, time (IST)" type="time" value={form.closesTime ?? ''} onChange={v => set('closesTime', v)} placeholder="" />
+                  {(form.closesDate || form.closesTime) && (
+                    <button type="button" className="text-sm underline text-left"
+                      style={{ color: 'var(--kurso-text-secondary)' }}
+                      onClick={() => { set('closesDate', ''); set('closesTime', '') }}>Clear</button>
+                  )}
+                </div>
+              </FormField>
 
               <FormField label="Price" required>
                 <SegmentedControl ariaLabel="Free or paid" value={form.pricing} onChange={v => set('pricing', v)}

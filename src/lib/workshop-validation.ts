@@ -73,6 +73,9 @@ export type WorkshopFormValues = {
   hostTitle: string
   zoomLink: string
   takeaways: string[]
+  /** Optional "registration closes" (IST). Leave both out to not touch the column (create page). */
+  closesDate?: string
+  closesTime?: string
 }
 
 /** Exactly the workshops columns these fields write. */
@@ -89,6 +92,8 @@ export type WorkshopFieldsPatch = {
   host_name: string
   instructor_title: string | null
   what_you_will_learn: string[]
+  /** Only present when the form had the "registration closes" fields. */
+  registration_closes_at?: string | null
 }
 
 export function validateWorkshopFields(
@@ -99,6 +104,8 @@ export function validateWorkshopFields(
     requireFutureStart: boolean
     /** Seats can't be set below the number of spots already taken. */
     minSeats?: number
+    /** Reject a "registration closes" time that has already passed (true when it was just changed). */
+    requireFutureClose?: boolean
   }
 ): ValidationResult<WorkshopFieldsPatch> {
   const fail = (error: string, section: WorkshopSection = 'details'): ValidationResult<WorkshopFieldsPatch> =>
@@ -145,6 +152,26 @@ export function validateWorkshopFields(
   const zoom = v.zoomLink.trim()
   if (zoom && !isHttpUrl(zoom)) return fail('The joining link must start with https:// (Zoom, Google Meet, etc.).')
 
+  // Optional: when registration stops. Both parts or neither; must be before the workshop ends.
+  let closesAt: string | null | undefined
+  if (v.closesDate !== undefined || v.closesTime !== undefined) {
+    const closesDate = (v.closesDate || '').trim()
+    const closesTime = (v.closesTime || '').trim()
+    if (!closesDate && !closesTime) {
+      closesAt = null
+    } else {
+      if (!closesDate || !closesTime) return fail('Set both the date and the time for when registration closes, or clear both.')
+      const iso = istDateTimeToISO(closesDate, closesTime)
+      if (!iso) return fail('Pick a valid date and time for when registration closes (IST).')
+      const endsMs = new Date(startsAt).getTime() + duration * 60000
+      if (new Date(iso).getTime() >= endsMs) return fail('Registration should close before the workshop ends.')
+      if (opts.requireFutureClose && new Date(iso).getTime() <= Date.now()) {
+        return fail('That "registration closes" time has already passed, so registration would close immediately. Clear it or pick a later time.')
+      }
+      closesAt = iso
+    }
+  }
+
   return {
     ok: true,
     data: {
@@ -160,6 +187,7 @@ export function validateWorkshopFields(
       host_name: hostName.slice(0, WORKSHOP_LIMITS.hostName),
       instructor_title: trimTo(v.hostTitle, WORKSHOP_LIMITS.hostTitle) || null,
       what_you_will_learn: cleanStringList(v.takeaways, WORKSHOP_LIMITS.takeaways, WORKSHOP_LIMITS.takeawayLength),
+      ...(closesAt !== undefined ? { registration_closes_at: closesAt } : {}),
     },
   }
 }
